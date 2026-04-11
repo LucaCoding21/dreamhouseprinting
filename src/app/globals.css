@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dream-lavender: #afa6ff;
+  --color-dream-lavender-soft: #c7c0ff;
+  --color-dream-lavender-deep: #8a7bff;
+  --color-dream-purple: #7664ff;
+  --color-dream-purple-dark: #5a48d9;
+  --color-dream-ink: #1b1458;
+  --color-dream-ink-soft: #4a3f9e;
+  --color-dream-cream: #f4f2ff;
+
+  --font-display: var(--font-archivo);
+  --font-sans: var(--font-inter);
+}
+
+html,
+body {
+  background: var(--color-dream-lavender);
+  color: var(--color-dream-ink);
+}
+
+/* Subtle highlight from the top so the lavender has a little depth */
+body {
+  background-image: radial-gradient(
+    ellipse at top,
+    rgba(255, 255, 255, 0.25),
+    transparent 60%
+  );
+  background-attachment: fixed;
+}
+
+/* iOS: stop native styling on inputs */
+input,
+select,
+textarea,
+button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(15%) sepia(60%) saturate(3000%) hue-rotate(237deg)
+    brightness(70%);
+  cursor: pointer;
+}
