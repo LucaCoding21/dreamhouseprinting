@@ -3,16 +3,22 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  GARMENT_BRAND_OPTIONS,
   GARMENT_COLORS,
   PRINT_COLOR_OPTIONS,
   PRINT_LOCATIONS,
   PRINT_METHOD_OPTIONS,
   PRODUCT_OPTIONS,
+  SIZE_KEYS,
   emptyFormData,
+  sumSizes,
+  type GarmentBrand,
   type PrintLocation,
   type PrintMethod,
   type ProductType,
   type QuoteFormData,
+  type SizeBreakdown,
+  type SizeKey,
 } from "@/lib/formTypes";
 
 const STEPS = [
@@ -81,9 +87,15 @@ export default function QuoteForm() {
     }
     if (step === 1) {
       if (!data.productType) errs.productType = "Pick what you're printing on.";
+      if (!data.garmentBrand) errs.garmentBrand = "Pick a brand tier (or let Julian choose).";
       if (!data.garmentColor.trim()) errs.garmentColor = "Give us a garment color.";
-      if (!data.quantity.trim()) errs.quantity = "How many pieces?";
-      else if (Number(data.quantity) <= 0) errs.quantity = "Quantity must be a positive number.";
+      if (data.sizesLater) {
+        if (!data.quantity.trim()) errs.quantity = "How many pieces total?";
+        else if (Number(data.quantity) <= 0) errs.quantity = "Quantity must be a positive number.";
+      } else {
+        const total = sumSizes(data.sizes);
+        if (total <= 0) errs.sizes = "Enter at least one size count.";
+      }
     }
     if (step === 2) {
       if (!data.printColors) errs.printColors = "How many print colors?";
@@ -138,8 +150,15 @@ export default function QuoteForm() {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      // When the user filled in a size breakdown, the effective quantity is
+      // the sum — don't trust whatever was in `data.quantity` previously.
+      const effectiveQuantity = data.sizesLater
+        ? data.quantity
+        : String(sumSizes(data.sizes));
+      const payload: QuoteFormData = { ...data, quantity: effectiveQuantity };
+
       const body = new FormData();
-      body.append("payload", JSON.stringify(data));
+      body.append("payload", JSON.stringify(payload));
       artworkFiles.forEach((f) => body.append("artwork", f));
       priceMatchFiles.forEach((f) => body.append("priceMatch", f));
 
@@ -452,6 +471,16 @@ function StepProduct({
   update: <K extends keyof QuoteFormData>(k: K, v: QuoteFormData[K]) => void;
   errors: Record<string, string>;
 }) {
+  const sizeTotal = sumSizes(data.sizes);
+  const setSize = (key: SizeKey, value: string) => {
+    // Strip non-digits so the input stays numeric-only.
+    const clean = value.replace(/[^\d]/g, "");
+    const next: SizeBreakdown = { ...data.sizes };
+    if (clean === "" || clean === "0") delete next[key];
+    else next[key] = clean;
+    update("sizes", next);
+  };
+
   return (
     <div className="space-y-5">
       <Field label="What are you printing on?" error={errors.productType}>
@@ -470,6 +499,37 @@ function StepProduct({
                 }`}
               >
                 {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </Field>
+
+      <Field label="Brand tier" error={errors.garmentBrand}>
+        <div className="grid grid-cols-2 gap-2">
+          {GARMENT_BRAND_OPTIONS.map((opt) => {
+            const selected = data.garmentBrand === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => update("garmentBrand", opt.value as GarmentBrand)}
+                className={`rounded-2xl border-2 px-3 py-3 text-left transition ${
+                  selected
+                    ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
+                    : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
+                }`}
+              >
+                <span className="block font-display text-base font-semibold leading-tight">
+                  {opt.label}
+                </span>
+                <span
+                  className={`block text-xs ${
+                    selected ? "text-white/80" : "text-dream-ink-soft"
+                  }`}
+                >
+                  {opt.hint}
+                </span>
               </button>
             );
           })}
@@ -503,21 +563,84 @@ function StepProduct({
         </div>
       </Field>
 
-      <Field label="Quantity" error={errors.quantity} htmlFor="qty">
-        <input
-          id="qty"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          value={data.quantity}
-          onChange={(e) => update("quantity", e.target.value)}
-          placeholder="How many pieces?"
-          className={inputCls}
-        />
-        <span className="mt-1.5 block text-xs text-dream-ink-soft">
-          Minimum order is 12 pieces.
-        </span>
-      </Field>
+      {data.sizesLater ? (
+        <Field label="Total quantity" error={errors.quantity} htmlFor="qty">
+          <input
+            id="qty"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            value={data.quantity}
+            onChange={(e) => update("quantity", e.target.value)}
+            placeholder="How many pieces total?"
+            className={inputCls}
+          />
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="text-dream-ink-soft">
+              Minimum order is 12 pieces.
+            </span>
+            <button
+              type="button"
+              onClick={() => update("sizesLater", false)}
+              className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+            >
+              Add size breakdown
+            </button>
+          </div>
+        </Field>
+      ) : (
+        <Field label="Size breakdown" error={errors.sizes}>
+          <div className="grid grid-cols-3 gap-2">
+            {SIZE_KEYS.map((k) => {
+              const v = data.sizes[k] ?? "";
+              const active = v !== "" && Number(v) > 0;
+              return (
+                <label
+                  key={k}
+                  className={`flex items-center gap-2 rounded-2xl border-2 bg-white px-3 py-2.5 transition ${
+                    active
+                      ? "border-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
+                      : "border-dream-ink/60"
+                  }`}
+                >
+                  <span className="font-display text-sm font-bold text-dream-ink">
+                    {k}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={v}
+                    onChange={(e) => setSize(k, e.target.value)}
+                    placeholder="0"
+                    className="w-full min-w-0 bg-transparent text-right text-base font-semibold text-dream-ink outline-none placeholder:text-dream-ink/30"
+                  />
+                </label>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span className="font-semibold text-dream-ink">
+              Total:{" "}
+              <span className="text-dream-purple">
+                {sizeTotal} {sizeTotal === 1 ? "piece" : "pieces"}
+              </span>
+              {sizeTotal > 0 && sizeTotal < 12 && (
+                <span className="ml-1 font-normal text-dream-ink-soft">
+                  (min 12)
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => update("sizesLater", true)}
+              className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+            >
+              I&rsquo;ll give sizes later
+            </button>
+          </div>
+        </Field>
+      )}
     </div>
   );
 }
@@ -734,6 +857,12 @@ function StepTimeline({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const today = new Date().toISOString().split("T")[0];
+  // Default to "link" if one was already typed, otherwise "file" if one was
+  // picked, otherwise "link" (the simpler default for a fresh session).
+  const [priceMatchMode, setPriceMatchMode] = useState<"link" | "file">(
+    data.priceMatchLink ? "link" : files.length > 0 ? "file" : "link",
+  );
+
   return (
     <div className="space-y-5">
       <Field label="When do you need this by?" htmlFor="needed">
@@ -762,56 +891,93 @@ function StepTimeline({
         <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
           Have a quote from another printer?
         </span>
-        <p className="mb-2 text-xs text-dream-ink-soft">
-          Upload it here and Julian will try to beat it (Get Bold, Coastal Reign,
+        <p className="mb-3 text-xs text-dream-ink-soft">
+          Share it here and Julian will try to beat it (Get Bold, Coastal Reign,
           etc.)
         </p>
-        <button
-          type="button"
-          onClick={onPick}
-          className="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-dream-ink/60 bg-white/70 px-4 py-4 text-left transition hover:bg-white"
-        >
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border-2 border-dream-ink bg-dream-purple text-white">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-dream-ink">
-            Upload price match file
-          </p>
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          className="hidden"
-          multiple
-          accept="image/*,application/pdf"
-          onChange={onChange}
-        />
 
-        {files.length > 0 && (
-          <ul className="mt-3 space-y-2">
-            {files.map((f, i) => (
-              <li
-                key={`${f.name}-${i}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-dream-ink/40 bg-white/80 px-3 py-2 text-sm"
+        <div className="mb-3 flex gap-2 rounded-2xl border-2 border-dream-ink/20 bg-white/60 p-1">
+          {(["link", "file"] as const).map((mode) => {
+            const active = priceMatchMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setPriceMatchMode(mode)}
+                className={`flex-1 rounded-xl px-3 py-2 font-display text-sm font-semibold transition ${
+                  active
+                    ? "bg-dream-purple text-white shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
+                    : "text-dream-ink/70 hover:text-dream-ink"
+                }`}
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-dream-ink">{f.name}</p>
-                  <p className="text-xs text-dream-ink-soft">
-                    {(f.size / 1024).toFixed(0)} KB
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onRemove(i)}
-                  className="text-xs font-semibold text-red-700 hover:underline"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
+                {mode === "link" ? "Paste link" : "Upload file"}
+              </button>
+            );
+          })}
+        </div>
+
+        {priceMatchMode === "link" ? (
+          <input
+            type="url"
+            inputMode="url"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={data.priceMatchLink}
+            onChange={(e) => update("priceMatchLink", e.target.value)}
+            placeholder="https://…"
+            className={inputCls}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onPick}
+              className="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-dream-ink/60 bg-white/70 px-4 py-4 text-left transition hover:bg-white"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border-2 border-dream-ink bg-dream-purple text-white">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-dream-ink">
+                Upload price match file
+              </p>
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              className="hidden"
+              multiple
+              accept="image/*,application/pdf"
+              onChange={onChange}
+            />
+
+            {files.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {files.map((f, i) => (
+                  <li
+                    key={`${f.name}-${i}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-dream-ink/40 bg-white/80 px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-dream-ink">{f.name}</p>
+                      <p className="text-xs text-dream-ink-soft">
+                        {(f.size / 1024).toFixed(0)} KB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(i)}
+                      className="text-xs font-semibold text-red-700 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
     </div>

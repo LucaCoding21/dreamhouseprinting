@@ -5,7 +5,13 @@ import {
   SUBMISSIONS_TABLE,
   getSupabaseAdmin,
 } from "@/lib/supabase";
-import type { QuoteFormData } from "@/lib/formTypes";
+import {
+  SIZE_KEYS,
+  type GarmentBrand,
+  type QuoteFormData,
+  type SizeBreakdown,
+  type SizeKey,
+} from "@/lib/formTypes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,15 +65,15 @@ function renderEmailHtml(
   artwork: UploadedFile[],
   priceMatch: UploadedFile[],
 ) {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
   const row = (label: string, value: string | number | undefined | null) =>
     value === undefined || value === null || value === ""
       ? ""
-      : `<tr><td style="padding:6px 12px;color:#4a3f9e;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${label}</td><td style="padding:6px 12px;color:#1b1458;font-size:15px;">${String(
-          value,
-        )
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")}</td></tr>`;
+      : `<tr><td style="padding:6px 12px;color:#4a3f9e;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">${label}</td><td style="padding:6px 12px;color:#1b1458;font-size:15px;">${esc(
+          String(value),
+        )}</td></tr>`;
 
   const fileList = (files: UploadedFile[]) =>
     files.length === 0
@@ -75,9 +81,39 @@ function renderEmailHtml(
       : files
           .map(
             (f) =>
-              `<div><a href="${f.url}" style="color:#7664ff;font-weight:600;">${f.name}</a></div>`,
+              `<div><a href="${f.url}" style="color:#7664ff;font-weight:600;">${esc(f.name)}</a></div>`,
           )
           .join("");
+
+  const brandLabel =
+    data.garmentBrand === "gildan"
+      ? "Gildan (budget)"
+      : data.garmentBrand === "bella-canvas"
+        ? "Bella+Canvas (mid)"
+        : data.garmentBrand === "comfort-colors"
+          ? "Comfort Colors (premium)"
+          : data.garmentBrand === "no-preference"
+            ? "No preference — Julian picks"
+            : "";
+
+  const sizesEntries = (Object.keys(data.sizes) as SizeKey[])
+    .filter((k) => SIZE_KEYS.includes(k))
+    .sort((a, b) => SIZE_KEYS.indexOf(a) - SIZE_KEYS.indexOf(b))
+    .map((k) => `${k}: ${data.sizes[k]}`);
+  const sizesLine = sizesEntries.length
+    ? sizesEntries.join(" · ")
+    : data.sizesLater
+      ? "Will provide later"
+      : "—";
+
+  const priceMatchLinkHtml = data.priceMatchLink
+    ? `<div><a href="${esc(data.priceMatchLink)}" style="color:#7664ff;font-weight:600;word-break:break-all;">${esc(data.priceMatchLink)}</a></div>`
+    : "";
+  const priceMatchFilesHtml = fileList(priceMatch);
+  const priceMatchBody =
+    priceMatchLinkHtml || priceMatch.length > 0
+      ? `${priceMatchLinkHtml}${priceMatch.length > 0 ? priceMatchFilesHtml : ""}`
+      : '<span style="color:#8a7bff;">None</span>';
 
   return `<!doctype html>
 <html>
@@ -85,7 +121,7 @@ function renderEmailHtml(
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:2px solid #1b1458;border-radius:20px;overflow:hidden;">
     <div style="background:#7664ff;color:#ffffff;padding:20px 24px;">
       <h1 style="margin:0;font-size:24px;font-weight:800;">New Dreamhouse quote request</h1>
-      <p style="margin:4px 0 0;opacity:0.9;font-size:14px;">${data.name} just submitted the form.</p>
+      <p style="margin:4px 0 0;opacity:0.9;font-size:14px;">${esc(data.name)} just submitted the form.</p>
     </div>
     <table style="width:100%;border-collapse:collapse;">
       <tbody>
@@ -95,8 +131,10 @@ function renderEmailHtml(
         ${row("Referral", data.referralCode || "—")}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
         ${row("Product", data.productType)}
+        ${row("Brand tier", brandLabel || "—")}
         ${row("Color", data.garmentColor)}
         ${row("Quantity", data.quantity)}
+        ${row("Sizes", sizesLine)}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
         ${row("Print colors", data.printColors)}
         ${row("Print locations", data.printLocations.join(", "))}
@@ -113,7 +151,7 @@ function renderEmailHtml(
     </div>
     <div style="padding:16px 24px;border-top:1px solid #eee;">
       <p style="margin:0 0 6px;color:#4a3f9e;font-size:13px;font-weight:700;text-transform:uppercase;">Price match</p>
-      ${fileList(priceMatch)}
+      ${priceMatchBody}
     </div>
   </div>
 </body>
@@ -167,6 +205,19 @@ function validatePayload(raw: unknown): QuoteFormData | null {
   const o = raw as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const arr = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+  const bool = (v: unknown) => v === true;
+  const sizesIn = (v: unknown): SizeBreakdown => {
+    if (!v || typeof v !== "object") return {};
+    const src = v as Record<string, unknown>;
+    const out: SizeBreakdown = {};
+    for (const k of SIZE_KEYS) {
+      const raw = str(src[k]).trim();
+      const n = Number(raw);
+      if (raw && Number.isFinite(n) && n > 0) out[k] = String(Math.floor(n));
+    }
+    return out;
+  };
+
   if (!str(o.name).trim() || !str(o.email).trim() || !str(o.phone).trim()) {
     return null;
   }
@@ -176,7 +227,10 @@ function validatePayload(raw: unknown): QuoteFormData | null {
     phone: str(o.phone).trim(),
     referralCode: str(o.referralCode).trim(),
     productType: str(o.productType) as QuoteFormData["productType"],
+    garmentBrand: str(o.garmentBrand) as GarmentBrand | "",
     garmentColor: str(o.garmentColor).trim(),
+    sizes: sizesIn(o.sizes),
+    sizesLater: bool(o.sizesLater),
     quantity: str(o.quantity).trim(),
     printColors: str(o.printColors),
     printLocations: arr(o.printLocations) as QuoteFormData["printLocations"],
@@ -184,6 +238,7 @@ function validatePayload(raw: unknown): QuoteFormData | null {
     designDescription: str(o.designDescription).trim(),
     neededBy: str(o.neededBy),
     notes: str(o.notes).trim(),
+    priceMatchLink: str(o.priceMatchLink).trim(),
   };
 }
 
@@ -222,6 +277,7 @@ export async function POST(request: Request) {
 
     // If Supabase configured: insert row first to get the real ID, then upload files.
     if (supabase) {
+      const hasSizes = Object.keys(data.sizes).length > 0;
       const { data: inserted, error: insertErr } = await supabase
         .from(SUBMISSIONS_TABLE)
         .insert({
@@ -230,7 +286,9 @@ export async function POST(request: Request) {
           phone: data.phone,
           referral_code: data.referralCode || null,
           product_type: data.productType,
+          garment_brand: data.garmentBrand || null,
           garment_color: data.garmentColor,
+          sizes: hasSizes ? data.sizes : null,
           quantity: Number(data.quantity) || null,
           print_colors: data.printColors,
           print_locations: data.printLocations,
@@ -238,6 +296,7 @@ export async function POST(request: Request) {
           design_description: data.designDescription || null,
           needed_by: data.neededBy || null,
           notes: data.notes || null,
+          price_match_link: data.priceMatchLink || null,
         })
         .select("id")
         .single();

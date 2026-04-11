@@ -34,7 +34,9 @@ const TABLE_SQL = `create table if not exists public.submissions (
   referral_code text,
 
   product_type text not null,
+  garment_brand text,
   garment_color text not null,
+  sizes jsonb,
   quantity integer,
 
   print_colors text not null,
@@ -44,6 +46,7 @@ const TABLE_SQL = `create table if not exists public.submissions (
   design_description text,
   needed_by date,
   notes text,
+  price_match_link text,
 
   artwork_files jsonb not null default '[]'::jsonb,
   price_match_files jsonb not null default '[]'::jsonb

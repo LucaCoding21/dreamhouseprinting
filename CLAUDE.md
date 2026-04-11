@@ -93,8 +93,10 @@ create table if not exists public.submissions (
   referral_code text,
 
   product_type text not null,
+  garment_brand text,                  -- 'gildan' | 'bella-canvas' | 'comfort-colors' | 'no-preference'
   garment_color text not null,
-  quantity integer,
+  sizes jsonb,                         -- { S: "10", M: "15", ... } — null means user chose "sizes later"
+  quantity integer,                    -- either sum(sizes) or the "sizes later" total
 
   print_colors text not null,
   print_locations text[] not null default '{}',
@@ -103,6 +105,7 @@ create table if not exists public.submissions (
   design_description text,
   needed_by date,
   notes text,
+  price_match_link text,               -- URL pasted in the "paste link" tab (nullable)
 
   artwork_files jsonb not null default '[]'::jsonb,
   price_match_files jsonb not null default '[]'::jsonb
@@ -172,7 +175,10 @@ No separate dev log file exists on purpose. Historical "why did we do it this wa
 - ✅ `submissions` table provisioned via Supabase MCP (2026-04-10 session)
 - ✅ Resend sender set to `dreamhouseprinting@cloverfield.studio` (cloverfield.studio domain verified)
 - ✅ Quote emails CC'd to `william@cloverfield.studio` via `NOTIFY_CC_EMAILS` env var
+- ✅ Step 2 now asks for **brand tier** (Gildan/Bella+Canvas/Comfort Colors/no preference) and a **size breakdown** (S–3XL with "sizes later" escape hatch). Total quantity auto-derives from the sum. Columns: `garment_brand text`, `sizes jsonb`.
+- ✅ Price match on step 5 has a **tab toggle**: "Paste link" (new) or "Upload file". Link stored in `price_match_link` column; file uploads unchanged.
 - ⏳ No real end-to-end submission driven through the browser yet — form POSTs cleanly but hasn't been exercised against the live table + verified sender
+- 💭 **Punted this session:** adding a budget question (step 5), and killing/collapsing the print-method step. Julian-feedback-dependent — revisit after he sees the current flow.
 
 ### Pick up from here
 
@@ -180,5 +186,6 @@ What the next Claude should do first when starting a new session — keep this t
 
 1. Read this file (you're here)
 2. Ask the user what they want to work on — don't assume
-3. If they want an end-to-end smoke test: drive the form in the browser, confirm a row lands in `public.submissions` and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
+3. If they want an end-to-end smoke test: drive the form in the browser, confirm a row lands in `public.submissions` (check `garment_brand`, `sizes`, `price_match_link` are populated) and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
 4. Phase 2 candidates: admin dashboard to browse submissions, order-status tracking, Irish's character illustrations when the Figma drops
+5. Possible form-v2 tweaks still on the table: budget question, simplify print-method step — ask Julian first

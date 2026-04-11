@@ -6,6 +6,17 @@ export type ProductType =
   | "tote-bags"
   | "other";
 
+export type GarmentBrand =
+  | "gildan"
+  | "bella-canvas"
+  | "comfort-colors"
+  | "no-preference";
+
+export type SizeKey = "S" | "M" | "L" | "XL" | "2XL" | "3XL";
+
+// Value is a stringified integer so it maps cleanly to controlled inputs.
+export type SizeBreakdown = Partial<Record<SizeKey, string>>;
+
 export type PrintMethod = "screen" | "embroidery" | "dtg" | "not-sure";
 
 export type PrintLocation =
@@ -25,7 +36,10 @@ export type QuoteFormData = {
 
   // Step 2 — Product
   productType: ProductType | "";
+  garmentBrand: GarmentBrand | "";
   garmentColor: string;
+  sizes: SizeBreakdown;
+  sizesLater: boolean;
   quantity: string;
 
   // Step 3 — Print
@@ -39,6 +53,7 @@ export type QuoteFormData = {
   // Step 5 — Timeline
   neededBy: string;
   notes: string;
+  priceMatchLink: string;
 };
 
 export const PRODUCT_OPTIONS: { value: ProductType; label: string }[] = [
@@ -49,6 +64,19 @@ export const PRODUCT_OPTIONS: { value: ProductType; label: string }[] = [
   { value: "tote-bags", label: "Tote bags" },
   { value: "other", label: "Other" },
 ];
+
+export const GARMENT_BRAND_OPTIONS: {
+  value: GarmentBrand;
+  label: string;
+  hint: string;
+}[] = [
+  { value: "gildan", label: "Gildan", hint: "Budget" },
+  { value: "bella-canvas", label: "Bella+Canvas", hint: "Mid" },
+  { value: "comfort-colors", label: "Comfort Colors", hint: "Premium" },
+  { value: "no-preference", label: "No preference", hint: "Julian picks" },
+];
+
+export const SIZE_KEYS: SizeKey[] = ["S", "M", "L", "XL", "2XL", "3XL"];
 
 export const GARMENT_COLORS = [
   "Black",
@@ -86,7 +114,10 @@ export const emptyFormData: QuoteFormData = {
   phone: "",
   referralCode: "",
   productType: "",
+  garmentBrand: "",
   garmentColor: "",
+  sizes: {},
+  sizesLater: false,
   quantity: "",
   printColors: "",
   printLocations: [],
@@ -94,4 +125,13 @@ export const emptyFormData: QuoteFormData = {
   designDescription: "",
   neededBy: "",
   notes: "",
+  priceMatchLink: "",
 };
+
+/** Sum the entries of a SizeBreakdown, ignoring anything non-numeric. */
+export function sumSizes(sizes: SizeBreakdown): number {
+  return SIZE_KEYS.reduce((total, k) => {
+    const n = Number(sizes[k] ?? "");
+    return total + (Number.isFinite(n) && n > 0 ? n : 0);
+  }, 0);
+}
