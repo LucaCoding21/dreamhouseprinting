@@ -126,8 +126,8 @@ The `@supabase/supabase-js` SDK can't run DDL (PostgREST limitation). To alter t
 
 ## Resend
 
-- Dev sender `onboarding@resend.dev` only delivers to the email address that owns the Resend account
-- For production, verify `dreamhouseprinting.com` in Resend and set `RESEND_FROM_EMAIL=quotes@dreamhouseprinting.com`
+- Production sender is `dreamhouseprinting@cloverfield.studio` — the `cloverfield.studio` domain is verified in Resend
+- Fallback `onboarding@resend.dev` only delivers to the email address that owns the Resend account — use only if the verified sender is unavailable
 - `replyTo` is set to the customer's email so Julian can reply straight from his inbox
 
 ## Conventions
@@ -170,9 +170,9 @@ No separate dev log file exists on purpose. Historical "why did we do it this wa
 - ✅ `/api/submit` wired to Supabase Storage + Resend
 - ✅ Storage bucket `quote-files` created
 - ✅ `submissions` table provisioned via Supabase MCP (2026-04-10 session)
-- ✅ Resend domain `dreamhouseprinting.com` verified — production email delivery works
+- ✅ Resend sender set to `dreamhouseprinting@cloverfield.studio` (cloverfield.studio domain verified)
 - ✅ Quote emails CC'd to `william@cloverfield.studio` via `NOTIFY_CC_EMAILS` env var
-- ⏳ No real end-to-end submission driven through the browser yet — form POSTs cleanly but hasn't been exercised against the live table + verified domain
+- ⏳ No real end-to-end submission driven through the browser yet — form POSTs cleanly but hasn't been exercised against the live table + verified sender
 
 ### Pick up from here
 
@@ -181,5 +181,4 @@ What the next Claude should do first when starting a new session — keep this t
 1. Read this file (you're here)
 2. Ask the user what they want to work on — don't assume
 3. If they want an end-to-end smoke test: drive the form in the browser, confirm a row lands in `public.submissions` and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
-4. `RESEND_FROM_EMAIL` in `.env.local` is still `onboarding@resend.dev` — flip it to `quotes@dreamhouseprinting.com` (or whatever verified sender Julian prefers) when going live
-5. Phase 2 candidates: admin dashboard to browse submissions, order-status tracking, Irish's character illustrations when the Figma drops
+4. Phase 2 candidates: admin dashboard to browse submissions, order-status tracking, Irish's character illustrations when the Figma drops
