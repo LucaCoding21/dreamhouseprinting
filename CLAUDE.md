@@ -145,7 +145,7 @@ The `@supabase/supabase-js` SDK can't run DDL (PostgREST limitation). To alter t
 
 ## Working style
 
-- **Verify UI changes in the browser.** Type checks don't catch layout regressions. Use the Chrome MCP tools if available, otherwise start the dev server and smoke-test.
+- **Don't auto-open Chrome to "verify" UI edits.** The user watches the dev server themselves and will say if something's off. Make the edit, say what changed, stop. Only open Chrome when the user asks you to, or when diagnosing a runtime bug that needs it.
 - **Prefer editing `.env.local` over hardcoding** — never commit secrets.
 - **When Julian's requirements are ambiguous**, default to the wireframe in the project brief and ask rather than guess. The source of truth lives in the user's head.
 - **Commit messages** — short, imperative, present tense. No AI self-attribution unless the user's git config already uses a Co-Authored-By trailer.

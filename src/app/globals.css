@@ -2,13 +2,15 @@
 
 @theme {
   --color-dream-lavender: #afa6ff;
-  --color-dream-lavender-soft: #c7c0ff;
+  --color-dream-lavender-soft: #e0dffe;
   --color-dream-lavender-deep: #8a7bff;
   --color-dream-purple: #7664ff;
   --color-dream-purple-dark: #5a48d9;
   --color-dream-ink: #1b1458;
   --color-dream-ink-soft: #4a3f9e;
   --color-dream-cream: #f4f2ff;
+  --color-dream-scribble: #4141ac;
+  --color-dream-sun: #ecbb25;
 
   --font-display: var(--font-archivo);
   --font-sans: var(--font-inter);
@@ -30,6 +32,57 @@ body {
   background-attachment: fixed;
 }
 
+/* Hand-drawn rough-edge pill — background/border drawn on ::before so the
+   SVG turbulence filter only distorts the shape, not the text inside. */
+.rough-pill {
+  position: relative;
+  isolation: isolate;
+  transition: transform 150ms ease-out, letter-spacing 180ms ease-out;
+}
+/* Opt-in hover "lean": letter-spacing widens on hover. Applied only to the
+   hero CTAs, not the nav Quick Quote (which already has plenty going on). */
+.rough-pill-lean:hover {
+  letter-spacing: 0.5px;
+}
+.rough-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  z-index: -1;
+  filter: url("#rough-edges");
+}
+.rough-pill:hover::before {
+  filter: url("#rough-edges-alive");
+}
+.rough-pill-filled::before {
+  background: var(--color-dream-purple);
+}
+.rough-pill-outline::before {
+  background: transparent;
+  border: 3px solid var(--color-dream-purple);
+}
+.rough-pill-white::before {
+  background: #ffffff;
+}
+
+/* Rough-edge card — white rectangle with scratchy distorted edges.
+   Like rough-pill: draw the bg on ::before so the filter only warps the shape
+   and the content inside stays crisp. */
+.rough-card {
+  position: relative;
+  isolation: isolate;
+}
+.rough-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  background: #ffffff;
+  z-index: -1;
+  filter: url("#rough-card-edges");
+}
+
 /* iOS: stop native styling on inputs */
 input,
 select,
@@ -43,4 +96,189 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(15%) sepia(60%) saturate(3000%) hue-rotate(237deg)
     brightness(70%);
   cursor: pointer;
+}
+
+/* Hand-drawn scribble "boil" — cycles through 3 frames only on group-hover.
+   All 3 share one 1.2s cycle, each visible in its own third. Transitions are
+   near-instantaneous so there's always exactly one frame on-screen (no blink). */
+.scribble-frame {
+  opacity: 0;
+}
+.group:hover .scribble-frame-1 {
+  animation: scribble-1 1.2s infinite;
+}
+.group:hover .scribble-frame-2 {
+  animation: scribble-2 1.2s infinite;
+}
+.group:hover .scribble-frame-3 {
+  animation: scribble-3 1.2s infinite;
+}
+@keyframes scribble-1 {
+  0%,
+  33.3% {
+    opacity: 1;
+  }
+  33.4%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes scribble-2 {
+  0%,
+  33.3% {
+    opacity: 0;
+  }
+  33.4%,
+  66.6% {
+    opacity: 1;
+  }
+  66.7%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes scribble-3 {
+  0%,
+  66.6% {
+    opacity: 0;
+  }
+  66.7%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Blob morph — hand-drawn "boil" via SVG displacement filter, only on hover.
+   The filter def lives in ShopByCategories.tsx; seed cycles there, we just toggle. */
+.blob-morph {
+  transition: filter 0s;
+}
+.group:hover .blob-morph {
+  filter: url(#blob-morph);
+}
+
+/* Price tag wiggle — for the "from $X" badge on the product category cards.
+   Each tag sets --base-tilt so its resting rotation is preserved, and the
+   wiggle keyframes compose ON TOP of it via calc(). */
+.price-tag-alive {
+  transform: rotate(var(--base-tilt, 0deg));
+  transform-origin: center;
+}
+.group:hover .price-tag-alive {
+  animation: price-tag-shake 0.8s step-end infinite;
+}
+@keyframes price-tag-shake {
+  0% {
+    transform: rotate(var(--base-tilt, 0deg)) scale(1);
+  }
+  14% {
+    transform: rotate(calc(var(--base-tilt, 0deg) + 2deg)) scale(1.02);
+  }
+  28% {
+    transform: rotate(calc(var(--base-tilt, 0deg) - 1.5deg)) scale(0.99);
+  }
+  42% {
+    transform: rotate(calc(var(--base-tilt, 0deg) + 1.5deg)) scale(1.015);
+  }
+  57% {
+    transform: rotate(calc(var(--base-tilt, 0deg) - 2deg)) scale(1.01);
+  }
+  71% {
+    transform: rotate(calc(var(--base-tilt, 0deg) + 1deg)) scale(0.995);
+  }
+  85% {
+    transform: rotate(calc(var(--base-tilt, 0deg) - 1deg)) scale(1.015);
+  }
+  100% {
+    transform: rotate(var(--base-tilt, 0deg)) scale(1);
+  }
+}
+
+/* Same turbulence trick, smaller scale for thin hand-drawn strokes (nav button
+   circles). Filter def lives in SiteNav.tsx. */
+.scribble-morph {
+  transition: filter 0s;
+}
+.group:hover .scribble-morph {
+  filter: url(#scribble-morph);
+}
+
+/* Sun-burst rays — tiny dashes that pop out around a button on hover and then
+   wiggle forever so they feel alive. Each ray gets --x/--y (final offset from
+   center), --r (its radial rotation), and --delay (stagger on the wiggle so
+   they don't breathe in lock-step). */
+.sun-ray {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--ray-color, var(--color-dream-purple));
+  filter: url("#rough-edges");
+  opacity: 0;
+  transform: translate(-50%, -50%)
+    translate(calc(var(--x) * 0.3), calc(var(--y) * 0.3))
+    rotate(var(--r))
+    scaleX(0);
+  pointer-events: none;
+}
+.sun-burst:hover .sun-ray {
+  opacity: 1;
+  animation: sun-shake 1.5s step-end infinite;
+  /* Negative delay = each ray starts at a different frame of the cycle,
+     so the burst looks random instead of synchronized from t=0. */
+  animation-delay: calc(-1 * var(--delay));
+}
+/* step-end holds each frame then snaps to the next — reads as "shake"
+   rather than "wiggle". 7 frames over 280ms = ~40ms/frame. */
+@keyframes sun-shake {
+  0% {
+    transform: translate(-50%, -50%)
+      translate(var(--x), var(--y))
+      rotate(var(--r))
+      scaleX(1);
+  }
+  14% {
+    transform: translate(-50%, -50%)
+      translate(calc(var(--x) + 2px), calc(var(--y) - 2px))
+      rotate(calc(var(--r) + 9deg))
+      scaleX(1.12);
+  }
+  28% {
+    transform: translate(-50%, -50%)
+      translate(calc(var(--x) - 2px), calc(var(--y) + 1px))
+      rotate(calc(var(--r) - 7deg))
+      scaleX(0.9);
+  }
+  42% {
+    transform: translate(-50%, -50%)
+      translate(calc(var(--x) + 1px), calc(var(--y) + 2px))
+      rotate(calc(var(--r) + 5deg))
+      scaleX(1.05);
+  }
+  57% {
+    transform: translate(-50%, -50%)
+      translate(calc(var(--x) - 1px), calc(var(--y) - 1px))
+      rotate(calc(var(--r) - 6deg))
+      scaleX(0.95);
+  }
+  71% {
+    transform: translate(-50%, -50%)
+      translate(calc(var(--x) + 2px), calc(var(--y) + 1px))
+      rotate(calc(var(--r) + 7deg))
+      scaleX(1.08);
+  }
+  85% {
+    transform: translate(-50%, -50%)
+      translate(calc(var(--x) - 2px), calc(var(--y) - 2px))
+      rotate(calc(var(--r) - 4deg))
+      scaleX(0.92);
+  }
+  100% {
+    transform: translate(-50%, -50%)
+      translate(var(--x), var(--y))
+      rotate(var(--r))
+      scaleX(1);
+  }
 }
