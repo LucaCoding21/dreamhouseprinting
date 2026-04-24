@@ -65,12 +65,12 @@ export default function SiteNav() {
           <Image
             src="/homepage_assets/Dreamhouse logo.png"
             alt="Dreamhouse Printing"
-            width={120}
-            height={120}
+            width={140}
+            height={140}
             priority
-            className="h-12 w-12 lg:h-14 lg:w-14"
+            className="h-14 w-14 lg:h-16 lg:w-16"
           />
-          <span className="font-display text-[19px] font-extrabold leading-[1.05] text-dream-scribble lg:text-[22px]">
+          <span className="font-display text-[22px] font-extrabold leading-[1.05] text-dream-scribble lg:text-[26px]">
             Dreamhouse
             <br />
             Printing

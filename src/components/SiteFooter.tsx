@@ -22,23 +22,6 @@ const SOCIAL_LINKS = [
   { label: "LinkedIn", href: "https://linkedin.com" },
 ];
 
-function HouseIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5 text-dream-purple"
-      aria-hidden="true"
-    >
-      <path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 20v-9.5Z" />
-      <path d="M9 21.5V13h6v8.5" />
-    </svg>
-  );
-}
 
 export default function SiteFooter() {
   return (
@@ -59,12 +42,19 @@ export default function SiteFooter() {
       <div className="mx-auto max-w-[1400px] px-6 py-14 lg:px-10 lg:py-16">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
           <div>
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-display text-2xl font-bold text-dream-ink"
-            >
-              <HouseIcon />
-              Dreamhouse
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/homepage_assets/Dreamhouse logo.png"
+                alt="Dreamhouse Printing"
+                width={140}
+                height={140}
+                className="h-14 w-14 lg:h-16 lg:w-16"
+              />
+              <span className="font-display text-[22px] font-extrabold leading-[1.05] text-dream-scribble lg:text-[26px]">
+                Dreamhouse
+                <br />
+                Printing
+              </span>
             </Link>
             <p className="mt-3 max-w-[260px] text-[13px] leading-relaxed text-dream-ink-soft">
               Custom screen printing &amp; embroidery for Vancouver businesses,

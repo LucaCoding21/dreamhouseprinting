@@ -21,7 +21,7 @@ type ScribbleButtonProps = LinkButtonProps | ClickButtonProps;
 
 function Inner({ children, rotate }: { children: ReactNode; rotate: number }) {
   return (
-    <span className="relative inline-flex items-center justify-center px-6 py-2.5 font-display text-[15px] font-medium text-dream-ink">
+    <span className="relative inline-flex items-center justify-center px-8 py-3.5 font-display text-[17px] font-medium text-dream-ink">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={SCRIBBLE_SRC}

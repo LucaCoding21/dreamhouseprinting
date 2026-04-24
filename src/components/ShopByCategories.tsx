@@ -52,7 +52,7 @@ const CATEGORIES: Category[] = [
 
 export default function ShopByCategories() {
   return (
-    <section className="mx-auto max-w-[1400px] px-6 py-10 lg:px-10 lg:py-14">
+    <section className="mx-auto max-w-[1550px] px-6 pt-10 pb-20 lg:px-10 lg:pt-14 lg:pb-28">
       <svg
         aria-hidden="true"
         className="pointer-events-none absolute h-0 w-0"

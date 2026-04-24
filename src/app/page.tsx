@@ -15,36 +15,30 @@ export default function Home() {
       </div>
 
       <div className="bg-dream-purple text-white">
-        <p className="mx-auto max-w-[1400px] px-6 py-2 text-center text-[13px] font-medium">
+        <p className="mx-auto max-w-[1400px] px-6 py-3 text-center text-[15px] font-medium">
           We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll beat it by 5%
         </p>
       </div>
 
-      <section className="mx-auto max-w-[1400px] px-6 py-6 lg:px-10 lg:py-4">
-        <div className="grid items-center gap-8 lg:grid-cols-[1.25fr_1fr]">
-          <div>
-            <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight text-black sm:text-5xl lg:text-[60px]">
-              Custom screen printing
-              <br className="hidden lg:block" />
-              <span className="lg:hidden"> </span>and embroidery, done
-              <br className="hidden lg:block" />
-              <span className="lg:hidden"> </span>right.
+      <section className="mx-auto max-w-[1550px] px-6 pb-6 pt-6 lg:px-10 lg:pb-8 lg:pt-8">
+        <div className="grid items-center gap-4 lg:grid-cols-[1.1fr_1fr] lg:gap-4">
+          <div className="lg:pl-10">
+            <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[56px] lg:text-[68px]">
+              Custom screen printing and embroidery, done right.
             </h1>
-            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-dream-ink-soft">
-              Premium apparel for businesses, teams, and brands in Vancouver.
-              <br className="hidden sm:block" />
-              Upload your design, get a quote in minutes.
+            <p className="mt-8 max-w-xl text-[17px] leading-relaxed text-dream-ink-soft">
+              Premium apparel for businesses, teams, and brands in Vancouver. Upload your design, get a quote in minutes.
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-4">
+            <div className="mt-10 flex flex-wrap items-center gap-4">
               <Link
                 href="/quote"
-                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5"
               >
                 Start your order
               </Link>
               <Link
                 href="/quote"
-                className="rough-pill rough-pill-outline rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+                className="rough-pill rough-pill-outline rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
               >
                 Get a quick quote
               </Link>
@@ -61,6 +55,30 @@ export default function Home() {
               className="h-auto w-full"
             />
           </div>
+        </div>
+
+        <div className="mt-[calc(5rem-9px)] flex justify-center lg:mt-[calc(6rem-9px)]">
+          <a
+            href="#how-it-works"
+            className="group inline-flex flex-col items-center gap-2 text-dream-ink-soft transition-colors hover:text-dream-ink"
+          >
+            <span className="font-display text-[13px] font-semibold uppercase">
+              Scroll to see how it works
+            </span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 40 60"
+              className="h-10 w-7 animate-bounce"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M22 4 Q26 18 17 28 Q24 38 20 50" />
+              <path d="M11 42 Q20 54 29 43" />
+            </svg>
+          </a>
         </div>
       </section>
 

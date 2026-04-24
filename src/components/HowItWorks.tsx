@@ -7,6 +7,8 @@ type Step = {
   blob: string;
   blobWidth: number;
   blobHeight: number;
+  // Rotation applied to the blob only (in degrees)
+  blobRotate?: number;
   dog: string;
   dogAlt: string;
   dogWidth: string;
@@ -21,65 +23,79 @@ type Step = {
 const STEPS: Step[] = [
   {
     n: 1,
-    title: "Order Created",
+    title: "Tell us what you need",
     description:
-      "Pick your products, upload your artwork and choose your quantities. You'll get an instant quote and a mockup within 1 business day.",
+      "Pick your products, upload your art and get an instant quote.",
     blob: "/how it works/1blob.svg",
     blobWidth: 255,
     blobHeight: 310,
+    blobRotate: -12,
     dog: "/how it works/step1.apng",
     dogAlt: "Dog sitting next to a folded shirt and paw-print food bowl",
-    dogWidth: "160%",
+    dogWidth: "280%",
     animated: true,
   },
   {
     n: 2,
-    title: "Mockup Approved",
+    title: "We send you a proof",
     description:
-      "We'll send you a digital proof to review. Once you're happy with the design, colours, and placement, just hit approve and we'll get to work printing your order.",
+      "We'll design your mockup and send it over within 1 business day.",
     blob: "/how it works/2blob.svg",
     blobWidth: 317,
     blobHeight: 255,
     dog: "/how it works/step2.apng",
     dogAlt: "Dog peeking out of a canvas tote bag with rolled artwork",
-    dogWidth: "105%",
+    dogWidth: "320%",
     dogOffsetY: "24px",
     animated: true,
   },
   {
     n: 3,
-    title: "Delivery / Pick Up",
-    description:
-      "Your order is printed, quality-checked, and packed with care. Choose free shipping to your door or swing by our Vancouver shop for local pickup.",
+    title: "You give the thumbs up",
+    description: "Love it? Hit approve and we start printing!",
     blob: "/how it works/3blob.svg",
     blobWidth: 322,
     blobHeight: 299,
-    dog: "/how it works/3dog.png",
+    dog: "/how it works/step3.apng",
+    dogAlt: "Dog giving an approving thumbs up",
+    dogWidth: "320%",
+    animated: true,
+  },
+  {
+    n: 4,
+    title: "It's at your door",
+    description:
+      "Printed, packed and shipped, or grab it in Vancouver!",
+    blob: "/how it works/1blob.svg",
+    blobWidth: 255,
+    blobHeight: 310,
+    dog: "/how it works/step4-v2.apng",
     dogAlt: "Dog trotting with a shopping bag marked with a paw print",
-    dogWidth: "68%",
+    dogWidth: "70%",
+    animated: true,
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <section className="mx-auto max-w-[1400px] px-6 py-20 lg:px-10 lg:py-24">
-      <h2 className="text-center font-display text-4xl font-bold text-dream-ink sm:text-5xl">
+    <section id="how-it-works" className="mx-auto max-w-[1550px] px-6 pb-32 pt-0 lg:px-10 lg:pb-40 lg:pt-0">
+      <h2 className="mt-20 text-center font-display text-3xl font-bold text-dream-ink sm:text-4xl lg:mt-32">
         How It Works
       </h2>
 
-      <div className="relative mt-14 grid gap-12 md:mt-16 md:grid-cols-3 md:gap-6">
+      <div className="relative mt-14 grid gap-16 sm:grid-cols-2 sm:gap-14 md:mt-16 md:grid-cols-4 md:gap-10 lg:gap-14">
         <svg
-          className="pointer-events-none absolute left-0 right-0 top-0 hidden h-[180px] w-full md:block"
-          viewBox="0 0 1000 180"
+          className="hiw-line pointer-events-none absolute left-0 right-0 top-0 hidden h-[260px] w-full md:block"
+          viewBox="0 0 1000 260"
           preserveAspectRatio="none"
           fill="none"
           aria-hidden="true"
         >
           <path
-            d="M 190 160 Q 335 -30 500 160 Q 665 -30 810 160"
+            d="M 125 120 C 185 30 295 30 375 120 C 455 260 545 260 625 120 C 705 30 815 30 875 120"
             stroke="#1b1458"
-            strokeWidth="6"
-            strokeDasharray="0.1 18"
+            strokeWidth="4"
+            strokeDasharray="14 10"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
@@ -90,13 +106,18 @@ export default function HowItWorks() {
             key={step.n}
             className="relative flex flex-col items-center text-center"
           >
-            <div className="relative flex h-[260px] w-full max-w-[320px] items-center justify-center sm:h-[280px]">
+            <div className="relative flex h-[400px] w-full max-w-[460px] items-center justify-center sm:h-[440px]">
               <Image
                 src={step.blob}
                 alt=""
                 width={step.blobWidth}
                 height={step.blobHeight}
-                className="absolute inset-0 m-auto h-full w-full object-contain"
+                className="absolute inset-0 m-auto h-[72%] w-[72%] object-contain"
+                style={
+                  step.blobRotate
+                    ? { transform: `rotate(${step.blobRotate}deg)` }
+                    : undefined
+                }
                 aria-hidden="true"
               />
               <Image
@@ -115,7 +136,7 @@ export default function HowItWorks() {
               />
             </div>
 
-            <div className="mt-5 flex items-center justify-center gap-3">
+            <div className="-mt-8 flex items-center justify-center gap-3">
               <span className="relative flex h-10 w-10 items-center justify-center">
                 <Image
                   src="/how it works/number-circle.svg"

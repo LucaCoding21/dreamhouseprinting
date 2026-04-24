@@ -282,3 +282,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       scaleX(1);
   }
 }
+
+/* How It Works connector line: reveal dashes left-to-right as the section
+   scrolls into view. Uses scroll-driven animation where supported; falls back
+   to a one-time animation on load where animation-timeline is unsupported. */
+@keyframes hiw-line-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.hiw-line {
+  animation: hiw-line-reveal 1.2s ease-out both;
+}
+@supports (animation-timeline: view()) {
+  .hiw-line {
+    animation-timeline: view();
+    animation-range: entry 10% entry 70%;
+    animation-duration: 1ms;
+  }
+}
