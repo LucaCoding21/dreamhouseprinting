@@ -72,8 +72,9 @@ const PRINT_METHODS: PrintMethod[] = [
     blob: "/how it works/2blob.svg",
     blobWidth: 317,
     blobHeight: 255,
-    dog: "/how it works/2dog.png",
-    dogWidth: "62%",
+    dog: "/how it works/step2.apng",
+    dogWidth: "100%",
+    animated: true,
   },
 ];
 
