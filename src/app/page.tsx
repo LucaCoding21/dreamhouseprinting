@@ -20,9 +20,9 @@ export default function Home() {
         </p>
       </div>
 
-      <section className="mx-auto max-w-[1550px] px-6 pb-6 pt-6 lg:px-10 lg:pb-8 lg:pt-8">
+      <section className="mx-auto max-w-[1550px] px-6 pb-6 pt-2 lg:px-10 lg:pb-8 lg:pt-3">
         <div className="grid items-center gap-4 lg:grid-cols-[1.1fr_1fr] lg:gap-4">
-          <div className="lg:pl-10">
+          <div className="lg:-mt-12 lg:pl-10">
             <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[56px] lg:text-[68px]">
               Custom screen printing and embroidery, done right.
             </h1>
@@ -57,18 +57,18 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-[calc(5rem-9px)] flex justify-center lg:mt-[calc(6rem-9px)]">
+        <div className="-mt-[61px] flex justify-center lg:-mt-[80px]">
           <a
             href="#how-it-works"
             className="group inline-flex flex-col items-center gap-2 text-dream-ink-soft transition-colors hover:text-dream-ink"
           >
-            <span className="font-display text-[13px] font-semibold uppercase">
+            <span className="font-display text-[11px] font-semibold uppercase">
               Scroll to see how it works
             </span>
             <svg
               aria-hidden="true"
               viewBox="0 0 40 60"
-              className="h-10 w-7 animate-bounce"
+              className="h-8 w-6 animate-bounce"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"

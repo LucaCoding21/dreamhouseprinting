@@ -12,9 +12,10 @@ type Step = {
   dog: string;
   dogAlt: string;
   dogWidth: string;
-  // Optional vertical nudge (CSS length) for when an asset's internal
+  // Optional vertical/horizontal nudge (CSS length) for when an asset's internal
   // composition doesn't center nicely inside the blob.
   dogOffsetY?: string;
+  dogOffsetX?: string;
   // When true, dog is an animated asset (APNG) — skip Next.js optimization
   // so the animation survives.
   animated?: boolean;
@@ -32,7 +33,8 @@ const STEPS: Step[] = [
     blobRotate: -12,
     dog: "/how it works/step1.apng",
     dogAlt: "Dog sitting next to a folded shirt and paw-print food bowl",
-    dogWidth: "280%",
+    dogWidth: "500px",
+    dogOffsetX: "30px",
     animated: true,
   },
   {
@@ -45,7 +47,7 @@ const STEPS: Step[] = [
     blobHeight: 255,
     dog: "/how it works/step2.apng",
     dogAlt: "Dog peeking out of a canvas tote bag with rolled artwork",
-    dogWidth: "320%",
+    dogWidth: "500px",
     dogOffsetY: "24px",
     animated: true,
   },
@@ -92,10 +94,11 @@ export default function HowItWorks() {
           aria-hidden="true"
         >
           <path
-            d="M 125 120 C 185 30 295 30 375 120 C 455 260 545 260 625 120 C 705 30 815 30 875 120"
-            stroke="#1b1458"
-            strokeWidth="4"
-            strokeDasharray="14 10"
+            d="M 125 120 C 185 55 295 55 375 120 C 455 260 545 260 625 120 C 705 55 815 55 875 120"
+            stroke="#000000"
+            strokeOpacity="0.6"
+            strokeWidth="7"
+            strokeDasharray="14 24"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
@@ -129,9 +132,10 @@ export default function HowItWorks() {
                 className="relative z-10 h-auto"
                 style={{
                   width: step.dogWidth,
-                  transform: step.dogOffsetY
-                    ? `translateY(${step.dogOffsetY})`
-                    : undefined,
+                  transform:
+                    step.dogOffsetX || step.dogOffsetY
+                      ? `translate(${step.dogOffsetX ?? "0"}, ${step.dogOffsetY ?? "0"})`
+                      : undefined,
                 }}
               />
             </div>

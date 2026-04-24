@@ -32,19 +32,25 @@ export default function Testimonials() {
         {TESTIMONIALS.map((t) => (
           <article
             key={t.name}
-            className="flex flex-col rounded-2xl border border-dream-ink/5 bg-dream-cream/70 px-7 pb-7 pt-6"
+            className="group relative flex flex-col rounded-2xl border border-dream-ink/5 bg-dream-cream/70 px-8 pb-8 pt-20 shadow-[0_2px_0_0_rgba(27,20,88,0.06)] transition-transform duration-200 hover:-translate-y-0.5"
           >
             <span
               aria-hidden="true"
-              className="block font-display text-[56px] font-bold leading-none text-dream-purple"
+              className="absolute left-6 top-6 font-display text-[72px] font-bold leading-none text-dream-purple/90"
             >
               &ldquo;
             </span>
-            <p className="mx-auto mt-2 flex-1 max-w-[240px] text-center text-[13px] leading-[1.7] text-dream-ink-soft">
-              &ldquo;{t.quote}&rdquo;
+            <p className="flex-1 text-[14.5px] leading-[1.75] text-dream-ink-soft">
+              {t.quote}
             </p>
-            <div className="mt-8 font-display text-[13px] font-bold text-dream-ink">
-              {t.name}
+            <div className="mt-8 flex items-center gap-3 border-t border-dream-ink/10 pt-5">
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full bg-dream-purple"
+              />
+              <span className="font-display text-[13px] font-bold uppercase tracking-wide text-dream-ink">
+                {t.name}
+              </span>
             </div>
           </article>
         ))}
