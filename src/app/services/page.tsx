@@ -1,80 +1,56 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useEffect, useRef, type CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 
-export const metadata = {
-  title: "Services | Dreamhouse Printing",
-  description:
-    "Everything you need to know before you order. Our print methods, the products we carry, pricing logic, turnaround times, and answers to common questions.",
-};
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger, useGSAP);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Content
 // ────────────────────────────────────────────────────────────────────────────
 
-type PrintMethod = {
+type Method = {
   name: string;
-  what: string;
-  bestFor: string[];
-  caveats: string[];
-  startingAt: string;
-  badgeTilt: number;
+  tagline: string;
+  tags: string[];
   blob: string;
   blobWidth: number;
   blobHeight: number;
   dog: string;
   dogWidth: string;
-  animated?: boolean;
+  variant: "ink" | "thread";
 };
 
-const PRINT_METHODS: PrintMethod[] = [
+const METHODS: Method[] = [
   {
     name: "Screen printing",
-    what: "Ink pushed through a stencil onto the garment, one colour at a time. The classic, the workhorse, what most custom apparel is made with.",
-    bestFor: [
-      "Bulk orders (25+)",
-      "Bold, solid-colour designs",
-      "T-shirts, hoodies, totes",
-      "Prints that survive hundreds of washes",
-    ],
-    caveats: [
-      "Best with 1–4 colours; every extra adds a screen",
-      "Fine photographic detail doesn't reproduce well",
-      "One-time screen setup per colour per location",
-    ],
-    startingAt: "from $8 / unit",
-    badgeTilt: -3,
+    tagline: "Ink on cotton.",
+    tags: ["bulk runs", "bold colour", "25+ min"],
     blob: "/how it works/1blob.svg",
     blobWidth: 255,
     blobHeight: 310,
     dog: "/how it works/step1.apng",
-    dogWidth: "90%",
-    animated: true,
+    dogWidth: "70%",
+    variant: "ink",
   },
   {
     name: "Embroidery",
-    what: "Thread stitched directly into the garment by machine. Feels premium because it is. Real texture you can run your fingers over.",
-    bestFor: [
-      "Polos, dress shirts, uniforms",
-      "Hats, toques, and caps",
-      "Small logos on chest, sleeve, back neck",
-      "Jackets and premium outerwear",
-    ],
-    caveats: [
-      "Doesn't handle gradients or photo detail",
-      "Tiny text below ~6mm becomes unreadable",
-      "Each colour is its own thread, we match to your brand",
-    ],
-    startingAt: "from $12 / unit",
-    badgeTilt: 4,
+    tagline: "Thread in fibre.",
+    tags: ["premium feel", "raised stitch", "12+ min"],
     blob: "/how it works/2blob.svg",
     blobWidth: 317,
     blobHeight: 255,
     dog: "/how it works/step2.apng",
-    dogWidth: "100%",
-    animated: true,
+    dogWidth: "82%",
+    variant: "thread",
   },
 ];
 
@@ -272,7 +248,7 @@ function ScribbleUnderline({ className = "" }: { className?: string }) {
       aria-hidden="true"
       viewBox="0 0 220 12"
       preserveAspectRatio="none"
-      className={`absolute left-0 right-0 h-[12px] w-full ${className}`}
+      className={`gsap-scribble absolute left-0 right-0 h-[12px] w-full ${className}`}
     >
       <path
         d="M4 7 C 20 3, 40 9, 60 6 S 100 3, 120 7 S 160 4, 184 7 S 210 8, 216 6"
@@ -308,8 +284,225 @@ function NumberCircle({ n }: { n: number }) {
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function ServicesPage() {
+  const containerRef = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      if (!containerRef.current) return;
+      const container = containerRef.current;
+
+      // ── Scribble draw-on helper ──────────────────────────────────
+      const setScribble = (path: SVGPathElement) => {
+        const len = path.getTotalLength();
+        gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+      };
+
+      // ── Hero intro (no scroll trigger; runs on mount) ────────────
+      gsap.from(".gsap-hero-h1", {
+        y: 32,
+        opacity: 0,
+        duration: 0.9,
+        ease: "power3.out",
+      });
+      gsap.from(".gsap-hero-sub", {
+        y: 20,
+        opacity: 0,
+        duration: 0.7,
+        delay: 0.25,
+        ease: "power3.out",
+      });
+      gsap.from(".gsap-hero-visual", {
+        scale: 0.82,
+        opacity: 0,
+        duration: 1.1,
+        delay: 0.3,
+        ease: "elastic.out(1, 0.7)",
+      });
+
+      const heroScribbles = container.querySelectorAll<SVGPathElement>(
+        ".gsap-hero-area .gsap-scribble path"
+      );
+      heroScribbles.forEach(setScribble);
+      gsap.to(heroScribbles, {
+        strokeDashoffset: 0,
+        duration: 0.85,
+        delay: 0.7,
+        stagger: 0.15,
+        ease: "power2.inOut",
+      });
+
+      // ── Section header reveals ───────────────────────────────────
+      gsap.utils
+        .toArray<HTMLElement>(".gsap-section-header")
+        .forEach((el) => {
+          const scribbles = el.querySelectorAll<SVGPathElement>(
+            ".gsap-scribble path"
+          );
+          scribbles.forEach(setScribble);
+
+          gsap.from(el.children, {
+            y: 26,
+            opacity: 0,
+            duration: 0.75,
+            stagger: 0.1,
+            ease: "power3.out",
+            scrollTrigger: { trigger: el, start: "top 85%" },
+          });
+          gsap.to(scribbles, {
+            strokeDashoffset: 0,
+            duration: 0.85,
+            ease: "power2.inOut",
+            scrollTrigger: { trigger: el, start: "top 80%" },
+          });
+        });
+
+      // ── Method tiles ─────────────────────────────────────────────
+      gsap.utils
+        .toArray<HTMLElement>(".gsap-method-tile")
+        .forEach((tile, i) => {
+          gsap.from(tile, {
+            y: 60,
+            opacity: 0,
+            scale: 0.95,
+            duration: 0.9,
+            ease: "back.out(1.4)",
+            delay: i * 0.1,
+            scrollTrigger: { trigger: tile, start: "top 85%" },
+          });
+          gsap.from(tile.querySelectorAll(".gsap-tile-pill"), {
+            y: 14,
+            scale: 0.6,
+            opacity: 0,
+            duration: 0.55,
+            stagger: 0.08,
+            delay: 0.4 + i * 0.1,
+            ease: "back.out(1.7)",
+            scrollTrigger: { trigger: tile, start: "top 80%" },
+          });
+        });
+
+      // ── Product / category cards ─────────────────────────────────
+      gsap.utils
+        .toArray<HTMLElement>(".gsap-product-card")
+        .forEach((card, i) => {
+          gsap.from(card, {
+            y: 40,
+            opacity: 0,
+            duration: 0.75,
+            ease: "back.out(1.3)",
+            delay: (i % 4) * 0.08,
+            scrollTrigger: { trigger: card, start: "top 90%" },
+          });
+        });
+
+      // ── Pricing factor cards ─────────────────────────────────────
+      gsap.utils
+        .toArray<HTMLElement>(".gsap-pricing-card")
+        .forEach((card, i) => {
+          gsap.from(card, {
+            y: 30,
+            opacity: 0,
+            duration: 0.7,
+            ease: "back.out(1.4)",
+            delay: (i % 4) * 0.1,
+            scrollTrigger: { trigger: card, start: "top 90%" },
+          });
+        });
+
+      // ── Volume tier "staircase" — descend left to right ──────────
+      gsap.utils
+        .toArray<HTMLElement>(".gsap-tier-card")
+        .forEach((card, i) => {
+          gsap.from(card, {
+            x: -16,
+            y: -28,
+            opacity: 0,
+            duration: 0.7,
+            ease: "back.out(1.5)",
+            delay: i * 0.12,
+            scrollTrigger: { trigger: card, start: "top 90%" },
+          });
+        });
+
+      // ── Logistics cards ──────────────────────────────────────────
+      gsap.utils
+        .toArray<HTMLElement>(".gsap-logistics-card")
+        .forEach((card, i) => {
+          gsap.from(card, {
+            y: 26,
+            scale: 0.92,
+            opacity: 0,
+            duration: 0.7,
+            ease: "back.out(1.5)",
+            delay: (i % 4) * 0.08,
+            scrollTrigger: { trigger: card, start: "top 90%" },
+          });
+        });
+
+      // ── FAQ items ────────────────────────────────────────────────
+      gsap.utils.toArray<HTMLElement>(".gsap-faq-item").forEach((item, i) => {
+        gsap.from(item, {
+          x: -18,
+          opacity: 0,
+          duration: 0.55,
+          ease: "power3.out",
+          delay: i * 0.05,
+          scrollTrigger: { trigger: item, start: "top 92%" },
+        });
+      });
+
+      // ── CTA section ──────────────────────────────────────────────
+      gsap.from(".gsap-cta-pill", {
+        scale: 0.82,
+        opacity: 0,
+        duration: 0.85,
+        ease: "elastic.out(1, 0.7)",
+        scrollTrigger: { trigger: ".gsap-cta-section", start: "top 75%" },
+      });
+      gsap.from(".gsap-cta-ray", {
+        width: 0,
+        opacity: 0,
+        duration: 0.5,
+        stagger: 0.04,
+        ease: "back.out(1.7)",
+        scrollTrigger: { trigger: ".gsap-cta-section", start: "top 75%" },
+      });
+    },
+    { scope: containerRef }
+  );
+
+  // Cursor-follow gaze on the hero dog (mountain trick from the article)
+  useEffect(() => {
+    const heroEl = containerRef.current?.querySelector<HTMLElement>(
+      ".gsap-hero-visual"
+    );
+    const heroDog = containerRef.current?.querySelector<HTMLElement>(
+      ".gsap-hero-dog"
+    );
+    if (!heroEl || !heroDog) return;
+
+    const xTo = gsap.quickTo(heroDog, "x", {
+      duration: 0.6,
+      ease: "power3.out",
+    });
+    const yTo = gsap.quickTo(heroDog, "y", {
+      duration: 0.6,
+      ease: "power3.out",
+    });
+    const onMove = (e: MouseEvent) => {
+      const rect = heroEl.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const max = 14;
+      xTo(((e.clientX - cx) / rect.width) * max);
+      yTo(((e.clientY - cy) / rect.height) * max);
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
   return (
-    <main className="min-h-screen bg-dream-cream">
+    <main ref={containerRef} className="min-h-screen bg-dream-cream">
       <div className="bg-dream-lavender-soft">
         <SiteNav />
       </div>
@@ -335,10 +528,10 @@ export default function ServicesPage() {
 
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden">
+    <section className="gsap-hero-area relative overflow-hidden">
       <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-6 pb-10 pt-10 lg:grid-cols-[1.4fr_1fr] lg:px-10 lg:pb-14 lg:pt-16">
         <div>
-          <h1 className="font-display text-4xl font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-5xl lg:text-[68px]">
+          <h1 className="gsap-hero-h1 font-display text-4xl font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-5xl lg:text-[68px]">
             What we{" "}
             <span className="relative inline-block">
               print
@@ -350,14 +543,14 @@ function HeroSection() {
               <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
             </span>
           </h1>
-          <p className="mt-6 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+          <p className="gsap-hero-sub mt-6 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
             Everything you need to know before you send over your design. The
             print methods we offer, the products they work on, and how pricing
             actually works.
           </p>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[380px] lg:max-w-none">
+        <div className="gsap-hero-visual relative mx-auto w-full max-w-[380px] lg:max-w-none">
           <div className="relative flex aspect-square items-center justify-center">
             <Image
               src="/how it works/1blob.svg"
@@ -373,7 +566,7 @@ function HeroSection() {
               width={460}
               height={460}
               unoptimized
-              className="relative z-10 h-auto w-[95%]"
+              className="gsap-hero-dog relative z-10 h-auto w-[95%]"
               aria-hidden="true"
             />
           </div>
@@ -385,81 +578,114 @@ function HeroSection() {
 
 function PrintMethodsSection() {
   return (
-    <section className="relative mx-auto max-w-[1400px] px-6 pb-16 pt-8 lg:px-10 lg:pb-20 lg:pt-10">
+    <section className="relative mx-auto max-w-[1400px] px-6 pb-20 pt-8 lg:px-10 lg:pb-24 lg:pt-10">
       <SectionHeader
         title={
           <>
-            Screen printing &amp;{" "}
+            How we{" "}
             <span className="relative inline-block">
-              embroidery
+              do it
               <ScribbleUnderline className="-bottom-1" />
             </span>
             .
           </>
         }
-        subtitle="Screen printing is the workhorse for bulk runs. Embroidery is the premium touch for hats, polos, and logo-on-chest work."
+        subtitle="Two ways your design ends up on the garment. Same craft, different approach."
       />
 
-      <div className="mt-14 flex flex-col gap-16 lg:gap-24">
-        {PRINT_METHODS.map((method, i) => (
-          <article
-            key={method.name}
-            className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14"
-          >
-            <Link
-              href="/quote"
-              className={`group relative flex aspect-[5/4] items-center justify-center ${
-                i % 2 === 1 ? "lg:order-2" : ""
-              }`}
-            >
-              <Image
-                src={method.blob}
-                alt=""
-                width={method.blobWidth}
-                height={method.blobHeight}
-                className="blob-morph absolute inset-0 m-auto h-full w-full object-contain"
-                aria-hidden="true"
-              />
-              <Image
-                src={method.dog}
-                alt=""
-                width={460}
-                height={460}
-                unoptimized={method.animated}
-                className="relative z-10 h-auto"
-                style={{ width: method.dogWidth }}
-                aria-hidden="true"
-              />
-            </Link>
-
-            <div className="rough-card relative px-7 py-7 sm:px-9 sm:py-9">
-              <span
-                className="absolute -top-4 right-6 inline-flex items-center gap-2 rounded-full bg-dream-sun px-4 py-1.5 font-display text-[12px] font-bold uppercase tracking-[0.14em] text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.15)]"
-                style={{ transform: `rotate(${method.badgeTilt}deg)` }}
-              >
-                {method.startingAt}
-              </span>
-
-              <h3 className="font-display text-3xl font-bold text-dream-ink sm:text-4xl">
-                {method.name}
-              </h3>
-              <p className="mt-4 max-w-[540px] text-[15px] leading-relaxed text-dream-ink-soft">
-                {method.what}
-              </p>
-
-              <div className="mt-7 grid gap-7 sm:grid-cols-2">
-                <FactList heading="Best for" items={method.bestFor} tone="yes" />
-                <FactList
-                  heading="Things to know"
-                  items={method.caveats}
-                  tone="hmm"
-                />
-              </div>
-            </div>
-          </article>
+      <div className="mt-14 grid gap-7 lg:grid-cols-2 lg:gap-9">
+        {METHODS.map((method) => (
+          <MethodTile key={method.name} method={method} />
         ))}
       </div>
     </section>
+  );
+}
+
+function MethodTile({ method }: { method: Method }) {
+  const isInk = method.variant === "ink";
+  const tilePalette = isInk
+    ? {
+        bg: "#1b1458",
+        fg: "#fffaf0",
+        pillBg: "rgba(255,250,240,0.12)",
+        pillFg: "#fffaf0",
+        taglineOpacity: 0.7,
+        backgroundImage:
+          "radial-gradient(rgba(255,250,240,0.08) 1.2px, transparent 1.2px)",
+        backgroundSize: "12px 12px",
+      }
+    : {
+        bg: "#ece5ff",
+        fg: "#1b1458",
+        pillBg: "rgba(255,255,255,0.7)",
+        pillFg: "#1b1458",
+        taglineOpacity: 0.65,
+        backgroundImage:
+          "repeating-linear-gradient(45deg, rgba(27,20,88,0.07) 0 1px, transparent 1px 10px), repeating-linear-gradient(-45deg, rgba(27,20,88,0.07) 0 1px, transparent 1px 10px)",
+        backgroundSize: "auto",
+      };
+
+  return (
+    <article
+      className="gsap-method-tile group relative flex flex-col overflow-hidden rounded-[32px]"
+      style={{
+        backgroundColor: tilePalette.bg,
+        color: tilePalette.fg,
+        backgroundImage: tilePalette.backgroundImage,
+        backgroundSize: tilePalette.backgroundSize,
+        boxShadow: "0 6px 0 0 rgba(27,20,88,0.18)",
+      }}
+    >
+      <div className="relative flex aspect-[5/4] items-center justify-center px-6 pt-8 sm:px-8 sm:pt-10">
+        <Image
+          src={method.blob}
+          alt=""
+          width={method.blobWidth}
+          height={method.blobHeight}
+          className="blob-morph absolute inset-0 m-auto h-[72%] w-[72%] object-contain transition-transform duration-[600ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110"
+          aria-hidden="true"
+          style={{ opacity: isInk ? 0.32 : 1 }}
+        />
+        <Image
+          src={method.dog}
+          alt=""
+          width={460}
+          height={460}
+          unoptimized
+          className="relative z-10 h-auto origin-bottom transition-transform duration-[600ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-rotate-3 group-hover:scale-[1.06]"
+          style={{ width: method.dogWidth }}
+          aria-hidden="true"
+        />
+      </div>
+
+      <div className="px-7 pb-9 pt-2 sm:px-9 sm:pb-10">
+        <h3 className="font-display text-[40px] font-bold leading-[1.02] tracking-tight sm:text-[48px]">
+          {method.name}.
+        </h3>
+        <p
+          className="mt-3 font-display text-[19px] italic sm:text-xl"
+          style={{ opacity: tilePalette.taglineOpacity }}
+        >
+          {method.tagline}
+        </p>
+
+        <div className="mt-7 flex flex-wrap gap-2.5">
+          {method.tags.map((tag) => (
+            <span
+              key={tag}
+              className="gsap-tile-pill inline-flex items-center rounded-full px-3.5 py-1.5 font-display text-[12px] font-bold uppercase tracking-[0.18em] transition-transform duration-[400ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-translate-y-0.5"
+              style={{
+                backgroundColor: tilePalette.pillBg,
+                color: tilePalette.pillFg,
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -485,7 +711,7 @@ function ProductsSection() {
           <Link
             key={cat.name}
             href={cat.href}
-            className="group rough-card relative flex flex-col px-5 pb-6 pt-5 transition hover:-translate-y-1"
+            className="gsap-product-card group rough-card relative flex flex-col px-5 pb-6 pt-5 transition hover:-translate-y-1"
           >
             <span
               aria-hidden="true"
@@ -591,7 +817,7 @@ function PricingSection() {
           {PRICING_FACTORS.map((factor, i) => (
             <div
               key={factor.title}
-              className="rough-card relative px-6 py-7"
+              className="gsap-pricing-card rough-card relative px-6 py-7"
             >
               <NumberCircle n={i + 1} />
               <h3 className="mt-4 font-display text-lg font-bold text-dream-ink">
@@ -627,7 +853,7 @@ function PricingSection() {
               return (
                 <li
                   key={tier.range}
-                  className={`relative flex flex-col rounded-2xl border-2 bg-white px-5 py-5 ${
+                  className={`gsap-tier-card relative flex flex-col rounded-2xl border-2 bg-white px-5 py-5 ${
                     isBest
                       ? "border-dream-purple"
                       : "border-dream-ink/10"
@@ -686,7 +912,7 @@ function LogisticsSection() {
         {LOGISTICS.map((item, i) => (
           <div
             key={item.title}
-            className="rough-card relative px-6 py-7"
+            className="gsap-logistics-card rough-card relative px-6 py-7"
             style={{ transform: `rotate(${[-0.8, 0.6, -0.4, 0.8][i]}deg)` }}
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dream-lavender-soft text-dream-purple">
@@ -728,7 +954,7 @@ function FAQSection() {
           {FAQS.map((item, i) => (
             <details
               key={item.q}
-              className="group rough-card relative px-6 py-5"
+              className="gsap-faq-item group rough-card relative px-6 py-5"
               style={{ transform: `rotate(${i % 2 === 0 ? -0.3 : 0.3}deg)` }}
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-dream-ink sm:text-lg">
@@ -778,7 +1004,7 @@ const CTA_RAYS = Array.from({ length: 12 }, (_, i) => {
 
 function BottomCTA() {
   return (
-    <section className="relative bg-dream-purple text-white">
+    <section className="gsap-cta-section relative bg-dream-purple text-white">
       {/* Dog mascot leaning into the section from the top. */}
       <div className="pointer-events-none absolute left-8 -top-[120px] hidden lg:block">
         <Image
@@ -817,7 +1043,7 @@ function BottomCTA() {
               <span
                 key={i}
                 aria-hidden
-                className="sun-ray"
+                className="gsap-cta-ray sun-ray"
                 style={
                   {
                     "--x": `${ray.x}px`,
@@ -831,7 +1057,7 @@ function BottomCTA() {
             ))}
             <Link
               href="/quote"
-              className="rough-pill rough-pill-white rough-pill-lean relative inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
+              className="gsap-cta-pill rough-pill rough-pill-white rough-pill-lean relative inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
             >
               Start your order
             </Link>
@@ -870,7 +1096,9 @@ function SectionHeader({
 }) {
   return (
     <div
-      className={center ? "mx-auto max-w-[680px] text-center" : "max-w-[780px]"}
+      className={`gsap-section-header ${
+        center ? "mx-auto max-w-[680px] text-center" : "max-w-[780px]"
+      }`}
     >
       {kicker ? (
         <span className="inline-flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.28em] text-dream-purple">
@@ -941,58 +1169,3 @@ function LogisticsIcon({
   }
 }
 
-function FactList({
-  heading,
-  items,
-  tone,
-}: {
-  heading: string;
-  items: string[];
-  tone: "yes" | "hmm";
-}) {
-  return (
-    <div>
-      <h4 className="font-display text-[11px] font-bold uppercase tracking-[0.16em] text-dream-ink/50">
-        {heading}
-      </h4>
-      <ul className="mt-3 flex flex-col gap-2.5">
-        {items.map((item) => (
-          <li
-            key={item}
-            className="flex gap-3 text-[14px] leading-relaxed text-dream-ink-soft"
-          >
-            <span aria-hidden="true" className="mt-[2px] shrink-0">
-              {tone === "yes" ? (
-                <svg
-                  viewBox="0 0 18 18"
-                  className="h-4 w-4 text-dream-purple"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 9.5 l3.5 3 l7-7" />
-                </svg>
-              ) : (
-                <svg
-                  viewBox="0 0 18 18"
-                  className="h-4 w-4 text-dream-ink/45"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                >
-                  <circle cx="9" cy="9" r="7" />
-                  <path d="M9 5.5 v4.5" />
-                  <path d="M9 12.5 v0.3" />
-                </svg>
-              )}
-            </span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
