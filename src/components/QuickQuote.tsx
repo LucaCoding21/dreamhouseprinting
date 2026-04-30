@@ -214,7 +214,7 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
           priority
         />
         <div className="absolute inset-x-0 top-[48%] flex -translate-y-1/2 justify-center">
-          <span className="font-display text-[44px] font-bold tracking-[0.04em]">
+          <span className="font-display text-[30px] font-bold tracking-[0.04em]">
             {DREAM_LETTERS.map((letter, i) => (
               <span
                 key={i}
