@@ -37,7 +37,7 @@ const STEPS: Step[] = [
     blobRotate: -12,
     dog: "/how it works/step1.apng",
     dogAlt: "Dog sitting next to a folded shirt and paw-print food bowl",
-    dogWidth: "850px",
+    dogWidth: "500px",
     dogOffsetX: "30px",
     animated: true,
     frameSequence: {
@@ -138,7 +138,7 @@ export default function HowItWorks() {
                   count={step.frameSequence.count}
                   fps={step.frameSequence.fps}
                   alt={step.dogAlt}
-                  className="relative z-10 h-auto"
+                  className="relative z-10 h-auto max-w-none shrink-0"
                   style={{
                     width: step.dogWidth,
                     transform:

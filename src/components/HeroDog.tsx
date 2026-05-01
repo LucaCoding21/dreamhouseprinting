@@ -4,15 +4,14 @@ export default function HeroDog() {
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[380px] lg:max-w-none">
       <Image
-        src="/services-hero.png"
+        src="/hero-service.png"
         alt=""
-        width={1200}
-        height={1200}
+        width={1600}
+        height={1600}
         priority
-        className="absolute inset-0 m-auto h-auto"
+        className="absolute h-auto w-[120%] max-w-none lg:w-[130%]"
         style={{
-          width: "350%",
-          top: "60%",
+          top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
         }}
