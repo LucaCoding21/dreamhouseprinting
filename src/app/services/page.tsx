@@ -190,11 +190,14 @@ function Hero() {
   return (
     <section className="mx-auto grid max-w-[1400px] gap-10 px-6 pb-16 pt-6 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-20 lg:pt-8">
       <div>
-        <h1 className="font-display text-[52px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-7xl lg:text-[96px]">
-          Custom prints, done in-
-          <span className="relative inline-block">
-            house
-            <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
+        <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[56px] lg:text-[68px]">
+          Custom prints, done{" "}
+          <span className="whitespace-nowrap">
+            in-
+            <span className="relative inline-block">
+              house
+              <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
+            </span>
           </span>
           .
         </h1>
@@ -212,7 +215,25 @@ function Hero() {
         </div>
       </div>
 
-      <HeroDog />
+      <div className="relative">
+        <Image
+          src="/doodle1.png"
+          alt=""
+          width={300}
+          height={300}
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-4 -right-6 z-10 h-28 w-28 -rotate-[20deg] sm:-right-10 sm:h-36 sm:w-36 lg:-top-6 lg:-right-12 lg:h-44 lg:w-44"
+        />
+        <Image
+          src="/doodle2.png"
+          alt=""
+          width={400}
+          height={400}
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-2 -left-14 z-10 h-32 w-32 -rotate-12 sm:-left-20 sm:h-40 sm:w-40 lg:-bottom-4 lg:-left-28 lg:h-48 lg:w-48"
+        />
+        <HeroDog />
+      </div>
     </section>
   );
 }
@@ -223,8 +244,24 @@ function Hero() {
 
 function Pitch() {
   return (
-    <section className="bg-dream-cream">
-      <div className="mx-auto flex max-w-[1320px] flex-col items-center px-6 pb-16 pt-4 text-center lg:px-10 lg:pb-24 lg:pt-8">
+    <section className="relative bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 120"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-x-0 top-0 block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
+      >
+        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
+      </svg>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 120"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-x-0 bottom-0 block h-[60px] w-full rotate-180 sm:h-[90px] lg:h-[120px]"
+      >
+        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
+      </svg>
+      <div className="relative mx-auto flex max-w-[1320px] flex-col items-center px-6 text-center lg:px-10">
         <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
           The Dreamhouse workshop
         </span>
@@ -385,21 +422,13 @@ function FAQ() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {FAQS.map((item, i) => (
+          {FAQS.map((item) => (
             <details
               key={item.q}
               className="rough-card group relative px-6 py-5"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-dream-ink sm:text-lg">
-                <span className="flex items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 font-display text-[13px] font-bold text-dream-purple"
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  {item.q}
-                </span>
+                <span>{item.q}</span>
                 <span
                   aria-hidden="true"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-dream-purple font-display text-xl leading-none text-white transition-transform group-open:rotate-45"
@@ -407,7 +436,7 @@ function FAQ() {
                   +
                 </span>
               </summary>
-              <p className="mt-4 pl-9 pr-10 text-[14px] leading-relaxed text-dream-ink-soft sm:text-[15px]">
+              <p className="mt-4 pr-10 text-[14px] leading-relaxed text-dream-ink-soft sm:text-[15px]">
                 {item.a}
               </p>
             </details>
