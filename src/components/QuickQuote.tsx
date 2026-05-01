@@ -30,16 +30,14 @@ export default function QuickQuote() {
 
   return (
     <section className="bg-dream-purple">
-      <div className="mx-auto flex min-h-[calc(100vh-56px)] max-w-[1400px] items-center px-6 py-6 lg:px-10">
-        <div className="relative grid w-full items-center gap-8 lg:grid-cols-[1fr_1.8fr] lg:gap-10">
+      <div className="mx-auto flex min-h-[calc(100vh-56px)] max-w-[1550px] items-center px-6 py-6 lg:px-10">
+        <div className="relative grid w-full items-center gap-8 lg:grid-cols-[440px_820px] lg:justify-center lg:gap-24">
           <div className="text-white">
             <h2 className="font-display text-6xl font-bold leading-[1.02] tracking-tight text-white sm:text-7xl lg:text-[72px]">
-              Get a quick quote
+              Get a <span className="whitespace-nowrap">quick quote</span>
             </h2>
-            <p className="mt-5 max-w-md text-sm leading-relaxed text-white/90">
-              Tell us what you need and get a ballpark estimate in seconds.
-              <br />
-              No account required.
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/90">
+              Tell us what you need and get a ballpark estimate in seconds. No account required.
             </p>
           </div>
 

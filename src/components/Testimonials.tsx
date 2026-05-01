@@ -32,7 +32,7 @@ export default function Testimonials() {
         {TESTIMONIALS.map((t) => (
           <article
             key={t.name}
-            className="group relative flex flex-col rounded-2xl border border-dream-ink/5 bg-dream-cream/70 px-8 pb-8 pt-20 shadow-[0_2px_0_0_rgba(27,20,88,0.06)] transition-transform duration-200 hover:-translate-y-0.5"
+            className="group relative flex flex-col rounded-2xl border border-dream-ink/5 bg-white px-8 pb-8 pt-20 shadow-[0_2px_0_0_rgba(27,20,88,0.06)] transition-transform duration-200 hover:-translate-y-0.5"
           >
             <span
               aria-hidden="true"

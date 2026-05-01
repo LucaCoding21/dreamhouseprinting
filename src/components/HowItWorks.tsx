@@ -1,4 +1,5 @@
 import Image from "next/image";
+import FrameSequence from "@/components/FrameSequence";
 
 type Step = {
   n: number;
@@ -19,6 +20,9 @@ type Step = {
   // When true, dog is an animated asset (APNG) — skip Next.js optimization
   // so the animation survives.
   animated?: boolean;
+  // When set, render a frame-by-frame PNG sequence instead of `dog`.
+  // basePath should include the trailing prefix before the zero-padded index.
+  frameSequence?: { basePath: string; count: number; fps?: number };
 };
 
 const STEPS: Step[] = [
@@ -33,9 +37,14 @@ const STEPS: Step[] = [
     blobRotate: -12,
     dog: "/how it works/step1.apng",
     dogAlt: "Dog sitting next to a folded shirt and paw-print food bowl",
-    dogWidth: "500px",
+    dogWidth: "850px",
     dogOffsetX: "30px",
     animated: true,
+    frameSequence: {
+      basePath: "/how it works/V2step1/Timeline 1_",
+      count: 68,
+      fps: 24,
+    },
   },
   {
     n: 2,
@@ -97,8 +106,8 @@ export default function HowItWorks() {
             d="M 125 120 C 185 55 295 55 375 120 C 455 260 545 260 625 120 C 705 55 815 55 875 120"
             stroke="#000000"
             strokeOpacity="0.6"
-            strokeWidth="7"
-            strokeDasharray="14 24"
+            strokeWidth="4"
+            strokeDasharray="10 20"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
           />
@@ -123,21 +132,38 @@ export default function HowItWorks() {
                 }
                 aria-hidden="true"
               />
-              <Image
-                src={step.dog}
-                alt={step.dogAlt}
-                width={460}
-                height={460}
-                unoptimized={step.animated}
-                className="relative z-10 h-auto"
-                style={{
-                  width: step.dogWidth,
-                  transform:
-                    step.dogOffsetX || step.dogOffsetY
-                      ? `translate(${step.dogOffsetX ?? "0"}, ${step.dogOffsetY ?? "0"})`
-                      : undefined,
-                }}
-              />
+              {step.frameSequence ? (
+                <FrameSequence
+                  basePath={step.frameSequence.basePath}
+                  count={step.frameSequence.count}
+                  fps={step.frameSequence.fps}
+                  alt={step.dogAlt}
+                  className="relative z-10 h-auto"
+                  style={{
+                    width: step.dogWidth,
+                    transform:
+                      step.dogOffsetX || step.dogOffsetY
+                        ? `translate(${step.dogOffsetX ?? "0"}, ${step.dogOffsetY ?? "0"})`
+                        : undefined,
+                  }}
+                />
+              ) : (
+                <Image
+                  src={step.dog}
+                  alt={step.dogAlt}
+                  width={460}
+                  height={460}
+                  unoptimized={step.animated}
+                  className="relative z-10 h-auto"
+                  style={{
+                    width: step.dogWidth,
+                    transform:
+                      step.dogOffsetX || step.dogOffsetY
+                        ? `translate(${step.dogOffsetX ?? "0"}, ${step.dogOffsetY ?? "0"})`
+                        : undefined,
+                  }}
+                />
+              )}
             </div>
 
             <div className="-mt-8 flex items-center justify-center gap-3">

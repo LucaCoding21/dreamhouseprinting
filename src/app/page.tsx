@@ -40,7 +40,7 @@ export default function Home() {
                 href="/quote"
                 className="rough-pill rough-pill-outline rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
               >
-                Get a quick quote
+                Get a <span className="whitespace-nowrap">quick quote</span>
               </Link>
             </div>
           </div>
