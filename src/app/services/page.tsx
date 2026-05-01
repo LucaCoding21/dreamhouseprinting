@@ -488,7 +488,7 @@ function CTA() {
             ))}
             <Link
               href="/quote"
-              className="rough-pill rough-pill-yellow rough-pill-lean relative inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
+              className="relative inline-flex items-center justify-center rounded-full bg-dream-sun px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
             >
               Start your order
             </Link>
