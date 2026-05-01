@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import HeroDog from "@/components/HeroDog";
+import ParallaxImage from "@/components/ParallaxImage";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 
@@ -11,54 +12,48 @@ import SiteNav from "@/components/SiteNav";
 
 type Method = {
   name: string;
-  tagline: string;
-  bestFor: string[];
-  startingAt: string;
-  blob: string;
-  blobWidth: number;
-  blobHeight: number;
-  blobScale?: string;
-  blobRotate?: number;
-  dog: string;
-  dogWidth: string;
-  dogOffsetX?: string;
-  dogOffsetY?: string;
+  description: string;
+  image: string;
+  imageClassName?: string;
+  bg: string;
+  titleColor: string;
+  descColor: string;
+  rotate: number;
 };
 
 const METHODS: Method[] = [
   {
     name: "Screen printing",
-    tagline: "Ink pushed through a stencil, one colour at a time.",
-    bestFor: [
-      "Bulk orders (25+)",
-      "Bold, solid-colour designs",
-      "T-shirts, hoodies, totes",
-    ],
-    startingAt: "from $8 / unit",
-    blob: "/how it works/1blob.svg",
-    blobWidth: 255,
-    blobHeight: 310,
-    blobScale: "92%",
-    blobRotate: -12,
-    dog: "/how it works/step1.apng",
-    dogWidth: "500px",
-    dogOffsetX: "30px",
+    description:
+      "Bold, long-lasting prints — best for bulk orders of tees, hoodies, and totes.",
+    image: "/methods-screen.webp",
+    imageClassName: "w-[150px] sm:w-[170px]",
+    bg: "bg-dream-purple",
+    titleColor: "text-white",
+    descColor: "text-white/85",
+    rotate: -3,
   },
   {
     name: "Embroidery",
-    tagline: "Thread stitched directly into the fibre.",
-    bestFor: [
-      "Polos, dress shirts, uniforms",
-      "Hats, toques, caps",
-      "Logos on chest or sleeve",
-    ],
-    startingAt: "from $12 / unit",
-    blob: "/how it works/2blob.svg",
-    blobWidth: 317,
-    blobHeight: 255,
-    dog: "/how it works/step2.apng",
-    dogWidth: "500px",
-    dogOffsetY: "24px",
+    description:
+      "Thread stitched into the fabric for a premium, textured finish on polos and hats.",
+    image: "/methods-embroidery.webp",
+    imageClassName: "w-[150px] -rotate-12 sm:w-[175px]",
+    bg: "bg-white",
+    titleColor: "text-dream-ink",
+    descColor: "text-dream-ink-soft",
+    rotate: 1.5,
+  },
+  {
+    name: "DTG printing",
+    description:
+      "Direct-to-garment for full-colour, photo-quality prints with no minimum order.",
+    image: "/methods-dtg.webp",
+    imageClassName: "w-[200px] sm:w-[230px]",
+    bg: "bg-dream-sun",
+    titleColor: "text-dream-ink",
+    descColor: "text-dream-ink-soft",
+    rotate: 0,
   },
 ];
 
@@ -66,6 +61,8 @@ type ProductCategory = {
   name: string;
   brands: string[];
   startingAt: string;
+  minQty: number;
+  turnaround: string;
   image: string;
   imageWidth: string;
   blob: string;
@@ -80,6 +77,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     name: "Shirts",
     brands: ["Gildan", "Bella+Canvas", "Comfort Colors"],
     startingAt: "$12",
+    minQty: 25,
+    turnaround: "7–10 days",
     image: "/shopbycategories/shirtcategory.webp",
     imageWidth: "60%",
     blob: "/shopbycategories/shirtblob.svg",
@@ -92,6 +91,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     name: "Hoodies",
     brands: ["Gildan", "Bella+Canvas", "Independent"],
     startingAt: "$32",
+    minQty: 25,
+    turnaround: "7–10 days",
     image: "/shopbycategories/hoodiecategory.webp",
     imageWidth: "62%",
     blob: "/shopbycategories/hoodieblob.svg",
@@ -104,6 +105,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     name: "Hats & toques",
     brands: ["Flexfit", "Richardson", "Yupoong"],
     startingAt: "$18",
+    minQty: 24,
+    turnaround: "10–14 days",
     image: "/shopbycategories/hatcategory.webp",
     imageWidth: "68%",
     blob: "/shopbycategories/hatblob.svg",
@@ -116,6 +119,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     name: "Bags & totes",
     brands: ["Liberty Bags", "BAGedge", "Port Authority"],
     startingAt: "$14",
+    minQty: 25,
+    turnaround: "7–10 days",
     image: "/shopbycategories/bagscategory.webp",
     imageWidth: "56%",
     blob: "/shopbycategories/bagsblob.svg",
@@ -124,42 +129,6 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     tagTilt: 6,
     href: "/quote?product=bag",
   },
-];
-
-const PRICING_FACTORS = [
-  {
-    n: 1,
-    title: "Quantity",
-    body: "The biggest lever. 50 shirts costs less per-unit than 25. At 250+ it gets noticeably better again.",
-  },
-  {
-    n: 2,
-    title: "Print colours",
-    body: "Each colour is its own screen and setup. A 1-colour design is cheapest; 4 is where costs climb.",
-  },
-  {
-    n: 3,
-    title: "Print locations",
-    body: "Front-only is baseline. Back or sleeve add another run. Roughly +30–60% per spot.",
-  },
-  {
-    n: 4,
-    title: "Garment choice",
-    body: "Gildan 5000 is our baseline blank. Bella+Canvas Airlume or Comfort Colors costs more and feels it.",
-  },
-];
-
-type Tier = {
-  qty: string;
-  price: string;
-  note?: string;
-};
-
-const TIERS: Tier[] = [
-  { qty: "25–49 units", price: "$12 / unit" },
-  { qty: "50–99 units", price: "$10 / unit" },
-  { qty: "100–249 units", price: "$8 / unit" },
-  { qty: "250+ units", price: "$6 / unit", note: "best value" },
 ];
 
 const FAQS = [
@@ -217,12 +186,19 @@ export default function ServicesPage() {
         <SiteNav />
       </div>
 
+      <div className="bg-dream-purple text-white">
+        <p className="mx-auto max-w-[1400px] px-6 py-3 text-center text-[15px] font-medium">
+          Spring deal: 15% off orders of 50+ pieces. Submit your quote this month
+        </p>
+      </div>
+
       <BlobMorphFilter />
 
       <Hero />
+      <Pitch />
       <Methods />
+
       <Products />
-      <Pricing />
       <FAQ />
       <CTA />
 
@@ -237,23 +213,19 @@ export default function ServicesPage() {
 
 function Hero() {
   return (
-    <section className="mx-auto grid max-w-[1400px] gap-10 px-6 pb-16 pt-14 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-20 lg:pt-20">
+    <section className="mx-auto grid max-w-[1400px] gap-10 px-6 pb-16 pt-6 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-20 lg:pt-8">
       <div>
-        <span className="inline-flex items-center gap-2 font-display text-[12px] font-bold uppercase tracking-[0.28em] text-dream-purple">
-          <span className="h-1.5 w-1.5 rounded-full bg-dream-purple" />
-          Services
-        </span>
-        <h1 className="mt-5 font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-6xl lg:text-[80px]">
-          What we{" "}
+        <h1 className="font-display text-[52px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-7xl lg:text-[96px]">
+          Custom prints, done in-
           <span className="relative inline-block">
-            do
+            house
             <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
           </span>
-          , and how.
+          .
         </h1>
         <p className="mt-6 max-w-[540px] text-base leading-relaxed text-dream-ink-soft sm:text-lg">
           Screen printing, embroidery, and the blanks to put them on. Pricing,
-          turnaround, and answers to common questions — all in one page.
+          turnaround, and answers to common questions all in one page.
         </p>
         <div className="mt-9 flex flex-wrap items-center gap-5">
           <Link
@@ -262,16 +234,40 @@ function Hero() {
           >
             Get a quote
           </Link>
-          <a
-            href="#pricing"
-            className="font-display text-sm font-bold uppercase tracking-[0.18em] text-dream-purple underline-offset-4 hover:underline"
-          >
-            See pricing →
-          </a>
         </div>
       </div>
 
       <HeroDog />
+    </section>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Pitch
+// ────────────────────────────────────────────────────────────────────────────
+
+function Pitch() {
+  return (
+    <section className="bg-dream-cream">
+      <div className="mx-auto flex max-w-[1320px] flex-col items-center px-6 pb-16 pt-4 text-center lg:px-10 lg:pb-24 lg:pt-8">
+        <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+          The Dreamhouse workshop
+        </span>
+        <h2 className="mt-6 font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink">
+          Built for your brand.
+        </h2>
+        <p className="mt-6 max-w-[820px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+          A small crew running art prep, screens, ink, stitches, and a quality
+          check before your order leaves the building. No middlemen, no
+          surprise upcharges — just custom prints that arrive ready to wear.
+        </p>
+        <Link
+          href="/quote"
+          className="rough-pill rough-pill-outline rough-pill-lean mt-10 inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+        >
+          Get a quote
+        </Link>
+      </div>
     </section>
   );
 }
@@ -282,12 +278,13 @@ function Hero() {
 
 function Methods() {
   return (
-    <section className="mx-auto max-w-[1400px] px-6 pb-20 pt-10 lg:px-10 lg:pb-24 lg:pt-12">
+    <section id="methods" className="mx-auto max-w-[1500px] px-6 pb-24 pt-10 lg:px-10 lg:pb-32 lg:pt-12">
       <SectionHeader
         kicker="Methods"
+        cleanKicker
         title={
           <>
-            Two ways to{" "}
+            Three ways to{" "}
             <span className="relative inline-block">
               print
               <ScribbleUnderline className="-bottom-1" />
@@ -295,82 +292,33 @@ function Methods() {
             .
           </>
         }
-        subtitle="Both done in-house. Pick the one that fits your job."
+        subtitle="All done in-house. Pick the one that fits your job."
       />
 
-      <div className="mt-12 grid gap-6 lg:grid-cols-2 lg:gap-8">
-        {METHODS.map((m) => (
+      <div className="mt-20 flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-0">
+        {METHODS.map((m, i) => (
           <article
             key={m.name}
-            className="rough-card relative flex flex-col px-7 pb-8 pt-7 sm:px-9 sm:pb-9 sm:pt-8"
+            className={`relative h-[300px] w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:flex-1 sm:px-9 ${i > 0 ? "sm:-ml-6" : ""} ${m.bg}`}
+            style={{ rotate: `${m.rotate}deg` }}
           >
-            <span className="absolute -top-3 right-5 inline-flex -rotate-3 items-center rounded-full bg-dream-sun px-3.5 py-1.5 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.15)]">
-              {m.startingAt}
-            </span>
-
-            <div className="relative mx-auto flex h-[360px] w-full max-w-[460px] items-center justify-center sm:h-[400px]">
-              <Image
-                src={m.blob}
-                alt=""
-                width={m.blobWidth}
-                height={m.blobHeight}
-                className="blob-morph absolute inset-0 m-auto object-contain"
-                style={{
-                  width: m.blobScale ?? "72%",
-                  height: m.blobScale ?? "72%",
-                  ...(m.blobRotate
-                    ? { transform: `rotate(${m.blobRotate}deg)` }
-                    : {}),
-                }}
-                aria-hidden="true"
-              />
-              <Image
-                src={m.dog}
-                alt=""
-                width={460}
-                height={460}
-                unoptimized
-                className="relative z-10 h-auto"
-                style={{
-                  width: m.dogWidth,
-                  transform:
-                    m.dogOffsetX || m.dogOffsetY
-                      ? `translate(${m.dogOffsetX ?? "0"}, ${m.dogOffsetY ?? "0"})`
-                      : undefined,
-                }}
-                aria-hidden="true"
-              />
-            </div>
-
-            <h3 className="mt-2 font-display text-3xl font-bold text-dream-ink sm:text-[34px]">
+            <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
               {m.name}
             </h3>
-            <p className="mt-2 text-[15px] leading-relaxed text-dream-ink-soft">
-              {m.tagline}
-            </p>
 
-            <ul className="mt-5 flex flex-col gap-2.5">
-              {m.bestFor.map((item) => (
-                <li
-                  key={item}
-                  className="flex gap-2.5 text-[14px] leading-relaxed text-dream-ink-soft"
-                >
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 18 18"
-                    className="mt-[3px] h-4 w-4 shrink-0 text-dream-purple"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 9.5 l3.5 3 l7-7" />
-                  </svg>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+            <Image
+              src={m.image}
+              alt=""
+              width={260}
+              height={260}
+              unoptimized
+              aria-hidden="true"
+              className={`absolute right-2 top-[42%] z-0 h-auto -translate-y-1/2 sm:right-3 ${m.imageClassName ?? "w-[210px] sm:w-[240px]"}`}
+            />
+
+            <p className={`absolute bottom-7 left-8 right-8 z-10 max-w-[58%] text-[15px] leading-relaxed sm:left-9 sm:text-[16px] ${m.descColor}`}>
+              {m.description}
+            </p>
           </article>
         ))}
       </div>
@@ -382,171 +330,145 @@ function Methods() {
 // Products
 // ────────────────────────────────────────────────────────────────────────────
 
+type ProductTheme = { bg: string; text: string; muted: string; tag: string };
+
+const PRODUCT_THEMES: ProductTheme[] = [
+  // Shirts — featured / dark
+  {
+    bg: "bg-dream-purple",
+    text: "text-white",
+    muted: "text-white/65",
+    tag: "bg-white text-dream-ink",
+  },
+  // Hoodies
+  {
+    bg: "bg-white ring-1 ring-dream-ink/10",
+    text: "text-dream-ink",
+    muted: "text-dream-ink/55",
+    tag: "bg-dream-lavender-soft text-dream-ink",
+  },
+  // Hats
+  {
+    bg: "bg-white ring-1 ring-dream-ink/10",
+    text: "text-dream-ink",
+    muted: "text-dream-ink/55",
+    tag: "bg-dream-lavender-soft text-dream-ink",
+  },
+  // Bags — wide
+  {
+    bg: "bg-white ring-1 ring-dream-ink/10",
+    text: "text-dream-ink",
+    muted: "text-dream-ink/55",
+    tag: "bg-dream-lavender-soft text-dream-ink",
+  },
+];
+
+// Grid placement per product index. Mobile: all stack via grid-cols defaults.
+const PRODUCT_LAYOUTS = [
+  "min-h-[460px] lg:col-start-3 lg:row-start-1 lg:row-span-2 lg:h-full lg:min-h-0", // Shirts: tall featured on right
+  "min-h-[420px] lg:col-start-1 lg:row-start-1", // Hoodies
+  "min-h-[420px] lg:col-start-2 lg:row-start-1", // Hats
+  "min-h-[260px] lg:col-span-2 lg:row-start-2 lg:min-h-0 lg:aspect-[3/1]", // Bags: wide on bottom
+];
+
 function Products() {
   return (
-    <section className="bg-dream-lavender-soft py-20 lg:py-24">
-      <div className="mx-auto max-w-[1400px] px-6 lg:px-10">
+    <section className="bg-dream-cream pb-32 pt-20 lg:pb-44 lg:pt-24">
+      <div className="mx-auto max-w-[1480px] px-6 lg:px-10">
         <SectionHeader
           kicker="Products"
-          title={
-            <>
-              What we print{" "}
-              <span className="relative inline-block">
-                on
-                <ScribbleUnderline className="-bottom-1" />
-              </span>
-              .
-            </>
-          }
+          cleanKicker
+          title={<>What we print on.</>}
           subtitle="The blanks we keep on hand. Ask if you don't see something."
         />
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-7">
-          {PRODUCT_CATEGORIES.map((cat) => (
-            <Link
-              key={cat.name}
-              href={cat.href}
-              className="rough-card group relative flex flex-col px-5 pb-6 pt-5 transition-transform hover:-translate-y-1"
-            >
-              <span
-                aria-hidden="true"
-                className="price-tag-alive pointer-events-none absolute -top-3 right-4 z-20 inline-flex items-baseline gap-1 rounded-full bg-dream-purple px-3.5 py-1.5 font-display text-white shadow-[0_3px_0_0_rgba(27,20,88,0.25)]"
-                style={{ "--base-tilt": `${cat.tagTilt}deg` } as CSSProperties}
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {PRODUCT_CATEGORIES.map((cat, i) => {
+            const theme = PRODUCT_THEMES[i];
+            const layout = PRODUCT_LAYOUTS[i];
+            const isWide = i === 3;
+            const isDark = theme.text === "text-white";
+            return (
+              <Link
+                key={cat.name}
+                href={cat.href}
+                aria-label={`${cat.name} — from ${cat.startingAt}, minimum ${cat.minQty}, ${cat.turnaround}`}
+                className={`group relative overflow-hidden rounded-[28px] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1.5 hover:shadow-[0_24px_48px_-24px_rgba(27,20,88,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-2 focus-visible:ring-offset-dream-cream ${theme.bg} ${layout} ${isWide ? "flex flex-row items-stretch" : "flex flex-col"}`}
               >
-                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/75">
-                  from
-                </span>
-                <span className="font-display text-[15px] font-bold">
-                  {cat.startingAt}
-                </span>
-              </span>
-
-              <div className="relative flex aspect-[4/3] items-center justify-center">
-                <Image
-                  src={cat.blob}
-                  alt=""
-                  width={cat.blobWidth}
-                  height={cat.blobHeight}
-                  className="blob-morph absolute inset-0 h-full w-full object-contain"
+                <span
                   aria-hidden="true"
-                />
-                <Image
-                  src={cat.image}
-                  alt=""
-                  width={400}
-                  height={400}
-                  className="relative z-10 h-auto"
-                  style={{ width: cat.imageWidth }}
-                  aria-hidden="true"
-                />
-              </div>
+                  className={`absolute right-5 top-5 z-20 grid h-9 w-9 place-items-center rounded-full transition-transform duration-300 ease-out group-hover:rotate-45 group-hover:scale-110 ${
+                    isDark
+                      ? "bg-white text-dream-ink"
+                      : "bg-dream-ink text-white"
+                  }`}
+                >
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                  >
+                    <path d="M3.5 12.5 L12.5 3.5" />
+                    <path d="M5 3.5 H12.5 V11" />
+                  </svg>
+                </span>
 
-              <div className="mt-4 flex flex-col gap-3">
-                <h3 className="font-display text-xl font-bold text-dream-ink">
-                  {cat.name}
-                </h3>
-                <div>
-                  <div className="font-display text-[10px] font-bold uppercase tracking-[0.16em] text-dream-ink/45">
-                    Brands
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {cat.brands.map((brand) => (
-                      <span
-                        key={brand}
-                        className="inline-flex items-center rounded-[6px] border-2 border-dream-ink/15 bg-white px-2 py-[3px] font-display text-[11px] font-bold text-dream-ink shadow-[0_1.5px_0_0_rgba(27,20,88,0.12)]"
-                      >
-                        {brand}
-                      </span>
-                    ))}
-                  </div>
+                <div
+                  className={`relative ${
+                    isWide
+                      ? "w-[42%] shrink-0 self-stretch"
+                      : "flex flex-1 items-center justify-center px-4 pt-10 pb-2"
+                  }`}
+                >
+                  <Image
+                    src={cat.image}
+                    alt=""
+                    width={520}
+                    height={520}
+                    className={`object-contain transition-transform duration-500 ease-out group-hover:scale-[1.06] ${
+                      isWide
+                        ? "h-full w-full p-4"
+                        : "relative z-10 h-full max-h-full w-auto max-w-[92%]"
+                    }`}
+                    aria-hidden="true"
+                  />
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
-// ────────────────────────────────────────────────────────────────────────────
-// Pricing
-// ────────────────────────────────────────────────────────────────────────────
+                <div
+                  className={`flex flex-col ${
+                    isWide
+                      ? "flex-1 justify-center gap-2.5 px-8 py-7 pr-16"
+                      : "gap-2 px-6 pb-6"
+                  }`}
+                >
+                  <h3
+                    className={`font-display text-[26px] font-bold leading-[1.05] tracking-tight lg:text-[30px] ${theme.text}`}
+                  >
+                    {cat.name}
+                  </h3>
 
-function Pricing() {
-  return (
-    <section id="pricing" className="bg-dream-cream py-20 lg:py-24">
-      <div className="mx-auto max-w-[1400px] px-6 lg:px-10">
-        <SectionHeader
-          kicker="Pricing"
-          title={
-            <>
-              Four levers, in{" "}
-              <span className="relative inline-block">
-                order
-                <ScribbleUnderline className="-bottom-1" />
-              </span>
-              .
-            </>
-          }
-          subtitle="No public calculator (yet) — the real number depends on specifics. Here's the logic so you can ballpark."
-        />
+                  <p className={`text-[14px] leading-snug ${theme.muted}`}>
+                    {cat.brands.join(" · ")}
+                  </p>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {PRICING_FACTORS.map((f) => (
-            <div
-              key={f.title}
-              className="rough-card relative px-6 py-7"
-            >
-              <NumberCircle n={f.n} />
-              <h3 className="mt-4 font-display text-lg font-bold text-dream-ink">
-                {f.title}
-              </h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-dream-ink-soft">
-                {f.body}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Tier table */}
-        <div className="rough-card relative mt-12 overflow-hidden">
-          <div className="flex flex-col gap-3 px-7 pb-6 pt-7 sm:flex-row sm:items-end sm:justify-between sm:px-10 sm:pt-9">
-            <div>
-              <h3 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">
-                More you order, less it costs.
-              </h3>
-              <p className="mt-2 max-w-[520px] text-[14px] text-dream-ink-soft">
-                Example: 1-colour front print on a Gildan tee.
-              </p>
-            </div>
-            <span className="inline-flex shrink-0 -rotate-2 items-center rounded-full bg-dream-sun px-3.5 py-1.5 font-display text-[11px] font-bold uppercase tracking-[0.14em] text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.15)]">
-              Example · Not a quote
-            </span>
-          </div>
-
-          <ul className="border-t border-dream-ink/10">
-            {TIERS.map((tier) => (
-              <li
-                key={tier.qty}
-                className="flex items-center justify-between gap-4 border-b border-dream-ink/10 px-7 py-5 last:border-b-0 sm:px-10"
-              >
-                <span className="font-display text-[15px] font-semibold text-dream-ink sm:text-base">
-                  {tier.qty}
-                </span>
-                <div className="flex items-center gap-3">
-                  {tier.note ? (
-                    <span className="inline-flex items-center rounded-full bg-dream-purple px-2.5 py-0.5 font-display text-[10px] font-bold uppercase tracking-[0.14em] text-white">
-                      {tier.note}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1.5 font-display text-[13px] font-bold uppercase tracking-[0.06em] ${theme.tag}`}
+                    >
+                      from {cat.startingAt}
                     </span>
-                  ) : null}
-                  <span className="font-display text-lg font-bold text-dream-ink sm:text-xl">
-                    {tier.price}
-                  </span>
+                    <span className={`text-[13px] leading-none ${theme.muted}`}>
+                      Min {cat.minQty} · {cat.turnaround}
+                    </span>
+                  </div>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -559,24 +481,31 @@ function Pricing() {
 
 function FAQ() {
   return (
-    <section className="bg-dream-lavender-soft py-20 lg:py-24">
-      <div className="mx-auto max-w-[900px] px-6 lg:px-10">
-        <SectionHeader
-          kicker="FAQ"
-          title={
-            <>
-              Things people{" "}
-              <span className="relative inline-block">
-                ask
-                <ScribbleUnderline className="-bottom-1" />
-              </span>
-              .
-            </>
-          }
-          center
-        />
+    <section className="relative bg-dream-lavender-soft pb-32 pt-40 lg:pb-40 lg:pt-52">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 1440 120"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-x-0 top-0 block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
+      >
+        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
+      </svg>
+      <div className="relative mx-auto grid max-w-[1500px] gap-12 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
+        <div>
+          <h2 className="font-display text-[40px] font-bold leading-[1] tracking-tight text-dream-ink sm:text-[52px] lg:text-[64px]">
+            Frequently asked questions
+          </h2>
+          <Image
+            src="/cats3.png"
+            alt=""
+            width={320}
+            height={320}
+            aria-hidden="true"
+            className="ml-auto mr-4 mt-20 h-auto w-[220px] sm:w-[260px] lg:mr-12 lg:w-[300px]"
+          />
+        </div>
 
-        <div className="mt-10 flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {FAQS.map((item, i) => (
             <details
               key={item.q}
@@ -616,8 +545,10 @@ function FAQ() {
 
 function CTA() {
   return (
-    <section className="relative overflow-hidden bg-dream-purple text-white">
-      <div className="mx-auto flex max-w-[1400px] flex-col items-center px-6 py-20 text-center lg:px-10 lg:py-24">
+    <section className="relative isolate overflow-hidden text-white">
+      <ParallaxImage src="/cta-shirt.webp" speed={0.25} className="-z-10" />
+      <div className="absolute inset-0 -z-10 bg-dream-ink/55" aria-hidden="true" />
+      <div className="relative mx-auto flex max-w-[1400px] flex-col items-center px-6 py-20 text-center lg:px-10 lg:py-24">
         <h2 className="font-display text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl lg:text-[64px]">
           Ready when{" "}
           <span className="relative inline-block">
@@ -633,7 +564,7 @@ function CTA() {
         <div className="mt-10">
           <div
             className="sun-burst relative inline-block"
-            style={{ "--ray-color": "#ffffff" } as CSSProperties}
+            style={{ "--ray-color": "#ecbb25" } as CSSProperties}
           >
             {CTA_RAYS.map((ray, i) => (
               <span
@@ -653,23 +584,13 @@ function CTA() {
             ))}
             <Link
               href="/quote"
-              className="rough-pill rough-pill-white rough-pill-lean relative inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
+              className="rough-pill rough-pill-yellow rough-pill-lean relative inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
             >
               Start your order
             </Link>
           </div>
         </div>
 
-        <p className="mt-6 text-[13px] text-white/70">
-          Or{" "}
-          <Link
-            href="/contact"
-            className="font-semibold text-white underline-offset-4 hover:underline"
-          >
-            just ask us a question
-          </Link>
-          , we reply fast.
-        </p>
       </div>
     </section>
   );
@@ -725,34 +646,18 @@ function ScribbleUnderline({ className = "" }: { className?: string }) {
   );
 }
 
-function NumberCircle({ n }: { n: number }) {
-  return (
-    <span className="relative inline-flex h-12 w-12 items-center justify-center">
-      <Image
-        src="/how it works/number-circle.svg"
-        alt=""
-        width={48}
-        height={49}
-        className="absolute inset-0 h-full w-full"
-        aria-hidden="true"
-      />
-      <span className="relative font-display text-[17px] font-bold text-white">
-        {n}
-      </span>
-    </span>
-  );
-}
-
 function SectionHeader({
   kicker,
   title,
   subtitle,
   center,
+  cleanKicker,
 }: {
   kicker?: string;
   title: React.ReactNode;
   subtitle?: string;
   center?: boolean;
+  cleanKicker?: boolean;
 }) {
   return (
     <div
@@ -761,19 +666,25 @@ function SectionHeader({
       }
     >
       {kicker ? (
-        <span
-          className={`inline-flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.28em] text-dream-purple ${
-            center ? "justify-center" : ""
-          }`}
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-dream-purple" />
-          {kicker}
-        </span>
+        cleanKicker ? (
+          <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+            {kicker}
+          </span>
+        ) : (
+          <span
+            className={`inline-flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.28em] text-dream-purple ${
+              center ? "justify-center" : ""
+            }`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-dream-purple" />
+            {kicker}
+          </span>
+        )
       ) : null}
       <h2
         className={`${
           kicker ? "mt-4" : ""
-        } font-display text-3xl font-bold leading-[1.05] tracking-tight text-dream-ink sm:text-4xl lg:text-[44px]`}
+        } font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink`}
       >
         {title}
       </h2>

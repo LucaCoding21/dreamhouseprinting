@@ -11,6 +11,8 @@
   --color-dream-cream: #f4f2ff;
   --color-dream-scribble: #4141ac;
   --color-dream-sun: #ecbb25;
+  --color-dream-sun-soft: #fbe8a3;
+  --color-dream-peach: #ffa97a;
 
   --font-display: var(--font-archivo);
   --font-sans: var(--font-inter);
@@ -64,6 +66,9 @@ body {
 }
 .rough-pill-white::before {
   background: #ffffff;
+}
+.rough-pill-yellow::before {
+  background: #ecbb25;
 }
 
 /* Rough-edge card — white rectangle with scratchy distorted edges.
