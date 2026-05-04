@@ -1,30 +1,13 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import ParallaxImage from "@/components/ParallaxImage";
+import FrameSequence from "@/components/FrameSequence";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Data
 // ────────────────────────────────────────────────────────────────────────────
-
-// Sun-burst rays around the hero CTA — matches the Quick Quote pill in SiteNav.
-const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
-  const angle = i * 30;
-  const rad = (angle * Math.PI) / 180;
-  const rx = 100;
-  const ry = 54;
-  const lenJitter = [18, 14, 17, 15, 19, 13, 17, 15, 18, 14, 16, 15][i];
-  const angleJitter = [-3, 4, -2, 5, -4, 2, -3, 4, -5, 3, -2, 4][i];
-  return {
-    x: +(Math.cos(rad) * rx).toFixed(1),
-    y: +(Math.sin(rad) * ry).toFixed(1),
-    r: angle + angleJitter,
-    len: lenJitter,
-    delay: +(((i * 83) % 450) / 1000).toFixed(2),
-  };
-});
 
 const SERVICES = [
   {
@@ -50,7 +33,7 @@ const SERVICES = [
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-dream-cream">
+    <main className="paw-cursor min-h-screen bg-dream-cream">
       <div className="bg-dream-lavender-soft">
         <SiteNav />
       </div>
@@ -71,52 +54,51 @@ export default function AboutPage() {
 
 function Hero() {
   return (
-    <section className="relative isolate overflow-hidden text-white">
-      <ParallaxImage src="/cta-shirt.webp" speed={0.18} className="-z-10" />
-      <div
-        className="absolute inset-0 -z-10 bg-dream-ink/65"
-        aria-hidden="true"
-      />
-
-      <div className="relative mx-auto max-w-[1400px] px-6 pb-10 pt-16 lg:px-10 lg:pb-12 lg:pt-20">
-        <div className="flex flex-col items-center gap-6">
-          <h1 className="text-center font-display text-[68px] font-bold leading-[0.92] tracking-tight sm:text-[96px] lg:text-[140px]">
-            ABOUT US
+    <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
+      <div className="relative mx-auto grid max-w-[1400px] items-center gap-6 px-6 pb-12 pt-2 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:px-10 lg:pb-20 lg:pt-4">
+        <div className="relative z-10 flex flex-col items-start">
+          <h1 className="font-daruma text-[60px] leading-[0.95] tracking-tight text-black sm:text-[84px] lg:text-[112px]">
+            We print
+            <br />
+            with heart.
           </h1>
 
-          <p className="max-w-[520px] text-center text-[14px] leading-relaxed text-white/85 sm:text-[16px]">
+          <p className="mt-7 max-w-[460px] text-[15px] leading-relaxed text-black/75 sm:text-[16px]">
             We started Dreamhouse because too many shops treat custom prints
             like a vending machine. We&apos;d rather treat each job like a
             collaboration.
           </p>
+
+          <Link
+            href="/contact"
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-dream-purple-dark px-8 py-3.5 font-display text-[15px] font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
+          >
+            Talk to us
+          </Link>
         </div>
 
-        <div className="mt-6 flex justify-center">
-          <div className="sun-burst relative inline-block">
-            {SUN_RAYS.map((ray, i) => (
-              <span
-                key={i}
-                aria-hidden
-                className="sun-ray"
-                style={
-                  {
-                    "--x": `${ray.x}px`,
-                    "--y": `${ray.y}px`,
-                    "--r": `${ray.r}deg`,
-                    "--delay": `${ray.delay}s`,
-                    "--ray-color": "var(--color-dream-sun)",
-                    width: `${ray.len}px`,
-                  } as CSSProperties
-                }
-              />
-            ))}
-            <Link
-              href="/contact"
-              className="relative inline-flex items-center justify-center rounded-full bg-dream-sun px-10 py-4 font-display text-[18px] font-bold text-white transition-transform hover:-translate-y-0.5"
-            >
-              Talk to us
-            </Link>
-          </div>
+        <div className="relative h-[320px] w-full sm:h-[440px] lg:h-[560px]">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 255 310"
+            preserveAspectRatio="xMidYMid meet"
+            className="pointer-events-none absolute left-[62%] top-1/2 h-[88%] w-auto -translate-x-1/2 -translate-y-1/2 -rotate-6"
+          >
+            <path
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M105.828 17.3546C127.549 27.9333 127.243 62.0937 148.407 73.7446C175.388 88.5982 215.967 67.3211 237.158 89.6534C258.153 111.779 259.247 150.085 247.567 178.245C236.109 205.87 200.147 211.387 178.222 231.752C151.549 256.526 142.178 307.507 105.828 309.897C70.0597 312.249 41.858 273.927 26.1582 241.751C13.3656 215.533 35.4808 185.356 30.9985 156.538C27.6719 135.15 6.11289 120.762 3.98979 99.2215C0.953736 68.4189 -7.63895 28.916 16.5063 9.50574C40.3715 -9.67936 78.2903 3.94305 105.828 17.3546Z"
+              fill="#8080ff"
+            />
+          </svg>
+          <FrameSequence
+            basePath="/how it works/Dreamhouse/Timeline 1_"
+            start={0}
+            count={118}
+            fps={24}
+            alt="Dog imagining a custom-printed shirt"
+            className="pointer-events-none absolute left-1/2 top-[44%] h-auto w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:top-[42%] sm:w-[140%] lg:top-[40%] lg:w-[150%]"
+          />
         </div>
       </div>
 

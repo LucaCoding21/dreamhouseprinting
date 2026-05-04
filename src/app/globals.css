@@ -13,8 +13,10 @@
   --color-dream-sun: #ecbb25;
   --color-dream-sun-soft: #fbe8a3;
   --color-dream-peach: #ffa97a;
+  --color-dream-periwinkle: #8080ff;
 
   --font-display: var(--font-archivo);
+  --font-daruma: var(--font-darumadrop);
   --font-sans: var(--font-inter);
 }
 
@@ -309,3 +311,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     animation-duration: 1ms;
   }
 }
+
+/* Cute dog-paw cursor — scoped to pages that opt in via .paw-cursor */
+.paw-cursor,
+.paw-cursor * {
+  cursor: url("/paw-cursor-pointer.png") 21 26, auto;
+}
+.paw-cursor a,
+.paw-cursor a *,
+.paw-cursor button,
+.paw-cursor button *,
+.paw-cursor [role="button"],
+.paw-cursor [role="button"] *,
+.paw-cursor label,
+.paw-cursor label *,
+.paw-cursor summary,
+.paw-cursor summary * {
+  cursor: url("/paw-cursor.png") 19 26, pointer;
+}
+

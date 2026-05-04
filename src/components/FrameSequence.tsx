@@ -6,6 +6,9 @@ type Props = {
   basePath: string;
   count: number;
   fps?: number;
+  // First numeric index in the file name (e.g. 45 for `step1_0045.png`).
+  // Defaults to 0 for sequences that start at `_0000`.
+  start?: number;
   alt: string;
   className?: string;
   style?: React.CSSProperties;
@@ -15,6 +18,7 @@ export default function FrameSequence({
   basePath,
   count,
   fps = 24,
+  start = 0,
   alt,
   className,
   style,
@@ -24,10 +28,10 @@ export default function FrameSequence({
   useEffect(() => {
     for (let i = 0; i < count; i++) {
       const img = new window.Image();
-      const idx = String(i).padStart(4, "0");
+      const idx = String(start + i).padStart(4, "0");
       img.src = encodeURI(`${basePath}${idx}.png`);
     }
-  }, [basePath, count]);
+  }, [basePath, count, start]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -36,7 +40,7 @@ export default function FrameSequence({
     return () => clearInterval(interval);
   }, [count, fps]);
 
-  const idx = String(frame).padStart(4, "0");
+  const idx = String(start + frame).padStart(4, "0");
   const src = encodeURI(`${basePath}${idx}.png`);
 
   // eslint-disable-next-line @next/next/no-img-element

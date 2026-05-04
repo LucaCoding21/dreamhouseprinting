@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
-import { Archivo, Inter } from "next/font/google";
+import { Archivo, Darumadrop_One, Inter } from "next/font/google";
 import "./globals.css";
 
 const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const darumadrop = Darumadrop_One({
+  variable: "--font-darumadrop",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 const inter = Inter({
@@ -27,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${inter.variable} h-full antialiased`}
+      className={`${archivo.variable} ${darumadrop.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-dream-lavender text-dream-ink font-sans">
         <svg
