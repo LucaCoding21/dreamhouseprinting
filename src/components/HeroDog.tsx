@@ -6,9 +6,10 @@ export default function HeroDog() {
       <Image
         src="/hero-service.webp"
         alt=""
-        width={1600}
-        height={1600}
+        width={1200}
+        height={896}
         priority
+        sizes="(min-width: 1024px) 600px, 100vw"
         className="absolute h-auto w-[120%] max-w-none lg:w-[130%]"
         style={{
           top: "50%",

@@ -49,9 +49,10 @@ export default function Home() {
             <Image
               src="/homepage_assets/hero_photo.webp"
               alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
-              width={1200}
-              height={1200}
+              width={1600}
+              height={1607}
               priority
+              sizes="(min-width: 1024px) 700px, 100vw"
               className="h-auto w-full"
             />
           </div>
