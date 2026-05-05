@@ -48,22 +48,7 @@ export default function QuickQuote() {
   const lockInHref = buildLockInHref({ productType, printMethod, colorCount, qtyNum });
 
   return (
-    <section className="relative overflow-hidden">
-      <Image
-        src="/getaquickquote/shirts2.jpg"
-        alt=""
-        fill
-        priority={false}
-        sizes="100vw"
-        className="absolute inset-0 z-0 object-cover"
-        aria-hidden="true"
-      />
-      <div
-        className="absolute inset-0 z-0"
-        style={{ backgroundColor: "rgba(93, 92, 115, 0.86)" }}
-        aria-hidden="true"
-      />
-
+    <section className="relative overflow-hidden bg-dream-lavender-soft">
       <div className="relative z-10 mx-auto flex max-w-[980px] items-center px-6 py-32 lg:px-10 lg:py-40">
         <div id="quick-quote" className="rough-card relative w-full scroll-mt-28 px-6 py-10 sm:px-12 sm:py-12">
           <div className="text-center">

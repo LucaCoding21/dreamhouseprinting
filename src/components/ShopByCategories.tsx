@@ -56,42 +56,6 @@ const CATEGORIES: Category[] = [
 export default function ShopByCategories() {
   return (
     <section className="relative bg-white">
-      <svg
-        className="pointer-events-none absolute -top-[28px] left-0 z-10 block h-[28px] w-full"
-        preserveAspectRatio="xMidYMid"
-        aria-hidden="true"
-      >
-        <defs>
-          <pattern
-            id="sbc-scallop-top"
-            width="120"
-            height="28"
-            patternUnits="userSpaceOnUse"
-          >
-            <ellipse cx="60" cy="28" rx="60" ry="28" fill="#ffffff" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#sbc-scallop-top)" />
-      </svg>
-
-      <svg
-        className="pointer-events-none absolute -bottom-[28px] left-0 z-10 block h-[28px] w-full"
-        preserveAspectRatio="xMidYMid"
-        aria-hidden="true"
-      >
-        <defs>
-          <pattern
-            id="sbc-scallop-bottom"
-            width="120"
-            height="28"
-            patternUnits="userSpaceOnUse"
-          >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#ffffff" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#sbc-scallop-bottom)" />
-      </svg>
-
       <div className="mx-auto max-w-[1620px] px-6 pt-28 pb-32 lg:px-12 lg:pt-32 lg:pb-36">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
           <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
