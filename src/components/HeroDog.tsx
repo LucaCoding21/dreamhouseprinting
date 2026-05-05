@@ -4,7 +4,7 @@ export default function HeroDog() {
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[380px] lg:max-w-none">
       <Image
-        src="/hero-service.png"
+        src="/hero-service.webp"
         alt=""
         width={1600}
         height={1600}

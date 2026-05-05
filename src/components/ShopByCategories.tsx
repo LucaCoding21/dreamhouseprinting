@@ -26,7 +26,7 @@ const CATEGORIES: Category[] = [
   {
     label: "Hoodies",
     href: "/quote?product=hoodie",
-    image: "/shopbycategories/hoodie-cat.jpeg",
+    image: "/shopbycategories/hoodie-cat.webp",
     imageWidth: "100%",
     startingAt: "$32",
     tagTilt: 5,
@@ -44,7 +44,7 @@ const CATEGORIES: Category[] = [
   {
     label: "Bags",
     href: "/quote?product=bag",
-    image: "/shopbycategories/bag-cat.jpeg",
+    image: "/shopbycategories/bag-cat.webp",
     imageWidth: "100%",
     startingAt: "$14",
     tagTilt: 6,

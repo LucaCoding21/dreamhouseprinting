@@ -47,7 +47,7 @@ export default function Home() {
 
           <div className="relative">
             <Image
-              src="/homepage_assets/hero_photo.png"
+              src="/homepage_assets/hero_photo.webp"
               alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
               width={1200}
               height={1200}
