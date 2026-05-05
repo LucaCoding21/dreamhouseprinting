@@ -191,15 +191,7 @@ function Hero() {
     <section className="mx-auto grid max-w-[1400px] gap-10 px-6 pb-16 pt-6 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-20 lg:pt-8">
       <div>
         <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[56px] lg:text-[68px]">
-          Custom prints, done{" "}
-          <span className="whitespace-nowrap">
-            in-
-            <span className="relative inline-block">
-              house
-              <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
-            </span>
-          </span>
-          .
+          Custom prints, done <span className="whitespace-nowrap">in-house</span>.
         </h1>
         <p className="mt-6 max-w-[540px] text-base leading-relaxed text-dream-ink-soft sm:text-lg">
           Screen printing, embroidery, and the blanks to put them on. Pricing,
@@ -250,7 +242,7 @@ function Hero() {
 
 function Pitch() {
   return (
-    <section className="relative overflow-hidden bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
+    <section className="relative bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
       <svg
         aria-hidden="true"
         viewBox="0 0 1440 120"
@@ -267,6 +259,15 @@ function Pitch() {
       >
         <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
       </svg>
+
+      <Image
+        src="/sticker2.png"
+        alt=""
+        width={600}
+        height={600}
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-20 right-4 z-20 h-auto w-[200px] rotate-[8deg] sm:-bottom-28 sm:right-10 sm:w-[260px] lg:-bottom-32 lg:right-16 lg:w-[320px]"
+      />
 
       <div className="relative mx-auto flex max-w-[1320px] flex-col items-center px-6 text-center lg:px-10">
         <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
@@ -297,7 +298,15 @@ function Pitch() {
 
 function Methods() {
   return (
-    <section id="methods" className="mx-auto max-w-[1500px] px-6 pb-24 pt-10 lg:px-10 lg:pb-32 lg:pt-12">
+    <section id="methods" className="relative mx-auto max-w-[1500px] px-6 pb-24 pt-10 lg:px-10 lg:pb-32 lg:pt-12">
+      <Image
+        src="/sticker3.png"
+        alt=""
+        width={600}
+        height={600}
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-8 -left-16 z-10 h-auto w-[160px] -rotate-[8deg] sm:-bottom-12 sm:-left-20 sm:w-[210px] lg:-bottom-16 lg:-left-28 lg:w-[260px]"
+      />
       <SectionHeader
         kicker="Methods"
         cleanKicker
@@ -410,7 +419,7 @@ function Products() {
 
 function FAQ() {
   return (
-    <section className="relative bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
+    <section className="relative bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
@@ -434,12 +443,12 @@ function FAQ() {
             Frequently asked questions
           </h2>
           <Image
-            src="/cats3.png"
+            src="/faq.png"
             alt=""
-            width={320}
-            height={320}
+            width={2800}
+            height={1752}
             aria-hidden="true"
-            className="ml-auto mr-4 mt-20 h-auto w-[220px] sm:w-[260px] lg:mr-12 lg:w-[300px]"
+            className="ml-auto -mr-12 mt-20 h-auto w-[460px] sm:-mr-20 sm:w-[580px] lg:-mr-32 lg:w-[720px]"
           />
         </div>
 

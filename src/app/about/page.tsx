@@ -10,6 +10,23 @@ import SiteNav from "@/components/SiteNav";
 // Data
 // ────────────────────────────────────────────────────────────────────────────
 
+// 12 sun rays around the hero CTA pill — same recipe used elsewhere on the site.
+const HERO_CTA_RAYS = Array.from({ length: 12 }, (_, i) => {
+  const angle = i * 30;
+  const rad = (angle * Math.PI) / 180;
+  const rx = 148;
+  const ry = 72;
+  const lenJitter = [22, 18, 20, 17, 22, 16, 20, 18, 21, 17, 19, 18][i];
+  const angleJitter = [-3, 4, -2, 5, -4, 2, -3, 4, -5, 3, -2, 4][i];
+  return {
+    x: +(Math.cos(rad) * rx).toFixed(1),
+    y: +(Math.sin(rad) * ry).toFixed(1),
+    r: angle + angleJitter,
+    len: lenJitter,
+    delay: +(((i * 83) % 450) / 1000).toFixed(2),
+  };
+});
+
 const SERVICES = [
   {
     name: "Screen printing",
@@ -62,27 +79,65 @@ export default function AboutPage() {
 function Hero() {
   return (
     <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
-      <div className="relative mx-auto flex max-w-[1400px] flex-col items-start px-6 pb-16 pt-20 lg:px-10 lg:pb-24 lg:pt-28">
-        <h1 className="font-display text-[48px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[64px] lg:text-[80px]">
-          Why we started
-          <br />
-          Dreamhouse.
-        </h1>
+      <div className="relative mx-auto grid max-w-[1400px] gap-10 px-6 pb-8 pt-2 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-12 lg:pt-3">
+        <div className="flex flex-col items-start">
+          <h1 className="font-display text-[48px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[64px] lg:text-[80px]">
+            Why we started
+            <br />
+            Dreamhouse.
+          </h1>
 
-        <p className="mt-7 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-          We started Dreamhouse to put quality, customers, and employees
-          first. Everyone here cares about what they do, so your order
-          gets the same care.
-        </p>
+          <p className="mt-7 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            We started Dreamhouse to put quality, customers, and employees
+            first. Everyone here cares about what they do, so your order
+            gets the same care.
+          </p>
 
-        <Link
-          href="/contact"
-          className="mt-8 inline-flex items-center justify-center rounded-full bg-dream-purple-dark px-8 py-3.5 font-display text-[15px] font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
-        >
-          Talk to us
-        </Link>
+          <div
+            className="sun-burst relative mt-10 inline-block"
+            style={{ "--ray-color": "#ecbb25" } as CSSProperties}
+          >
+            {HERO_CTA_RAYS.map((ray, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className="sun-ray"
+                style={
+                  {
+                    "--x": `${ray.x}px`,
+                    "--y": `${ray.y}px`,
+                    "--r": `${ray.r}deg`,
+                    "--delay": `${ray.delay}s`,
+                    width: `${ray.len}px`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+            <Link
+              href="/contact"
+              className="relative inline-flex items-center justify-center rounded-full bg-dream-sun px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
+            >
+              Talk to us
+            </Link>
+          </div>
+        </div>
+
+        <div className="relative flex justify-center lg:justify-end">
+          <Image
+            src="/about-hero.png"
+            alt=""
+            width={1063}
+            height={1063}
+            priority
+            unoptimized
+            aria-hidden="true"
+            sizes="(min-width: 1024px) 600px, (min-width: 640px) 520px, 420px"
+            className="h-auto w-full max-w-[420px] sm:max-w-[520px] lg:max-w-[600px]"
+          />
+        </div>
       </div>
 
+      <RoughEdgeFilter />
     </section>
   );
 }
@@ -366,6 +421,24 @@ function Services() {
 // ────────────────────────────────────────────────────────────────────────────
 // Bits
 // ────────────────────────────────────────────────────────────────────────────
+
+function RoughEdgeFilter() {
+  return (
+    <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
+      <defs>
+        <filter id="rough-edges" x="-5%" y="-30%" width="110%" height="160%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.04"
+            numOctaves="2"
+            seed="3"
+          />
+          <feDisplacementMap in="SourceGraphic" scale="3" />
+        </filter>
+      </defs>
+    </svg>
+  );
+}
 
 function ScribbleUnderline({ className = "" }: { className?: string }) {
   return (

@@ -15,7 +15,7 @@ const TOPICS = [
 type Topic = (typeof TOPICS)[number]["value"];
 
 const inputCls =
-  "w-full rounded-2xl border-2 border-dream-ink/80 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20 disabled:opacity-60";
+  "w-full rounded-2xl border border-dream-ink/15 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition hover:border-dream-ink/40 focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20 disabled:opacity-60";
 
 // 12 sun rays around the submit button — same recipe used elsewhere on the site.
 const SUBMIT_RAYS = Array.from({ length: 12 }, (_, i) => {
@@ -180,9 +180,13 @@ export default function ContactPage() {
                       setForm((f) => ({ ...f, message: e.target.value }))
                     }
                     rows={6}
+                    maxLength={1000}
                     placeholder="Tell us a bit about what you're thinking…"
-                    className={`${inputCls} resize-y`}
+                    className={`${inputCls} resize-none`}
                   />
+                  <span className="mt-1.5 block text-right text-[12px] text-dream-ink-soft">
+                    {form.message.length}/1000
+                  </span>
                 </Field>
 
                 {error ? (
@@ -258,14 +262,14 @@ export default function ContactPage() {
               icon={<PinIcon />}
             />
 
-            <div className="rounded-[28px] bg-dream-purple px-7 py-7 text-white">
-              <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-sun-soft">
+            <div className="rounded-[28px] bg-dream-sun px-7 py-7 text-dream-ink">
+              <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-black">
                 Already know what you want?
               </span>
-              <h3 className="mt-3 font-display text-[24px] font-bold leading-tight sm:text-[26px]">
+              <h3 className="mt-3 font-display text-[24px] font-bold leading-tight text-black sm:text-[26px]">
                 Skip the chat. Get a real quote.
               </h3>
-              <p className="mt-3 text-[14px] leading-relaxed text-white/80">
+              <p className="mt-3 text-[14px] leading-relaxed text-dream-ink/70">
                 Five quick questions about your job and Julian comes back with
                 pricing within a business day.
               </p>
@@ -295,10 +299,7 @@ function Hero() {
   return (
     <section className="relative bg-dream-lavender-soft">
       <div className="mx-auto flex max-w-[820px] flex-col items-center px-6 pb-24 pt-16 text-center lg:px-10 lg:pb-32 lg:pt-24">
-        <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
-          Contact
-        </span>
-        <h1 className="mt-5 font-display text-[60px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[76px] lg:text-[96px]">
+        <h1 className="font-display text-[60px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[76px] lg:text-[96px]">
           Let&apos;s{" "}
           <span className="relative inline-block">
             talk
@@ -347,12 +348,7 @@ function BeforeYouWrite() {
             Before you write
           </span>
           <h2 className="mt-4 font-display text-[40px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px]">
-            Three things that{" "}
-            <span className="relative inline-block">
-              speed it up
-              <ScribbleUnderline className="-bottom-1" />
-            </span>
-            .
+            Three things that speed it up.
           </h2>
         </div>
 
