@@ -3,6 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { calculatePrice } from "@/lib/pricing";
+import AnimatedPrice from "./AnimatedPrice";
+import type {
+  PrintMethod as FormPrintMethod,
+  ProductType as FormProductType,
+} from "@/lib/formTypes";
 
 const DREAM_LETTERS = ["D", "R", "E", "A", "M"] as const;
 const DREAM_COLORS = [
@@ -14,18 +20,32 @@ const DREAM_COLORS = [
 ];
 const DEFAULT_LETTER = "#2a1b8a";
 
-const PRODUCT_TYPES = ["Shirt", "Hoodie", "Hat/Toque", "Other"] as const;
-const PRINT_METHODS = ["Print", "Embroidery"] as const;
-
-type ProductType = (typeof PRODUCT_TYPES)[number];
-type PrintMethod = (typeof PRINT_METHODS)[number];
+// Calculator exposes a friendlier subset of the form's product types. The
+// `value` is what the form/pricing module expects, the `label` is what the
+// customer sees.
+const PRODUCT_OPTIONS: { value: FormProductType; label: string }[] = [
+  { value: "t-shirts", label: "Shirt" },
+  { value: "hoodies", label: "Hoodie" },
+  { value: "hats", label: "Hat / Toque" },
+  { value: "other", label: "Other" },
+];
+const PRINT_METHOD_OPTIONS: { value: FormPrintMethod; label: string }[] = [
+  { value: "screen", label: "Print" },
+  { value: "embroidery", label: "Embroidery" },
+];
+const QUANTITY_PRESETS = [25, 50, 100, 250, 500] as const;
 
 export default function QuickQuote() {
-  const [productType, setProductType] = useState<ProductType>("Shirt");
-  const [printMethod, setPrintMethod] = useState<PrintMethod>("Print");
+  const [productType, setProductType] = useState<FormProductType>("t-shirts");
+  const [printMethod, setPrintMethod] = useState<FormPrintMethod>("screen");
   const [quantity, setQuantity] = useState("50");
+  const [useCustomQty, setUseCustomQty] = useState(false);
   const [printColors, setPrintColors] = useState("1");
-  const [printLocations, setPrintLocations] = useState("");
+
+  const colorCount = parseColorCount(printColors);
+  const qtyNum = Math.max(0, parseInt(quantity, 10) || 0);
+  const { perUnit } = calculatePrice(productType, printMethod, colorCount, qtyNum);
+  const lockInHref = buildLockInHref({ productType, printMethod, colorCount, qtyNum });
 
   return (
     <section className="relative overflow-hidden">
@@ -45,13 +65,13 @@ export default function QuickQuote() {
       />
 
       <div className="relative z-10 mx-auto flex max-w-[980px] items-center px-6 py-32 lg:px-10 lg:py-40">
-        <div className="rough-card relative w-full px-6 py-10 sm:px-12 sm:py-12">
+        <div id="quick-quote" className="rough-card relative w-full scroll-mt-28 px-6 py-10 sm:px-12 sm:py-12">
           <div className="text-center">
             <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
               Get A Quick Quote
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px]">
-              Pick your products, upload your artwork and choose your quantities. You&apos;ll get an instant quote.
+              Pick your product, method, colors and quantity. Your estimate updates as you go.
             </p>
           </div>
 
@@ -59,13 +79,13 @@ export default function QuickQuote() {
             <form className="flex flex-col gap-5">
               <Field label="Product Type">
                 <div className="flex flex-wrap gap-2">
-                  {PRODUCT_TYPES.map((t) => (
+                  {PRODUCT_OPTIONS.map((opt) => (
                     <PillButton
-                      key={t}
-                      active={productType === t}
-                      onClick={() => setProductType(t)}
+                      key={opt.value}
+                      active={productType === opt.value}
+                      onClick={() => setProductType(opt.value)}
                     >
-                      {t}
+                      {opt.label}
                     </PillButton>
                   ))}
                 </div>
@@ -73,13 +93,13 @@ export default function QuickQuote() {
 
               <Field label="Print method">
                 <div className="flex flex-wrap gap-2">
-                  {PRINT_METHODS.map((m) => (
+                  {PRINT_METHOD_OPTIONS.map((opt) => (
                     <PillButton
-                      key={m}
-                      active={printMethod === m}
-                      onClick={() => setPrintMethod(m)}
+                      key={opt.value}
+                      active={printMethod === opt.value}
+                      onClick={() => setPrintMethod(opt.value)}
                     >
-                      {m}
+                      {opt.label}
                     </PillButton>
                   ))}
                 </div>
@@ -102,51 +122,44 @@ export default function QuickQuote() {
                 </div>
               </Field>
 
-              <div className="grid grid-cols-[120px_1fr] gap-4">
-                <Field label="Quantity" inline>
+              <Field label="Quantity">
+                <div className="flex flex-wrap gap-1.5">
+                  {QUANTITY_PRESETS.map((n) => (
+                    <PillButton
+                      key={n}
+                      active={!useCustomQty && quantity === String(n)}
+                      onClick={() => {
+                        setUseCustomQty(false);
+                        setQuantity(String(n));
+                      }}
+                    >
+                      {n}
+                    </PillButton>
+                  ))}
+                  <PillButton
+                    active={useCustomQty}
+                    onClick={() => setUseCustomQty(true)}
+                  >
+                    Custom
+                  </PillButton>
+                </div>
+                {useCustomQty && (
                   <input
                     type="number"
                     min="1"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink focus:border-dream-purple focus:outline-none"
+                    placeholder="How many?"
+                    autoFocus
+                    className="mt-2 w-32 rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
                   />
-                </Field>
-                <Field label="Print locations" inline>
-                  <input
-                    type="text"
-                    value={printLocations}
-                    onChange={(e) => setPrintLocations(e.target.value)}
-                    placeholder="e.g. front, left sleeve"
-                    className="w-full rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
-                  />
-                </Field>
-              </div>
+                )}
+              </Field>
 
-              <div className="rounded-2xl border border-dashed border-dream-ink/25 px-4 py-5 text-center text-sm text-dream-ink/55">
-                Upload your artwork <span className="text-dream-ink/35">(optional)</span>
-                <span className="mt-0.5 block text-[11px] text-dream-ink/35">
-                  .png · .ai · .pdf · .eps
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Link
-                  href="/quote"
-                  className="inline-flex items-center justify-center rounded-full bg-dream-sun px-6 py-3.5 font-display text-sm font-bold text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.15)] transition hover:-translate-y-0.5"
-                >
-                  Start your order
-                </Link>
-                <Link
-                  href="/quote"
-                  className="font-display text-sm font-semibold text-dream-ink/70 underline-offset-4 transition hover:text-dream-ink hover:underline"
-                >
-                  Get a detailed quote →
-                </Link>
-              </div>
+              <PriceCard perUnit={perUnit} quantity={qtyNum} lockInHref={lockInHref} />
             </form>
 
-            <HoodieDiagram colorCount={parseColorCount(printColors)} />
+            <HoodieDiagram colorCount={colorCount} />
           </div>
         </div>
       </div>
@@ -157,21 +170,13 @@ export default function QuickQuote() {
 function Field({
   label,
   children,
-  inline,
-  muted,
 }: {
   label: string;
   children: React.ReactNode;
-  inline?: boolean;
-  muted?: boolean;
 }) {
   return (
-    <div className={inline ? "" : ""}>
-      <div
-        className={`mb-1.5 font-display text-[13px] font-bold ${
-          muted ? "text-dream-ink/60" : "text-dream-ink"
-        }`}
-      >
+    <div>
+      <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">
         {label}
       </div>
       {children}
@@ -216,6 +221,67 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
       </div>
     </div>
   );
+}
+
+function PriceCard({
+  perUnit,
+  quantity,
+  lockInHref,
+}: {
+  perUnit: number;
+  quantity: number;
+  lockInHref: string;
+}) {
+  const hasQty = quantity > 0;
+  return (
+    <div className="mt-1 rounded-2xl bg-dream-sun px-6 py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
+      <div className="flex items-center justify-between">
+        <span className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-dream-ink/65">
+          Estimated price
+        </span>
+        <span className="text-[11px] text-dream-ink/55">Final quote may vary</span>
+      </div>
+      <div className="mt-3 flex items-baseline gap-2">
+        <div className="font-display text-5xl font-bold leading-none text-black sm:text-6xl tabular-nums">
+          {hasQty ? <AnimatedPrice value={perUnit} /> : "—"}
+        </div>
+        <div className="font-display text-base font-semibold text-dream-ink/70">
+          {hasQty ? "/ item" : ""}
+        </div>
+      </div>
+      {!hasQty && (
+        <div className="mt-2 text-xs text-dream-ink/55">Enter a quantity to see your price</div>
+      )}
+      {hasQty && (
+        <Link
+          href={lockInHref}
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-dream-ink px-6 py-3.5 font-display text-base font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:w-auto"
+        >
+          Lock in this price
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function buildLockInHref({
+  productType,
+  printMethod,
+  colorCount,
+  qtyNum,
+}: {
+  productType: FormProductType;
+  printMethod: FormPrintMethod;
+  colorCount: number;
+  qtyNum: number;
+}): string {
+  const params = new URLSearchParams({
+    type: productType,
+    method: printMethod,
+    colors: String(colorCount),
+    qty: String(qtyNum),
+  });
+  return `/quote?${params.toString()}`;
 }
 
 function PillButton({

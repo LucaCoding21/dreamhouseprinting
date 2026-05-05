@@ -108,7 +108,7 @@ export default function SiteNav() {
             />
           ))}
           <Link
-            href="/quote"
+            href="/#quick-quote"
             className="rough-pill rough-pill-filled relative inline-flex items-center justify-center px-8 py-3.5 font-display text-[17px] font-bold text-white transition-transform hover:-translate-y-0.5"
           >
             Quick Quote

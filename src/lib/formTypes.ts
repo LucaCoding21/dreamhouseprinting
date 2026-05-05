@@ -114,7 +114,7 @@ export const emptyFormData: QuoteFormData = {
   phone: "",
   referralCode: "",
   productType: "",
-  garmentBrand: "",
+  garmentBrand: "no-preference",
   garmentColor: "",
   sizes: {},
   sizesLater: false,

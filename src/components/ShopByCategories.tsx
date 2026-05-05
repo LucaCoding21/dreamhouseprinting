@@ -95,7 +95,7 @@ export default function ShopByCategories() {
       <div className="mx-auto max-w-[1620px] px-6 pt-28 pb-32 lg:px-12 lg:pt-32 lg:pb-36">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
           <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
-            Shop by category
+            What we print
           </h2>
           <p className="max-w-xl text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
             Quality apparel and accessories for teams, brands, and businesses. Pick a category to start your custom order.

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import HeroDog from "@/components/HeroDog";
 import ParallaxImage from "@/components/ParallaxImage";
+import Reveal from "@/components/Reveal";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 
@@ -269,7 +270,7 @@ function Pitch() {
         className="pointer-events-none absolute -bottom-20 right-4 z-20 h-auto w-[200px] rotate-[8deg] sm:-bottom-28 sm:right-10 sm:w-[260px] lg:-bottom-32 lg:right-16 lg:w-[320px]"
       />
 
-      <div className="relative mx-auto flex max-w-[1320px] flex-col items-center px-6 text-center lg:px-10">
+      <Reveal variant="up" className="relative mx-auto flex max-w-[1320px] flex-col items-center px-6 text-center lg:px-10">
         <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
           The Dreamhouse workshop
         </span>
@@ -287,7 +288,7 @@ function Pitch() {
         >
           Get a quote
         </Link>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -307,23 +308,27 @@ function Methods() {
         aria-hidden="true"
         className="pointer-events-none absolute -bottom-8 -left-16 z-10 h-auto w-[160px] -rotate-[8deg] sm:-bottom-12 sm:-left-20 sm:w-[210px] lg:-bottom-16 lg:-left-28 lg:w-[260px]"
       />
-      <SectionHeader
-        kicker="Methods"
-        cleanKicker
-        title={
-          <>
-            Three ways to print.
-          </>
-        }
-        subtitle="All done in-house. Pick the one that fits your job."
-      />
+      <Reveal variant="up">
+        <SectionHeader
+          kicker="Methods"
+          cleanKicker
+          title={
+            <>
+              Three ways to print.
+            </>
+          }
+          subtitle="All done in-house. Pick the one that fits your job."
+        />
+      </Reveal>
 
       <div className="mt-20 flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-0">
         {METHODS.map((m, i) => (
-          <article
+          <Reveal
             key={m.name}
+            variant="stamp"
+            delay={i * 100}
             className={`relative h-[300px] w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:flex-1 sm:px-9 ${i > 0 ? "sm:-ml-6" : ""} ${m.bg}`}
-            style={{ rotate: `${m.rotate}deg` }}
+            style={{ rotate: `${m.rotate}deg` } as CSSProperties}
           >
             <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
               {m.name}
@@ -342,7 +347,7 @@ function Methods() {
             <p className={`absolute bottom-7 left-8 right-8 z-10 max-w-[58%] text-[15px] leading-relaxed sm:left-9 sm:text-[16px] ${m.descColor}`}>
               {m.description}
             </p>
-          </article>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -357,17 +362,19 @@ function Products() {
   return (
     <section className="bg-dream-cream pb-32 pt-20 lg:pb-44 lg:pt-24">
       <div className="mx-auto max-w-[1550px] px-6 lg:px-10">
-        <SectionHeader
-          kicker="Products"
-          cleanKicker
-          title={<>What we print on.</>}
-          subtitle="The blanks we keep on hand. Ask if you don't see something."
-        />
+        <Reveal variant="up">
+          <SectionHeader
+            kicker="Products"
+            cleanKicker
+            title={<>What we print on.</>}
+            subtitle="The blanks we keep on hand. Ask if you don't see something."
+          />
+        </Reveal>
 
         <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-          {PRODUCT_CATEGORIES.map((cat) => (
+          {PRODUCT_CATEGORIES.map((cat, i) => (
+            <Reveal key={cat.name} variant="up" delay={i * 80}>
             <Link
-              key={cat.name}
               href={cat.href}
               aria-label={`${cat.name}, from ${cat.startingAt}, minimum ${cat.minQty}, ${cat.turnaround}`}
               className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-4 focus-visible:ring-offset-dream-cream"
@@ -406,6 +413,7 @@ function Products() {
                 </p>
               </div>
             </Link>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -439,23 +447,27 @@ function FAQ() {
       </svg>
       <div className="relative mx-auto grid max-w-[1500px] gap-12 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
-          <h2 className="font-display text-[40px] font-bold leading-[1] tracking-tight text-dream-ink sm:text-[52px] lg:text-[64px]">
-            Frequently asked questions
-          </h2>
-          <Image
-            src="/faq.png"
-            alt=""
-            width={2800}
-            height={1752}
-            aria-hidden="true"
-            className="ml-auto -mr-12 mt-20 h-auto w-[460px] sm:-mr-20 sm:w-[580px] lg:-mr-32 lg:w-[720px]"
-          />
+          <Reveal variant="up">
+            <h2 className="font-display text-[40px] font-bold leading-[1] tracking-tight text-dream-ink sm:text-[52px] lg:text-[64px]">
+              Frequently asked questions
+            </h2>
+          </Reveal>
+          <Reveal variant="stamp" delay={120}>
+            <Image
+              src="/faq.png"
+              alt=""
+              width={2800}
+              height={1752}
+              aria-hidden="true"
+              className="ml-auto -mr-12 mt-20 h-auto w-[460px] sm:-mr-20 sm:w-[580px] lg:-mr-32 lg:w-[720px]"
+            />
+          </Reveal>
         </div>
 
         <div className="flex flex-col gap-3">
-          {FAQS.map((item) => (
+          {FAQS.map((item, i) => (
+            <Reveal key={item.q} variant="up" delay={i * 40}>
             <details
-              key={item.q}
               className="faq-accordion rough-card group relative px-6 py-5"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-dream-ink sm:text-lg">
@@ -471,6 +483,7 @@ function FAQ() {
                 {item.a}
               </p>
             </details>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -488,13 +501,17 @@ function CTA() {
       <ParallaxImage src="/cta-shirt.webp" speed={0.25} className="-z-10" />
       <div className="absolute inset-0 -z-10 bg-dream-ink/55" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-[1400px] flex-col items-center px-6 py-20 text-center lg:px-10 lg:py-24">
-        <h2 className="font-display text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl lg:text-[64px]">
-          Ready when you are.
-        </h2>
-        <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-white/80 sm:text-base">
-          Tell us what you want and we'll come back with a real number, usually
-          within a business day.
-        </p>
+        <Reveal variant="up">
+          <h2 className="font-display text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl lg:text-[64px]">
+            Ready when you are.
+          </h2>
+        </Reveal>
+        <Reveal variant="up" delay={80}>
+          <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-white/80 sm:text-base">
+            Tell us what you want and we'll come back with a real number, usually
+            within a business day.
+          </p>
+        </Reveal>
 
         <div className="mt-10">
           <div

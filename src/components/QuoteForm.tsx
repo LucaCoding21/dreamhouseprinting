@@ -1,10 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  GARMENT_BRAND_OPTIONS,
-  GARMENT_COLORS,
   PRINT_COLOR_OPTIONS,
   PRINT_LOCATIONS,
   PRINT_METHOD_OPTIONS,
@@ -12,7 +11,6 @@ import {
   SIZE_KEYS,
   emptyFormData,
   sumSizes,
-  type GarmentBrand,
   type PrintLocation,
   type PrintMethod,
   type ProductType,
@@ -20,13 +18,13 @@ import {
   type SizeBreakdown,
   type SizeKey,
 } from "@/lib/formTypes";
+import { calculatePrice } from "@/lib/pricing";
+import AnimatedPrice from "./AnimatedPrice";
 
 const STEPS = [
-  { key: "contact", title: "Get in Contact", subtitle: "So Julian can send your quote back." },
-  { key: "product", title: "What are you printing on?", subtitle: "Garment, color, and how many." },
-  { key: "print", title: "Print details", subtitle: "Where it goes and how it's printed." },
-  { key: "artwork", title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS — whatever you've got." },
-  { key: "timeline", title: "Timeline & notes", subtitle: "When you need it and anything else." },
+  { key: "garment", title: "Garment & print", subtitle: "What we're printing on and how." },
+  { key: "artwork", title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS, whatever you've got." },
+  { key: "wrap", title: "Wrap it up", subtitle: "How to reach you and when you need it." },
 ] as const;
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB per file
@@ -43,7 +41,45 @@ function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
-type StepIndex = 0 | 1 | 2 | 3 | 4;
+const PRODUCT_TYPE_VALUES = PRODUCT_OPTIONS.map((o) => o.value) as readonly ProductType[];
+const PRINT_METHOD_VALUES = PRINT_METHOD_OPTIONS.map((o) => o.value) as readonly PrintMethod[];
+
+// Reads the calculator's handoff (?type=&method=&colors=&qty=) and produces a
+// partial form-data update. Only known values get applied so a malformed URL
+// is harmless.
+function readPrefillFromUrl(): Partial<QuoteFormData> {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const out: Partial<QuoteFormData> = {};
+
+  const type = params.get("type");
+  if (type && (PRODUCT_TYPE_VALUES as readonly string[]).includes(type)) {
+    out.productType = type as ProductType;
+  }
+
+  const method = params.get("method");
+  if (method && (PRINT_METHOD_VALUES as readonly string[]).includes(method)) {
+    out.printMethod = method as PrintMethod;
+  }
+
+  const colors = params.get("colors");
+  if (colors) {
+    const n = parseInt(colors, 10);
+    if (Number.isFinite(n) && n >= 1) {
+      out.printColors = n >= 4 ? "4+" : String(n);
+    }
+  }
+
+  const qty = params.get("qty");
+  if (qty && Number(qty) > 0) {
+    out.quantity = qty;
+    out.sizesLater = true;
+  }
+
+  return out;
+}
+
+type StepIndex = 0 | 1 | 2;
 
 export default function QuoteForm() {
   const [step, setStep] = useState<StepIndex>(0);
@@ -65,6 +101,14 @@ export default function QuoteForm() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
+  // Prefill from the calculator handoff (?type=&method=&colors=&qty=). Runs
+  // once after mount so SSR markup stays stable.
+  useEffect(() => {
+    const prefill = readPrefillFromUrl();
+    if (Object.keys(prefill).length === 0) return;
+    setData((d) => ({ ...d, ...prefill }));
+  }, []);
+
   const update = <K extends keyof QuoteFormData>(key: K, value: QuoteFormData[K]) =>
     setData((d) => ({ ...d, [key]: value }));
 
@@ -80,14 +124,8 @@ export default function QuoteForm() {
   const stepErrors = useMemo(() => {
     const errs: Record<string, string> = {};
     if (step === 0) {
-      if (!data.name.trim()) errs.name = "We need a name to put on your quote.";
-      if (!data.email.trim()) errs.email = "Email is required so Julian can reply.";
-      else if (!isValidEmail(data.email)) errs.email = "That email doesn't look right.";
-      if (!data.phone.trim()) errs.phone = "Phone is required.";
-    }
-    if (step === 1) {
+      // Garment + print, merged.
       if (!data.productType) errs.productType = "Pick what you're printing on.";
-      if (!data.garmentBrand) errs.garmentBrand = "Pick a brand tier (or let Julian choose).";
       if (!data.garmentColor.trim()) errs.garmentColor = "Give us a garment color.";
       if (data.sizesLater) {
         if (!data.quantity.trim()) errs.quantity = "How many pieces total?";
@@ -96,12 +134,17 @@ export default function QuoteForm() {
         const total = sumSizes(data.sizes);
         if (total <= 0) errs.sizes = "Enter at least one size count.";
       }
-    }
-    if (step === 2) {
       if (!data.printColors) errs.printColors = "How many print colors?";
       if (data.printLocations.length === 0) errs.printLocations = "Pick at least one print location.";
     }
-    // Step 3 (artwork) and 4 (timeline) have no hard-required fields beyond softer guidance.
+    // step === 1 (artwork) has no hard-required fields.
+    if (step === 2) {
+      // Wrap up: contact + timeline. Only contact is required.
+      if (!data.name.trim()) errs.name = "We need a name to put on your quote.";
+      if (!data.email.trim()) errs.email = "Email is required so Julian can reply.";
+      else if (!isValidEmail(data.email)) errs.email = "That email doesn't look right.";
+      if (!data.phone.trim()) errs.phone = "Phone is required.";
+    }
     return errs;
   }, [step, data]);
 
@@ -111,7 +154,7 @@ export default function QuoteForm() {
     setTouchedNext(true);
     if (!canAdvance) return;
     setTouchedNext(false);
-    setStep((s) => Math.min(4, s + 1) as StepIndex);
+    setStep((s) => Math.min(2, s + 1) as StepIndex);
   };
 
   const onBack = () => {
@@ -192,28 +235,21 @@ export default function QuoteForm() {
 
       <div className="mt-6 flex-1">
         {step === 0 && (
-          <StepContact
-            data={data}
-            update={update}
-            errors={touchedNext ? stepErrors : {}}
-          />
+          <div className="space-y-8">
+            <StepProduct
+              data={data}
+              update={update}
+              errors={touchedNext ? stepErrors : {}}
+            />
+            <StepPrint
+              data={data}
+              update={update}
+              toggleLocation={toggleLocation}
+              errors={touchedNext ? stepErrors : {}}
+            />
+          </div>
         )}
         {step === 1 && (
-          <StepProduct
-            data={data}
-            update={update}
-            errors={touchedNext ? stepErrors : {}}
-          />
-        )}
-        {step === 2 && (
-          <StepPrint
-            data={data}
-            update={update}
-            toggleLocation={toggleLocation}
-            errors={touchedNext ? stepErrors : {}}
-          />
-        )}
-        {step === 3 && (
           <StepArtwork
             data={data}
             update={update}
@@ -224,16 +260,23 @@ export default function QuoteForm() {
             onChange={(e) => handleFilePick(e, setArtworkFiles, ALLOWED_ARTWORK)}
           />
         )}
-        {step === 4 && (
-          <StepTimeline
-            data={data}
-            update={update}
-            files={priceMatchFiles}
-            onPick={() => priceMatchInputRef.current?.click()}
-            onRemove={(i) => removeFile(i, setPriceMatchFiles)}
-            inputRef={priceMatchInputRef}
-            onChange={(e) => handleFilePick(e, setPriceMatchFiles)}
-          />
+        {step === 2 && (
+          <div className="space-y-8">
+            <StepContact
+              data={data}
+              update={update}
+              errors={touchedNext ? stepErrors : {}}
+            />
+            <StepTimeline
+              data={data}
+              update={update}
+              files={priceMatchFiles}
+              onPick={() => priceMatchInputRef.current?.click()}
+              onRemove={(i) => removeFile(i, setPriceMatchFiles)}
+              inputRef={priceMatchInputRef}
+              onChange={(e) => handleFilePick(e, setPriceMatchFiles)}
+            />
+          </div>
         )}
       </div>
 
@@ -242,6 +285,8 @@ export default function QuoteForm() {
           {submitError}
         </div>
       )}
+
+      <QuoteSummary data={data} />
 
       <div className="mt-6 flex items-center gap-3">
         {step > 0 && (
@@ -254,7 +299,7 @@ export default function QuoteForm() {
             Back
           </button>
         )}
-        {step < 4 ? (
+        {step < 2 ? (
           <button
             type="button"
             onClick={onNext}
@@ -283,20 +328,56 @@ export default function QuoteForm() {
 
 function Header() {
   return (
-    <header className="flex items-center gap-3">
-      <Image
-        src="/dreamhouse-logo.svg"
-        alt="Dreamhouse Printing"
-        width={52}
-        height={48}
-        priority
-      />
-      <h2 className="font-display text-2xl font-extrabold leading-none text-dream-purple sm:text-3xl">
-        Dreamhouse
-        <br />
-        Printing
-      </h2>
+    <header>
+      <Link
+        href="/"
+        aria-label="Back to Dreamhouse Printing home"
+        className="inline-flex items-center gap-3 transition-transform hover:-translate-y-0.5"
+      >
+        <Image
+          src="/dreamhouse-logo.svg"
+          alt="Dreamhouse Printing"
+          width={52}
+          height={48}
+          priority
+        />
+        <h2 className="font-display text-2xl font-extrabold leading-none text-dream-purple sm:text-3xl">
+          Dreamhouse
+          <br />
+          Printing
+        </h2>
+      </Link>
     </header>
+  );
+}
+
+function QuoteSummary({ data }: { data: QuoteFormData }) {
+  const qty = data.sizesLater
+    ? Math.max(0, parseInt(data.quantity, 10) || 0)
+    : sumSizes(data.sizes);
+  const colors = data.printColors === "4+" ? 4 : parseInt(data.printColors, 10) || 1;
+  const { perUnit } = calculatePrice(data.productType, data.printMethod, colors, qty);
+  if (!perUnit) return null;
+
+  const productLabel =
+    PRODUCT_OPTIONS.find((o) => o.value === data.productType)?.label ?? "items";
+
+  return (
+    <div className="fixed bottom-6 right-6 z-40 rounded-2xl bg-dream-sun px-6 py-4 text-dream-ink shadow-[0_5px_0_0_rgba(27,20,88,0.9)]">
+      <div className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-dream-ink/65">
+        Estimated price
+      </div>
+      <div className="mt-1 flex items-baseline gap-2">
+        <AnimatedPrice
+          value={perUnit}
+          className="font-display text-4xl font-bold leading-none text-black tabular-nums"
+        />
+        <span className="font-display text-sm font-semibold text-dream-ink/70">/ item</span>
+      </div>
+      <div className="mt-1.5 font-display text-xs font-semibold text-dream-ink/65">
+        {qty} {productLabel}
+      </div>
+    </div>
   );
 }
 
@@ -505,62 +586,15 @@ function StepProduct({
         </div>
       </Field>
 
-      <Field label="Brand tier" error={errors.garmentBrand}>
-        <div className="grid grid-cols-2 gap-2">
-          {GARMENT_BRAND_OPTIONS.map((opt) => {
-            const selected = data.garmentBrand === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => update("garmentBrand", opt.value as GarmentBrand)}
-                className={`rounded-2xl border-2 px-3 py-3 text-left transition ${
-                  selected
-                    ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
-                    : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
-                }`}
-              >
-                <span className="block font-display text-base font-semibold leading-tight">
-                  {opt.label}
-                </span>
-                <span
-                  className={`block text-xs ${
-                    selected ? "text-white/80" : "text-dream-ink-soft"
-                  }`}
-                >
-                  {opt.hint}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-
       <Field label="Garment color" error={errors.garmentColor} htmlFor="color">
         <input
           id="color"
           type="text"
           value={data.garmentColor}
           onChange={(e) => update("garmentColor", e.target.value)}
-          placeholder="e.g. Heather grey"
+          placeholder="e.g. Heather grey, black, white"
           className={inputCls}
         />
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {GARMENT_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => update("garmentColor", c)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                data.garmentColor.toLowerCase() === c.toLowerCase()
-                  ? "border-dream-ink bg-dream-ink text-white"
-                  : "border-dream-ink/40 bg-white/70 text-dream-ink hover:border-dream-ink"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
       </Field>
 
       {data.sizesLater ? (
@@ -717,27 +751,6 @@ function StepPrint({
         </div>
       </Field>
 
-      <Field label="Print method">
-        <div className="space-y-2">
-          {PRINT_METHOD_OPTIONS.map((opt) => {
-            const selected = data.printMethod === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => update("printMethod", opt.value as PrintMethod)}
-                className={`w-full rounded-2xl border-2 px-4 py-3 text-left font-medium transition ${
-                  selected
-                    ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
-                    : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </Field>
     </div>
   );
 }
