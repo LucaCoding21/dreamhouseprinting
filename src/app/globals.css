@@ -26,6 +26,24 @@ body {
   color: var(--color-dream-ink);
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes pop-bounce {
+  0% { transform: scale(0); opacity: 0; }
+  55% { transform: scale(1.2); opacity: 1; }
+  75% { transform: scale(0.92); }
+  90% { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: pop-bounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* Subtle highlight from the top so the lavender has a little depth */
 body {
   background-image: radial-gradient(
@@ -172,7 +190,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transform-origin: center;
 }
 .group:hover .price-tag-alive {
-  animation: price-tag-shake 0.8s step-end infinite;
+  animation: price-tag-shake 1.6s step-end infinite;
 }
 @keyframes price-tag-shake {
   0% {
@@ -208,6 +226,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .group:hover .scribble-morph {
   filter: url(#scribble-morph);
+}
+
+/* FAQ accordion — smooth height + fade on open/close. Uses ::details-content
+   + interpolate-size so we can transition to/from `auto`. Browsers without
+   support fall back to instant open/close. */
+.faq-accordion {
+  interpolate-size: allow-keywords;
+}
+.faq-accordion::details-content {
+  block-size: 0;
+  overflow: clip;
+  opacity: 0;
+  transition:
+    content-visibility 0.35s allow-discrete,
+    block-size 0.35s ease,
+    opacity 0.25s ease;
+}
+.faq-accordion[open]::details-content {
+  block-size: auto;
+  opacity: 1;
 }
 
 /* Sun-burst rays — tiny dashes that pop out around a button on hover and then
@@ -312,21 +350,46 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* Cute dog-paw cursor — scoped to pages that opt in via .paw-cursor */
-.paw-cursor,
-.paw-cursor * {
-  cursor: url("/paw-cursor-pointer.png") 21 26, auto;
+/* Polaroid pop-in — same bouncy multi-stage scale as the .animate-pop
+   doodles, but gated by an IntersectionObserver so it fires when each
+   polaroid first scrolls into view (since the section sits below the fold).
+   Uses the `scale` shorthand so it composes cleanly with the inline
+   `rotate` tilt each polaroid sets. */
+.polaroid-pop {
+  scale: 0;
+  opacity: 0;
 }
-.paw-cursor a,
-.paw-cursor a *,
-.paw-cursor button,
-.paw-cursor button *,
-.paw-cursor [role="button"],
-.paw-cursor [role="button"] *,
-.paw-cursor label,
-.paw-cursor label *,
-.paw-cursor summary,
-.paw-cursor summary * {
-  cursor: url("/paw-cursor.png") 19 26, pointer;
+.polaroid-pop.is-visible {
+  animation: polaroid-pop-bounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+@keyframes polaroid-pop-bounce {
+  0% {
+    scale: 0;
+    opacity: 0;
+  }
+  55% {
+    scale: 1.2;
+    opacity: 1;
+  }
+  75% {
+    scale: 0.92;
+  }
+  90% {
+    scale: 1.04;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .polaroid-pop {
+    scale: 1;
+    opacity: 1;
+  }
+  .polaroid-pop.is-visible {
+    animation: none;
+  }
+}
+
 

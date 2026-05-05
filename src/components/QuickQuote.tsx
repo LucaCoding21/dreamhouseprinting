@@ -23,27 +23,40 @@ type PrintMethod = (typeof PRINT_METHODS)[number];
 export default function QuickQuote() {
   const [productType, setProductType] = useState<ProductType>("Shirt");
   const [printMethod, setPrintMethod] = useState<PrintMethod>("Print");
-  const [searchQuery, setSearchQuery] = useState("");
   const [quantity, setQuantity] = useState("50");
-  const [printColors, setPrintColors] = useState("");
+  const [printColors, setPrintColors] = useState("1");
   const [printLocations, setPrintLocations] = useState("");
 
   return (
-    <section className="bg-dream-purple">
-      <div className="mx-auto flex min-h-[calc(100vh-56px)] max-w-[1550px] items-center px-6 py-6 lg:px-10">
-        <div className="relative grid w-full items-center gap-8 lg:grid-cols-[440px_820px] lg:justify-center lg:gap-24">
-          <div className="text-white">
-            <h2 className="font-display text-6xl font-bold leading-[1.02] tracking-tight text-white sm:text-7xl lg:text-[72px]">
-              Get a <span className="whitespace-nowrap">quick quote</span>
+    <section className="relative overflow-hidden">
+      <Image
+        src="/getaquickquote/shirts2.jpg"
+        alt=""
+        fill
+        priority={false}
+        sizes="100vw"
+        className="absolute inset-0 z-0 object-cover"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-0 z-0"
+        style={{ backgroundColor: "rgba(93, 92, 115, 0.86)" }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 mx-auto flex max-w-[980px] items-center px-6 py-32 lg:px-10 lg:py-40">
+        <div className="rough-card relative w-full px-6 py-10 sm:px-12 sm:py-12">
+          <div className="text-center">
+            <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
+              Get A Quick Quote
             </h2>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/90">
-              Tell us what you need and get a ballpark estimate in seconds. No account required.
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px]">
+              Pick your products, upload your artwork and choose your quantities. You&apos;ll get an instant quote.
             </p>
           </div>
 
-          <div className="rough-card relative grid gap-8 px-7 py-8 sm:px-9 sm:py-9 lg:grid-cols-[1.7fr_1fr] lg:items-center lg:gap-10">
-            <form className="flex flex-col gap-6">
-              {/* Group 1: what are we printing */}
+          <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center lg:gap-12">
+            <form className="flex flex-col gap-5">
               <Field label="Product Type">
                 <div className="flex flex-wrap gap-2">
                   {PRODUCT_TYPES.map((t) => (
@@ -58,83 +71,58 @@ export default function QuickQuote() {
                 </div>
               </Field>
 
-              <Field label="Search by product (optional)" muted>
-                <div className="relative">
-                  <svg
-                    className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-dream-ink/35"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                    <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search SKU or product"
-                    className="w-full rounded-full border border-dream-ink/12 bg-white py-2.5 pl-11 pr-4 text-sm text-dream-ink placeholder:text-dream-ink/40 focus:border-dream-purple focus:outline-none"
-                  />
+              <Field label="Print method">
+                <div className="flex flex-wrap gap-2">
+                  {PRINT_METHODS.map((m) => (
+                    <PillButton
+                      key={m}
+                      active={printMethod === m}
+                      onClick={() => setPrintMethod(m)}
+                    >
+                      {m}
+                    </PillButton>
+                  ))}
                 </div>
               </Field>
 
-              {/* Group 2: how it's printed — Proximity groups these tighter */}
-              <div className="flex flex-col gap-5">
-                <Field label="Print method">
-                  <div className="flex flex-wrap gap-2">
-                    {PRINT_METHODS.map((m) => (
+              <Field label="Print colors">
+                <div className="flex flex-wrap gap-1.5">
+                  {["1", "2", "3", "4", "5+"].map((n) => {
+                    const value = n === "5+" ? "5" : n;
+                    return (
                       <PillButton
-                        key={m}
-                        active={printMethod === m}
-                        onClick={() => setPrintMethod(m)}
+                        key={n}
+                        active={printColors === value}
+                        onClick={() => setPrintColors(value)}
                       >
-                        {m}
+                        {n}
                       </PillButton>
-                    ))}
-                  </div>
-                </Field>
-
-                <Field label="Print colors">
-                  <div className="flex flex-wrap gap-1.5">
-                    {["1", "2", "3", "4", "5+"].map((n) => {
-                      const value = n === "5+" ? "5" : n;
-                      return (
-                        <PillButton
-                          key={n}
-                          active={printColors === value}
-                          onClick={() => setPrintColors(value)}
-                        >
-                          {n}
-                        </PillButton>
-                      );
-                    })}
-                  </div>
-                </Field>
-
-                <div className="grid grid-cols-[120px_1fr] gap-4">
-                  <Field label="Quantity" inline>
-                    <input
-                      type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      className="w-full rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink focus:border-dream-purple focus:outline-none"
-                    />
-                  </Field>
-                  <Field label="Print locations" inline>
-                    <input
-                      type="text"
-                      value={printLocations}
-                      onChange={(e) => setPrintLocations(e.target.value)}
-                      placeholder="e.g. front, left sleeve"
-                      className="w-full rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
-                    />
-                  </Field>
+                    );
+                  })}
                 </div>
+              </Field>
+
+              <div className="grid grid-cols-[120px_1fr] gap-4">
+                <Field label="Quantity" inline>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink focus:border-dream-purple focus:outline-none"
+                  />
+                </Field>
+                <Field label="Print locations" inline>
+                  <input
+                    type="text"
+                    value={printLocations}
+                    onChange={(e) => setPrintLocations(e.target.value)}
+                    placeholder="e.g. front, left sleeve"
+                    className="w-full rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
+                  />
+                </Field>
               </div>
 
-              {/* Group 3: artwork upload */}
               <div className="rounded-2xl border border-dashed border-dream-ink/25 px-4 py-5 text-center text-sm text-dream-ink/55">
                 Upload your artwork <span className="text-dream-ink/35">(optional)</span>
                 <span className="mt-0.5 block text-[11px] text-dream-ink/35">
@@ -142,11 +130,10 @@ export default function QuickQuote() {
                 </span>
               </div>
 
-              {/* Group 4: actions — primary clearly dominant (Fitts) */}
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <Link
                   href="/quote"
-                  className="inline-flex flex-1 items-center justify-center rounded-full bg-dream-sun px-6 py-3.5 font-display text-sm font-bold text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.15)] transition hover:-translate-y-0.5 sm:flex-none"
+                  className="inline-flex items-center justify-center rounded-full bg-dream-sun px-6 py-3.5 font-display text-sm font-bold text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.15)] transition hover:-translate-y-0.5"
                 >
                   Start your order
                 </Link>

@@ -57,29 +57,6 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="-mt-[61px] flex justify-center lg:-mt-[80px]">
-          <a
-            href="#how-it-works"
-            className="group inline-flex flex-col items-center gap-2 text-dream-ink-soft transition-colors hover:text-dream-ink"
-          >
-            <span className="font-display text-[11px] font-semibold uppercase">
-              Scroll to see how it works
-            </span>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 40 60"
-              className="h-8 w-6 animate-bounce"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M22 4 Q26 18 17 28 Q24 38 20 50" />
-              <path d="M11 42 Q20 54 29 43" />
-            </svg>
-          </a>
-        </div>
       </section>
 
       <HowItWorks />

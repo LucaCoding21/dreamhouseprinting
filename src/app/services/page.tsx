@@ -216,35 +216,41 @@ function Hero() {
       </div>
 
       <div className="relative">
-        <Image
-          src="/doodle1.png"
-          alt=""
-          width={300}
-          height={300}
+        <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-4 -right-6 z-10 h-28 w-28 -rotate-[20deg] sm:-right-10 sm:h-36 sm:w-36 lg:-top-6 lg:-right-12 lg:h-44 lg:w-44"
-        />
-        <Image
-          src="/doodle2.png"
-          alt=""
-          width={400}
-          height={400}
+          className="pointer-events-none absolute -top-4 -right-6 z-10 h-28 w-28 animate-pop sm:-right-10 sm:h-36 sm:w-36 lg:-top-6 lg:-right-12 lg:h-44 lg:w-44"
+          style={{ animationDelay: "80ms" }}
+        >
+          <Image
+            src="/doodle1.png"
+            alt=""
+            width={300}
+            height={300}
+            className="h-full w-full -rotate-[20deg]"
+          />
+        </div>
+        <div
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-2 -left-14 z-10 h-32 w-32 -rotate-12 sm:-left-20 sm:h-40 sm:w-40 lg:-bottom-4 lg:-left-28 lg:h-48 lg:w-48"
-        />
+          className="pointer-events-none absolute -bottom-2 -left-14 z-10 h-32 w-32 animate-pop sm:-left-20 sm:h-40 sm:w-40 lg:-bottom-4 lg:-left-28 lg:h-48 lg:w-48"
+          style={{ animationDelay: "200ms" }}
+        >
+          <Image
+            src="/doodle2.png"
+            alt=""
+            width={400}
+            height={400}
+            className="h-full w-full -rotate-12"
+          />
+        </div>
         <HeroDog />
       </div>
     </section>
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Pitch
-// ────────────────────────────────────────────────────────────────────────────
-
 function Pitch() {
   return (
-    <section className="relative bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
+    <section className="relative overflow-hidden bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
       <svg
         aria-hidden="true"
         viewBox="0 0 1440 120"
@@ -261,6 +267,7 @@ function Pitch() {
       >
         <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
       </svg>
+
       <div className="relative mx-auto flex max-w-[1320px] flex-col items-center px-6 text-center lg:px-10">
         <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
           The Dreamhouse workshop
@@ -356,7 +363,7 @@ function Products() {
               aria-label={`${cat.name}, from ${cat.startingAt}, minimum ${cat.minQty}, ${cat.turnaround}`}
               className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-4 focus-visible:ring-offset-dream-cream"
             >
-              <div className="aspect-[3/4] overflow-hidden rounded-[20px] bg-white ring-1 ring-dream-ink/10">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] bg-white ring-1 ring-dream-ink/10">
                 <Image
                   src={cat.image}
                   alt=""
@@ -365,17 +372,23 @@ function Products() {
                   className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
                   aria-hidden="true"
                 />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-3 right-3 z-10 inline-flex items-baseline gap-1.5 rounded-full bg-white px-4 py-2 font-display text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.18)] ring-1 ring-dream-ink/10"
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-dream-ink/75">
+                    from
+                  </span>
+                  <span className="font-display text-[17px] font-bold leading-none text-dream-purple">
+                    {cat.startingAt}
+                  </span>
+                </span>
               </div>
 
               <div className="mt-5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-display text-[22px] font-bold leading-tight tracking-tight text-dream-ink lg:text-[24px]">
-                    {cat.name}
-                  </h3>
-                  <span className="shrink-0 font-display text-[16px] font-bold text-dream-purple">
-                    from {cat.startingAt}
-                  </span>
-                </div>
+                <h3 className="font-display text-[22px] font-bold leading-tight tracking-tight text-dream-ink lg:text-[24px]">
+                  {cat.name}
+                </h3>
                 <p className="mt-2 text-[13px] leading-snug text-dream-ink/70">
                   {cat.brands.join(" · ")}
                 </p>
@@ -397,14 +410,23 @@ function Products() {
 
 function FAQ() {
   return (
-    <section className="relative bg-dream-lavender-soft pb-32 pt-40 lg:pb-40 lg:pt-52">
+    <section className="relative bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
       <svg
         aria-hidden="true"
-        viewBox="0 0 1440 120"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-x-0 top-0 block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
+        preserveAspectRatio="xMidYMid"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 block h-[28px] w-full"
       >
-        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
+        <defs>
+          <pattern
+            id="services-products-scallop"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#services-products-scallop)" />
       </svg>
       <div className="relative mx-auto grid max-w-[1500px] gap-12 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
@@ -425,7 +447,7 @@ function FAQ() {
           {FAQS.map((item) => (
             <details
               key={item.q}
-              className="rough-card group relative px-6 py-5"
+              className="faq-accordion rough-card group relative px-6 py-5"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-dream-ink sm:text-lg">
                 <span>{item.q}</span>

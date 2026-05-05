@@ -22,7 +22,7 @@ type Step = {
   animated?: boolean;
   // When set, render a frame-by-frame PNG sequence instead of `dog`.
   // basePath should include the trailing prefix before the zero-padded index.
-  frameSequence?: { basePath: string; count: number; fps?: number };
+  frameSequence?: { basePath: string; count: number; fps?: number; start?: number; skip?: number[] };
 };
 
 const STEPS: Step[] = [
@@ -41,9 +41,10 @@ const STEPS: Step[] = [
     dogOffsetX: "30px",
     animated: true,
     frameSequence: {
-      basePath: "/how it works/V2step1/Timeline 1_",
-      count: 68,
+      basePath: "/how it works/Step1V2/Timeline 1_",
+      count: 118,
       fps: 24,
+      start: 0,
     },
   },
   {
@@ -56,21 +57,35 @@ const STEPS: Step[] = [
     blobHeight: 255,
     dog: "/how it works/step2.apng",
     dogAlt: "Dog peeking out of a canvas tote bag with rolled artwork",
-    dogWidth: "500px",
+    dogWidth: "450px",
     dogOffsetY: "24px",
     animated: true,
+    frameSequence: {
+      basePath: "/how it works/Step2V2/step2_",
+      count: 60,
+      fps: 24,
+      start: 0,
+    },
   },
   {
     n: 3,
-    title: "You give the thumbs up",
-    description: "Love it? Hit approve and we start printing!",
+    title: "Printing begins",
+    description: "Once you approve, we get to printing your order in-house.",
     blob: "/how it works/3blob.svg",
     blobWidth: 322,
     blobHeight: 299,
     dog: "/how it works/step3.apng",
     dogAlt: "Dog giving an approving thumbs up",
-    dogWidth: "320%",
+    dogWidth: "520px",
+    dogOffsetY: "30px",
     animated: true,
+    frameSequence: {
+      basePath: "/how it works/Step3V2/Timeline 3_",
+      count: 66,
+      fps: 24,
+      start: 0,
+      skip: [12, 13],
+    },
   },
   {
     n: 4,
@@ -82,36 +97,51 @@ const STEPS: Step[] = [
     blobHeight: 310,
     dog: "/how it works/step4-v2.apng",
     dogAlt: "Dog trotting with a shopping bag marked with a paw print",
-    dogWidth: "70%",
+    dogWidth: "510px",
     animated: true,
+    frameSequence: {
+      basePath: "/how it works/Step4V2/Timeline 5_",
+      count: 84,
+      fps: 24,
+      start: 0,
+    },
   },
 ];
 
 export default function HowItWorks() {
   return (
     <section id="how-it-works" className="mx-auto max-w-[1550px] px-6 pb-32 pt-0 lg:px-10 lg:pb-40 lg:pt-0">
-      <h2 className="mt-20 text-center font-display text-3xl font-bold text-dream-ink sm:text-4xl lg:mt-32">
+      <h2 className="mt-6 text-center font-display text-3xl font-bold text-dream-ink sm:text-4xl lg:mt-10">
         How It Works
       </h2>
+      <p className="mx-auto mt-4 max-w-2xl text-center text-base text-dream-ink-soft sm:text-lg">
+        From idea to doorstep in four easy steps. Quote, proof, approve, and we deliver.
+      </p>
 
-      <div className="relative mt-14 grid gap-16 sm:grid-cols-2 sm:gap-14 md:mt-16 md:grid-cols-4 md:gap-10 lg:gap-14">
-        <svg
-          className="hiw-line pointer-events-none absolute left-0 right-0 top-0 hidden h-[260px] w-full md:block"
-          viewBox="0 0 1000 260"
-          preserveAspectRatio="none"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M 125 120 C 185 55 295 55 375 120 C 455 260 545 260 625 120 C 705 55 815 55 875 120"
-            stroke="#000000"
-            strokeOpacity="0.6"
-            strokeWidth="4"
-            strokeDasharray="10 20"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+      <div className="relative mt-4 grid gap-16 sm:grid-cols-2 sm:gap-20 md:mt-6 md:grid-cols-4 md:gap-20 lg:gap-28">
+        <div className="pointer-events-none absolute inset-0 hidden md:block">
+          {[
+            { i: 1, width: "13%", left: "24%", top: "90px", rotate: 0 },
+            { i: 2, width: "17%", left: "53%", top: "115px", rotate: 4 },
+            { i: 3, width: "13%", left: "81%", top: "90px", rotate: -10 },
+          ].map(({ i, width, left, top, rotate }) => (
+            <Image
+              key={i}
+              src={`/how it works/strokes/stroke${i}.png`}
+              alt=""
+              aria-hidden="true"
+              width={300}
+              height={120}
+              className="absolute h-auto"
+              style={{
+                left,
+                top,
+                width,
+                transform: `translateX(-50%) rotate(${rotate}deg)`,
+              }}
+            />
+          ))}
+        </div>
 
         {STEPS.map((step) => (
           <div
@@ -119,24 +149,13 @@ export default function HowItWorks() {
             className="relative flex flex-col items-center text-center"
           >
             <div className="relative flex h-[400px] w-full max-w-[460px] items-center justify-center sm:h-[440px]">
-              <Image
-                src={step.blob}
-                alt=""
-                width={step.blobWidth}
-                height={step.blobHeight}
-                className="absolute inset-0 m-auto h-[72%] w-[72%] object-contain"
-                style={
-                  step.blobRotate
-                    ? { transform: `rotate(${step.blobRotate}deg)` }
-                    : undefined
-                }
-                aria-hidden="true"
-              />
               {step.frameSequence ? (
                 <FrameSequence
                   basePath={step.frameSequence.basePath}
                   count={step.frameSequence.count}
                   fps={step.frameSequence.fps}
+                  start={step.frameSequence.start}
+                  skip={step.frameSequence.skip}
                   alt={step.dogAlt}
                   className="relative z-10 h-auto max-w-none shrink-0"
                   style={{
@@ -166,24 +185,9 @@ export default function HowItWorks() {
               )}
             </div>
 
-            <div className="-mt-8 flex items-center justify-center gap-3">
-              <span className="relative flex h-10 w-10 items-center justify-center">
-                <Image
-                  src="/how it works/number-circle.svg"
-                  alt=""
-                  width={42}
-                  height={43}
-                  className="absolute inset-0 h-full w-full"
-                  aria-hidden="true"
-                />
-                <span className="relative font-display text-base font-bold text-white">
-                  {step.n}
-                </span>
-              </span>
-              <h3 className="font-display text-xl font-bold text-dream-ink sm:text-2xl">
-                {step.title}
-              </h3>
-            </div>
+            <h3 className="-mt-4 font-daruma text-2xl text-dream-ink sm:text-3xl">
+              {step.title}
+            </h3>
 
             <p className="mt-3 max-w-[320px] text-[14px] leading-relaxed text-dream-ink-soft">
               {step.description}

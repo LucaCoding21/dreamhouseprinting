@@ -9,86 +9,137 @@ type Category = {
   imageWidth: string;
   startingAt: string;
   tagTilt: number;
+  photo?: boolean;
+  photoScale?: number;
 };
 
 const CATEGORIES: Category[] = [
   {
     label: "Shirts",
     href: "/quote?product=shirt",
-    image: "/shopbycategories/shirtcategory.webp",
-    imageWidth: "115%",
+    image: "/shopbycategories/shirt-categories.jpg",
+    imageWidth: "100%",
     startingAt: "$12",
     tagTilt: -6,
+    photo: true,
   },
   {
     label: "Hoodies",
     href: "/quote?product=hoodie",
-    image: "/shopbycategories/hoodiecategory.webp",
-    imageWidth: "115%",
+    image: "/shopbycategories/hoodie-cat.jpeg",
+    imageWidth: "100%",
     startingAt: "$32",
     tagTilt: 5,
+    photo: true,
   },
   {
     label: "Hats",
     href: "/quote?product=hat",
-    image: "/shopbycategories/hatcategory.webp",
-    imageWidth: "120%",
+    image: "/shopbycategories/hat-categories.jpg",
+    imageWidth: "100%",
     startingAt: "$18",
     tagTilt: -4,
+    photo: true,
   },
   {
     label: "Bags",
     href: "/quote?product=bag",
-    image: "/shopbycategories/bagscategory.webp",
-    imageWidth: "108%",
+    image: "/shopbycategories/bag-cat.jpeg",
+    imageWidth: "100%",
     startingAt: "$14",
     tagTilt: 6,
+    photo: true,
+    photoScale: 1.15,
   },
 ];
 
 export default function ShopByCategories() {
   return (
-    <section className="mx-auto max-w-[1550px] px-6 pt-10 pb-20 lg:px-10 lg:pt-14 lg:pb-28">
-      <div className="flex items-end justify-between">
-        <h2 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">
-          Shop by categories
-        </h2>
-        <Link
-          href="/services"
-          className="font-display text-sm font-semibold text-dream-purple underline-offset-4 hover:underline sm:text-base"
-        >
-          Browse services
-        </Link>
-      </div>
+    <section className="relative bg-white">
+      <svg
+        className="pointer-events-none absolute -top-[28px] left-0 z-10 block h-[28px] w-full"
+        preserveAspectRatio="xMidYMid"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern
+            id="sbc-scallop-top"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <ellipse cx="60" cy="28" rx="60" ry="28" fill="#ffffff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#sbc-scallop-top)" />
+      </svg>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
-        {CATEGORIES.map((cat) => (
+      <svg
+        className="pointer-events-none absolute -bottom-[28px] left-0 z-10 block h-[28px] w-full"
+        preserveAspectRatio="xMidYMid"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern
+            id="sbc-scallop-bottom"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#ffffff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#sbc-scallop-bottom)" />
+      </svg>
+
+      <div className="mx-auto max-w-[1620px] px-6 pt-28 pb-32 lg:px-12 lg:pt-32 lg:pb-36">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
+          <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
+            Shop by category
+          </h2>
+          <p className="max-w-xl text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+            Quality apparel and accessories for teams, brands, and businesses. Pick a category to start your custom order.
+          </p>
+        </div>
+
+        <div className="mt-12 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-4 lg:gap-2">
+            {CATEGORIES.map((cat) => (
           <Link
             key={cat.label}
             href={cat.href}
-            className="group rough-card relative flex flex-col items-center gap-3 px-4 py-5 transition-transform duration-200 hover:-translate-y-1 sm:gap-4 sm:px-5 sm:py-6"
+            className="group rough-card relative flex flex-col items-center gap-3 px-1 py-2 transition-transform duration-200 hover:-translate-y-1 sm:gap-4 sm:px-1 sm:py-2"
           >
             <span
               aria-hidden="true"
-              className="price-tag-alive pointer-events-none absolute -top-3 right-4 z-20 inline-flex items-baseline gap-1 rounded-full bg-dream-purple px-3.5 py-1.5 font-display text-white shadow-[0_3px_0_0_rgba(27,20,88,0.25)]"
+              className="price-tag-alive pointer-events-none absolute -top-4 right-3 z-20 inline-flex items-baseline gap-1.5 rounded-full bg-dream-purple px-5 py-2.5 font-display text-white shadow-[0_4px_0_0_rgba(27,20,88,0.5)] ring-2 ring-white"
               style={{ "--base-tilt": `${cat.tagTilt}deg` } as CSSProperties}
             >
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/75">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/85">
                 from
               </span>
-              <span className="font-display text-[15px] font-bold">
+              <span className="font-display text-xl font-bold leading-none">
                 {cat.startingAt}
               </span>
             </span>
 
-            <div className="relative flex aspect-square w-full items-center justify-center">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden">
               <Image
                 src={cat.image}
                 alt={`${cat.label} illustration`}
                 width={400}
                 height={400}
-                className="relative z-10 h-auto transition-transform duration-300 ease-out group-hover:scale-105"
-                style={{ width: cat.imageWidth }}
+                className={
+                  cat.photo
+                    ? "absolute inset-0 z-10 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                    : "relative z-10 h-auto transition-transform duration-300 ease-out group-hover:scale-105"
+                }
+                style={
+                  cat.photo
+                    ? cat.photoScale
+                      ? { transform: `scale(${cat.photoScale})` }
+                      : undefined
+                    : { width: cat.imageWidth }
+                }
               />
             </div>
 
@@ -123,6 +174,7 @@ export default function ShopByCategories() {
             </div>
           </Link>
         ))}
+        </div>
       </div>
     </section>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState, type CSSProperties, type FormEvent } from "react";
 import SiteFooter from "@/components/SiteFooter";
@@ -81,7 +80,25 @@ export default function ContactPage() {
 
       <Hero />
 
-      <section className="relative bg-dream-cream pb-24 pt-14 lg:pb-32 lg:pt-20">
+      <section className="relative bg-dream-cream pb-24 pt-20 lg:pb-32 lg:pt-28">
+        <svg
+          aria-hidden="true"
+          preserveAspectRatio="xMidYMid"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 block h-[28px] w-full"
+        >
+          <defs>
+            <pattern
+              id="contact-hero-scallop"
+              width="120"
+              height="28"
+              patternUnits="userSpaceOnUse"
+            >
+              <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#contact-hero-scallop)" />
+        </svg>
+
         <div className="mx-auto grid max-w-[1280px] gap-10 px-6 lg:grid-cols-[1.4fr_1fr] lg:gap-14 lg:px-10">
           {/* Form column */}
           <div className="rough-card relative px-6 py-8 sm:px-10 sm:py-10">
@@ -237,7 +254,7 @@ export default function ContactPage() {
             <ContactCard
               kicker="Visit the workshop"
               heading="123 Main St, Vancouver"
-              hint="By appointment — drop us a note before stopping by."
+              hint="By appointment. Drop us a note before stopping by."
               icon={<PinIcon />}
             />
 
@@ -246,7 +263,7 @@ export default function ContactPage() {
                 Already know what you want?
               </span>
               <h3 className="mt-3 font-display text-[24px] font-bold leading-tight sm:text-[26px]">
-                Skip the chat — get a real quote.
+                Skip the chat. Get a real quote.
               </h3>
               <p className="mt-3 text-[14px] leading-relaxed text-white/80">
                 Five quick questions about your job and Julian comes back with
@@ -277,49 +294,24 @@ export default function ContactPage() {
 function Hero() {
   return (
     <section className="relative bg-dream-lavender-soft">
-      <div className="mx-auto grid max-w-[1280px] items-center gap-8 px-6 pb-20 pt-10 lg:grid-cols-[1.4fr_1fr] lg:gap-14 lg:px-10 lg:pb-28 lg:pt-14">
-        <div>
-          <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
-            Contact
+      <div className="mx-auto flex max-w-[820px] flex-col items-center px-6 pb-24 pt-16 text-center lg:px-10 lg:pb-32 lg:pt-24">
+        <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+          Contact
+        </span>
+        <h1 className="mt-5 font-display text-[60px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[76px] lg:text-[96px]">
+          Let&apos;s{" "}
+          <span className="relative inline-block">
+            talk
+            <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
           </span>
-          <h1 className="mt-5 font-display text-[52px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[64px] lg:text-[80px]">
-            Say{" "}
-            <span className="relative inline-block">
-              hi
-              <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
-            </span>
-            .
-            <br />
-            We&apos;re friendly.
-          </h1>
-          <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
-            Got a question, an idea, or just want to chat about a project? Pick
-            the way that works for you — form, email, or a quick call.
-          </p>
-        </div>
-
-        <div className="relative mx-auto w-full max-w-[360px] lg:max-w-none">
-          <Image
-            src="/cats3.png"
-            alt=""
-            width={520}
-            height={520}
-            aria-hidden="true"
-            className="h-auto w-full"
-            priority
-          />
-        </div>
+          .
+        </h1>
+        <p className="mt-6 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+          Got a question, an idea, or just want to chat about a project? Pick
+          the way that works for you, whether that&apos;s the form, email, or
+          a quick call.
+        </p>
       </div>
-
-      {/* Wave bottom — same shape used on the services FAQ section, flipped. */}
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 1440 120"
-        preserveAspectRatio="none"
-        className="pointer-events-none block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
-      >
-        <path d="M 0 90 Q 720 -30 1440 90 V 120 H 0 Z" fill="#f4f2ff" />
-      </svg>
     </section>
   );
 }
@@ -333,7 +325,7 @@ function BeforeYouWrite() {
     {
       n: "01",
       title: "Tell us roughly what you want",
-      body: "Tees, hoodies, hats, totes — and how many. A ballpark is fine.",
+      body: "Tees, hoodies, hats, totes (and how many). A ballpark is fine.",
     },
     {
       n: "02",
@@ -348,15 +340,7 @@ function BeforeYouWrite() {
   ];
 
   return (
-    <section className="relative bg-dream-lavender-soft pb-24 pt-32 lg:pb-32 lg:pt-44">
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 1440 120"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-x-0 top-0 block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
-      >
-        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
-      </svg>
+    <section className="relative pb-24 pt-20 lg:pb-32 lg:pt-28">
       <div className="relative mx-auto max-w-[1280px] px-6 lg:px-10">
         <div className="text-center">
           <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
@@ -458,7 +442,7 @@ function SentState({ onReset }: { onReset: () => void }) {
         </svg>
       </div>
       <h2 className="mt-5 font-display text-[28px] font-bold leading-tight text-dream-ink sm:text-[32px]">
-        Got it — thanks!
+        Got it, thanks!
       </h2>
       <p className="mx-auto mt-3 max-w-[420px] text-[15px] leading-relaxed text-dream-ink-soft">
         We&apos;ll be in touch soon. In the meantime, you can keep browsing or

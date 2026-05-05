@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import FrameSequence from "@/components/FrameSequence";
+import ParallaxScroll from "@/components/ParallaxScroll";
+import PolaroidPhoto from "@/components/PolaroidPhoto";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 
@@ -12,17 +13,23 @@ import SiteNav from "@/components/SiteNav";
 const SERVICES = [
   {
     name: "Screen printing",
-    body: "Bold, long-lasting prints. Best for bulk runs of tees, hoodies, and totes.",
+    body: "Each color is a separate screen, hand-pulled across the fabric. The ink lays thick and stays vibrant wash after wash.",
+    bestFor: "Best for bulk runs and bold colors",
+    image: "/products/shirts.jpg",
     href: "/services#methods",
   },
   {
     name: "Embroidery",
-    body: "Thread stitched into the fabric for a premium finish on polos and hats.",
+    body: "Your artwork is digitized into stitch paths and run on commercial machines, so logos sit raised and crisp against the garment.",
+    bestFor: "Best for logos and premium pieces",
+    image: "/products/hoodies.jpg",
     href: "/services#methods",
   },
   {
     name: "DTG printing",
-    body: "Direct-to-garment for full-colour prints, no minimums, no fuss.",
+    body: "Inkjet printed straight onto the shirt. Perfect for full-color or photographic artwork without the screen setup costs.",
+    bestFor: "Best for photo prints and small runs",
+    image: "/products/hats2.jpg",
     href: "/services#methods",
   },
 ];
@@ -33,7 +40,7 @@ const SERVICES = [
 
 export default function AboutPage() {
   return (
-    <main className="paw-cursor min-h-screen bg-dream-cream">
+    <main className="min-h-screen bg-dream-cream">
       <div className="bg-dream-lavender-soft">
         <SiteNav />
       </div>
@@ -55,62 +62,27 @@ export default function AboutPage() {
 function Hero() {
   return (
     <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
-      <div className="relative mx-auto grid max-w-[1400px] items-center gap-6 px-6 pb-12 pt-2 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:px-10 lg:pb-20 lg:pt-4">
-        <div className="relative z-10 flex flex-col items-start">
-          <h1 className="font-daruma text-[60px] leading-[0.95] tracking-tight text-black sm:text-[84px] lg:text-[112px]">
-            We print
-            <br />
-            with heart.
-          </h1>
+      <div className="relative mx-auto flex max-w-[1400px] flex-col items-start px-6 pb-16 pt-20 lg:px-10 lg:pb-24 lg:pt-28">
+        <h1 className="font-display text-[48px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[64px] lg:text-[80px]">
+          Why we started
+          <br />
+          Dreamhouse.
+        </h1>
 
-          <p className="mt-7 max-w-[460px] text-[15px] leading-relaxed text-black/75 sm:text-[16px]">
-            We started Dreamhouse because too many shops treat custom prints
-            like a vending machine. We&apos;d rather treat each job like a
-            collaboration.
-          </p>
+        <p className="mt-7 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+          We started Dreamhouse to put quality, customers, and employees
+          first. Everyone here cares about what they do, so your order
+          gets the same care.
+        </p>
 
-          <Link
-            href="/contact"
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-dream-purple-dark px-8 py-3.5 font-display text-[15px] font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
-          >
-            Talk to us
-          </Link>
-        </div>
-
-        <div className="relative h-[320px] w-full sm:h-[440px] lg:h-[560px]">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 255 310"
-            preserveAspectRatio="xMidYMid meet"
-            className="pointer-events-none absolute left-[62%] top-1/2 h-[88%] w-auto -translate-x-1/2 -translate-y-1/2 -rotate-6"
-          >
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M105.828 17.3546C127.549 27.9333 127.243 62.0937 148.407 73.7446C175.388 88.5982 215.967 67.3211 237.158 89.6534C258.153 111.779 259.247 150.085 247.567 178.245C236.109 205.87 200.147 211.387 178.222 231.752C151.549 256.526 142.178 307.507 105.828 309.897C70.0597 312.249 41.858 273.927 26.1582 241.751C13.3656 215.533 35.4808 185.356 30.9985 156.538C27.6719 135.15 6.11289 120.762 3.98979 99.2215C0.953736 68.4189 -7.63895 28.916 16.5063 9.50574C40.3715 -9.67936 78.2903 3.94305 105.828 17.3546Z"
-              fill="#8080ff"
-            />
-          </svg>
-          <FrameSequence
-            basePath="/how it works/Dreamhouse/Timeline 1_"
-            start={0}
-            count={118}
-            fps={24}
-            alt="Dog imagining a custom-printed shirt"
-            className="pointer-events-none absolute left-1/2 top-[44%] h-auto w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain sm:top-[42%] sm:w-[140%] lg:top-[40%] lg:w-[150%]"
-          />
-        </div>
+        <Link
+          href="/contact"
+          className="mt-8 inline-flex items-center justify-center rounded-full bg-dream-purple-dark px-8 py-3.5 font-display text-[15px] font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
+        >
+          Talk to us
+        </Link>
       </div>
 
-      {/* Wavy bottom edge — same shape language used elsewhere */}
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 1440 120"
-        preserveAspectRatio="none"
-        className="pointer-events-none block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
-      >
-        <path d="M 0 90 Q 360 0 720 60 T 1440 90 V 120 H 0 Z" fill="#f4f2ff" />
-      </svg>
     </section>
   );
 }
@@ -121,7 +93,24 @@ function Hero() {
 
 function WhatWeDo() {
   return (
-    <section className="relative bg-dream-cream pb-24 pt-24 lg:pb-32 lg:pt-32">
+    <section className="relative bg-dream-cream pb-36 pt-32 lg:pb-48 lg:pt-40">
+      <svg
+        aria-hidden="true"
+        preserveAspectRatio="xMidYMid"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 block h-[28px] w-full"
+      >
+        <defs>
+          <pattern
+            id="about-hero-scallop"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#about-hero-scallop)" />
+      </svg>
       {/* Decorative blob */}
       <div
         aria-hidden="true"
@@ -129,34 +118,32 @@ function WhatWeDo() {
       />
 
       <div className="relative mx-auto grid max-w-[1320px] items-center gap-12 px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-20 lg:px-10">
-        {/* Photo stack */}
-        <div className="relative mx-auto h-[420px] w-full max-w-[560px] sm:h-[480px] lg:h-[520px]">
-          <div
-            className="absolute left-0 top-2 w-[58%] overflow-hidden rounded-[12px] sm:w-[55%]"
-            style={{ rotate: "-6deg" }}
-          >
-            <Image
-              src="/methods-screen.webp"
-              alt=""
-              width={520}
-              height={520}
-              aria-hidden="true"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <div
-            className="absolute bottom-0 right-0 w-[60%] overflow-hidden rounded-[12px] sm:w-[57%]"
-            style={{ rotate: "5deg" }}
-          >
-            <Image
-              src="/methods-embroidery.webp"
-              alt=""
-              width={520}
-              height={520}
-              aria-hidden="true"
-              className="h-full w-full object-cover"
-            />
-          </div>
+        {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
+        <div className="mx-auto grid w-full max-w-[560px] grid-cols-2 items-start gap-4 sm:gap-5">
+          <ParallaxScroll speed={0.02}>
+            <div className="aspect-[3/4] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
+              <Image
+                src="/products/shirts.jpg"
+                alt=""
+                width={400}
+                height={520}
+                aria-hidden="true"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </ParallaxScroll>
+          <ParallaxScroll speed={0.05} className="mt-10 sm:mt-14">
+            <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
+              <Image
+                src="/products/hoodies.jpg"
+                alt=""
+                width={400}
+                height={620}
+                aria-hidden="true"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </ParallaxScroll>
         </div>
 
         <div>
@@ -172,15 +159,15 @@ function WhatWeDo() {
             .
           </h2>
           <p className="mt-6 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            We help local brands, teams, and small businesses turn ideas into
-            things you can actually wear. Every order gets art prep, a mockup
-            you sign off on, and a quality check before it ships. No
-            outsourcing, no middlemen.
+            We print high quality custom apparel on a great website that
+            lets you order exactly what you need, with the minimum amount
+            of hassle. Shirts, hoodies, hats, and bags. Pick your blank,
+            upload your art, and you&apos;ll have a quote in your inbox
+            the same day.
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            That means quicker answers, fewer surprises, and a team that
-            actually cares whether your hoodies hold up after twenty washes,
-            because we&apos;re the ones printing them.
+            Every order gets art prep, a mockup you sign off on, and a
+            quality check before it ships. No outsourcing, no middlemen.
           </p>
         </div>
       </div>
@@ -194,16 +181,39 @@ function WhatWeDo() {
 
 function BoldStatement() {
   return (
-    <section className="relative overflow-hidden bg-dream-lavender-soft py-28 lg:py-36">
-      <div className="relative mx-auto max-w-[1280px] px-6 lg:px-10">
-        <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.4fr_1fr]">
-          <p className="max-w-[220px] text-[14px] leading-relaxed text-dream-ink-soft lg:justify-self-end lg:text-right">
-            Looking for a print shop that&apos;ll actually pick up the phone?
-            That&apos;s us.
-          </p>
+    <section className="relative overflow-hidden bg-dream-lavender-soft py-12 lg:py-16">
+      <Image
+        src="/madeinvan/sticker1.png"
+        alt=""
+        width={400}
+        height={400}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-12 top-24 z-0 h-auto w-[180px] sm:left-20 sm:top-32 sm:w-[240px] lg:left-32 lg:top-40 lg:w-[280px]"
+      />
+      <Image
+        src="/madeinvan/sticker1.png"
+        alt=""
+        width={400}
+        height={400}
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-32 right-32 z-0 h-auto w-[180px] rotate-[24deg] sm:bottom-44 sm:right-56 sm:w-[240px] lg:bottom-60 lg:right-80 lg:w-[280px]"
+      />
 
-          <div className="relative h-[360px] w-full sm:h-[400px] lg:h-[460px]">
-            <h2 className="absolute inset-0 grid place-items-center text-center font-display text-[88px] font-bold leading-[0.85] tracking-tight text-dream-ink sm:text-[120px] lg:text-[180px]">
+      <div className="relative w-full px-6 lg:px-10">
+        <div className="grid gap-10 pb-[78px] pt-12 lg:grid-cols-[1fr_1.4fr] lg:pb-[110px] lg:pt-16">
+          <div aria-hidden="true" />
+          <p className="max-w-[560px] text-[17px] leading-relaxed text-dream-ink-soft sm:text-[19px] lg:justify-self-end">
+            Every roll of ink, every screen, every stitch, done by hand on
+            Main Street. Local craft, real materials, no shortcuts, and a
+            team that actually shows up.
+          </p>
+        </div>
+
+        <div className="mx-auto grid max-w-[1280px] items-center gap-10 lg:grid-cols-[1fr_1.4fr_1fr]">
+          <div aria-hidden="true" className="hidden lg:block" />
+
+          <div className="relative h-[680px] w-full sm:h-[800px] lg:h-[920px]">
+            <h2 className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-center font-daruma text-[88px] leading-[0.85] tracking-tight text-dream-purple sm:text-[120px] lg:text-[180px]">
               <span>
                 MADE
                 <br />
@@ -214,40 +224,41 @@ function BoldStatement() {
             </h2>
 
             <PolaroidPhoto
-              src="/shopbycategories/shirtcategory.webp"
+              src="/madeinvan/made-in-van1.jpg"
               tilt={-12}
-              className="absolute -left-2 top-28 z-10 w-[36%] sm:w-[34%] lg:w-[32%]"
+              className="absolute -left-36 top-20 z-10 w-[76%] sm:-left-44 sm:w-[74%] lg:-left-60 lg:w-[72%]"
               bg="bg-white"
-              padding="p-1.5"
+              padding="p-1"
+              delay={0}
             />
             <PolaroidPhoto
-              src="/shopbycategories/hoodiecategory.webp"
+              src="/madeinvan/made-in-van2.jpg"
               tilt={8}
-              className="absolute right-0 top-10 z-10 w-[34%] sm:w-[32%] lg:w-[30%]"
+              className="absolute -right-16 top-0 z-10 w-[66%] sm:-right-24 sm:w-[64%] lg:-right-36 lg:w-[62%]"
               bg="bg-white"
-              padding="p-1.5"
+              padding="p-1"
+              delay={120}
             />
             <PolaroidPhoto
-              src="/shopbycategories/hatcategory.webp"
+              src="/madeinvan/made-in-van3.jpg"
               tilt={-5}
-              className="absolute -bottom-32 left-1/2 z-10 w-[40%] -translate-x-1/2 sm:w-[38%] lg:w-[36%]"
+              className="absolute -bottom-24 left-[60%] z-10 w-[72%] -translate-x-1/2 sm:w-[70%] lg:w-[68%]"
               bg="bg-white"
-              padding="p-1.5"
+              padding="p-1"
+              delay={240}
             />
           </div>
 
-          <div className="flex flex-col items-start gap-5 lg:items-start">
-            <p className="max-w-[220px] text-[14px] leading-relaxed text-dream-ink-soft">
-              Every roll of ink, every screen, every stitch, done by hand on
-              Main Street.
-            </p>
-            <Link
-              href="/quote"
-              className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
-            >
-              See our work
-            </Link>
-          </div>
+          <div aria-hidden="true" className="hidden lg:block" />
+        </div>
+
+        <div className="grid gap-10 pb-8 pt-40 lg:grid-cols-[1.4fr_1fr] lg:pb-12 lg:pt-52">
+          <p className="max-w-[560px] text-[17px] leading-relaxed text-dream-ink-soft sm:text-[19px] lg:ml-24">
+            Looking for a print shop that&apos;ll actually pick up the phone?
+            That&apos;s us. We answer questions, send proofs, and stand
+            behind every order.
+          </p>
+          <div aria-hidden="true" />
         </div>
       </div>
     </section>
@@ -260,36 +271,80 @@ function BoldStatement() {
 
 function Services() {
   return (
-    <section className="bg-dream-cream pb-24 pt-24 lg:pb-32 lg:pt-32">
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-10">
-        <div className="flex items-center justify-center gap-4">
-          <Squiggle direction="left" />
-          <h2 className="text-center font-display text-[40px] font-bold leading-tight tracking-tight text-dream-ink sm:text-[52px]">
-            How we work
+    <section className="relative overflow-hidden bg-dream-cream pb-32 pt-28 lg:pb-44 lg:pt-36">
+      <Image
+        src="/arrow1.svg"
+        alt=""
+        width={702}
+        height={1359}
+        aria-hidden="true"
+        className="pointer-events-none absolute right-12 top-16 z-30 hidden h-auto w-[176px] md:block lg:right-32 lg:w-[236px]"
+      />
+
+      <div className="relative mx-auto max-w-[1500px] px-6 lg:px-10">
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="font-display text-xs font-bold uppercase tracking-[0.2em] text-dream-purple">
+            How we print
+          </span>
+          <h2 className="mt-4 font-display text-[40px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+            Three ways to put{" "}
+            <span className="relative inline-block">
+              ink
+              <ScribbleUnderline className="-bottom-1" />
+            </span>{" "}
+            on fabric.
           </h2>
-          <Squiggle direction="right" />
+          <p className="mt-5 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            Every method we keep in-house is the right tool for a different
+            job. Here&apos;s when each one shines.
+          </p>
         </div>
 
-        <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {SERVICES.map((s) => (
-            <article
-              key={s.name}
-              className="rounded-[24px] border-2 border-dream-ink/15 bg-white px-7 pb-7 pt-8"
-            >
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple">
-                <SparkIcon />
-              </span>
-              <h3 className="mt-5 font-display text-[20px] font-bold leading-tight text-dream-ink">
-                {s.name}
-              </h3>
-              <p className="mt-3 text-[14px] leading-relaxed text-dream-ink-soft">
-                {s.body}
-              </p>
-            </article>
-          ))}
+        <div className="mt-16 overflow-hidden rounded-[24px] ring-1 ring-dream-ink/10 lg:mt-20">
+          <div className="grid grid-cols-3">
+            {SERVICES.map((s) => (
+              <div key={s.name} className="aspect-[3/4] overflow-hidden">
+                <Image
+                  src={s.image}
+                  alt=""
+                  width={520}
+                  height={680}
+                  aria-hidden="true"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-4 grid gap-12 md:grid-cols-3 md:gap-8 lg:mt-5 lg:gap-12">
+          {SERVICES.map((s, idx) => {
+            const number = String(idx + 1).padStart(2, "0");
+            return (
+              <div key={s.name} className="flex flex-col items-start">
+                <div className="flex items-baseline gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="font-daruma text-[32px] leading-none text-dream-purple sm:text-[40px]"
+                  >
+                    {number}
+                  </span>
+                  <h3 className="font-daruma text-[28px] leading-tight tracking-tight text-dream-ink sm:text-[34px]">
+                    {s.name}
+                  </h3>
+                </div>
+                <p className="mt-3 text-[13px] italic leading-relaxed text-dream-ink/55 sm:text-[14px]">
+                  {s.bestFor}
+                </p>
+                <p className="mt-4 text-[13px] leading-snug text-dream-ink/65 sm:text-[14px]">
+                  {s.body}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-24 flex flex-wrap items-center justify-center gap-4 lg:mt-32">
           <Link
             href="/contact"
             className="inline-flex items-center justify-center rounded-full border-2 border-dream-ink bg-white px-7 py-3.5 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
@@ -311,45 +366,6 @@ function Services() {
 // ────────────────────────────────────────────────────────────────────────────
 // Bits
 // ────────────────────────────────────────────────────────────────────────────
-
-function PolaroidPhoto({
-  src,
-  label,
-  tilt,
-  className = "",
-  bg = "bg-white",
-  padding = "p-3",
-}: {
-  src: string;
-  label?: string;
-  tilt: number;
-  className?: string;
-  bg?: string;
-  padding?: string;
-}) {
-  return (
-    <figure
-      className={`${bg} ${className} ${padding} rounded-[14px] shadow-[0_18px_30px_-18px_rgba(27,20,88,0.55)] ring-1 ring-dream-ink/5`}
-      style={{ rotate: `${tilt}deg` }}
-    >
-      <div className="aspect-square w-full overflow-hidden rounded-[8px] bg-dream-lavender-soft">
-        <Image
-          src={src}
-          alt=""
-          width={520}
-          height={520}
-          aria-hidden="true"
-          className="h-full w-full object-cover"
-        />
-      </div>
-      {label ? (
-        <figcaption className="mt-2 px-1 pb-1 text-center font-display text-[12px] font-bold uppercase tracking-[0.16em] text-dream-ink/70">
-          {label}
-        </figcaption>
-      ) : null}
-    </figure>
-  );
-}
 
 function ScribbleUnderline({ className = "" }: { className?: string }) {
   return (
