@@ -41,8 +41,8 @@ const STEPS: Step[] = [
     dogOffsetX: "30px",
     animated: true,
     frameSequence: {
-      basePath: "/how it works/Step1V2/Timeline 1_",
-      count: 118,
+      basePath: "/how it works/Step1V4/step1v5_",
+      count: 94,
       fps: 24,
       start: 0,
     },
@@ -100,8 +100,8 @@ const STEPS: Step[] = [
     dogWidth: "510px",
     animated: true,
     frameSequence: {
-      basePath: "/how it works/Step4V2/Timeline 5_",
-      count: 84,
+      basePath: "/how it works/Step4V3/step4_",
+      count: 102,
       fps: 24,
       start: 0,
     },

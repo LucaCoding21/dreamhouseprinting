@@ -14,10 +14,10 @@ const NAV_LINKS = [
 const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
   const angle = i * 30;
   const rad = (angle * Math.PI) / 180;
-  const rx = 100;
-  const ry = 54;
+  const rx = 110;
+  const ry = 42;
   // Pseudo-random but stable per-index offsets.
-  const lenJitter = [18, 14, 17, 15, 19, 13, 17, 15, 18, 14, 16, 15][i];
+  const lenJitter = [13, 11, 13, 12, 14, 10, 13, 12, 13, 11, 12, 12][i];
   const angleJitter = [-3, 4, -2, 5, -4, 2, -3, 4, -5, 3, -2, 4][i];
   return {
     x: +(Math.cos(rad) * rx).toFixed(1),
@@ -30,7 +30,7 @@ const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
 
 export default function SiteNav() {
   return (
-    <header className="w-full px-5 py-7 lg:px-10 lg:py-9">
+    <header className="w-full px-5 py-4 lg:px-10 lg:py-5">
       <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
         <defs>
           <filter

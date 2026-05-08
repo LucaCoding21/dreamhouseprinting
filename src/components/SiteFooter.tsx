@@ -28,11 +28,11 @@ export default function SiteFooter() {
       <div className="pointer-events-none absolute inset-x-0 bottom-full z-10">
         <div className="mx-auto flex max-w-[1400px] justify-end px-6 lg:px-10">
           <Image
-            src="/testimonailsplusfooter/dogasset.png"
+            src="/testimonailsplusfooter/footerdog.png"
             alt=""
             width={364}
             height={628}
-            className="block h-auto w-[110px] translate-y-[47px] sm:w-[125px] sm:translate-y-[55px] lg:w-[140px] lg:translate-y-[63px]"
+            className="block h-auto w-[285px] translate-y-[39px] sm:w-[325px] sm:translate-y-[44px] lg:w-[370px] lg:translate-y-[51px]"
             aria-hidden="true"
           />
         </div>

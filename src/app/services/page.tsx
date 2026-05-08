@@ -163,7 +163,7 @@ export default function ServicesPage() {
       </div>
 
       <div className="bg-dream-purple text-white">
-        <p className="mx-auto max-w-[1400px] px-6 py-3 text-center text-[15px] font-medium">
+        <p className="mx-auto max-w-[1400px] px-6 py-2 text-center text-[15px] font-medium">
           Spring deal: 15% off orders of 50+ pieces. Submit your quote this month
         </p>
       </div>
