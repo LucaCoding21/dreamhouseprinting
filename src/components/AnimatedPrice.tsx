@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { roundDisplayPrice } from "@/lib/pricing";
 
 const DURATION_MS = 450;
 
@@ -46,5 +47,5 @@ export default function AnimatedPrice({
     return () => cancelAnimationFrame(raf);
   }, [value]);
 
-  return <span className={className}>${display.toFixed(2)}</span>;
+  return <span className={className}>${roundDisplayPrice(display)}</span>;
 }

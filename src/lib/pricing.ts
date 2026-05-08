@@ -27,6 +27,18 @@ export function volumeDiscount(qty: number): number {
   return 1;
 }
 
+// Customer-facing display rounding. Julian's rule: always round DOWN to the
+// nearest tier-step so the quote is never higher than the calc. Tiers:
+//   < $200   → floor to $1   (e.g. 93.74 → 93)
+//   < $1000  → floor to $5   (e.g. 204.89 → 200)
+//   ≥ $1000  → floor to $10  (e.g. 1009.34 → 1000)
+export function roundDisplayPrice(amount: number): number {
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  if (amount < 200) return Math.floor(amount);
+  if (amount < 1000) return Math.floor(amount / 5) * 5;
+  return Math.floor(amount / 10) * 10;
+}
+
 export function calculatePrice(
   productType: ProductType | "",
   printMethod: PrintMethod,
