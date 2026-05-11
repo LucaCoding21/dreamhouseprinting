@@ -53,7 +53,7 @@ export default function Home() {
               height={1607}
               priority
               sizes="(min-width: 1024px) 700px, 100vw"
-              className="h-auto w-full"
+              className="h-auto w-full max-h-[520px] object-contain lg:max-h-[560px]"
             />
           </div>
         </div>
