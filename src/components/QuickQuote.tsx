@@ -12,11 +12,11 @@ import type {
 
 const DREAM_LETTERS = ["D", "R", "E", "A", "M"] as const;
 const DREAM_COLORS = [
-  "#e85d2f", // 1st color — orange-red
+  "#a855f7", // 1st color — purple
   "#2b6ef4", // 2nd — blue
   "#22b6a1", // 3rd — teal
   "#f2b134", // 4th — gold
-  "#a855f7", // 5th — magenta
+  "#e85d2f", // 5th — orange-red
 ];
 const DEFAULT_LETTER = "#2a1b8a";
 
