@@ -35,9 +35,9 @@ export default function AboutPage() {
 function Hero() {
   return (
     <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[220px] lg:min-h-[260px]">
-      <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-4 pt-3 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-6 md:pt-4 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-8 lg:pt-6">
+      <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-20 pt-12 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-24 md:pt-12 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-32 lg:pt-12">
         <div className="flex flex-col items-start">
-          <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
+          <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink">
             Why we started
             <br />
             Dreamhouse<span className="hidden md:inline">.</span>
@@ -51,18 +51,30 @@ function Hero() {
 
         </div>
 
-        <div className="relative flex justify-center lg:justify-end">
-          <Image
-            src="/about-hero.png"
-            alt=""
-            width={1063}
-            height={1063}
-            priority
-            unoptimized
-            aria-hidden="true"
-            sizes="(min-width: 1024px) 520px, (min-width: 640px) 440px, 360px"
-            className="h-auto w-full max-w-[360px] sm:max-w-[440px] lg:max-w-[520px]"
-          />
+        <div className="relative flex justify-center pr-2 lg:justify-end lg:pr-6">
+          <div className="relative">
+            <Image
+              src="/sticker3.png"
+              alt=""
+              aria-hidden="true"
+              width={400}
+              height={400}
+              className="pointer-events-none absolute -left-10 -top-6 z-0 h-auto w-[110px] -rotate-12 sm:-left-14 sm:-top-8 sm:w-[140px] lg:-left-20 lg:-top-10 lg:w-[170px]"
+            />
+
+            <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2 shadow-[8px_8px_0_0_rgba(27,20,88,1)] sm:p-2.5">
+              <div className="relative aspect-square w-[300px] overflow-hidden rounded-lg sm:w-[400px] lg:w-[480px]">
+                <Image
+                  src="/dreamhouse-screen-print-shop-vancouver.webp"
+                  alt="Dreamhouse screen printer pulling a fresh print at the Vancouver shop"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 480px, (min-width: 640px) 400px, 300px"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -101,7 +113,21 @@ function WhatWeDo() {
         className="pointer-events-none absolute right-12 top-40 h-[80px] w-[80px] rotate-12 rounded-[40%_60%_55%_45%/55%_45%_60%_40%] bg-dream-sun-soft"
       />
 
-      <div className="relative mx-auto grid max-w-[1560px] items-center justify-center gap-12 px-6 md:grid-cols-[auto_auto] md:gap-14 md:px-8 lg:gap-24 lg:px-10">
+      <div className="relative mx-auto max-w-[1560px] px-6 md:px-8 lg:px-10">
+        <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
+          Our Mission
+        </span>
+        <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+          Our{" "}
+          <span className="relative inline-block">
+            story
+            <ScribbleUnderline className="-bottom-1" />
+          </span>
+          .
+        </h2>
+      </div>
+
+      <div className="relative mx-auto mt-12 grid max-w-[1560px] items-center justify-center gap-12 px-6 md:mt-16 md:grid-cols-[auto_auto] md:gap-14 md:px-8 lg:gap-24 lg:px-10">
         {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
         <div className="mx-auto grid w-full max-w-[680px] grid-cols-2 items-start gap-4 sm:gap-5">
           <ParallaxScroll speed={0.02}>
@@ -131,18 +157,7 @@ function WhatWeDo() {
         </div>
 
         <div className="max-w-[560px]">
-          <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
-            Our Mission
-          </span>
-          <h2 className="mt-5 font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
-            Our{" "}
-            <span className="relative inline-block">
-              story
-              <ScribbleUnderline className="-bottom-1" />
-            </span>
-            .
-          </h2>
-          <p className="mt-6 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+          <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
             Everyone at Dreamhouse has worked at another print shop, and we
             all walked away with the same thought: this could be done better.
           </p>
@@ -182,14 +197,31 @@ function WhatWeDo() {
 
 function BoldStatement() {
   return (
-    <section className="relative overflow-hidden bg-dream-lavender-soft py-12 lg:py-16">
+    <section className="relative overflow-hidden bg-dream-lavender-soft pb-12 pt-16 sm:pt-12 lg:py-16">
+      <svg
+        aria-hidden="true"
+        preserveAspectRatio="xMidYMid"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 block h-[28px] w-full"
+      >
+        <defs>
+          <pattern
+            id="about-madeinvan-scallop"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#about-madeinvan-scallop)" />
+      </svg>
       <Image
         src="/madeinvan/sticker1.png"
         alt=""
         width={400}
         height={400}
         aria-hidden="true"
-        className="pointer-events-none absolute left-12 top-24 z-0 h-auto w-[180px] sm:left-20 sm:top-32 sm:w-[240px] lg:left-32 lg:top-40 lg:w-[280px]"
+        className="pointer-events-none absolute left-12 top-24 z-0 hidden h-auto w-[180px] sm:block sm:left-20 sm:top-32 sm:w-[240px] lg:left-32 lg:top-40 lg:w-[280px]"
       />
       <Image
         src="/madeinvan/sticker1.png"
@@ -197,15 +229,15 @@ function BoldStatement() {
         width={400}
         height={400}
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-32 right-32 z-0 h-auto w-[180px] rotate-[24deg] sm:bottom-44 sm:right-56 sm:w-[240px] lg:bottom-60 lg:right-80 lg:w-[280px]"
+        className="pointer-events-none absolute bottom-32 right-32 z-0 hidden h-auto w-[180px] rotate-[24deg] sm:block sm:bottom-44 sm:right-56 sm:w-[240px] lg:bottom-60 lg:right-80 lg:w-[280px]"
       />
 
       <div className="relative w-full px-6 lg:px-10">
         <div className="mx-auto grid max-w-[1280px] items-center gap-10 lg:grid-cols-[1fr_1.4fr_1fr]">
           <div aria-hidden="true" className="hidden lg:block" />
 
-          <div className="relative h-[600px] w-full sm:h-[720px] md:h-[800px] lg:h-[920px]">
-            <h2 className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-center font-daruma text-[80px] leading-[0.85] tracking-tight text-dream-purple sm:text-[112px] md:text-[140px] lg:text-[180px]">
+          <div className="relative h-[520px] w-full sm:h-[720px] md:h-[800px] lg:h-[920px]">
+            <h2 className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-center font-daruma text-[92px] leading-[0.85] tracking-tight text-dream-purple-dark [-webkit-text-stroke:3px_#f4f2ff] [paint-order:stroke_fill] drop-shadow-[3px_4px_0_rgba(27,20,88,0.85)] sm:text-[140px] sm:[-webkit-text-stroke:4px_#f4f2ff] md:text-[172px] md:[-webkit-text-stroke:5px_#f4f2ff] lg:text-[212px] lg:[-webkit-text-stroke:6px_#f4f2ff]">
               <span>
                 MADE
                 <br />
@@ -218,7 +250,7 @@ function BoldStatement() {
             <PolaroidPhoto
               src="/madeinvan/made-in-van1.jpg"
               tilt={-12}
-              className="absolute -left-36 top-20 z-10 w-[76%] sm:-left-44 sm:w-[74%] lg:-left-60 lg:w-[72%]"
+              className="absolute left-0 top-16 z-10 w-[58%] sm:-left-44 sm:top-20 sm:w-[74%] lg:-left-60 lg:w-[72%]"
               bg="bg-white"
               padding="p-1"
               delay={0}
@@ -226,7 +258,7 @@ function BoldStatement() {
             <PolaroidPhoto
               src="/madeinvan/made-in-van2.jpg"
               tilt={8}
-              className="absolute -right-16 top-0 z-10 w-[66%] sm:-right-24 sm:w-[64%] lg:-right-36 lg:w-[62%]"
+              className="absolute right-0 top-0 z-10 w-[54%] sm:-right-24 sm:w-[64%] lg:-right-36 lg:w-[62%]"
               bg="bg-white"
               padding="p-1"
               delay={120}
@@ -234,7 +266,7 @@ function BoldStatement() {
             <PolaroidPhoto
               src="/madeinvan/made-in-van3.jpg"
               tilt={-5}
-              className="absolute -bottom-24 left-[60%] z-10 w-[72%] -translate-x-1/2 sm:w-[70%] lg:w-[68%]"
+              className="absolute -bottom-12 left-1/2 z-10 w-[62%] -translate-x-1/2 sm:-bottom-24 sm:left-[60%] sm:w-[70%] lg:w-[68%]"
               bg="bg-white"
               padding="p-1"
               delay={240}
@@ -244,7 +276,7 @@ function BoldStatement() {
           <div aria-hidden="true" className="hidden lg:block" />
         </div>
 
-        <div className="grid gap-10 pb-8 pt-40 lg:grid-cols-[1.4fr_1fr] lg:pb-12 lg:pt-52">
+        <div className="grid gap-10 pb-4 pt-16 sm:pb-8 sm:pt-40 lg:grid-cols-[1.4fr_1fr] lg:pb-12 lg:pt-52">
           <p className="max-w-[560px] text-[17px] leading-relaxed text-dream-ink-soft sm:text-[19px] lg:ml-24">
             Looking for a print shop that&apos;ll actually pick up the phone?
             That&apos;s us. We answer questions, send proofs, and stand

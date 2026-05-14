@@ -80,7 +80,7 @@ export default function ContactPage() {
 
       <Hero />
 
-      <section className="relative bg-dream-cream pb-24 pt-20 lg:pb-32 lg:pt-28">
+      <section className="relative bg-dream-cream pb-10 pt-20 lg:pb-32 lg:pt-28">
         <svg
           aria-hidden="true"
           preserveAspectRatio="xMidYMid"
@@ -298,8 +298,8 @@ export default function ContactPage() {
 function Hero() {
   return (
     <section className="relative flex min-h-[440px] flex-col justify-center bg-dream-lavender-soft md:min-h-[500px] lg:min-h-[560px]">
-      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-40 pt-24 text-center md:px-8 md:pb-48 md:pt-28 lg:px-10 lg:pb-56 lg:pt-32">
-        <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
+      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-20 pt-24 text-center md:px-8 md:pb-48 md:pt-28 lg:px-10 lg:pb-56 lg:pt-32">
+        <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
           Let&apos;s{" "}
           <span className="relative inline-block">
             talk
@@ -390,18 +390,18 @@ function ContactCard({
   icon: React.ReactNode;
 }) {
   const inner = (
-    <div className="flex items-start gap-4">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple">
+    <div className="flex items-start gap-3 sm:gap-4">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple sm:h-11 sm:w-11">
         {icon}
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <span className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-dream-purple">
           {kicker}
         </span>
-        <p className="mt-1 break-words font-display text-[18px] font-bold leading-tight text-dream-ink">
+        <p className="mt-1 break-words font-display text-[15px] font-bold leading-tight text-dream-ink sm:text-[18px]">
           {heading}
         </p>
-        <p className="mt-2 text-[13px] leading-relaxed text-dream-ink-soft">
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-dream-ink-soft sm:mt-2 sm:text-[13px]">
           {hint}
         </p>
       </div>
@@ -409,7 +409,7 @@ function ContactCard({
   );
 
   const baseCls =
-    "block rounded-[24px] border-2 border-dream-ink bg-white px-6 py-6 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]";
+    "block rounded-[24px] border-2 border-dream-ink bg-white px-5 py-5 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:px-6 sm:py-6";
 
   return href ? (
     <a href={href} className={`${baseCls} hover:-translate-y-0.5`}>

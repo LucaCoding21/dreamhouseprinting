@@ -18,6 +18,11 @@ export default function HeroImage() {
       priority
       onLoad={() => setLoaded(true)}
       sizes="(min-width: 1024px) 700px, (min-width: 768px) 50vw, 100vw"
+      // transform-origin: center top so the pop-bounce scale grows the image
+      // downward from its top edge. With the default `center center`, the
+      // 1.2× overshoot at 55% briefly pushed the top above its normal
+      // position and got clipped (most visible in laptop mobile emulation).
+      style={{ transformOrigin: "center top" }}
       className={`h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[700px] lg:max-h-[740px] ${
         loaded ? "animate-pop" : "opacity-0"
       }`}

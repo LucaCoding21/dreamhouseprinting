@@ -129,7 +129,7 @@ export default function SiteNav() {
       </svg>
 
       <div className="relative z-50 mx-auto flex max-w-[1400px] items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-1.5 lg:gap-3">
           <Image
             src="/dreamhouse-logo.svg"
             alt="Dreamhouse Printing"
@@ -138,7 +138,7 @@ export default function SiteNav() {
             priority
             className="h-11 w-11 lg:h-16 lg:w-16"
           />
-          <span className="hidden font-display font-extrabold leading-[1.05] text-dream-purple lg:inline lg:text-[26px]">
+          <span className="mt-1.5 font-display text-[17px] font-extrabold leading-[1.05] text-dream-purple lg:mt-0 lg:text-[26px]">
             Dreamhouse
             <br />
             Printing
@@ -264,13 +264,9 @@ export default function SiteNav() {
           aria-label="Close menu"
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => setMenuOpen(false)}
-          className={`absolute inset-0 h-full w-full bg-dream-cream transition-opacity duration-[450ms] ease-out ${
+          className={`absolute inset-0 h-full w-full bg-dream-lavender-soft transition-opacity duration-[450ms] ease-out ${
             menuOpen ? "opacity-100" : "opacity-0"
           }`}
-          style={{
-            backgroundImage:
-              "radial-gradient(ellipse at top, rgba(255,255,255,0.55), transparent 60%)",
-          }}
         />
 
         <nav
@@ -343,7 +339,7 @@ export default function SiteNav() {
 
     {/* Spacer reserves the nav's height on mobile (header is `fixed`).
         Hidden on desktop where the header is back to `relative`. */}
-    <div aria-hidden="true" className="h-[68px] xl:hidden" />
+    <div aria-hidden="true" className="h-[68px] lg:h-[88px] xl:hidden" />
     </>
   );
 }

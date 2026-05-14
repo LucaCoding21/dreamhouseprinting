@@ -174,9 +174,9 @@ export default function ServicesPage() {
         <SiteNav />
       </div>
 
-      <div className="bg-dream-purple text-white">
-        <p className="mx-auto max-w-[1400px] px-6 py-2 text-center text-[15px] font-medium">
-          Spring deal: 15% off orders of 50+ pieces. Submit your quote this month
+      <div className="hidden bg-[#8f55e5] text-white sm:block">
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-medium sm:whitespace-normal sm:px-6 sm:text-[15px]">
+          <span className="hidden sm:inline">We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll beat it by 5%</span>
         </p>
       </div>
 
@@ -200,18 +200,60 @@ export default function ServicesPage() {
 
 function Hero() {
   return (
-    <section className="relative isolate flex min-h-[380px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[440px] lg:min-h-[500px]">
-      <div className="relative mx-auto w-full max-w-[1400px] px-6 pb-32 pt-20 md:px-8 md:pb-40 md:pt-24 lg:px-10 lg:pb-48 lg:pt-28">
-        <h1 className="max-w-[900px] font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
-          Custom apparel printing in Vancouver<span className="hidden md:inline">.</span>
-        </h1>
+    <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
+      <div className="relative mx-auto w-full max-w-[1450px] px-6 pb-24 pt-12 md:px-8 md:pb-32 md:pt-24 lg:px-10 lg:pb-36 lg:pt-28">
+        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(320px,440px)] lg:gap-12">
+          <div>
+            <h1 className="max-w-[1100px] font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
+              Custom apparel{" "}
+              <span className="lg:block xl:whitespace-nowrap">
+                printing in Vancouver<span className="hidden md:inline">.</span>
+              </span>
+            </h1>
 
-        <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-          Screen printing, embroidery, and direct-to-garment printing for
-          shirts, hoodies, hats, and bags. We help local brands, small
-          businesses, and teams bring their designs to life, with quality work
-          and pricing that scales with your order.
-        </p>
+            <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+              Screen printing, embroidery, and direct-to-garment for shirts,
+              hoodies, hats, and bags. Built for local brands, small businesses,
+              and teams.
+            </p>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-[420px] pb-10 pr-6 lg:mx-0 lg:max-w-none lg:pb-14 lg:pr-10">
+            <Image
+              src="/sticker2.png"
+              alt=""
+              aria-hidden="true"
+              width={400}
+              height={400}
+              className="pointer-events-none absolute -right-6 -top-10 z-0 h-auto w-[140px] -rotate-12 sm:-right-10 sm:-top-14 sm:w-[180px] lg:-right-14 lg:-top-16 lg:w-[210px]"
+            />
+
+            <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2.5 shadow-[8px_8px_0_0_rgba(27,20,88,1)]">
+              <div className="relative aspect-square overflow-hidden rounded-lg">
+                <Image
+                  src="/custom-screen-printed-tshirts-vancouver.webp"
+                  alt="Couple wearing matching custom screen-printed t-shirts in Vancouver"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 480px, (min-width: 640px) 420px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+
+            <div className="absolute -bottom-8 right-0 z-20 w-[48%] rotate-[7deg] rounded-lg bg-white p-2 shadow-[6px_6px_0_0_rgba(27,20,88,0.95)] sm:-bottom-6 sm:right-2 lg:right-4">
+              <div className="relative aspect-square overflow-hidden rounded-md">
+                <Image
+                  src="/custom-printed-brand-merch-vancouver.webp"
+                  alt="Custom screen-printed brand merch t-shirts on hangers"
+                  fill
+                  sizes="(min-width: 1024px) 220px, (min-width: 640px) 195px, 45vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <svg
@@ -241,7 +283,7 @@ function Hero() {
 
 function Methods() {
   return (
-    <section id="methods" className="relative mx-auto max-w-[1500px] px-6 pb-24 pt-12 lg:px-10 lg:pb-32 lg:pt-16">
+    <section id="methods" className="relative mx-auto max-w-[1500px] px-6 pb-24 pt-20 lg:px-10 lg:pb-32 lg:pt-28">
       <Image
         src="/sticker3.png"
         alt=""
@@ -252,7 +294,7 @@ function Methods() {
       />
       <Reveal variant="up">
         <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-start md:gap-12 lg:gap-16">
-          <h1 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] md:text-[54px] lg:text-[60px]">
+          <h1 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[42px] lg:text-[46px]">
             Three ways to print custom apparel<span className="hidden md:inline">.</span>
           </h1>
           <div>
@@ -318,55 +360,87 @@ function Products() {
           <SectionHeader
             kicker="Products"
             cleanKicker
+            center
             title={<>What we print on<span className="hidden md:inline">.</span></>}
             subtitle="These are the blanks we keep on hand. If you have something else in mind, let us know. We can source many brands not listed here, and we're always adding more."
           />
         </Reveal>
 
-        <div className="mt-14 grid gap-8 sm:grid-cols-2 md:grid-cols-4 md:gap-6 lg:grid-cols-4 lg:gap-6">
-          {PRODUCT_CATEGORIES.map((cat, i) => (
+        <div className="mt-14 grid gap-y-14 gap-x-8 sm:grid-cols-2 sm:gap-y-16 md:grid-cols-4 md:gap-x-6">
+          {PRODUCT_CATEGORIES.map((cat, i) => {
+            const tagTilts = [6, -7, 5, -6];
+            return (
             <Reveal key={cat.name} variant="up" delay={i * 80}>
             <Link
               href={cat.href}
               aria-label={`${cat.name}, from ${cat.startingAt}, minimum ${cat.minQty}, ${cat.turnaround}`}
-              className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-4 focus-visible:ring-offset-dream-cream"
+              className="group relative block focus-visible:outline-none"
             >
-              <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] bg-white ring-1 ring-dream-ink/10">
+              <div
+                className="relative aspect-[5/4] overflow-hidden rounded-[22px] bg-dream-cream shadow-[6px_6px_0_0_rgba(27,20,88,0.92)] ring-1 ring-dream-ink/15 transition-[transform,box-shadow] duration-300 ease-out group-hover:-translate-y-1.5 group-hover:shadow-[10px_12px_0_0_rgba(27,20,88,1)] group-focus-visible:ring-2 group-focus-visible:ring-dream-purple sm:aspect-[3/4]"
+              >
                 <Image
                   src={cat.image}
                   alt=""
                   width={520}
                   height={680}
-                  className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                  className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
                   aria-hidden="true"
                 />
+              </div>
+
+              <span
+                aria-hidden="true"
+                className="price-tag-alive pointer-events-none absolute -right-2 top-4 z-20 inline-flex items-baseline gap-1.5 rounded-full bg-dream-sun px-4 py-2 font-display text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.92)] ring-2 ring-white"
+                style={{ "--base-tilt": `${tagTilts[i % tagTilts.length]}deg` } as CSSProperties}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-dream-ink/70">
+                  from
+                </span>
+                <span className="font-display text-[17px] font-bold leading-none text-dream-ink">
+                  {cat.startingAt}
+                </span>
+              </span>
+
+              <div className="mt-5 flex items-center justify-between gap-3 px-1">
+                <div className="min-w-0">
+                  <h3 className="font-display text-[22px] font-bold leading-tight tracking-tight text-dream-ink lg:text-[24px]">
+                    {cat.name}
+                  </h3>
+                  <p className="mt-1.5 text-[13px] leading-snug text-dream-ink/70">
+                    {cat.brands.join(" · ")}
+                  </p>
+                </div>
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute bottom-3 right-3 z-10 inline-flex items-baseline gap-1.5 rounded-full bg-white px-4 py-2 font-display text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.18)] ring-1 ring-dream-ink/10"
+                  className="inline-flex h-7 w-7 flex-shrink-0 -translate-x-3 -rotate-45 scale-0 items-center justify-center rounded-full bg-dream-ink text-white opacity-0 shadow-[0_2px_0_0_rgba(27,20,88,0.95)] transition-all duration-500 ease-[cubic-bezier(0.34,1.6,0.5,1)] group-hover:translate-x-0 group-hover:rotate-0 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:rotate-0 group-focus-visible:scale-100 group-focus-visible:opacity-100"
                 >
-                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-dream-ink/75">
-                    from
-                  </span>
-                  <span className="font-display text-[17px] font-bold leading-none text-dream-purple">
-                    {cat.startingAt}
-                  </span>
+                  <svg viewBox="0 0 16 16" className="h-3 w-3 transition-transform duration-700 ease-out group-hover:translate-x-0.5" aria-hidden="true">
+                    <path d="M3 8 H13 M9 4 L13 8 L9 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </span>
               </div>
 
-              <div className="mt-5">
-                <h3 className="font-display text-[22px] font-bold leading-tight tracking-tight text-dream-ink lg:text-[24px]">
-                  {cat.name}
-                </h3>
-                <p className="mt-2 text-[13px] leading-snug text-dream-ink/70">
-                  {cat.brands.join(" · ")}
-                </p>
-                <p className="mt-1 text-[13px] leading-snug text-dream-ink/55">
-                  {cat.turnaround} · Min {cat.minQty}
-                </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] font-medium text-dream-ink/55">
+                <span className="inline-flex items-center gap-1.5">
+                  <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M8 4.5 V8 L10.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                  {cat.turnaround}
+                </span>
+                <span aria-hidden="true" className="text-dream-ink/30">•</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
+                    <path d="M2.5 5.5 L8 3 L13.5 5.5 L8 8 Z M2.5 5.5 V11 L8 13.5 M13.5 5.5 V11 L8 13.5 M8 8 V13.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                  </svg>
+                  Min {cat.minQty}
+                </span>
               </div>
             </Link>
             </Reveal>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
@@ -400,7 +474,7 @@ function FAQ() {
       <div className="relative mx-auto grid max-w-[1500px] gap-4 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
           <Reveal variant="up">
-            <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] md:text-[56px] lg:text-[64px]">
+            <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[44px] lg:text-[48px]">
               Frequently asked questions
             </h2>
           </Reveal>
@@ -411,7 +485,7 @@ function FAQ() {
               width={2800}
               height={1752}
               aria-hidden="true"
-              className="ml-auto -mr-12 mt-4 h-auto w-[460px] sm:-mr-20 sm:mt-12 sm:w-[580px] lg:-mr-32 lg:mt-20 lg:w-[720px]"
+              className="ml-auto -mr-20 mt-4 h-auto w-[460px] sm:-mr-28 sm:mt-12 sm:w-[580px] lg:-mr-48 lg:mt-20 lg:w-[720px]"
             />
           </Reveal>
         </div>
@@ -573,7 +647,7 @@ function SectionHeader({
       <h2
         className={`${
           kicker ? "mt-4" : ""
-        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink`}
+        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[42px] lg:text-[46px]`}
       >
         {title}
       </h2>

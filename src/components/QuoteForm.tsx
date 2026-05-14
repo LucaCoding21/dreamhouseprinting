@@ -328,12 +328,27 @@ export default function QuoteForm() {
 
 function Header() {
   return (
-    <header>
+    <header className="flex flex-col gap-3">
       <Link
         href="/"
         aria-label="Back to Dreamhouse Printing home"
-        className="inline-flex items-center gap-3 transition-transform hover:-translate-y-0.5"
+        className="inline-flex items-center gap-1.5 self-start font-display text-[13px] font-bold uppercase tracking-[0.14em] text-dream-purple transition-transform hover:-translate-x-0.5"
       >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 4 5 10l7 6" />
+        </svg>
+          Back
+      </Link>
+      <div className="flex items-center gap-3">
         <Image
           src="/dreamhouse-logo.svg"
           alt="Dreamhouse Printing"
@@ -342,11 +357,9 @@ function Header() {
           priority
         />
         <h2 className="font-display text-2xl font-extrabold leading-none text-dream-purple sm:text-3xl">
-          Dreamhouse
-          <br />
-          Printing
+          Get a quote
         </h2>
-      </Link>
+      </div>
     </header>
   );
 }
