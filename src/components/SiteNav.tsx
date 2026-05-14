@@ -138,7 +138,7 @@ export default function SiteNav() {
             priority
             className="h-11 w-11 lg:h-16 lg:w-16"
           />
-          <span className="mt-1.5 font-display text-[17px] font-extrabold leading-[1.05] text-dream-purple lg:mt-0 lg:text-[26px]">
+          <span className="mt-1.5 font-display text-[17px] font-extrabold leading-[1.05] text-dream-purple lg:mt-2 lg:text-[26px]">
             Dreamhouse
             <br />
             Printing
