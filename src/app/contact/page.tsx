@@ -298,8 +298,8 @@ export default function ContactPage() {
 function Hero() {
   return (
     <section className="relative flex min-h-[440px] flex-col justify-center bg-dream-lavender-soft md:min-h-[500px] lg:min-h-[560px]">
-      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-20 pt-24 text-center md:px-8 md:pb-48 md:pt-28 lg:px-10 lg:pb-56 lg:pt-32">
-        <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
+      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-20 pt-24 text-center md:px-8 md:pb-24 md:pt-28 lg:px-10 lg:pb-28 lg:pt-32">
+        <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[76px] lg:text-[88px]">
           Let&apos;s{" "}
           <span className="relative inline-block">
             talk

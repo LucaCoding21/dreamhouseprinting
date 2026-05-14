@@ -37,7 +37,7 @@ function Hero() {
     <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[220px] lg:min-h-[260px]">
       <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-20 pt-12 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-24 md:pt-12 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-32 lg:pt-12">
         <div className="flex flex-col items-start">
-          <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink">
+          <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[76px] lg:text-[88px]">
             Why we started
             <br />
             Dreamhouse<span className="hidden md:inline">.</span>
@@ -197,7 +197,7 @@ function WhatWeDo() {
 
 function BoldStatement() {
   return (
-    <section className="relative overflow-hidden bg-dream-lavender-soft pb-12 pt-16 sm:pt-12 lg:py-16">
+    <section className="relative overflow-hidden bg-dream-lavender-soft pb-12 pt-24 sm:pt-20 lg:pb-16 lg:pt-32">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"

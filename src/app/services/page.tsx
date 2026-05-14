@@ -204,7 +204,7 @@ function Hero() {
       <div className="relative mx-auto w-full max-w-[1450px] px-6 pb-24 pt-12 md:px-8 md:pb-32 md:pt-24 lg:px-10 lg:pb-36 lg:pt-28">
         <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(320px,440px)] lg:gap-12">
           <div>
-            <h1 className="max-w-[1100px] font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
+            <h1 className="max-w-[1100px] font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[76px] lg:text-[88px]">
               Custom apparel{" "}
               <span className="lg:block xl:whitespace-nowrap">
                 printing in Vancouver<span className="hidden md:inline">.</span>

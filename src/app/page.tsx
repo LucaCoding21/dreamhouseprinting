@@ -21,12 +21,14 @@ export default function Home() {
       </div>
 
       <section className="mx-auto max-w-[1550px] px-6 pb-0 pt-2 md:px-8 md:pb-8 md:pt-2 lg:px-10 lg:pb-8 lg:pt-3">
-        <div className="grid items-center gap-1 md:grid-cols-[1.1fr_1fr] md:gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-4">
-          <div className="-mt-[68px] order-2 text-center md:mt-0 md:order-none md:pl-4 md:text-left lg:-mt-4 lg:pl-10">
-            <h1 className="pt-2 font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:pt-0 md:text-[68px] lg:text-[80px]">
-              <span className="block md:inline">Custom</span>{" "}
-              <span className="block md:inline">screen printing</span>
-              <span className="block">and embroidery<span className="hidden md:inline">.</span></span>
+        <div className="grid items-center gap-1 md:grid-cols-[1fr_1.15fr] md:gap-6 lg:grid-cols-[1fr_1.2fr] lg:gap-4">
+          <div className="-mt-[68px] order-2 text-center md:-mt-16 md:order-none md:pl-4 md:text-left lg:-mt-24 lg:pl-10">
+            <h1 className="pt-2 font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:pt-0 md:text-[76px] lg:text-[88px]">
+              <span className="block md:hidden">Custom</span>
+              <span className="block md:hidden">screen printing</span>
+              <span className="block md:hidden">and embroidery</span>
+              <span className="hidden md:block">Custom screen printing and</span>
+              <span className="hidden md:block">embroidery.</span>
             </h1>
             <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto md:mt-8 md:mx-0 md:text-[17px]">
               Premium apparel for businesses, teams, and brands in Vancouver. Upload your design, get a quote in minutes.
@@ -61,7 +63,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-4 flex justify-center md:-mt-6 lg:-mt-8">
+        <div className="mt-4 flex justify-center md:-mt-20 lg:-mt-28">
           <a
             href="#how-it-works"
             className="group flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"

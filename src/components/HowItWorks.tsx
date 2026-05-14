@@ -132,7 +132,7 @@ export default function HowItWorks() {
         {STEPS.map((step) => (
           <div
             key={step.n}
-            className="relative flex min-w-0 flex-col items-center overflow-x-clip text-center"
+            className="relative flex min-w-0 flex-col items-center overflow-x-clip text-center md:overflow-x-visible"
           >
             <div className="relative flex h-[340px] w-full max-w-[460px] items-center justify-center sm:h-[400px] md:h-[360px] lg:h-[440px]">
               <div
