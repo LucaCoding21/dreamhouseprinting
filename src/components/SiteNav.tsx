@@ -39,18 +39,15 @@ export default function SiteNav() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const handlePointer = (e: PointerEvent) => {
-      if (!headerRef.current?.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
+    // Escape closes the menu. We don't register a pointerdown-outside-header
+    // listener because the full-screen backdrop <button> already handles
+    // "tap outside menu items to close" — and the listener would race the
+    // link's click event, sometimes swallowing navigation.
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMenuOpen(false);
     };
-    document.addEventListener("pointerdown", handlePointer);
     document.addEventListener("keydown", handleKey);
     return () => {
-      document.removeEventListener("pointerdown", handlePointer);
       document.removeEventListener("keydown", handleKey);
     };
   }, [menuOpen]);
@@ -98,7 +95,7 @@ export default function SiteNav() {
     <>
     <header
       ref={headerRef}
-      className={`fixed inset-x-0 top-0 z-40 w-full bg-dream-lavender-soft px-5 py-3 transition-transform duration-300 ease-out xl:relative xl:bg-transparent xl:px-10 xl:py-[21px] ${
+      className={`fixed inset-x-0 top-0 z-50 w-full bg-dream-lavender-soft px-5 py-3 transition-transform duration-300 ease-out xl:relative xl:bg-transparent xl:px-10 xl:py-[21px] ${
         shouldHide ? "-translate-y-full xl:translate-y-0" : "translate-y-0"
       }`}
     >
@@ -249,11 +246,13 @@ export default function SiteNav() {
           </button>
         </div>
       </div>
+    </header>
 
-      {/* Full-screen mobile menu — cream takeover, tilted Darumadrop titles
-          that pop in with a stagger, sun-burst Quick Quote CTA at the bottom.
-          Header content (logo, Quick Quote pill, hamburger) sits at z-50 so
-          it stays clickable above this z-40 sheet. */}
+    {/* Full-screen mobile menu — kept OUTSIDE <header> because the header is
+        `fixed` with a `transform` (scroll-hide), which would otherwise create
+        a containing block and confine this fixed sheet to the header's box.
+        Header sits at z-50 above this z-40 sheet so the hamburger stays
+        tappable as the close button. */}
       <div
         aria-hidden={!menuOpen}
         className={`fixed inset-0 z-40 xl:hidden ${
@@ -341,7 +340,7 @@ export default function SiteNav() {
           </div>
         </nav>
       </div>
-    </header>
+
     {/* Spacer reserves the nav's height on mobile (header is `fixed`).
         Hidden on desktop where the header is back to `relative`. */}
     <div aria-hidden="true" className="h-[68px] xl:hidden" />
