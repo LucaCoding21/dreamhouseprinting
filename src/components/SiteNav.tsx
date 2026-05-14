@@ -275,7 +275,7 @@ export default function SiteNav() {
 
         <nav
           aria-label="Main"
-          className="pointer-events-none relative flex h-full flex-col items-center justify-center gap-7 px-6 pb-60 pt-16 sm:pb-64"
+          className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-7 px-6 pb-60 pt-16 sm:pb-64"
         >
           {NAV_LINKS.map((link, i) => (
             <Link

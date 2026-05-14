@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import HeroImage from "@/components/HeroImage";
 import HowItWorks from "@/components/HowItWorks";
 import QuickQuote from "@/components/QuickQuote";
 import ShopByCategories from "@/components/ShopByCategories";
@@ -57,15 +57,7 @@ export default function Home() {
           </div>
 
           <div className="relative -mx-6 order-1 md:order-none md:mx-0">
-            <Image
-              src="/homepage_assets/hero_photo.webp"
-              alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
-              width={1600}
-              height={1607}
-              priority
-              sizes="(min-width: 1024px) 700px, (min-width: 768px) 50vw, 100vw"
-              className="h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[700px] lg:max-h-[740px]"
-            />
+            <HeroImage />
           </div>
         </div>
 
