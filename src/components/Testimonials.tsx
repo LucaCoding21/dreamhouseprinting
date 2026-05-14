@@ -88,7 +88,7 @@ export default function Testimonials() {
 
   return (
     <section className="relative mx-auto max-w-[1700px] px-6 pb-32 pt-24 lg:px-12 lg:pb-40 lg:pt-32">
-      <h2 className="text-center font-display text-4xl font-bold text-dream-ink sm:text-5xl">
+      <h2 className="text-center font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-5xl">
         Reviews
       </h2>
       <p className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">

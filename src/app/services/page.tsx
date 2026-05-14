@@ -202,8 +202,8 @@ function Hero() {
   return (
     <section className="relative isolate flex min-h-[380px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[440px] lg:min-h-[500px]">
       <div className="relative mx-auto w-full max-w-[1400px] px-6 pb-32 pt-20 md:px-8 md:pb-40 md:pt-24 lg:px-10 lg:pb-48 lg:pt-28">
-        <h1 className="max-w-[900px] font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[60px] md:text-[68px] lg:text-[80px]">
-          Custom apparel printing in Vancouver.
+        <h1 className="max-w-[900px] font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
+          Custom apparel printing in Vancouver<span className="hidden md:inline">.</span>
         </h1>
 
         <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
@@ -252,8 +252,8 @@ function Methods() {
       />
       <Reveal variant="up">
         <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-start md:gap-12 lg:gap-16">
-          <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink">
-            Three ways to print custom apparel.
+          <h1 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] md:text-[54px] lg:text-[60px]">
+            Three ways to print custom apparel<span className="hidden md:inline">.</span>
           </h1>
           <div>
             <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
@@ -318,7 +318,7 @@ function Products() {
           <SectionHeader
             kicker="Products"
             cleanKicker
-            title={<>What we print on.</>}
+            title={<>What we print on<span className="hidden md:inline">.</span></>}
             subtitle="These are the blanks we keep on hand. If you have something else in mind, let us know. We can source many brands not listed here, and we're always adding more."
           />
         </Reveal>
@@ -397,10 +397,10 @@ function FAQ() {
         </defs>
         <rect width="100%" height="100%" fill="url(#services-products-scallop)" />
       </svg>
-      <div className="relative mx-auto grid max-w-[1500px] gap-12 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
+      <div className="relative mx-auto grid max-w-[1500px] gap-4 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
           <Reveal variant="up">
-            <h2 className="font-display text-[40px] font-bold leading-[1] tracking-tight text-dream-ink sm:text-[52px] lg:text-[64px]">
+            <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] md:text-[56px] lg:text-[64px]">
               Frequently asked questions
             </h2>
           </Reveal>
@@ -411,7 +411,7 @@ function FAQ() {
               width={2800}
               height={1752}
               aria-hidden="true"
-              className="ml-auto -mr-12 mt-20 h-auto w-[460px] sm:-mr-20 sm:w-[580px] lg:-mr-32 lg:w-[720px]"
+              className="ml-auto -mr-12 mt-4 h-auto w-[460px] sm:-mr-20 sm:mt-12 sm:w-[580px] lg:-mr-32 lg:mt-20 lg:w-[720px]"
             />
           </Reveal>
         </div>
@@ -573,7 +573,7 @@ function SectionHeader({
       <h2
         className={`${
           kicker ? "mt-4" : ""
-        } font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink`}
+        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink`}
       >
         {title}
       </h2>

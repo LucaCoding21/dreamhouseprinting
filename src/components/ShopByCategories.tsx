@@ -58,7 +58,7 @@ export default function ShopByCategories() {
     <section className="relative bg-white">
       <div className="mx-auto max-w-[1620px] px-6 pt-28 pb-32 lg:px-12 lg:pt-32 lg:pb-36">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
-          <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
+          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] md:text-[54px] lg:text-[60px]">
             What we print
           </h2>
           <p className="max-w-xl text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
@@ -86,7 +86,7 @@ export default function ShopByCategories() {
               </span>
             </span>
 
-            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden">
+            <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl">
               <Image
                 src={cat.image}
                 alt={`${cat.label} illustration`}
@@ -109,7 +109,7 @@ export default function ShopByCategories() {
 
             <div className="flex w-full flex-col items-center">
               <div className="relative inline-flex flex-col items-center">
-                <span className="font-display text-lg font-bold text-dream-ink sm:text-xl">
+                <span className="font-display text-[22px] font-bold text-dream-ink sm:text-2xl">
                   {cat.label}
                 </span>
                 <div className="relative mt-1 h-[6px] w-14">

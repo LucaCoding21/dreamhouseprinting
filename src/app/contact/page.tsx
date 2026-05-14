@@ -299,13 +299,13 @@ function Hero() {
   return (
     <section className="relative flex min-h-[440px] flex-col justify-center bg-dream-lavender-soft md:min-h-[500px] lg:min-h-[560px]">
       <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-40 pt-24 text-center md:px-8 md:pb-48 md:pt-28 lg:px-10 lg:pb-56 lg:pt-32">
-        <h1 className="font-display text-[52px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[72px] md:text-[84px] lg:text-[96px]">
+        <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
           Let&apos;s{" "}
           <span className="relative inline-block">
             talk
             <ScribbleUnderline className="-bottom-1 lg:-bottom-2" />
           </span>
-          .
+          <span className="hidden md:inline">.</span>
         </h1>
         <p className="mt-6 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
           Got a question, an idea, or just want to chat about a project? Pick

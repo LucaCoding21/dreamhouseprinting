@@ -33,7 +33,9 @@ const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
 
 export default function SiteNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -53,10 +55,52 @@ export default function SiteNav() {
     };
   }, [menuOpen]);
 
+  // Lock body scroll while the full-screen mobile menu is open so the page
+  // underneath doesn't bleed through when the user drags.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [menuOpen]);
+
+  // Mobile: hide nav on scroll-down, reveal on scroll-up. Desktop ignores
+  // the transform since the header is `xl:relative`.
+  useEffect(() => {
+    lastScrollY.current = window.scrollY;
+    const onScroll = () => {
+      const current = window.scrollY;
+      const delta = current - lastScrollY.current;
+      if (current <= 80) {
+        setHidden(false);
+      } else if (delta > 4) {
+        setHidden(true);
+      } else if (delta < -4) {
+        setHidden(false);
+      }
+      lastScrollY.current = current;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Opening the menu forces the nav visible, so closing it doesn't leave
+  // the user staring at a header sliding away.
+  useEffect(() => {
+    if (menuOpen) setHidden(false);
+  }, [menuOpen]);
+
+  const shouldHide = hidden && !menuOpen;
+
   return (
+    <>
     <header
       ref={headerRef}
-      className="relative w-full px-5 py-[17px] lg:px-10 lg:py-[21px]"
+      className={`fixed inset-x-0 top-0 z-40 w-full bg-dream-lavender-soft px-5 py-3 transition-transform duration-300 ease-out xl:relative xl:bg-transparent xl:px-10 xl:py-[21px] ${
+        shouldHide ? "-translate-y-full xl:translate-y-0" : "translate-y-0"
+      }`}
     >
       <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
         <defs>
@@ -87,7 +131,7 @@ export default function SiteNav() {
         </defs>
       </svg>
 
-      <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
+      <div className="relative z-50 mx-auto flex max-w-[1400px] items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-3">
           <Image
             src="/dreamhouse-logo.svg"
@@ -95,7 +139,7 @@ export default function SiteNav() {
             width={140}
             height={140}
             priority
-            className="h-14 w-14 lg:h-16 lg:w-16"
+            className="h-11 w-11 lg:h-16 lg:w-16"
           />
           <span className="hidden font-display font-extrabold leading-[1.05] text-dream-purple lg:inline lg:text-[26px]">
             Dreamhouse
@@ -117,7 +161,7 @@ export default function SiteNav() {
             ))}
           </nav>
 
-          <div className="sun-burst relative inline-block">
+          <div className="sun-burst relative hidden xl:inline-block">
           {SUN_RAYS.map((ray, i) => (
             <span
               key={i}
@@ -149,51 +193,158 @@ export default function SiteNav() {
             onClick={() => setMenuOpen((o) => !o)}
             className="inline-flex h-11 w-11 items-center justify-center rounded-md text-dream-scribble xl:hidden"
           >
-            <span className="relative flex h-5 w-7 flex-col justify-between">
-              <span
-                className={`block h-[2.5px] w-full origin-center rounded-full bg-current transition-transform duration-300 ease-out ${
-                  menuOpen ? "translate-y-[8.75px] rotate-45" : ""
-                }`}
+            {/* Hand-drawn hamburger. Each "line" is two stacked paths:
+                a fatter, low-opacity "ink bleed" underlay (pressure variation)
+                + a crisp top stroke with a subtle dash pattern (tiny ink
+                skips). All paths pass through #stroke-rough for pen-tremor
+                wobble. Each line has its own resting tilt and uneven endpoints
+                so the three don't read as machine-aligned. */}
+            {/* Sketchy hamburger: one clean stroke per line, with subtle bezier
+                curves + tiny resting tilts so the three don't read as machine
+                aligned, plus the rough filter for a hand-drawn wobble. */}
+            <svg
+              viewBox="0 0 28 22"
+              aria-hidden="true"
+              className="h-7 w-9 overflow-visible"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ filter: "url(#stroke-rough)" }}
+            >
+              <path
+                d="M 2 3.5 C 9 2.5, 19 4.2, 26 3"
+                style={{
+                  transformBox: "fill-box",
+                  transformOrigin: "center",
+                  transform: menuOpen
+                    ? "translateY(7.5px) rotate(44deg)"
+                    : "rotate(-2deg)",
+                  transition: "transform 320ms ease-out",
+                }}
               />
-              <span
-                className={`block h-[2.5px] w-full rounded-full bg-current transition-opacity duration-200 ease-out ${
-                  menuOpen ? "opacity-0" : "opacity-100"
-                }`}
+              <path
+                d="M 2 11 C 9 11.7, 19 10.3, 26 11.4"
+                style={{
+                  opacity: menuOpen ? 0 : 1,
+                  transition: "opacity 180ms ease-out",
+                  transformBox: "fill-box",
+                  transformOrigin: "center",
+                  transform: "rotate(1.5deg)",
+                }}
               />
-              <span
-                className={`block h-[2.5px] w-full origin-center rounded-full bg-current transition-transform duration-300 ease-out ${
-                  menuOpen ? "-translate-y-[8.75px] -rotate-45" : ""
-                }`}
+              <path
+                d="M 2 18.5 C 9 19.6, 19 17.8, 26 19"
+                style={{
+                  transformBox: "fill-box",
+                  transformOrigin: "center",
+                  transform: menuOpen
+                    ? "translateY(-7.5px) rotate(-46deg)"
+                    : "rotate(1deg)",
+                  transition: "transform 320ms ease-out",
+                }}
               />
-            </span>
+            </svg>
           </button>
         </div>
       </div>
 
-      <nav
+      {/* Full-screen mobile menu — cream takeover, tilted Darumadrop titles
+          that pop in with a stagger, sun-burst Quick Quote CTA at the bottom.
+          Header content (logo, Quick Quote pill, hamburger) sits at z-50 so
+          it stays clickable above this z-40 sheet. */}
+      <div
         aria-hidden={!menuOpen}
-        className={`absolute left-0 right-0 top-full z-50 flex origin-top flex-col items-stretch gap-2 border-t border-dream-lavender-soft bg-dream-cream px-5 py-3 shadow-lg transition-all duration-300 ease-out xl:hidden ${
-          menuOpen
-            ? "translate-y-0 scale-y-100 opacity-100"
-            : "pointer-events-none -translate-y-2 scale-y-95 opacity-0"
+        className={`fixed inset-0 z-40 xl:hidden ${
+          menuOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
-        {NAV_LINKS.map((link, i) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={() => setMenuOpen(false)}
-            className={`rounded-lg px-4 py-3 font-display text-lg font-bold text-dream-scribble transition-all duration-300 ease-out hover:bg-dream-lavender-soft ${
-              menuOpen
-                ? "translate-y-0 opacity-100"
-                : "-translate-y-1 opacity-0"
+        <button
+          type="button"
+          aria-label="Close menu"
+          tabIndex={menuOpen ? 0 : -1}
+          onClick={() => setMenuOpen(false)}
+          className={`absolute inset-0 h-full w-full bg-dream-cream transition-opacity duration-[450ms] ease-out ${
+            menuOpen ? "opacity-100" : "opacity-0"
+          }`}
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse at top, rgba(255,255,255,0.55), transparent 60%)",
+          }}
+        />
+
+        <nav
+          aria-label="Main"
+          className="pointer-events-none relative flex h-full flex-col items-center justify-center gap-7 px-6 pb-60 pt-16 sm:pb-64"
+        >
+          {NAV_LINKS.map((link, i) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setMenuOpen(false)}
+              className={`font-daruma text-[56px] leading-none text-dream-purple sm:text-[72px] ${
+                menuOpen ? "pointer-events-auto" : "pointer-events-none"
+              }`}
+              style={{
+                rotate: `${link.rotate * 3}deg`,
+                scale: menuOpen ? 1 : 0.4,
+                opacity: menuOpen ? 1 : 0,
+                transition: `scale 550ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
+                  menuOpen ? i * 90 + 120 : 0
+                }ms, opacity 350ms ease ${
+                  menuOpen ? i * 90 + 120 : 0
+                }ms`,
+              }}
+            >
+              {link.label}
+            </Link>
+          ))}
+
+          <div
+            className={`sun-burst relative mt-4 inline-block ${
+              menuOpen ? "pointer-events-auto" : "pointer-events-none"
             }`}
-            style={{ transitionDelay: menuOpen ? `${i * 60 + 80}ms` : "0ms" }}
+            style={{
+              scale: menuOpen ? 1 : 0.4,
+              opacity: menuOpen ? 1 : 0,
+              transition: `scale 600ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
+                menuOpen ? NAV_LINKS.length * 90 + 200 : 0
+              }ms, opacity 350ms ease ${
+                menuOpen ? NAV_LINKS.length * 90 + 200 : 0
+              }ms`,
+            }}
           >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
+            {SUN_RAYS.map((ray, i) => (
+              <span
+                key={i}
+                aria-hidden
+                className="sun-ray"
+                style={
+                  {
+                    "--x": `${ray.x}px`,
+                    "--y": `${ray.y}px`,
+                    "--r": `${ray.r}deg`,
+                    "--delay": `${ray.delay}s`,
+                    width: `${ray.len}px`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+            <Link
+              href="/#quick-quote"
+              onClick={() => setMenuOpen(false)}
+              className="rough-pill rough-pill-filled relative inline-flex items-center justify-center px-9 py-3.5 font-display text-[17px] font-bold text-white"
+            >
+              Quick Quote
+            </Link>
+          </div>
+        </nav>
+      </div>
     </header>
+    {/* Spacer reserves the nav's height on mobile (header is `fixed`).
+        Hidden on desktop where the header is back to `relative`. */}
+    <div aria-hidden="true" className="h-[68px] xl:hidden" />
+    </>
   );
 }

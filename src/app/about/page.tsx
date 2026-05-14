@@ -37,10 +37,10 @@ function Hero() {
     <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[220px] lg:min-h-[260px]">
       <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-4 pt-3 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-6 md:pt-4 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-8 lg:pt-6">
         <div className="flex flex-col items-start">
-          <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[60px] md:text-[68px] lg:text-[80px]">
+          <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[68px] lg:text-[80px]">
             Why we started
             <br />
-            Dreamhouse.
+            Dreamhouse<span className="hidden md:inline">.</span>
           </h1>
 
           <p className="mt-7 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">

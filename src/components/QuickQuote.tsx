@@ -49,10 +49,10 @@ export default function QuickQuote() {
 
   return (
     <section className="relative overflow-hidden bg-dream-lavender-soft">
-      <div className="relative z-10 mx-auto flex max-w-[980px] items-center px-6 py-32 lg:px-10 lg:py-40">
-        <div id="quick-quote" className="rough-card relative w-full scroll-mt-28 px-6 py-10 sm:px-12 sm:py-12">
+      <div className="relative z-10 mx-auto flex max-w-[980px] items-center px-6 py-10 lg:px-10 lg:py-40">
+        <div id="quick-quote" className="rough-card relative w-full scroll-mt-28 px-5 py-6 sm:px-12 sm:py-12">
           <div className="text-center">
-            <h2 className="font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
+            <h2 className="font-display text-3xl font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-4xl">
               Get A Quick Quote
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px]">
