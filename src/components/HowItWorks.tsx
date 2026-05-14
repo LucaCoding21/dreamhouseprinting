@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
-import FrameSequence from "@/components/FrameSequence";
 
 type Step = {
   n: number;
@@ -11,6 +10,7 @@ type Step = {
   blobHeight: number;
   // Rotation applied to the blob only (in degrees)
   blobRotate?: number;
+  // Single animated WebP (preserves alpha, ~150-250KB vs ~10-17MB of PNG frames).
   dog: string;
   dogAlt: string;
   dogWidth: string;
@@ -18,12 +18,6 @@ type Step = {
   // composition doesn't center nicely inside the blob.
   dogOffsetY?: string;
   dogOffsetX?: string;
-  // When true, dog is an animated asset (APNG) — skip Next.js optimization
-  // so the animation survives.
-  animated?: boolean;
-  // When set, render a frame-by-frame PNG sequence instead of `dog`.
-  // basePath should include the trailing prefix before the zero-padded index.
-  frameSequence?: { basePath: string; count: number; fps?: number; start?: number; skip?: number[] };
 };
 
 const STEPS: Step[] = [
@@ -36,17 +30,10 @@ const STEPS: Step[] = [
     blobWidth: 255,
     blobHeight: 310,
     blobRotate: -12,
-    dog: "/how it works/step1.apng",
+    dog: "/how it works/step1.webp",
     dogAlt: "Dog sitting next to a folded shirt and paw-print food bowl",
     dogWidth: "500px",
     dogOffsetX: "30px",
-    animated: true,
-    frameSequence: {
-      basePath: "/how it works/Step1V4/step1v5_",
-      count: 94,
-      fps: 24,
-      start: 0,
-    },
   },
   {
     n: 2,
@@ -56,17 +43,10 @@ const STEPS: Step[] = [
     blob: "/how it works/2blob.svg",
     blobWidth: 317,
     blobHeight: 255,
-    dog: "/how it works/step2.apng",
+    dog: "/how it works/step2.webp",
     dogAlt: "Dog peeking out of a canvas tote bag with rolled artwork",
     dogWidth: "450px",
     dogOffsetY: "24px",
-    animated: true,
-    frameSequence: {
-      basePath: "/how it works/Step2V2/step2_",
-      count: 60,
-      fps: 24,
-      start: 0,
-    },
   },
   {
     n: 3,
@@ -75,18 +55,10 @@ const STEPS: Step[] = [
     blob: "/how it works/3blob.svg",
     blobWidth: 322,
     blobHeight: 299,
-    dog: "/how it works/step3.apng",
+    dog: "/how it works/step3.webp",
     dogAlt: "Dog giving an approving thumbs up",
     dogWidth: "520px",
     dogOffsetY: "30px",
-    animated: true,
-    frameSequence: {
-      basePath: "/how it works/Step3V2/Timeline 3_",
-      count: 66,
-      fps: 24,
-      start: 0,
-      skip: [12, 13],
-    },
   },
   {
     n: 4,
@@ -96,16 +68,9 @@ const STEPS: Step[] = [
     blob: "/how it works/1blob.svg",
     blobWidth: 255,
     blobHeight: 310,
-    dog: "/how it works/step4-v2.apng",
+    dog: "/how it works/step4.webp",
     dogAlt: "Dog trotting with a shopping bag marked with a paw print",
     dogWidth: "510px",
-    animated: true,
-    frameSequence: {
-      basePath: "/how it works/Step4V3/step4_",
-      count: 102,
-      fps: 24,
-      start: 0,
-    },
   },
 ];
 
@@ -161,28 +126,15 @@ export default function HowItWorks() {
                   } as CSSProperties
                 }
               >
-              {step.frameSequence ? (
-                <FrameSequence
-                  basePath={step.frameSequence.basePath}
-                  count={step.frameSequence.count}
-                  fps={step.frameSequence.fps}
-                  start={step.frameSequence.start}
-                  skip={step.frameSequence.skip}
-                  alt={step.dogAlt}
-                  className="relative z-10 h-auto max-w-none shrink-0"
-                  style={{ width: step.dogWidth }}
-                />
-              ) : (
-                <Image
-                  src={step.dog}
-                  alt={step.dogAlt}
-                  width={460}
-                  height={460}
-                  unoptimized={step.animated}
-                  className="relative z-10 h-auto"
-                  style={{ width: step.dogWidth }}
-                />
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={step.dog}
+                alt={step.dogAlt}
+                loading="lazy"
+                decoding="async"
+                className="relative z-10 h-auto max-w-none shrink-0"
+                style={{ width: step.dogWidth }}
+              />
               </div>
             </div>
 
