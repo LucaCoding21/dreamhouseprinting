@@ -1,7 +1,13 @@
 export const metadata = {
-  title: "Services | Dreamhouse Printing",
+  title: "Custom Screen Printing, Embroidery & DTG | Dreamhouse Printing",
   description:
-    "Everything you need to know before you order. Our print methods, the products we carry, pricing logic, turnaround times, and answers to common questions.",
+    "Three in house print methods for custom apparel in Vancouver: screen printing for bulk runs, embroidery for premium logos, and DTG for full color prints. Pricing, turnaround, and FAQs in one place.",
+  openGraph: {
+    title: "Custom Screen Printing, Embroidery & DTG | Dreamhouse Printing",
+    description:
+      "Three in house print methods for custom apparel: screen printing, embroidery, and DTG. Pricing, turnaround, and answers in one place.",
+    type: "website",
+  },
 };
 
 export default function ServicesLayout({

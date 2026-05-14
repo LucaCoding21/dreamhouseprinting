@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import FrameSequence from "@/components/FrameSequence";
 
@@ -30,7 +31,7 @@ const STEPS: Step[] = [
     n: 1,
     title: "Tell us what you need",
     description:
-      "Pick your products, upload your art and get an instant quote.",
+      "Pick your products and upload your art, you'll get a quick instant quote",
     blob: "/how it works/1blob.svg",
     blobWidth: 255,
     blobHeight: 310,
@@ -51,7 +52,7 @@ const STEPS: Step[] = [
     n: 2,
     title: "We send you a proof",
     description:
-      "We'll design your mockup and send it over within 1 business day.",
+      "We'll double check your timeline, stock, and print to make sure it's ready to go. If it looks good, you're all good to pay!",
     blob: "/how it works/2blob.svg",
     blobWidth: 317,
     blobHeight: 255,
@@ -70,7 +71,7 @@ const STEPS: Step[] = [
   {
     n: 3,
     title: "Printing begins",
-    description: "Once you approve, we get to printing your order in-house.",
+    description: "Once you approve, we get to screenprinting your order in house.",
     blob: "/how it works/3blob.svg",
     blobWidth: 322,
     blobHeight: 299,
@@ -148,7 +149,18 @@ export default function HowItWorks() {
             key={step.n}
             className="relative flex flex-col items-center text-center"
           >
-            <div className="relative flex h-[400px] w-full max-w-[460px] items-center justify-center sm:h-[440px]">
+            <div className="relative flex h-[340px] w-full max-w-[460px] items-center justify-center sm:h-[400px] md:h-[360px] lg:h-[440px]">
+              <div
+                className={`relative z-10 flex items-center justify-center scale-[0.7] sm:scale-100 sm:translate-x-[var(--dog-ox)] sm:translate-y-[var(--dog-oy)] ${
+                  step.n === 1 ? "max-sm:-translate-x-10" : ""
+                }`}
+                style={
+                  {
+                    "--dog-ox": step.dogOffsetX ?? "0px",
+                    "--dog-oy": step.dogOffsetY ?? "0px",
+                  } as CSSProperties
+                }
+              >
               {step.frameSequence ? (
                 <FrameSequence
                   basePath={step.frameSequence.basePath}
@@ -158,13 +170,7 @@ export default function HowItWorks() {
                   skip={step.frameSequence.skip}
                   alt={step.dogAlt}
                   className="relative z-10 h-auto max-w-none shrink-0"
-                  style={{
-                    width: step.dogWidth,
-                    transform:
-                      step.dogOffsetX || step.dogOffsetY
-                        ? `translate(${step.dogOffsetX ?? "0"}, ${step.dogOffsetY ?? "0"})`
-                        : undefined,
-                  }}
+                  style={{ width: step.dogWidth }}
                 />
               ) : (
                 <Image
@@ -174,22 +180,21 @@ export default function HowItWorks() {
                   height={460}
                   unoptimized={step.animated}
                   className="relative z-10 h-auto"
-                  style={{
-                    width: step.dogWidth,
-                    transform:
-                      step.dogOffsetX || step.dogOffsetY
-                        ? `translate(${step.dogOffsetX ?? "0"}, ${step.dogOffsetY ?? "0"})`
-                        : undefined,
-                  }}
+                  style={{ width: step.dogWidth }}
                 />
               )}
+              </div>
             </div>
 
             <h3 className="-mt-4 font-daruma text-2xl text-dream-ink sm:text-3xl">
               {step.title}
             </h3>
 
-            <p className="mt-3 max-w-[320px] text-[14px] leading-relaxed text-dream-ink-soft">
+            <p
+              className={`mt-3 max-w-[460px] text-[14px] leading-relaxed text-dream-ink-soft ${
+                step.n === 2 ? "w-[120%]" : ""
+              }`}
+            >
               {step.description}
             </p>
           </div>

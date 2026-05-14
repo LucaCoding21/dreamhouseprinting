@@ -103,7 +103,7 @@ export default function Testimonials() {
           {TESTIMONIALS.map((t) => (
             <article
               key={t.name}
-              className="relative flex min-h-[340px] w-[85%] shrink-0 snap-start flex-col rounded-3xl px-6 py-7 shadow-[0_4px_0_0_rgba(27,20,88,0.08)] transition-transform duration-200 hover:-translate-y-1 sm:w-[55%] sm:px-7 sm:py-8 lg:w-[calc((100%-3rem)/3.3)]"
+              className="relative flex min-h-[340px] w-[85%] shrink-0 snap-start flex-col rounded-3xl px-6 py-7 shadow-[0_4px_0_0_rgba(27,20,88,0.08)] transition-transform duration-200 hover:-translate-y-1 sm:w-[55%] sm:px-7 sm:py-8 md:w-[calc((100%-2rem)/2.3)] lg:w-[calc((100%-3rem)/3.3)]"
               style={{
                 background: t.bg,
                 color: t.ink,

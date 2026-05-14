@@ -221,7 +221,7 @@ export default function QuoteForm() {
   if (submitted) return <SuccessCard />;
 
   return (
-    <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-10 pt-8 sm:max-w-lg">
+    <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-10 pt-8 sm:max-w-lg sm:px-6 md:px-8 md:pt-10">
       <Header />
 
       <ProgressBar step={step} total={STEPS.length} />

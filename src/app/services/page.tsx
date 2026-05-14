@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import HeroDog from "@/components/HeroDog";
+import FAQAccordion from "@/components/FAQAccordion";
 import ParallaxImage from "@/components/ParallaxImage";
 import Reveal from "@/components/Reveal";
 import SiteFooter from "@/components/SiteFooter";
@@ -26,7 +26,7 @@ const METHODS: Method[] = [
   {
     name: "Screen printing",
     description:
-      "Bold, long-lasting prints. Best for bulk orders of tees, hoodies, and totes.",
+      "Bold, long lasting prints. Best for bulk orders of tees, hoodies, and totes. Colours are the most accurate of any decoration type.",
     image: "/methods-screen.webp",
     imageClassName: "w-[150px] sm:w-[170px]",
     bg: "bg-dream-purple",
@@ -37,7 +37,7 @@ const METHODS: Method[] = [
   {
     name: "Embroidery",
     description:
-      "Thread stitched into the fabric for a premium, textured finish on polos and hats.",
+      "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
     image: "/methods-embroidery.webp",
     imageClassName: "w-[150px] -rotate-12 sm:w-[175px]",
     bg: "bg-white",
@@ -48,7 +48,7 @@ const METHODS: Method[] = [
   {
     name: "DTG printing",
     description:
-      "Direct-to-garment for full-colour, photo-quality prints with no minimum order.",
+      "Direct-to-garment (DTG) and direct-to-film (DTF) for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
     image: "/methods-dtg.webp",
     imageClassName: "w-[200px] sm:w-[230px]",
     bg: "bg-dream-sun",
@@ -110,27 +110,39 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
 const FAQS = [
   {
     q: "Can I use my own artwork?",
-    a: "Yes. Send vector (.ai, .eps, .pdf) or a 300dpi .png. If you only have a phone JPEG, we'll help clean it up. Small charge may apply.",
+    a: "Of course! We prefer vector files, but raster photos such as PNGs and JPEGs are great as well as long as they are high res. If they're not high res we can vectorize them for you but it does take time.",
   },
   {
     q: "What if I don't have a design?",
-    a: "We work from a sketch, a rough idea, or a reference. We design in-house or pair you with a designer we trust. You see a mockup before anything gets printed.",
+    a: "We don't do design in house, but we're happy to connect you with the many talented designers we know who could help you design what you need! Otherwise Canva and Adobe Express have lots of great templates you can use as well.",
   },
   {
     q: "Do you do samples?",
-    a: "Yes. We can ship a blank to check fit, or quote a small pre-production run (3–5 pieces) so you see the actual print first.",
+    a: "Yes. We can ship a blank to check fit, or quote a small pre-production run (1–5 pieces) so you see the actual print first. Prices are higher for low production runs as pricing is quantity based, but we're happy to offer re-order discounts should you wish to order more after your sample.",
   },
   {
-    q: "Can I mix sizes in one order?",
-    a: "Absolutely. Pricing is per-unit regardless of size. 2XL+ carries a $2–4 garment upcharge depending on the product.",
+    q: "Can I mix sizes and colours in one order?",
+    a: "Absolutely! Pricing is per-unit regardless of size, although XXL and up do typically carry a surcharge.\n\nColours can be mixed and matched as long as the graphic stays the exact same, colour changes have a $25 fee per colour changed.\n\nGraphic size changes unfortunately require all new set up and we can't for example group a 3 inch graphic and 4 inch graphic together.",
   },
   {
     q: "Combine multiple products in one order?",
-    a: "Yes, but minimums apply per type. 25 shirts + 25 hoodies prices as two jobs, not one combined 50-piece run.",
+    a: "As long as the print is the same and viable on all products involved the quantity discount will apply to every print that is grouped!\n\nJust note that not every product or print can be grouped though. We can't always print on hats, and many shirts are not suitable for embroidery. So printing on shirts and hoodies and grouping them is great, but we probably won't be able to group your hats and shirts.\n\nOur team will let you know what can and cannot be grouped when your order is sent for approval, and we're always working on the site to make ordering easier for customers :)",
   },
   {
     q: "What if I need a revision on the mockup?",
-    a: "Revisions are free and expected. We don't hit print until you're happy. Most orders go through 1–2 rounds.",
+    a: "We're always happy to adjust your order as your needs change. If you need quantity changes, a different size breakdown or want to change a product, let us know!",
+  },
+  {
+    q: "Is there a minimum order size?",
+    a: "There's no minimum order size, but pricing is quantity based and DTG and DTF are definitely preferable for small orders. We will do screen printing and embroidery for small orders, but the cost will be higher due to the set up involved.",
+  },
+  {
+    q: "What's the quickest you can do an order?",
+    a: "Typically we need at least 1 business day. Same day printing may be available if you contact us and pay before our suppliers close for the day.",
+  },
+  {
+    q: "What's the standard order timeline?",
+    a: "The standard order timeline is 10 business days. We always aim to get orders out as quick as possible though and yours may come earlier. Some suppliers are slower however, and if they are we will add time to the timeline to account for that.",
   },
 ];
 
@@ -171,7 +183,6 @@ export default function ServicesPage() {
       <BlobMorphFilter />
 
       <Hero />
-      <Pitch />
       <Methods />
 
       <Products />
@@ -184,122 +195,53 @@ export default function ServicesPage() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Hero
+// Hero — SEO-friendly H1 + description, scalloped bottom edge into Methods
 // ────────────────────────────────────────────────────────────────────────────
 
 function Hero() {
   return (
-    <section className="mx-auto grid max-w-[1400px] gap-10 px-6 pb-16 pt-6 lg:grid-cols-[1.3fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-20 lg:pt-8">
-      <div>
-        <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[56px] lg:text-[68px]">
-          Custom prints, done <span className="whitespace-nowrap">in-house</span>.
+    <section className="relative isolate flex min-h-[380px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[440px] lg:min-h-[500px]">
+      <div className="relative mx-auto w-full max-w-[1400px] px-6 pb-32 pt-20 md:px-8 md:pb-40 md:pt-24 lg:px-10 lg:pb-48 lg:pt-28">
+        <h1 className="max-w-[900px] font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[60px] md:text-[68px] lg:text-[80px]">
+          Custom apparel printing in Vancouver.
         </h1>
-        <p className="mt-6 max-w-[540px] text-base leading-relaxed text-dream-ink-soft sm:text-lg">
-          Screen printing, embroidery, and the blanks to put them on. Pricing,
-          turnaround, and answers to common questions all in one page.
+
+        <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+          Screen printing, embroidery, and direct-to-garment printing for
+          shirts, hoodies, hats, and bags. We help local brands, small
+          businesses, and teams bring their designs to life, with quality work
+          and pricing that scales with your order.
         </p>
-        <div className="mt-9 flex flex-wrap items-center gap-5">
-          <Link
-            href="/quote"
-            className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+      </div>
+
+      <svg
+        aria-hidden="true"
+        preserveAspectRatio="xMidYMid"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 block h-[28px] w-full"
+      >
+        <defs>
+          <pattern
+            id="services-hero-scallop"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
           >
-            Get a quote
-          </Link>
-        </div>
-      </div>
-
-      <div className="relative">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-4 -right-6 z-10 h-28 w-28 animate-pop sm:-right-10 sm:h-36 sm:w-36 lg:-top-6 lg:-right-12 lg:h-44 lg:w-44"
-          style={{ animationDelay: "80ms" }}
-        >
-          <Image
-            src="/doodle1.png"
-            alt=""
-            width={300}
-            height={300}
-            className="h-full w-full -rotate-[20deg]"
-          />
-        </div>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-2 -left-14 z-10 h-32 w-32 animate-pop sm:-left-20 sm:h-40 sm:w-40 lg:-bottom-4 lg:-left-28 lg:h-48 lg:w-48"
-          style={{ animationDelay: "200ms" }}
-        >
-          <Image
-            src="/doodle2.png"
-            alt=""
-            width={400}
-            height={400}
-            className="h-full w-full -rotate-12"
-          />
-        </div>
-        <HeroDog />
-      </div>
-    </section>
-  );
-}
-
-function Pitch() {
-  return (
-    <section className="relative bg-dream-lavender-soft pb-32 pt-32 lg:pb-40 lg:pt-40">
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 1440 120"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-x-0 top-0 block h-[60px] w-full sm:h-[90px] lg:h-[120px]"
-      >
-        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
+            <ellipse cx="60" cy="28" rx="60" ry="28" fill="#f4f2ff" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#services-hero-scallop)" />
       </svg>
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 1440 120"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-x-0 bottom-0 block h-[60px] w-full rotate-180 sm:h-[90px] lg:h-[120px]"
-      >
-        <path d="M 0 0 H 1440 V 30 Q 720 150 0 30 Z" fill="#f4f2ff" />
-      </svg>
-
-      <Image
-        src="/sticker2.png"
-        alt=""
-        width={600}
-        height={600}
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-20 right-4 z-20 h-auto w-[200px] rotate-[8deg] sm:-bottom-28 sm:right-10 sm:w-[260px] lg:-bottom-32 lg:right-16 lg:w-[320px]"
-      />
-
-      <Reveal variant="up" className="relative mx-auto flex max-w-[1320px] flex-col items-center px-6 text-center lg:px-10">
-        <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
-          The Dreamhouse workshop
-        </span>
-        <h2 className="mt-6 font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink">
-          Built for your brand.
-        </h2>
-        <p className="mt-6 max-w-[820px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
-          A small crew running art prep, screens, ink, stitches, and a quality
-          check before your order leaves the building. No middlemen, no
-          surprise upcharges. Just custom prints that arrive ready to wear.
-        </p>
-        <Link
-          href="/quote"
-          className="rough-pill rough-pill-outline rough-pill-lean mt-10 inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
-        >
-          Get a quote
-        </Link>
-      </Reveal>
     </section>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Methods
+// Methods (acts as the page hero — owns the H1 + primary CTA)
 // ────────────────────────────────────────────────────────────────────────────
 
 function Methods() {
   return (
-    <section id="methods" className="relative mx-auto max-w-[1500px] px-6 pb-24 pt-10 lg:px-10 lg:pb-32 lg:pt-12">
+    <section id="methods" className="relative mx-auto max-w-[1500px] px-6 pb-24 pt-12 lg:px-10 lg:pb-32 lg:pt-16">
       <Image
         src="/sticker3.png"
         alt=""
@@ -309,16 +251,26 @@ function Methods() {
         className="pointer-events-none absolute -bottom-8 -left-16 z-10 h-auto w-[160px] -rotate-[8deg] sm:-bottom-12 sm:-left-20 sm:w-[210px] lg:-bottom-16 lg:-left-28 lg:w-[260px]"
       />
       <Reveal variant="up">
-        <SectionHeader
-          kicker="Methods"
-          cleanKicker
-          title={
-            <>
-              Three ways to print.
-            </>
-          }
-          subtitle="All done in-house. Pick the one that fits your job."
-        />
+        <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-start md:gap-12 lg:gap-16">
+          <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink">
+            Three ways to print custom apparel.
+          </h1>
+          <div>
+            <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+              Screen printing, embroidery, and DTG, all done in house in
+              Vancouver. Pick the method that fits your job, your timeline,
+              and your budget.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-4">
+              <Link
+                href="/quote"
+                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+              >
+                Get a quote
+              </Link>
+            </div>
+          </div>
+        </div>
       </Reveal>
 
       <div className="mt-20 flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-0">
@@ -367,11 +319,11 @@ function Products() {
             kicker="Products"
             cleanKicker
             title={<>What we print on.</>}
-            subtitle="The blanks we keep on hand. Ask if you don't see something."
+            subtitle="These are the blanks we keep on hand. If you have something else in mind, let us know. We can source many brands not listed here, and we're always adding more."
           />
         </Reveal>
 
-        <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+        <div className="mt-14 grid gap-8 sm:grid-cols-2 md:grid-cols-4 md:gap-6 lg:grid-cols-4 lg:gap-6">
           {PRODUCT_CATEGORIES.map((cat, i) => (
             <Reveal key={cat.name} variant="up" delay={i * 80}>
             <Link
@@ -464,28 +416,7 @@ function FAQ() {
           </Reveal>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {FAQS.map((item, i) => (
-            <Reveal key={item.q} variant="up" delay={i * 40}>
-            <details
-              className="faq-accordion rough-card group relative px-6 py-5"
-            >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 font-display text-base font-bold text-dream-ink sm:text-lg">
-                <span>{item.q}</span>
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-dream-purple font-display text-xl leading-none text-white transition-transform group-open:rotate-45"
-                >
-                  +
-                </span>
-              </summary>
-              <p className="mt-4 pr-10 text-[14px] leading-relaxed text-dream-ink-soft sm:text-[15px]">
-                {item.a}
-              </p>
-            </details>
-            </Reveal>
-          ))}
-        </div>
+        <FAQAccordion items={FAQS} />
       </div>
     </section>
   );
@@ -502,18 +433,17 @@ function CTA() {
       <div className="absolute inset-0 -z-10 bg-dream-ink/55" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-[1400px] flex-col items-center px-6 py-20 text-center lg:px-10 lg:py-24">
         <Reveal variant="up">
-          <h2 className="font-display text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl lg:text-[64px]">
-            Ready when you are.
+          <h2 className="font-display text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl md:text-[56px] lg:text-[64px]">
+            Ready when you are!
           </h2>
         </Reveal>
         <Reveal variant="up" delay={80}>
           <p className="mt-6 max-w-[520px] text-[15px] leading-relaxed text-white/80 sm:text-base">
-            Tell us what you want and we'll come back with a real number, usually
-            within a business day.
+            Browse our selection below and submit an order, or if you still have questions, feel free to contact us :)
           </p>
         </Reveal>
 
-        <div className="mt-10">
+        <div className="mt-10 flex flex-col items-center gap-6 sm:flex-row sm:gap-8">
           <div
             className="sun-burst relative inline-block"
             style={{ "--ray-color": "#ecbb25" } as CSSProperties}
@@ -541,6 +471,13 @@ function CTA() {
               Start your order
             </Link>
           </div>
+
+          <Link
+            href="/contact"
+            className="inline-flex items-center justify-center rounded-full border-2 border-white px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5 hover:bg-white hover:text-dream-ink"
+          >
+            Contact us
+          </Link>
         </div>
 
       </div>

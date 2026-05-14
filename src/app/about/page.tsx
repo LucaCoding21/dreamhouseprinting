@@ -3,53 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import ParallaxScroll from "@/components/ParallaxScroll";
 import PolaroidPhoto from "@/components/PolaroidPhoto";
+import Reveal from "@/components/Reveal";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
-
-// ────────────────────────────────────────────────────────────────────────────
-// Data
-// ────────────────────────────────────────────────────────────────────────────
-
-// 12 sun rays around the hero CTA pill — same recipe used elsewhere on the site.
-const HERO_CTA_RAYS = Array.from({ length: 12 }, (_, i) => {
-  const angle = i * 30;
-  const rad = (angle * Math.PI) / 180;
-  const rx = 148;
-  const ry = 72;
-  const lenJitter = [22, 18, 20, 17, 22, 16, 20, 18, 21, 17, 19, 18][i];
-  const angleJitter = [-3, 4, -2, 5, -4, 2, -3, 4, -5, 3, -2, 4][i];
-  return {
-    x: +(Math.cos(rad) * rx).toFixed(1),
-    y: +(Math.sin(rad) * ry).toFixed(1),
-    r: angle + angleJitter,
-    len: lenJitter,
-    delay: +(((i * 83) % 450) / 1000).toFixed(2),
-  };
-});
-
-const SERVICES = [
-  {
-    name: "Screen printing",
-    body: "Each color is a separate screen, hand-pulled across the fabric. The ink lays thick and stays vibrant wash after wash.",
-    bestFor: "Best for bulk runs and bold colors",
-    image: "/products/shirts.jpg",
-    href: "/services#methods",
-  },
-  {
-    name: "Embroidery",
-    body: "Your artwork is digitized into stitch paths and run on commercial machines, so logos sit raised and crisp against the garment.",
-    bestFor: "Best for logos and premium pieces",
-    image: "/products/hoodies.jpg",
-    href: "/services#methods",
-  },
-  {
-    name: "DTG printing",
-    body: "Inkjet printed straight onto the shirt. Perfect for full-color or photographic artwork without the screen setup costs.",
-    bestFor: "Best for photo prints and small runs",
-    image: "/products/hats2.jpg",
-    href: "/services#methods",
-  },
-];
 
 // ────────────────────────────────────────────────────────────────────────────
 // Page
@@ -65,7 +21,7 @@ export default function AboutPage() {
       <Hero />
       <WhatWeDo />
       <BoldStatement />
-      <Services />
+      <ReadyCTA />
 
       <SiteFooter />
     </main>
@@ -78,10 +34,10 @@ export default function AboutPage() {
 
 function Hero() {
   return (
-    <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
-      <div className="relative mx-auto grid max-w-[1400px] gap-10 px-6 pb-8 pt-2 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-12 lg:pt-3">
+    <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[220px] lg:min-h-[260px]">
+      <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-4 pt-3 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-6 md:pt-4 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-8 lg:pt-6">
         <div className="flex flex-col items-start">
-          <h1 className="font-display text-[48px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[64px] lg:text-[80px]">
+          <h1 className="font-display text-[44px] font-semibold leading-[1.05] tracking-tight text-black sm:text-[60px] md:text-[68px] lg:text-[80px]">
             Why we started
             <br />
             Dreamhouse.
@@ -93,33 +49,6 @@ function Hero() {
             gets the same care.
           </p>
 
-          <div
-            className="sun-burst relative mt-10 inline-block"
-            style={{ "--ray-color": "#ecbb25" } as CSSProperties}
-          >
-            {HERO_CTA_RAYS.map((ray, i) => (
-              <span
-                key={i}
-                aria-hidden
-                className="sun-ray"
-                style={
-                  {
-                    "--x": `${ray.x}px`,
-                    "--y": `${ray.y}px`,
-                    "--r": `${ray.r}deg`,
-                    "--delay": `${ray.delay}s`,
-                    width: `${ray.len}px`,
-                  } as CSSProperties
-                }
-              />
-            ))}
-            <Link
-              href="/contact"
-              className="relative inline-flex items-center justify-center rounded-full bg-dream-sun px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
-            >
-              Talk to us
-            </Link>
-          </div>
         </div>
 
         <div className="relative flex justify-center lg:justify-end">
@@ -131,8 +60,8 @@ function Hero() {
             priority
             unoptimized
             aria-hidden="true"
-            sizes="(min-width: 1024px) 600px, (min-width: 640px) 520px, 420px"
-            className="h-auto w-full max-w-[420px] sm:max-w-[520px] lg:max-w-[600px]"
+            sizes="(min-width: 1024px) 520px, (min-width: 640px) 440px, 360px"
+            className="h-auto w-full max-w-[360px] sm:max-w-[440px] lg:max-w-[520px]"
           />
         </div>
       </div>
@@ -172,9 +101,9 @@ function WhatWeDo() {
         className="pointer-events-none absolute right-12 top-40 h-[80px] w-[80px] rotate-12 rounded-[40%_60%_55%_45%/55%_45%_60%_40%] bg-dream-sun-soft"
       />
 
-      <div className="relative mx-auto grid max-w-[1320px] items-center gap-12 px-6 lg:grid-cols-[1.1fr_1fr] lg:gap-20 lg:px-10">
+      <div className="relative mx-auto grid max-w-[1560px] items-center justify-center gap-12 px-6 md:grid-cols-[auto_auto] md:gap-14 md:px-8 lg:gap-24 lg:px-10">
         {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
-        <div className="mx-auto grid w-full max-w-[560px] grid-cols-2 items-start gap-4 sm:gap-5">
+        <div className="mx-auto grid w-full max-w-[680px] grid-cols-2 items-start gap-4 sm:gap-5">
           <ParallaxScroll speed={0.02}>
             <div className="aspect-[3/4] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
               <Image
@@ -201,28 +130,45 @@ function WhatWeDo() {
           </ParallaxScroll>
         </div>
 
-        <div>
+        <div className="max-w-[560px]">
           <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
             Our Mission
           </span>
           <h2 className="mt-5 font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
-            What we{" "}
+            Our{" "}
             <span className="relative inline-block">
-              do
+              story
               <ScribbleUnderline className="-bottom-1" />
             </span>
             .
           </h2>
           <p className="mt-6 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            We print high quality custom apparel on a great website that
-            lets you order exactly what you need, with the minimum amount
-            of hassle. Shirts, hoodies, hats, and bags. Pick your blank,
-            upload your art, and you&apos;ll have a quote in your inbox
-            the same day.
+            Everyone at Dreamhouse has worked at another print shop, and we
+            all walked away with the same thought: this could be done better.
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            Every order gets art prep, a mockup you sign off on, and a
-            quality check before it ships. No outsourcing, no middlemen.
+            Some of us worked at shops that refused to set up systems for
+            getting customers the info they needed.
+          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            Some of us worked at shops that didn&apos;t take employee safety
+            seriously, that talked people out of filing Worksafe claims, or
+            fired them for doing it.
+          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            Some of us can&apos;t even talk about our time at those shops,
+            because we signed NDAs.
+          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            What we all had in common was no ownership in the work, and pay
+            that didn&apos;t match it. Owners showed up for a fraction of
+            the hours we did and paid themselves ten times the salary. We
+            got 13 cent raises while they cleared $750K and up.
+          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            We started Dreamhouse to build something that was ours.
+            Somewhere we could treat customers well and give employees the
+            respect they deserve.
           </p>
         </div>
       </div>
@@ -255,20 +201,11 @@ function BoldStatement() {
       />
 
       <div className="relative w-full px-6 lg:px-10">
-        <div className="grid gap-10 pb-[78px] pt-12 lg:grid-cols-[1fr_1.4fr] lg:pb-[110px] lg:pt-16">
-          <div aria-hidden="true" />
-          <p className="max-w-[560px] text-[17px] leading-relaxed text-dream-ink-soft sm:text-[19px] lg:justify-self-end">
-            Every roll of ink, every screen, every stitch, done by hand on
-            Main Street. Local craft, real materials, no shortcuts, and a
-            team that actually shows up.
-          </p>
-        </div>
-
         <div className="mx-auto grid max-w-[1280px] items-center gap-10 lg:grid-cols-[1fr_1.4fr_1fr]">
           <div aria-hidden="true" className="hidden lg:block" />
 
-          <div className="relative h-[680px] w-full sm:h-[800px] lg:h-[920px]">
-            <h2 className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-center font-daruma text-[88px] leading-[0.85] tracking-tight text-dream-purple sm:text-[120px] lg:text-[180px]">
+          <div className="relative h-[600px] w-full sm:h-[720px] md:h-[800px] lg:h-[920px]">
+            <h2 className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-center font-daruma text-[80px] leading-[0.85] tracking-tight text-dream-purple sm:text-[112px] md:text-[140px] lg:text-[180px]">
               <span>
                 MADE
                 <br />
@@ -321,98 +258,59 @@ function BoldStatement() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 4. Services — three cards with icon, name, blurb, link + CTA row
+// 4. Ready CTA — soft closing call-to-action
 // ────────────────────────────────────────────────────────────────────────────
 
-function Services() {
+function ReadyCTA() {
   return (
-    <section className="relative overflow-hidden bg-dream-cream pb-32 pt-28 lg:pb-44 lg:pt-36">
-      <Image
-        src="/arrow1.svg"
-        alt=""
-        width={702}
-        height={1359}
+    <section className="relative bg-dream-cream py-20 lg:py-28">
+      <svg
         aria-hidden="true"
-        className="pointer-events-none absolute right-12 top-16 z-30 hidden h-auto w-[176px] md:block lg:right-32 lg:w-[236px]"
-      />
+        preserveAspectRatio="xMidYMid"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 block h-[28px] w-full"
+      >
+        <defs>
+          <pattern
+            id="about-cta-scallop"
+            width="120"
+            height="28"
+            patternUnits="userSpaceOnUse"
+          >
+            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#about-cta-scallop)" />
+      </svg>
 
-      <div className="relative mx-auto max-w-[1500px] px-6 lg:px-10">
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="font-display text-xs font-bold uppercase tracking-[0.2em] text-dream-purple">
-            How we print
-          </span>
-          <h2 className="mt-4 font-display text-[40px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
-            Three ways to put{" "}
-            <span className="relative inline-block">
-              ink
-              <ScribbleUnderline className="-bottom-1" />
-            </span>{" "}
-            on fabric.
+      <div className="relative mx-auto max-w-[760px] px-6 text-center lg:px-10">
+        <Reveal variant="up">
+          <h2 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px] lg:text-[64px]">
+            Let&apos;s make something good.
           </h2>
-          <p className="mt-5 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            Every method we keep in-house is the right tool for a different
-            job. Here&apos;s when each one shines.
+        </Reveal>
+        <Reveal variant="up" delay={80}>
+          <p className="mt-6 text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+            Kick off a quote whenever you&apos;re ready, or send us a message
+            if you&apos;d rather chat it through first. We&apos;re always
+            around :)
           </p>
-        </div>
-
-        <div className="mt-16 overflow-hidden rounded-[24px] ring-1 ring-dream-ink/10 lg:mt-20">
-          <div className="grid grid-cols-3">
-            {SERVICES.map((s) => (
-              <div key={s.name} className="aspect-[3/4] overflow-hidden">
-                <Image
-                  src={s.image}
-                  alt=""
-                  width={520}
-                  height={680}
-                  aria-hidden="true"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
+        </Reveal>
+        <Reveal variant="up" delay={160}>
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
+            <Link
+              href="/quote"
+              className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5"
+            >
+              Start your order
+            </Link>
+            <Link
+              href="/contact"
+              className="rough-pill rough-pill-outline rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+            >
+              Contact us
+            </Link>
           </div>
-        </div>
-
-        <div className="mt-4 grid gap-12 md:grid-cols-3 md:gap-8 lg:mt-5 lg:gap-12">
-          {SERVICES.map((s, idx) => {
-            const number = String(idx + 1).padStart(2, "0");
-            return (
-              <div key={s.name} className="flex flex-col items-start">
-                <div className="flex items-baseline gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="font-daruma text-[32px] leading-none text-dream-purple sm:text-[40px]"
-                  >
-                    {number}
-                  </span>
-                  <h3 className="font-daruma text-[28px] leading-tight tracking-tight text-dream-ink sm:text-[34px]">
-                    {s.name}
-                  </h3>
-                </div>
-                <p className="mt-3 text-[13px] italic leading-relaxed text-dream-ink/55 sm:text-[14px]">
-                  {s.bestFor}
-                </p>
-                <p className="mt-4 text-[13px] leading-snug text-dream-ink/65 sm:text-[14px]">
-                  {s.body}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-24 flex flex-wrap items-center justify-center gap-4 lg:mt-32">
-          <Link
-            href="/contact"
-            className="inline-flex items-center justify-center rounded-full border-2 border-dream-ink bg-white px-7 py-3.5 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
-          >
-            Contact us
-          </Link>
-          <Link
-            href="/services"
-            className="inline-flex items-center justify-center rounded-full bg-dream-purple px-7 py-3.5 font-display text-[14px] font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
-          >
-            View services
-          </Link>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

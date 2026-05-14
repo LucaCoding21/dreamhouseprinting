@@ -1,4 +1,7 @@
+"use client";
+
 import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ScribbleButton from "./ScribbleButton";
@@ -29,8 +32,32 @@ const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
 });
 
 export default function SiteNav() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handlePointer = (e: PointerEvent) => {
+      if (!headerRef.current?.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [menuOpen]);
+
   return (
-    <header className="w-full px-5 py-4 lg:px-10 lg:py-5">
+    <header
+      ref={headerRef}
+      className="relative w-full px-5 py-[17px] lg:px-10 lg:py-[21px]"
+    >
       <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
         <defs>
           <filter
@@ -63,21 +90,21 @@ export default function SiteNav() {
       <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/homepage_assets/Dreamhouse logo.png"
+            src="/dreamhouse-logo.svg"
             alt="Dreamhouse Printing"
             width={140}
             height={140}
             priority
             className="h-14 w-14 lg:h-16 lg:w-16"
           />
-          <span className="font-display text-[22px] font-extrabold leading-[1.05] text-dream-scribble lg:text-[26px]">
+          <span className="hidden font-display font-extrabold leading-[1.05] text-dream-purple lg:inline lg:text-[26px]">
             Dreamhouse
             <br />
             Printing
           </span>
         </Link>
 
-        <div className="flex items-center gap-10">
+        <div className="flex items-center gap-4 lg:gap-10">
           <nav className="hidden items-center gap-3 xl:flex">
             {NAV_LINKS.map((link) => (
               <ScribbleButton
@@ -109,13 +136,64 @@ export default function SiteNav() {
           ))}
           <Link
             href="/#quick-quote"
-            className="rough-pill rough-pill-filled relative inline-flex items-center justify-center px-8 py-3.5 font-display text-[17px] font-bold text-white transition-transform hover:-translate-y-0.5"
+            className="rough-pill rough-pill-filled relative inline-flex items-center justify-center px-5 py-2.5 font-display text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5 lg:px-8 lg:py-3.5 lg:text-[17px]"
           >
             Quick Quote
           </Link>
           </div>
+
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-dream-scribble xl:hidden"
+          >
+            <span className="relative flex h-5 w-7 flex-col justify-between">
+              <span
+                className={`block h-[2.5px] w-full origin-center rounded-full bg-current transition-transform duration-300 ease-out ${
+                  menuOpen ? "translate-y-[8.75px] rotate-45" : ""
+                }`}
+              />
+              <span
+                className={`block h-[2.5px] w-full rounded-full bg-current transition-opacity duration-200 ease-out ${
+                  menuOpen ? "opacity-0" : "opacity-100"
+                }`}
+              />
+              <span
+                className={`block h-[2.5px] w-full origin-center rounded-full bg-current transition-transform duration-300 ease-out ${
+                  menuOpen ? "-translate-y-[8.75px] -rotate-45" : ""
+                }`}
+              />
+            </span>
+          </button>
         </div>
       </div>
+
+      <nav
+        aria-hidden={!menuOpen}
+        className={`absolute left-0 right-0 top-full z-50 flex origin-top flex-col items-stretch gap-2 border-t border-dream-lavender-soft bg-dream-cream px-5 py-3 shadow-lg transition-all duration-300 ease-out xl:hidden ${
+          menuOpen
+            ? "translate-y-0 scale-y-100 opacity-100"
+            : "pointer-events-none -translate-y-2 scale-y-95 opacity-0"
+        }`}
+      >
+        {NAV_LINKS.map((link, i) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={() => setMenuOpen(false)}
+            className={`rounded-lg px-4 py-3 font-display text-lg font-bold text-dream-scribble transition-all duration-300 ease-out hover:bg-dream-lavender-soft ${
+              menuOpen
+                ? "translate-y-0 opacity-100"
+                : "-translate-y-1 opacity-0"
+            }`}
+            style={{ transitionDelay: menuOpen ? `${i * 60 + 80}ms` : "0ms" }}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }

@@ -60,7 +60,7 @@ export default function QuickQuote() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center lg:gap-12">
+          <div className="mt-10 grid gap-10 md:grid-cols-[1.3fr_1fr] md:items-center md:gap-10 lg:grid-cols-[1.4fr_1fr] lg:items-center lg:gap-12">
             <form className="flex flex-col gap-5">
               <Field label="Product Type">
                 <div className="flex flex-wrap gap-2">
@@ -177,13 +177,13 @@ function parseColorCount(value: string): number {
 
 function HoodieDiagram({ colorCount }: { colorCount: number }) {
   return (
-    <div className="relative hidden lg:flex lg:items-center lg:justify-center">
+    <div className="relative hidden md:flex md:items-center md:justify-center">
       <div className="relative aspect-square w-full">
         <Image
           src="/getaquickquote/hoodie.png"
           alt=""
           fill
-          sizes="(min-width: 1024px) 320px, 0px"
+          sizes="(min-width: 1024px) 320px, (min-width: 768px) 280px, 0px"
           className="object-contain"
           aria-hidden="true"
           priority

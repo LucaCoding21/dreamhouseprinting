@@ -66,7 +66,7 @@ export default function ShopByCategories() {
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-4 lg:gap-2">
+        <div className="mt-12 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 md:grid-cols-4 md:gap-2 lg:grid-cols-4 lg:gap-2">
             {CATEGORIES.map((cat) => (
           <Link
             key={cat.label}

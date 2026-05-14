@@ -47,6 +47,7 @@ export default function RootLayout({
                 baseFrequency="0.025"
                 numOctaves="1"
                 seed="4"
+                stitchTiles="stitch"
                 result="noise"
               />
               <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" />
@@ -57,6 +58,7 @@ export default function RootLayout({
                 baseFrequency="0.03"
                 numOctaves="2"
                 seed="4"
+                stitchTiles="stitch"
                 result="noise"
               >
                 <animate
