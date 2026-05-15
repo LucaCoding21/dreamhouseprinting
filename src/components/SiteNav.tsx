@@ -95,7 +95,7 @@ export default function SiteNav() {
     <>
     <header
       ref={headerRef}
-      className={`fixed inset-x-0 top-0 z-50 w-full bg-dream-lavender-soft px-5 py-3 transition-transform duration-300 ease-out xl:relative xl:bg-transparent xl:px-10 xl:py-[21px] ${
+      className={`fixed inset-x-0 top-0 z-50 w-full bg-dream-lavender-soft px-5 py-1.5 transition-transform duration-300 ease-out xl:relative xl:bg-transparent xl:px-10 xl:py-3 ${
         shouldHide ? "-translate-y-full xl:translate-y-0" : "translate-y-0"
       }`}
     >
@@ -129,20 +129,15 @@ export default function SiteNav() {
       </svg>
 
       <div className="relative z-50 mx-auto flex max-w-[1400px] items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-1.5 lg:gap-3">
+        <Link href="/" className="flex items-center">
           <Image
-            src="/dreamhouse-logo.svg"
+            src="/dreamhouse-logo-full.png"
             alt="Dreamhouse Printing"
-            width={140}
-            height={140}
+            width={1800}
+            height={600}
             priority
-            className="h-11 w-11 lg:h-16 lg:w-16"
+            className="h-14 w-auto lg:h-[100px]"
           />
-          <span className="mt-1.5 font-display text-[17px] font-extrabold leading-[1.05] text-dream-purple lg:mt-2 lg:text-[26px]">
-            Dreamhouse
-            <br />
-            Printing
-          </span>
         </Link>
 
         <div className="flex items-center gap-4 lg:gap-10">
@@ -271,7 +266,7 @@ export default function SiteNav() {
 
         <nav
           aria-label="Main"
-          className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-7 px-6 pb-60 pt-16 sm:pb-64"
+          className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-7 px-6 pb-36 pt-36 sm:pb-44 sm:pt-44"
         >
           {NAV_LINKS.map((link, i) => (
             <Link

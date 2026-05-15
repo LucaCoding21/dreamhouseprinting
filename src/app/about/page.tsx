@@ -37,7 +37,7 @@ function Hero() {
     <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[220px] lg:min-h-[260px]">
       <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-20 pt-12 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-24 md:pt-12 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-32 lg:pt-12">
         <div className="flex flex-col items-start">
-          <h1 className="font-display text-[54px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:text-[76px] lg:text-[88px]">
+          <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px] md:text-[64px] lg:text-[76px]">
             Why we started
             <br />
             Dreamhouse<span className="hidden md:inline">.</span>
@@ -113,20 +113,6 @@ function WhatWeDo() {
         className="pointer-events-none absolute right-12 top-40 h-[80px] w-[80px] rotate-12 rounded-[40%_60%_55%_45%/55%_45%_60%_40%] bg-dream-sun-soft"
       />
 
-      <div className="relative mx-auto max-w-[1560px] px-6 md:px-8 lg:px-10">
-        <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
-          Our Mission
-        </span>
-        <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
-          Our{" "}
-          <span className="relative inline-block">
-            story
-            <ScribbleUnderline className="-bottom-1" />
-          </span>
-          .
-        </h2>
-      </div>
-
       <div className="relative mx-auto mt-12 grid max-w-[1560px] items-center justify-center gap-12 px-6 md:mt-16 md:grid-cols-[auto_auto] md:gap-14 md:px-8 lg:gap-24 lg:px-10">
         {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
         <div className="mx-auto grid w-full max-w-[680px] grid-cols-2 items-start gap-4 sm:gap-5">
@@ -157,33 +143,39 @@ function WhatWeDo() {
         </div>
 
         <div className="max-w-[560px]">
-          <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            Everyone at Dreamhouse has worked at another print shop, and we
-            all walked away with the same thought: this could be done better.
+          <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
+            Our Mission
+          </span>
+          <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+            Our{" "}
+            <span className="relative inline-block">
+              story
+              <ScribbleUnderline className="-bottom-1" />
+            </span>
+            .
+          </h2>
+          <p className="mt-8 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            Everyone here at Dreamhouse Printing once worked at another print
+            shop, and we all walked away with the same thought: this could be
+            done better.
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            Some of us worked at shops that refused to set up systems for
-            getting customers the info they needed.
+            After years of working at other shops we realized &ldquo;This
+            won&apos;t get done right unless we do it ourselves&rdquo;. So we
+            pooled our money, bought out an old shop that was closing down,
+            got a ridiculously big Enterprise Truck Rental (it&apos;s actually
+            insane they let people drive these things) and moved into our
+            current home on Alexander Street.
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            Some of us worked at shops that didn&apos;t take employee safety
-            seriously, that talked people out of filing Worksafe claims, or
-            fired them for doing it.
+            Our goal is to be the type of business we would want to buy from
+            customers, and to be the bosses we always wanted as employees.
           </p>
           <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            Some of us can&apos;t even talk about our time at those shops,
-            because we signed NDAs.
-          </p>
-          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            What we all had in common was no ownership in the work, and pay
-            that didn&apos;t match it. Owners showed up for a fraction of
-            the hours we did and paid themselves ten times the salary. We
-            got 13 cent raises while they cleared $750K and up.
-          </p>
-          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            We started Dreamhouse to build something that was ours.
-            Somewhere we could treat customers well and give employees the
-            respect they deserve.
+            We started Dreamhouse to build something that was ours, and every
+            customer that stops by our site or makes an order helps us do that.
+            Thanks for being a part of it, and thanks for taking the time to
+            read our story.
           </p>
         </div>
       </div>

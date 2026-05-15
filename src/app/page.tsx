@@ -14,24 +14,23 @@ export default function Home() {
         <SiteNav />
       </div>
 
-      <div className="hidden bg-[#8f55e5] text-white sm:block">
-        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-medium sm:whitespace-normal sm:px-6 sm:text-[15px]">
-          <span className="hidden sm:inline">We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll beat it by 5%</span>
+      <div className="hidden bg-[#c6ff3d] text-[#8f55e5] sm:block">
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+          <span className="hidden sm:inline">
+            We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
+            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
+          </span>
         </p>
       </div>
 
-      <section className="mx-auto max-w-[1550px] px-6 pb-0 pt-2 md:px-8 md:pb-8 md:pt-2 lg:px-10 lg:pb-8 lg:pt-3">
-        <div className="grid items-center gap-1 md:grid-cols-[1fr_1.15fr] md:gap-6 lg:grid-cols-[1fr_1.2fr] lg:gap-4">
-          <div className="-mt-[68px] order-2 text-center md:-mt-16 md:order-none md:pl-4 md:text-left lg:-mt-24 lg:pl-10">
-            <h1 className="pt-2 font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[60px] md:pt-0 md:text-[76px] lg:text-[88px]">
-              <span className="block md:hidden">Custom</span>
-              <span className="block md:hidden">screen printing</span>
-              <span className="block md:hidden">and embroidery</span>
-              <span className="hidden md:block">Custom screen printing and</span>
-              <span className="hidden md:block">embroidery.</span>
+      <section className="mx-auto max-w-[1550px] px-6 pb-0 pt-0 md:px-8 md:pb-8 md:pt-0 lg:px-10 lg:pb-8 lg:pt-0">
+        <div className="grid items-center gap-1 md:grid-cols-[1.15fr_1fr] md:gap-6 lg:grid-cols-[1.2fr_1fr] lg:gap-4">
+          <div className="-mt-[84px] order-2 text-center md:-mt-24 md:order-none md:pl-4 md:text-left lg:-mt-36 lg:pl-10">
+            <h1 className="pt-14 font-display text-[30px] font-bold leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] md:pt-20 md:text-[50px] lg:pt-24 lg:text-[60px]">
+              We do quality custom Screenprinting and Embroidery right here in Vancouver.
             </h1>
             <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto md:mt-8 md:mx-0 md:text-[17px]">
-              Premium apparel for businesses, teams, and brands in Vancouver. Upload your design, get a quote in minutes.
+              Premium apparel for businesses, teams, and brands in Vancouver. Upload your design, get a quote in minutes. Thanks for coming by!
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4 md:justify-start">
               {/* Mobile: single primary CTA pointing at the instant quote
@@ -63,12 +62,12 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-4 flex justify-center md:-mt-20 lg:-mt-28">
+        <div className="mt-12 flex justify-center md:-mt-4 lg:-mt-8">
           <a
             href="#how-it-works"
             className="group flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
           >
-            <span className="hidden font-display text-[11px] font-bold uppercase tracking-[0.12em] md:inline-block">
+            <span className="hidden font-display text-[14px] font-bold uppercase tracking-[0.12em] md:inline-block">
               See how it works
             </span>
             <svg
@@ -79,7 +78,7 @@ export default function Home() {
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-7 w-7 animate-bounce overflow-visible"
+              className="h-9 w-9 overflow-visible group-hover:animate-bounce"
               style={{ filter: "url(#stroke-rough)" }}
             >
               {/* Hand-drawn chevron — two subtle bezier curves through the

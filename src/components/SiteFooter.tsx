@@ -41,19 +41,14 @@ export default function SiteFooter() {
       <div className="mx-auto max-w-[1400px] px-6 py-10 lg:px-10 lg:py-16">
         <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
           <div className="col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-3">
+            <Link href="/" className="flex items-center">
               <Image
-                src="/homepage_assets/Dreamhouse logo.png"
+                src="/dreamhouse-logo-full.png"
                 alt="Dreamhouse Printing"
-                width={140}
-                height={140}
-                className="h-12 w-12 lg:h-16 lg:w-16"
+                width={1800}
+                height={600}
+                className="h-14 w-auto lg:h-[100px]"
               />
-              <span className="font-display text-[20px] font-extrabold leading-[1.05] text-dream-purple lg:text-[26px]">
-                Dreamhouse
-                <br />
-                Printing
-              </span>
             </Link>
             <p className="mt-3 max-w-[320px] text-[13px] leading-relaxed text-dream-ink-soft">
               Custom screen printing &amp; embroidery for Vancouver businesses,
