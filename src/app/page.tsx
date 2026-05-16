@@ -6,10 +6,61 @@ import ShopByCategories from "@/components/ShopByCategories";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 import Testimonials from "@/components/Testimonials";
+import { TESTIMONIALS } from "@/lib/testimonials";
+
+const SITE_URL = "https://www.dreamhouseprinting.com";
+
+const LOCAL_BUSINESS_LD = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": `${SITE_URL}/#business`,
+  name: "Dreamhouse Printing",
+  url: SITE_URL,
+  image: `${SITE_URL}/dreamhouse-logo-full.png`,
+  logo: `${SITE_URL}/dreamhouse-logo-full.png`,
+  email: "admin@dreamhouseprinting.com",
+  priceRange: "$$",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "323 Alexander St",
+    addressLocality: "Vancouver",
+    addressRegion: "BC",
+    postalCode: "V6A 1C4",
+    addressCountry: "CA",
+  },
+  areaServed: [
+    { "@type": "City", name: "Vancouver" },
+    { "@type": "City", name: "Burnaby" },
+    { "@type": "City", name: "Richmond" },
+    { "@type": "City", name: "Surrey" },
+    { "@type": "City", name: "North Vancouver" },
+  ],
+  aggregateRating: {
+    "@type": "AggregateRating",
+    ratingValue: "5",
+    bestRating: "5",
+    reviewCount: TESTIMONIALS.length,
+  },
+  review: TESTIMONIALS.map((t) => ({
+    "@type": "Review",
+    author: { "@type": "Person", name: t.name },
+    reviewBody: t.quote,
+    reviewRating: {
+      "@type": "Rating",
+      ratingValue: "5",
+      bestRating: "5",
+    },
+    itemReviewed: { "@id": `${SITE_URL}/#business` },
+  })),
+};
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-dream-cream">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_LD) }}
+      />
       <div className="bg-dream-lavender-soft">
         <SiteNav />
       </div>
@@ -30,7 +81,7 @@ export default function Home() {
               We do quality custom Screenprinting and Embroidery right here in Vancouver.
             </h1>
             <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto md:mt-8 md:mx-0 md:text-[17px]">
-              Premium apparel for businesses, teams, and brands in Vancouver. Upload your design, get a quote in minutes. Thanks for coming by!
+              Premium custom apparel for Vancouver businesses, teams, and brands. Upload your design, get a quote in minutes. Thanks for coming by!
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4 md:justify-start">
               {/* Mobile: single primary CTA pointing at the instant quote

@@ -11,8 +11,9 @@ export default function HeroImage() {
   const [loaded, setLoaded] = useState(false);
   return (
     <Image
-      src="/homepage_assets/hero_photo.webp"
+      src="/homepage_assets/custom-apparel-vancouver-hero.webp"
       alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
+      title="Custom apparel and screen printing in Vancouver"
       width={1600}
       height={1607}
       priority

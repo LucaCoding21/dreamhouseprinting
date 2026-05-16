@@ -186,7 +186,6 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
           sizes="(min-width: 1024px) 320px, (min-width: 768px) 280px, 0px"
           className="object-contain"
           aria-hidden="true"
-          priority
         />
         <div className="absolute inset-x-0 top-[48%] flex -translate-y-1/2 justify-center">
           <span className="font-display text-[30px] font-bold tracking-[0.04em]">

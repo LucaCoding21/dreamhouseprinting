@@ -1,12 +1,30 @@
-export const metadata = {
-  title: "Custom Screen Printing, Embroidery & DTG | Dreamhouse Printing",
-  description:
-    "Three in house print methods for custom apparel in Vancouver: screen printing for bulk runs, embroidery for premium logos, and DTG for full color prints. Pricing, turnaround, and FAQs in one place.",
+import type { Metadata } from "next";
+
+const title = "Screen Printing, Embroidery & DTG Services in Vancouver";
+const description =
+  "Custom screen printing, embroidery, and DTG printing in Vancouver for shirts, hoodies, hats, and totes. See pricing, turnaround, and method details.";
+const image = "/custom-screen-printed-tshirts-vancouver.webp";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: {
+    canonical: "/services",
+  },
   openGraph: {
-    title: "Custom Screen Printing, Embroidery & DTG | Dreamhouse Printing",
-    description:
-      "Three in house print methods for custom apparel: screen printing, embroidery, and DTG. Pricing, turnaround, and answers in one place.",
+    title,
+    description,
+    url: "/services",
+    siteName: "Dreamhouse Printing",
     type: "website",
+    locale: "en_CA",
+    images: [{ url: image, width: 1200, height: 1200, alt: "Custom screen-printed apparel in Vancouver" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [image],
   },
 };
 

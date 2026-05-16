@@ -2,6 +2,8 @@
 User-agent: *
 Allow: /
 
+Sitemap: https://www.dreamhouseprinting.com/sitemap.xml
+
 # Block AI training and content-scraping bots — they crawl every URL,
 # inflate Edge Requests and Fast Data Transfer, and offer nothing back.
 User-agent: GPTBot

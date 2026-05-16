@@ -6,6 +6,8 @@ type Category = {
   label: string;
   href: string;
   image: string;
+  imageAlt: string;
+  imageTitle: string;
   imageWidth: string;
   startingAt: string;
   tagTilt: number;
@@ -18,6 +20,8 @@ const CATEGORIES: Category[] = [
     label: "Shirts",
     href: "/quote?product=shirt",
     image: "/shopbycategories/shirt-categories.jpg",
+    imageAlt: "Custom t shirts",
+    imageTitle: "Custom t shirts in Vancouver",
     imageWidth: "100%",
     startingAt: "$12",
     tagTilt: -6,
@@ -27,6 +31,8 @@ const CATEGORIES: Category[] = [
     label: "Hoodies",
     href: "/quote?product=hoodie",
     image: "/shopbycategories/hoodie-cat.webp",
+    imageAlt: "Custom hoodies",
+    imageTitle: "Custom hoodies in Vancouver",
     imageWidth: "100%",
     startingAt: "$32",
     tagTilt: 5,
@@ -36,6 +42,8 @@ const CATEGORIES: Category[] = [
     label: "Hats",
     href: "/quote?product=hat",
     image: "/shopbycategories/hat-categories.jpg",
+    imageAlt: "Custom hats and toques",
+    imageTitle: "Custom hats in Vancouver",
     imageWidth: "100%",
     startingAt: "$18",
     tagTilt: -4,
@@ -45,6 +53,8 @@ const CATEGORIES: Category[] = [
     label: "Bags",
     href: "/quote?product=bag",
     image: "/shopbycategories/bag-cat.webp",
+    imageAlt: "Custom tote bags",
+    imageTitle: "Custom tote bags in Vancouver",
     imageWidth: "100%",
     startingAt: "$14",
     tagTilt: 6,
@@ -89,7 +99,8 @@ export default function ShopByCategories() {
             <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl">
               <Image
                 src={cat.image}
-                alt={`${cat.label} illustration`}
+                alt={cat.imageAlt}
+                title={cat.imageTitle}
                 width={400}
                 height={400}
                 className={

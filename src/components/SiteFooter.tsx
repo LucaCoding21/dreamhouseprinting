@@ -11,14 +11,8 @@ const PRODUCT_LINKS = [
 
 const COMPANY_LINKS = [
   { label: "Services", href: "/services" },
-  { label: "FAQ", href: "/faq" },
+  { label: "FAQ", href: "/services#faq" },
   { label: "Contact", href: "/contact" },
-];
-
-const SOCIAL_LINKS = [
-  { label: "Instagram", href: "https://instagram.com" },
-  { label: "Facebook", href: "https://facebook.com" },
-  { label: "LinkedIn", href: "https://linkedin.com" },
 ];
 
 
@@ -54,19 +48,6 @@ export default function SiteFooter() {
               Custom screen printing &amp; embroidery for Vancouver businesses,
               teams, and brands.
             </p>
-            <div className="mt-5 flex flex-wrap gap-5 text-sm font-medium text-dream-ink">
-              {SOCIAL_LINKS.map((s) => (
-                <a
-                  key={s.label}
-                  href={s.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline-offset-4 hover:underline"
-                >
-                  {s.label}
-                </a>
-              ))}
-            </div>
           </div>
 
           <FooterColumn title="Products" links={PRODUCT_LINKS} />
@@ -86,19 +67,14 @@ export default function SiteFooter() {
             </div>
             <ul className="mt-5 space-y-2 text-sm text-dream-ink-soft">
               <li>
-                <a href="tel:16045551234" className="hover:text-dream-ink">
-                  (604) 555-1234
-                </a>
-              </li>
-              <li>
                 <a
-                  href="mailto:hello@dreamhouseprinting.ca"
+                  href="mailto:admin@dreamhouseprinting.com"
                   className="hover:text-dream-ink"
                 >
-                  hello@dreamhouseprinting.ca
+                  admin@dreamhouseprinting.com
                 </a>
               </li>
-              <li>123 Main St, Vancouver, BC</li>
+              <li>323 Alexander St, Vancouver, BC V6A 1C4</li>
             </ul>
           </div>
         </div>

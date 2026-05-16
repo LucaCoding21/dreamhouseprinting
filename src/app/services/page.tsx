@@ -15,6 +15,8 @@ type Method = {
   name: string;
   description: string;
   image: string;
+  imageAlt: string;
+  imageTitle: string;
   imageClassName?: string;
   bg: string;
   titleColor: string;
@@ -27,7 +29,9 @@ const METHODS: Method[] = [
     name: "Screen printing",
     description:
       "Bold, long lasting prints. Best for bulk orders of tees, hoodies, and totes. Colours are the most accurate of any decoration type.",
-    image: "/methods-screen.webp",
+    image: "/screen-printing-vancouver.webp",
+    imageAlt: "Screen printing inks and squeegee on a custom t-shirt",
+    imageTitle: "Screen printing in Vancouver",
     imageClassName: "w-[150px] sm:w-[170px]",
     bg: "bg-dream-purple",
     titleColor: "text-white",
@@ -38,7 +42,9 @@ const METHODS: Method[] = [
     name: "Embroidery",
     description:
       "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
-    image: "/methods-embroidery.webp",
+    image: "/custom-embroidery-vancouver.webp",
+    imageAlt: "Embroidered logo thread close-up on apparel",
+    imageTitle: "Custom embroidery in Vancouver",
     imageClassName: "w-[150px] -rotate-12 sm:w-[175px]",
     bg: "bg-white",
     titleColor: "text-dream-ink",
@@ -49,7 +55,9 @@ const METHODS: Method[] = [
     name: "DTG printing",
     description:
       "Direct-to-garment (DTG) and direct-to-film (DTF) for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
-    image: "/methods-dtg.webp",
+    image: "/dtg-printing-vancouver.webp",
+    imageAlt: "DTG printer laying ink onto a custom t-shirt",
+    imageTitle: "DTG printing in Vancouver",
     imageClassName: "w-[200px] sm:w-[230px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
@@ -65,6 +73,8 @@ type ProductCategory = {
   minQty: number;
   turnaround: string;
   image: string;
+  imageAlt: string;
+  imageTitle: string;
   href: string;
 };
 
@@ -75,7 +85,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     startingAt: "$12",
     minQty: 25,
     turnaround: "7–10 days",
-    image: "/products/shirts.jpg",
+    image: "/products/custom-t-shirts-vancouver.jpg",
+    imageAlt: "Custom screen-printed t-shirt",
+    imageTitle: "Custom t shirts in Vancouver",
     href: "/quote?product=shirt",
   },
   {
@@ -84,7 +96,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     startingAt: "$32",
     minQty: 25,
     turnaround: "7–10 days",
-    image: "/products/hoodies.jpg",
+    image: "/products/custom-hoodies-vancouver.jpg",
+    imageAlt: "Custom printed hoodie folded on a shelf",
+    imageTitle: "Custom hoodies in Vancouver",
     href: "/quote?product=hoodie",
   },
   {
@@ -93,7 +107,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     startingAt: "$18",
     minQty: 24,
     turnaround: "10–14 days",
-    image: "/products/hats2.jpg",
+    image: "/products/custom-hats-vancouver.jpg",
+    imageAlt: "Custom embroidered cap",
+    imageTitle: "Custom hats and toques in Vancouver",
     href: "/quote?product=hat",
   },
   {
@@ -102,7 +118,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     startingAt: "$14",
     minQty: 25,
     turnaround: "7–10 days",
-    image: "/products/bags2.jpg",
+    image: "/products/custom-tote-bags-vancouver.jpg",
+    imageAlt: "Custom printed canvas tote bag",
+    imageTitle: "Custom tote bags in Vancouver",
     href: "/quote?product=bag",
   },
 ];
@@ -167,9 +185,26 @@ const CTA_RAYS = Array.from({ length: 12 }, (_, i) => {
 // Page
 // ────────────────────────────────────────────────────────────────────────────
 
+const FAQ_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a,
+    },
+  })),
+};
+
 export default function ServicesPage() {
   return (
     <main className="min-h-screen bg-dream-cream">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_LD) }}
+      />
       <div className="bg-dream-lavender-soft">
         <SiteNav />
       </div>
@@ -215,9 +250,9 @@ function Hero() {
             </h1>
 
             <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-              Screen printing, embroidery, and direct-to-garment for shirts,
-              hoodies, hats, and bags. Built for local brands, small businesses,
-              and teams.
+              Custom screen printing, embroidery, and direct-to-garment in
+              Vancouver for shirts, hoodies, hats, and bags. Built for local
+              brands, small businesses, and teams.
             </p>
           </div>
 
@@ -236,6 +271,7 @@ function Hero() {
                 <Image
                   src="/custom-screen-printed-tshirts-vancouver.webp"
                   alt="Couple wearing matching custom screen-printed t-shirts in Vancouver"
+                  title="Custom screen-printed t-shirts in Vancouver"
                   fill
                   priority
                   sizes="(min-width: 1024px) 480px, (min-width: 640px) 420px, 100vw"
@@ -249,6 +285,7 @@ function Hero() {
                 <Image
                   src="/custom-printed-brand-merch-vancouver.webp"
                   alt="Custom screen-printed brand merch t-shirts on hangers"
+                  title="Custom printed brand merch in Vancouver"
                   fill
                   sizes="(min-width: 1024px) 220px, (min-width: 640px) 195px, 45vw"
                   className="object-cover"
@@ -297,9 +334,9 @@ function Methods() {
       />
       <Reveal variant="up">
         <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-start md:gap-12 lg:gap-16">
-          <h1 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[42px] lg:text-[46px]">
-            Three ways to print custom apparel<span className="hidden md:inline">.</span>
-          </h1>
+          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[42px] lg:text-[46px]">
+            Three ways to print custom apparel in Vancouver<span className="hidden md:inline">.</span>
+          </h2>
           <div>
             <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
               Screen printing, embroidery, and DTG, all done in house in
@@ -333,11 +370,11 @@ function Methods() {
 
             <Image
               src={m.image}
-              alt=""
+              alt={m.imageAlt}
+              title={m.imageTitle}
               width={260}
               height={260}
               unoptimized
-              aria-hidden="true"
               className={`absolute right-2 top-[42%] z-0 h-auto -translate-y-1/2 sm:right-3 ${m.imageClassName ?? "w-[210px] sm:w-[240px]"}`}
             />
 
@@ -384,11 +421,11 @@ function Products() {
               >
                 <Image
                   src={cat.image}
-                  alt=""
+                  alt={cat.imageAlt}
+                  title={cat.imageTitle}
                   width={520}
                   height={680}
                   className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
-                  aria-hidden="true"
                 />
               </div>
 
@@ -456,7 +493,7 @@ function Products() {
 
 function FAQ() {
   return (
-    <section className="relative bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40">
+    <section id="faq" className="relative bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40 scroll-mt-24">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
@@ -506,7 +543,7 @@ function FAQ() {
 function CTA() {
   return (
     <section className="relative isolate overflow-hidden text-white">
-      <ParallaxImage src="/cta-shirt.webp" speed={0.25} className="-z-10" />
+      <ParallaxImage src="/custom-t-shirt-printing-vancouver.webp" speed={0.25} className="-z-10" />
       <div className="absolute inset-0 -z-10 bg-dream-ink/55" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-[1400px] flex-col items-center px-6 py-20 text-center lg:px-10 lg:py-24">
         <Reveal variant="up">

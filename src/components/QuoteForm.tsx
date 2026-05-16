@@ -356,9 +356,9 @@ function Header() {
           height={48}
           priority
         />
-        <h2 className="font-display text-2xl font-extrabold leading-none text-dream-purple sm:text-3xl">
+        <span className="font-display text-2xl font-extrabold leading-none text-dream-purple sm:text-3xl">
           Get a quote
-        </h2>
+        </span>
       </div>
     </header>
   );

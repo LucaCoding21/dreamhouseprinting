@@ -111,7 +111,8 @@ export default function ContactPage() {
                     Drop us a line.
                   </h2>
                   <p className="mt-2 text-[14px] text-dream-ink-soft sm:text-[15px]">
-                    We read every message and get back within a business day.
+                    We&apos;re a small Vancouver print shop. We read every
+                    message and get back within a business day.
                   </p>
                 </div>
 
@@ -228,10 +229,10 @@ export default function ContactPage() {
                   <p className="text-[13px] text-dream-ink-soft">
                     Or just email{" "}
                     <a
-                      href="mailto:hello@dreamhouseprinting.ca"
+                      href="mailto:admin@dreamhouseprinting.com"
                       className="font-semibold text-dream-ink underline-offset-4 hover:underline"
                     >
-                      hello@dreamhouseprinting.ca
+                      admin@dreamhouseprinting.com
                     </a>
                   </p>
                 </div>
@@ -243,21 +244,14 @@ export default function ContactPage() {
           <aside className="flex flex-col gap-5">
             <ContactCard
               kicker="Email"
-              heading="hello@dreamhouseprinting.ca"
-              href="mailto:hello@dreamhouseprinting.ca"
+              heading="admin@dreamhouseprinting.com"
+              href="mailto:admin@dreamhouseprinting.com"
               hint="Best for design files, mockups, and back-and-forth."
               icon={<EmailIcon />}
             />
             <ContactCard
-              kicker="Call or text"
-              heading="(604) 555-1234"
-              href="tel:16045551234"
-              hint="Mon–Fri, 9am–5pm PT."
-              icon={<PhoneIcon />}
-            />
-            <ContactCard
               kicker="Visit the workshop"
-              heading="123 Main St, Vancouver"
+              heading="323 Alexander St, Vancouver, BC V6A 1C4"
               hint="By appointment. Drop us a note before stopping by."
               icon={<PinIcon />}
             />
@@ -535,23 +529,6 @@ function EmailIcon() {
     >
       <rect x="3" y="5" width="18" height="14" rx="2.5" />
       <path d="m4 7 8 6 8-6" />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M5 4h3.5l1.6 4-2 1.4a12 12 0 0 0 6.5 6.5l1.4-2 4 1.6V19a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
     </svg>
   );
 }

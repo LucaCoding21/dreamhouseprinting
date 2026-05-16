@@ -19,10 +19,33 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const homeTitle = "Custom Screen Printing & Embroidery in Vancouver | Dreamhouse";
+const homeDescription =
+  "Vancouver screen printing and embroidery shop for custom t shirts, hoodies, and team apparel. Upload your design and get a quote within one business day.";
+const homeImage = "/custom-screen-printed-tshirts-vancouver.webp";
+
 export const metadata: Metadata = {
-  title: "Dreamhouse Printing — Custom screen printing & embroidery in Vancouver",
-  description:
-    "Premium custom apparel for businesses, teams, and brands. Upload your design and get a quote in minutes.",
+  metadataBase: new URL("https://www.dreamhouseprinting.com"),
+  title: homeTitle,
+  description: homeDescription,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: homeTitle,
+    description: homeDescription,
+    url: "/",
+    siteName: "Dreamhouse Printing",
+    type: "website",
+    locale: "en_CA",
+    images: [{ url: homeImage, width: 1200, height: 1200, alt: "Custom screen-printed t-shirts in Vancouver" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: homeTitle,
+    description: homeDescription,
+    images: [homeImage],
+  },
 };
 
 export default function RootLayout({

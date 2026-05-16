@@ -44,9 +44,9 @@ function Hero() {
           </h1>
 
           <p className="mt-7 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-            We started Dreamhouse to put quality, customers, and employees
-            first. Everyone here cares about what they do, so your order
-            gets the same care.
+            We started Dreamhouse as a Vancouver print shop that puts quality,
+            customers, and employees first. Everyone here cares about what
+            they do, so your order gets the same care.
           </p>
 
         </div>
@@ -67,6 +67,7 @@ function Hero() {
                 <Image
                   src="/dreamhouse-screen-print-shop-vancouver.webp"
                   alt="Dreamhouse screen printer pulling a fresh print at the Vancouver shop"
+                  title="Inside our Vancouver screen print shop"
                   fill
                   priority
                   sizes="(min-width: 1024px) 480px, (min-width: 640px) 400px, 300px"
@@ -119,7 +120,7 @@ function WhatWeDo() {
           <ParallaxScroll speed={0.02}>
             <div className="aspect-[3/4] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
               <Image
-                src="/products/shirts.jpg"
+                src="/products/custom-t-shirts-vancouver.jpg"
                 alt=""
                 width={400}
                 height={520}
@@ -131,7 +132,7 @@ function WhatWeDo() {
           <ParallaxScroll speed={0.05} className="mt-10 sm:mt-14">
             <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
               <Image
-                src="/products/hoodies.jpg"
+                src="/products/custom-hoodies-vancouver.jpg"
                 alt=""
                 width={400}
                 height={620}
