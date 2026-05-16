@@ -333,9 +333,9 @@ function Methods() {
         className="pointer-events-none absolute -bottom-8 -left-16 z-10 h-auto w-[160px] -rotate-[8deg] sm:-bottom-12 sm:-left-20 sm:w-[210px] lg:-bottom-16 lg:-left-28 lg:w-[260px]"
       />
       <Reveal variant="up">
-        <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:items-start md:gap-12 lg:gap-16">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[42px] lg:text-[46px]">
-            Three ways to print custom apparel in Vancouver<span className="hidden md:inline">.</span>
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-16">
+          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
+            Three ways to print custom apparel in Vancouver<span className="hidden lg:inline">.</span>
           </h2>
           <div>
             <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
@@ -355,13 +355,13 @@ function Methods() {
         </div>
       </Reveal>
 
-      <div className="mt-20 flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-0">
+      <div className="mt-20 flex flex-col items-center gap-4 lg:flex-row lg:flex-wrap lg:justify-center lg:gap-0">
         {METHODS.map((m, i) => (
           <Reveal
             key={m.name}
             variant="stamp"
             delay={i * 100}
-            className={`relative h-[300px] w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:flex-1 sm:px-9 ${i > 0 ? "sm:-ml-6" : ""} ${m.bg}`}
+            className={`relative h-[300px] w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:px-9 lg:flex-1 ${i > 0 ? "lg:-ml-6" : ""} ${m.bg}`}
             style={{ rotate: `${m.rotate}deg` } as CSSProperties}
           >
             <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
@@ -401,12 +401,12 @@ function Products() {
             kicker="Products"
             cleanKicker
             center
-            title={<>What we print on<span className="hidden md:inline">.</span></>}
+            title={<>What we print on<span className="hidden lg:inline">.</span></>}
             subtitle="These are the blanks we keep on hand. If you have something else in mind, let us know. We can source many brands not listed here, and we're always adding more."
           />
         </Reveal>
 
-        <div className="mt-14 grid gap-y-14 gap-x-8 sm:grid-cols-2 sm:gap-y-16 md:grid-cols-4 md:gap-x-6">
+        <div className="mt-14 grid gap-y-14 gap-x-8 sm:grid-cols-2 sm:gap-y-16 lg:grid-cols-4 lg:gap-x-6">
           {PRODUCT_CATEGORIES.map((cat, i) => {
             const tagTilts = [6, -7, 5, -6];
             return (
@@ -687,7 +687,7 @@ function SectionHeader({
       <h2
         className={`${
           kicker ? "mt-4" : ""
-        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[42px] lg:text-[46px]`}
+        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]`}
       >
         {title}
       </h2>

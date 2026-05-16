@@ -74,51 +74,51 @@ export default function Home() {
         </p>
       </div>
 
-      <section className="mx-auto max-w-[1550px] px-6 pb-0 pt-0 md:px-8 md:pb-8 md:pt-0 lg:px-10 lg:pb-8 lg:pt-0">
-        <div className="grid items-center gap-1 md:grid-cols-[1.15fr_1fr] md:gap-6 lg:grid-cols-[1.2fr_1fr] lg:gap-4">
-          <div className="-mt-[84px] order-2 text-center md:-mt-24 md:order-none md:pl-4 md:text-left lg:-mt-36 lg:pl-10">
-            <h1 className="pt-14 font-display text-[30px] font-bold leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] md:pt-20 md:text-[50px] lg:pt-24 lg:text-[60px]">
+      <section className="mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
+        <div className="grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
+          <div className="-mt-[84px] order-2 text-center lg:mt-0 lg:order-none lg:pl-10 lg:text-left">
+            <h1 className="pt-14 font-display text-[30px] font-bold leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
               We do quality custom Screenprinting and Embroidery right here in Vancouver.
             </h1>
-            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto md:mt-8 md:mx-0 md:text-[17px]">
+            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto lg:mt-8 lg:mx-0 lg:text-[17px]">
               Premium custom apparel for Vancouver businesses, teams, and brands. Upload your design, get a quote in minutes. Thanks for coming by!
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4 md:justify-start">
-              {/* Mobile: single primary CTA pointing at the instant quote
-                  calculator on this page. Desktop keeps the original two
-                  buttons (Start your order + outline Get a quick quote). */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+              {/* Mobile/tablet: single primary CTA pointing at the instant
+                  quote calculator on this page. Desktop keeps the original
+                  two buttons (Start your order + outline Get a quick quote). */}
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 md:hidden"
+                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 lg:hidden"
               >
                 Get a quick quote
               </a>
               <Link
                 href="/quote"
-                className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5 md:inline-flex"
+                className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5 lg:inline-flex"
               >
                 Start your order
               </Link>
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5 md:inline-flex"
+                className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5 lg:inline-flex"
               >
                 Get a quick quote
               </a>
             </div>
           </div>
 
-          <div className="relative -mx-6 order-1 md:order-none md:mx-0">
+          <div className="relative -mx-6 order-1 lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
             <HeroImage />
           </div>
         </div>
 
-        <div className="mt-12 flex justify-center md:-mt-4 lg:-mt-8">
+        <div className="mt-12 flex justify-center lg:mt-24">
           <a
             href="#how-it-works"
             className="group flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
           >
-            <span className="hidden font-display text-[14px] font-bold uppercase tracking-[0.12em] md:inline-block">
+            <span className="hidden font-display text-[14px] font-bold uppercase tracking-[0.12em] lg:inline-block">
               See how it works
             </span>
             <svg

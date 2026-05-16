@@ -24,7 +24,7 @@ export default function HeroImage() {
       // 1.2× overshoot at 55% briefly pushed the top above its normal
       // position and got clipped (most visible in laptop mobile emulation).
       style={{ transformOrigin: "center top" }}
-      className={`h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] lg:max-h-[880px] ${
+      className={`h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] lg:max-h-[1340px] lg:scale-[1.35] ${
         loaded ? "animate-pop" : "opacity-0"
       }`}
     />

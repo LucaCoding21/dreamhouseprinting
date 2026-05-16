@@ -83,7 +83,7 @@ export default function HowItWorks() {
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 block h-[28px] w-full md:hidden"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 block h-[28px] w-full lg:hidden"
       >
         <defs>
           <pattern
@@ -104,8 +104,8 @@ export default function HowItWorks() {
         From idea to doorstep in four easy steps. Quote, proof, approve, and we deliver.
       </p>
 
-      <div className="relative mt-4 grid gap-6 sm:grid-cols-2 sm:gap-20 md:mt-6 md:grid-cols-4 md:gap-20 lg:gap-28">
-        <div className="pointer-events-none absolute inset-0 hidden md:block">
+      <div className="relative mt-4 grid gap-6 sm:grid-cols-2 sm:gap-20 lg:mt-6 lg:grid-cols-4 lg:gap-28">
+        <div className="pointer-events-none absolute inset-0 hidden lg:block">
           {[
             { i: 1, width: "13%", left: "24%", top: "90px", rotate: 0 },
             { i: 2, width: "17%", left: "53%", top: "115px", rotate: 4 },
@@ -132,9 +132,9 @@ export default function HowItWorks() {
         {STEPS.map((step) => (
           <div
             key={step.n}
-            className="relative flex min-w-0 flex-col items-center overflow-x-clip text-center md:overflow-x-visible"
+            className="relative flex min-w-0 flex-col items-center overflow-x-clip text-center lg:overflow-x-visible"
           >
-            <div className="relative flex h-[340px] w-full max-w-[460px] items-center justify-center sm:h-[400px] md:h-[360px] lg:h-[440px]">
+            <div className="relative flex h-[340px] w-full max-w-[460px] items-center justify-center sm:h-[400px] lg:h-[440px]">
               <div
                 className={`relative z-10 flex items-center justify-center scale-[0.7] sm:scale-100 sm:translate-x-[var(--dog-ox)] sm:translate-y-[var(--dog-oy)] ${
                   step.n === 1 ? "max-sm:-translate-x-1" : ""
@@ -164,7 +164,7 @@ export default function HowItWorks() {
 
             <p
               className={`mt-3 max-w-[320px] text-[14px] leading-relaxed text-dream-ink-soft ${
-                step.n === 2 ? "md:w-[120%]" : ""
+                step.n === 2 ? "lg:w-[120%]" : ""
               }`}
             >
               {step.description}

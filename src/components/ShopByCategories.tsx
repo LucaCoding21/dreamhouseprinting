@@ -68,7 +68,7 @@ export default function ShopByCategories() {
     <section className="relative bg-white">
       <div className="mx-auto max-w-[1620px] px-6 pt-28 pb-32 lg:px-12 lg:pt-32 lg:pb-36">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-10">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] md:text-[54px] lg:text-[60px]">
+          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[48px] lg:text-[60px]">
             Ready to print
           </h2>
           <p className="max-w-xl text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
@@ -76,7 +76,7 @@ export default function ShopByCategories() {
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 md:grid-cols-4 md:gap-2 lg:grid-cols-4 lg:gap-2">
+        <div className="mt-12 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2 lg:grid-cols-4 lg:gap-2">
             {CATEGORIES.map((cat) => (
           <Link
             key={cat.label}

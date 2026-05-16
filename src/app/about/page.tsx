@@ -34,13 +34,13 @@ export default function AboutPage() {
 
 function Hero() {
   return (
-    <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink md:min-h-[220px] lg:min-h-[260px]">
-      <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-20 pt-12 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 md:px-8 md:pb-24 md:pt-12 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-32 lg:pt-12">
+    <section className="relative isolate flex min-h-[180px] flex-col justify-center overflow-hidden bg-dream-lavender-soft text-dream-ink lg:min-h-[260px]">
+      <div className="relative mx-auto grid w-full max-w-[1400px] gap-10 px-6 pb-20 pt-12 md:px-8 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-14 lg:px-10 lg:pb-32 lg:pt-12">
         <div className="flex flex-col items-start">
-          <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px] md:text-[64px] lg:text-[76px]">
+          <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px] lg:text-[76px]">
             Why we started
             <br />
-            Dreamhouse<span className="hidden md:inline">.</span>
+            Dreamhouse<span className="hidden lg:inline">.</span>
           </h1>
 
           <p className="mt-7 max-w-[560px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
@@ -114,7 +114,23 @@ function WhatWeDo() {
         className="pointer-events-none absolute right-12 top-40 h-[80px] w-[80px] rotate-12 rounded-[40%_60%_55%_45%/55%_45%_60%_40%] bg-dream-sun-soft"
       />
 
-      <div className="relative mx-auto mt-12 grid max-w-[1560px] items-center justify-center gap-12 px-6 md:mt-16 md:grid-cols-[auto_auto] md:gap-14 md:px-8 lg:gap-24 lg:px-10">
+      <div className="relative mx-auto mt-12 grid max-w-[1560px] items-center justify-center gap-12 px-6 md:px-8 lg:mt-16 lg:grid-cols-[auto_auto] lg:gap-24 lg:px-10">
+        {/* Mobile/tablet: heading sits above the photos. On lg the heading
+            moves into the text column on the right (rendered below). */}
+        <div className="mx-auto max-w-[560px] text-center lg:hidden">
+          <span className="block font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
+            Our Mission
+          </span>
+          <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+            Our{" "}
+            <span className="relative inline-block">
+              story
+              <ScribbleUnderline className="-bottom-1" />
+            </span>
+            .
+          </h2>
+        </div>
+
         {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
         <div className="mx-auto grid w-full max-w-[680px] grid-cols-2 items-start gap-4 sm:gap-5">
           <ParallaxScroll speed={0.02}>
@@ -143,18 +159,20 @@ function WhatWeDo() {
           </ParallaxScroll>
         </div>
 
-        <div className="max-w-[560px]">
-          <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
-            Our Mission
-          </span>
-          <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
-            Our{" "}
-            <span className="relative inline-block">
-              story
-              <ScribbleUnderline className="-bottom-1" />
+        <div className="mx-auto max-w-[560px] text-left lg:mx-0">
+          <div className="hidden lg:block">
+            <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
+              Our Mission
             </span>
-            .
-          </h2>
+            <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+              Our{" "}
+              <span className="relative inline-block">
+                story
+                <ScribbleUnderline className="-bottom-1" />
+              </span>
+              .
+            </h2>
+          </div>
           <p className="mt-8 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
             Everyone here at Dreamhouse Printing once worked at another print
             shop, and we all walked away with the same thought: this could be
