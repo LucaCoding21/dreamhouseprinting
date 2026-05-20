@@ -108,7 +108,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative -mx-6 order-1 lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
+          <div className="relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-0 sm:mt-0 sm:-mx-6 sm:max-w-none lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
             <HeroImage />
           </div>
         </div>

@@ -76,7 +76,7 @@ const STEPS: Step[] = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative mx-auto max-w-[1550px] px-6 pb-32 pt-28 lg:px-10 lg:pb-40 lg:pt-0">
+    <section id="how-it-works" className="relative mx-auto max-w-[1550px] px-6 pb-32 pt-12 sm:pt-28 lg:px-10 lg:pb-40 lg:pt-0">
       {/* Mobile-only scallops at the bottom edge — white bumps coming up
           from the next section (ShopByCategories, bg-white) into HIW.
           Matches the pattern used on /contact and /services. */}

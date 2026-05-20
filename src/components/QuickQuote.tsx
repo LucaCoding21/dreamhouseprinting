@@ -11,13 +11,7 @@ import type {
 } from "@/lib/formTypes";
 
 const DREAM_LETTERS = ["D", "R", "E", "A", "M"] as const;
-const DREAM_COLORS = [
-  "#a855f7", // 1st color — purple
-  "#2b6ef4", // 2nd — blue
-  "#22b6a1", // 3rd — teal
-  "#f2b134", // 4th — gold
-  "#e85d2f", // 5th — orange-red
-];
+const ACTIVE_LETTER = "#a855f7";
 const DEFAULT_LETTER = "#2a1b8a";
 
 // Calculator exposes a friendlier subset of the form's product types. The
@@ -193,7 +187,7 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
               <span
                 key={i}
                 style={{
-                  color: i < colorCount ? DREAM_COLORS[i] : DEFAULT_LETTER,
+                  color: i < colorCount ? ACTIVE_LETTER : DEFAULT_LETTER,
                   transition: "color 180ms ease",
                 }}
               >

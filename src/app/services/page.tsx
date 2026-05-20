@@ -520,11 +520,12 @@ function FAQ() {
           </Reveal>
           <Reveal variant="stamp" delay={120}>
             <Image
-              src="/faq.png"
+              src="/faq.gif"
               alt=""
               width={2800}
               height={1752}
               aria-hidden="true"
+              unoptimized
               className="ml-auto -mr-20 mt-4 h-auto w-[460px] sm:-mr-28 sm:mt-12 sm:w-[580px] lg:-mr-48 lg:mt-20 lg:w-[720px]"
             />
           </Reveal>

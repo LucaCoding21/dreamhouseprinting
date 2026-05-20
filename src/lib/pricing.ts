@@ -4,7 +4,7 @@ import type { PrintMethod, ProductType } from "@/lib/formTypes";
 // and the /quote summary card. Replace with Julian's real numbers when ready.
 export const BASE_PRICE: Record<ProductType, number> = {
   "t-shirts": 15,
-  hoodies: 45,
+  hoodies: 20, // blank goods; every color is an add-on (see PER_COLOR_PRICE)
   crewnecks: 38,
   hats: 22,
   "tote-bags": 16,
@@ -18,7 +18,20 @@ export const PRINT_METHOD_SURCHARGE: Record<PrintMethod, number> = {
   "not-sure": 0,
 };
 
-export const EXTRA_COLOR_PRICE = 1.5;
+export const PER_COLOR_PRICE: Record<ProductType, number> = {
+  "t-shirts": 1.5,
+  hoodies: 5,
+  crewnecks: 1.5,
+  hats: 1.5,
+  "tote-bags": 1.5,
+  other: 1.5,
+};
+
+// Products where BASE_PRICE is the blank/undecorated price and every color is
+// charged on top. Everything else has the first color rolled into BASE_PRICE.
+const BLANK_PRICED: Partial<Record<ProductType, true>> = {
+  hoodies: true,
+};
 
 export function volumeDiscount(qty: number): number {
   if (qty >= 100) return 0.8;
@@ -46,10 +59,11 @@ export function calculatePrice(
   qty: number,
 ): { perUnit: number; total: number } {
   if (!productType || qty <= 0) return { perUnit: 0, total: 0 };
+  const chargedColors = BLANK_PRICED[productType] ? colors : Math.max(0, colors - 1);
   const base =
     BASE_PRICE[productType] +
     PRINT_METHOD_SURCHARGE[printMethod] +
-    Math.max(0, colors - 1) * EXTRA_COLOR_PRICE;
+    chargedColors * PER_COLOR_PRICE[productType];
   const perUnit = base * volumeDiscount(qty);
   return { perUnit, total: perUnit * qty };
 }
