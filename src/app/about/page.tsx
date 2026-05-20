@@ -63,14 +63,14 @@ function Hero() {
             />
 
             <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2 shadow-[8px_8px_0_0_rgba(27,20,88,1)] sm:p-2.5">
-              <div className="relative aspect-square w-[300px] overflow-hidden rounded-lg sm:w-[400px] lg:w-[480px]">
+              <div className="relative aspect-square w-[340px] overflow-hidden rounded-lg sm:w-[450px] lg:w-[560px]">
                 <Image
                   src="/dreamhouse-screen-print-shop-vancouver.webp"
                   alt="Dreamhouse screen printer pulling a fresh print at the Vancouver shop"
                   title="Inside our Vancouver screen print shop"
                   fill
                   priority
-                  sizes="(min-width: 1024px) 480px, (min-width: 640px) 400px, 300px"
+                  sizes="(min-width: 1024px) 560px, (min-width: 640px) 450px, 340px"
                   className="object-cover"
                 />
               </div>

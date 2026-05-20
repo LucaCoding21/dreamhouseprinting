@@ -240,7 +240,7 @@ function Hero() {
   return (
     <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
       <div className="relative mx-auto w-full max-w-[1450px] px-6 pb-24 pt-12 md:px-8 md:pb-32 md:pt-24 lg:px-10 lg:pb-36 lg:pt-28">
-        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(320px,440px)] lg:gap-12">
+        <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(360px,540px)] lg:gap-12">
           <div>
             <h1 className="max-w-[1100px] font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px] md:text-[64px] lg:text-[76px]">
               Custom apparel{" "}
@@ -256,7 +256,7 @@ function Hero() {
             </p>
           </div>
 
-          <div className="relative mx-auto w-full max-w-[420px] pb-10 pr-6 lg:mx-0 lg:max-w-none lg:pb-14 lg:pr-10">
+          <div className="relative mx-auto w-full max-w-[480px] pb-10 pr-6 lg:mx-0 lg:max-w-none lg:pb-14 lg:pr-10">
             <Image
               src="/sticker2.png"
               alt=""
