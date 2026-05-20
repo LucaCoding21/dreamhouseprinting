@@ -22,7 +22,9 @@ const inter = Inter({
 const homeTitle = "Custom Screen Printing & Embroidery in Vancouver | Dreamhouse";
 const homeDescription =
   "Vancouver screen printing and embroidery shop for custom t shirts, hoodies, and team apparel. Upload your design and get a quote within one business day.";
-const homeImage = "/custom-screen-printed-tshirts-vancouver.webp";
+const homeImage = "/dreamhouse-printing-vancouver.webp";
+const homeImageAlt =
+  "Dreamhouse Printing home page showing custom screen printed t-shirt, hat, sweatshirt, and tote bag";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.dreamhouseprinting.com"),
@@ -38,7 +40,7 @@ export const metadata: Metadata = {
     siteName: "Dreamhouse Printing",
     type: "website",
     locale: "en_CA",
-    images: [{ url: homeImage, width: 1200, height: 1200, alt: "Custom screen-printed t-shirts in Vancouver" }],
+    images: [{ url: homeImage, width: 1200, height: 657, alt: homeImageAlt }],
   },
   twitter: {
     card: "summary_large_image",

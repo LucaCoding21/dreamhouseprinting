@@ -15,7 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 1.0,
-      images: [`${SITE_URL}/homepage_assets/custom-apparel-vancouver-hero.webp`],
+      images: [`${SITE_URL}/homepage_assets/dreamhouse-hero.webp`],
     },
     {
       url: `${SITE_URL}/services`,

@@ -10,23 +10,43 @@ import { useState } from "react";
 export default function HeroImage() {
   const [loaded, setLoaded] = useState(false);
   return (
-    <Image
-      src="/homepage_assets/custom-apparel-vancouver-hero.webp"
-      alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
-      title="Custom apparel and screen printing in Vancouver"
-      width={1600}
-      height={1607}
-      priority
-      onLoad={() => setLoaded(true)}
-      sizes="(min-width: 1024px) 820px, (min-width: 768px) 55vw, 100vw"
-      // transform-origin: center top so the pop-bounce scale grows the image
-      // downward from its top edge. With the default `center center`, the
-      // 1.2× overshoot at 55% briefly pushed the top above its normal
-      // position and got clipped (most visible in laptop mobile emulation).
+    // Wrapper carries the lg upscale so anything absolutely positioned inside
+    // (the stickers) scales and stays anchored to the visual image edges.
+    // transform-origin matches the previous image transform so the layout
+    // grows downward from the top edge.
+    <div
+      className="relative lg:scale-[1.35]"
       style={{ transformOrigin: "center top" }}
-      className={`h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] lg:max-h-[1340px] lg:scale-[1.35] ${
-        loaded ? "animate-pop" : "opacity-0"
-      }`}
-    />
+    >
+      <Image
+        src="/sticker3.png"
+        alt=""
+        aria-hidden="true"
+        width={400}
+        height={400}
+        className="pointer-events-none absolute left-4 top-4 z-20 h-auto w-[90px] -rotate-12 sm:left-6 sm:top-8 sm:w-[120px] lg:left-6 lg:top-10 lg:w-[110px]"
+      />
+      <Image
+        src="/sticker2.png"
+        alt=""
+        aria-hidden="true"
+        width={400}
+        height={400}
+        className="pointer-events-none absolute right-2 bottom-2 z-20 h-auto w-[100px] rotate-[10deg] sm:right-0 sm:bottom-4 sm:w-[130px] lg:right-2 lg:bottom-6 lg:w-[130px]"
+      />
+      <Image
+        src="/homepage_assets/dreamhouse-hero.webp"
+        alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
+        title="Custom apparel and screen printing in Vancouver"
+        width={1600}
+        height={1468}
+        priority
+        onLoad={() => setLoaded(true)}
+        sizes="(min-width: 1024px) 820px, (min-width: 768px) 55vw, 100vw"
+        className={`relative z-10 h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] lg:max-h-[990px] ${
+          loaded ? "animate-pop" : "opacity-0"
+        }`}
+      />
+    </div>
   );
 }
