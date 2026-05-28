@@ -11,7 +11,10 @@ import type {
 } from "@/lib/formTypes";
 
 const DREAM_LETTERS = ["D", "R", "E", "A", "M"] as const;
-const ACTIVE_LETTER = "#a855f7";
+// One color per letter, drawn from the site's playful sticker palette
+// (purple / pink / teal / gold / peach). Selecting more print colors lights
+// up more letters, so the preview literally shows the chosen ink count.
+const LETTER_COLORS = ["#7664ff", "#ec3f9e", "#16b6a8", "#ecbb25", "#ff8a52"];
 const DEFAULT_LETTER = "#2a1b8a";
 
 // Calculator exposes a friendlier subset of the form's product types. The
@@ -187,7 +190,7 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
               <span
                 key={i}
                 style={{
-                  color: i < colorCount ? ACTIVE_LETTER : DEFAULT_LETTER,
+                  color: i < colorCount ? LETTER_COLORS[i] : DEFAULT_LETTER,
                   transition: "color 180ms ease",
                 }}
               >

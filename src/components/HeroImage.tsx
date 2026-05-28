@@ -19,14 +19,6 @@ export default function HeroImage() {
       style={{ transformOrigin: "center top" }}
     >
       <Image
-        src="/sticker3.png"
-        alt=""
-        aria-hidden="true"
-        width={400}
-        height={400}
-        className="pointer-events-none absolute left-4 top-4 z-20 h-auto w-[90px] -rotate-12 sm:left-6 sm:top-8 sm:w-[120px] lg:left-6 lg:top-10 lg:w-[110px]"
-      />
-      <Image
         src="/sticker2.png"
         alt=""
         aria-hidden="true"
