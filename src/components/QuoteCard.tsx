@@ -849,9 +849,6 @@ function SuccessCard() {
         Julian will get back to you within{" "}
         <span className="font-semibold text-dream-ink">24 hours</span> with your quote.
       </p>
-      <p className="mt-2 text-sm text-dream-ink-soft">
-        In the meantime, check your email for a confirmation.
-      </p>
     </div>
   );
 }
