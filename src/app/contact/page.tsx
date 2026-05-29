@@ -278,6 +278,33 @@ export default function ContactPage() {
         </div>
       </section>
 
+      {/* Coastal Reign — scroll target for the green banner strip (/contact#coastal-reign).
+          scroll-mt clears the fixed mobile nav so the heading isn't tucked under it. */}
+      <section
+        id="coastal-reign"
+        className="scroll-mt-28 bg-dream-cream pb-4 lg:pb-10"
+      >
+        <div className="mx-auto max-w-[1280px] px-6 md:px-8 lg:px-10">
+          <div className="rounded-[28px] border-2 border-dream-ink bg-dream-lavender-soft px-7 py-8 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:px-10 sm:py-10">
+            <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+              Coastal Reign orders
+            </span>
+            <h2 className="mt-3 font-display text-[26px] font-bold leading-tight text-dream-ink sm:text-[30px]">
+              Submitting a Coastal Reign order?
+            </h2>
+            <p className="mt-3 max-w-[680px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
+              Orders from Coastal Reign can be submitted with a link. Just make
+              sure your order is showing as{" "}
+              <span className="font-semibold text-dream-ink">
+                &ldquo;Pending Mockup Approval&rdquo;
+              </span>
+              , then drop the link in the message above and we&apos;ll take it
+              from there.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <BeforeYouWrite />
 
       <SiteFooter />

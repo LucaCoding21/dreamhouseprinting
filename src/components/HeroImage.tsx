@@ -27,7 +27,7 @@ export default function HeroImage() {
         className="pointer-events-none absolute right-2 bottom-2 z-20 h-auto w-[100px] rotate-[10deg] sm:right-0 sm:bottom-4 sm:w-[130px] lg:right-2 lg:bottom-6 lg:w-[130px]"
       />
       <Image
-        src="/homepage_assets/dreamhouse-hero.webp"
+        src="/homepage_assets/custom-apparel-vancouver.webp"
         alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
         title="Custom apparel and screen printing in Vancouver"
         width={1600}

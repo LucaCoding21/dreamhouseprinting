@@ -1,3 +1,4 @@
+import Link from "next/link";
 import HeroImage from "@/components/HeroImage";
 import HowItWorks from "@/components/HowItWorks";
 import QuoteCard from "@/components/QuoteCard";
@@ -49,14 +50,17 @@ export default function Home() {
         <SiteNav />
       </div>
 
-      <div className="hidden bg-[#c6ff3d] text-[#8f55e5] sm:block">
+      <Link
+        href="/contact#coastal-reign"
+        className="hidden bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95 sm:block"
+      >
         <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
             <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
           </span>
         </p>
-      </div>
+      </Link>
 
       <section className="mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
         <div className="grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
