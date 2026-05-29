@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HEARD_ABOUT_OPTIONS,
@@ -853,12 +852,6 @@ function SuccessCard() {
       <p className="mt-2 text-sm text-dream-ink-soft">
         In the meantime, check your email for a confirmation.
       </p>
-      <Link
-        href="/"
-        className="mt-10 inline-flex h-12 items-center justify-center rounded-2xl border-2 border-dream-ink bg-white px-6 font-display text-base font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
-      >
-        Back to home
-      </Link>
     </div>
   );
 }
