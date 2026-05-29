@@ -31,7 +31,7 @@ const METHODS: Method[] = [
       "Bold, long lasting prints. Best for bulk orders of tees, hoodies, and totes. Colours are the most accurate of any decoration type.",
     image: "/screen-printing-vancouver.webp",
     imageAlt: "Screen printing inks and squeegee on a custom t-shirt",
-    imageTitle: "Screen printing in Vancouver",
+    imageTitle: "Bulk screen printing for tees and hoodies in Vancouver",
     imageClassName: "w-[150px] sm:w-[170px]",
     bg: "bg-dream-purple",
     titleColor: "text-white",
@@ -44,7 +44,7 @@ const METHODS: Method[] = [
       "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
     image: "/custom-embroidery-vancouver.webp",
     imageAlt: "Embroidered logo thread close-up on apparel",
-    imageTitle: "Custom embroidery in Vancouver",
+    imageTitle: "Custom logo embroidery on caps and jackets in Vancouver",
     imageClassName: "w-[150px] -rotate-12 sm:w-[175px]",
     bg: "bg-white",
     titleColor: "text-dream-ink",
@@ -57,7 +57,7 @@ const METHODS: Method[] = [
       "Direct-to-garment (DTG) and direct-to-film (DTF) for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
     image: "/dtg-printing-vancouver.webp",
     imageAlt: "DTG printer laying ink onto a custom t-shirt",
-    imageTitle: "DTG printing in Vancouver",
+    imageTitle: "Full-colour DTG and DTF printing for small runs in Vancouver",
     imageClassName: "w-[200px] sm:w-[230px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
@@ -87,7 +87,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     turnaround: "7–10 days",
     image: "/products/custom-t-shirts-vancouver.jpg",
     imageAlt: "Custom screen-printed t-shirt",
-    imageTitle: "Custom t shirts in Vancouver",
+    imageTitle: "Custom printed t-shirts for Vancouver brands and teams",
     href: "/?product=shirt#quick-quote",
   },
   {
@@ -98,7 +98,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     turnaround: "7–10 days",
     image: "/products/custom-hoodies-vancouver.jpg",
     imageAlt: "Custom printed hoodie folded on a shelf",
-    imageTitle: "Custom hoodies in Vancouver",
+    imageTitle: "Printed and embroidered hoodies for Vancouver crews",
     href: "/?product=hoodie#quick-quote",
   },
   {
@@ -109,7 +109,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     turnaround: "10–14 days",
     image: "/products/custom-hats-vancouver.jpg",
     imageAlt: "Custom embroidered cap",
-    imageTitle: "Custom hats and toques in Vancouver",
+    imageTitle: "Embroidered caps and toques from our Vancouver shop",
     href: "/?product=hat#quick-quote",
   },
   {
@@ -120,7 +120,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     turnaround: "7–10 days",
     image: "/products/custom-tote-bags-vancouver.jpg",
     imageAlt: "Custom printed canvas tote bag",
-    imageTitle: "Custom tote bags in Vancouver",
+    imageTitle: "Screen-printed canvas tote bags for Vancouver events",
     href: "/?product=bag#quick-quote",
   },
 ];
@@ -271,7 +271,7 @@ function Hero() {
                 <Image
                   src="/custom-screen-printed-tshirts-vancouver.webp"
                   alt="Couple wearing matching custom screen-printed t-shirts in Vancouver"
-                  title="Custom screen-printed t-shirts in Vancouver"
+                  title="Matching custom tees printed for a Vancouver event"
                   fill
                   priority
                   sizes="(min-width: 1024px) 480px, (min-width: 640px) 420px, 100vw"

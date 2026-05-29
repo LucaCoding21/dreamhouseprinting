@@ -5,7 +5,6 @@ import ShopByCategories from "@/components/ShopByCategories";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 import Testimonials from "@/components/Testimonials";
-import { TESTIMONIALS } from "@/lib/testimonials";
 
 const SITE_URL = "https://www.dreamhouseprinting.com";
 
@@ -34,23 +33,9 @@ const LOCAL_BUSINESS_LD = {
     { "@type": "City", name: "Surrey" },
     { "@type": "City", name: "North Vancouver" },
   ],
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "5",
-    bestRating: "5",
-    reviewCount: TESTIMONIALS.length,
-  },
-  review: TESTIMONIALS.map((t) => ({
-    "@type": "Review",
-    author: { "@type": "Person", name: t.name },
-    reviewBody: t.quote,
-    reviewRating: {
-      "@type": "Rating",
-      ratingValue: "5",
-      bestRating: "5",
-    },
-    itemReviewed: { "@id": `${SITE_URL}/#business` },
-  })),
+  // No aggregateRating/review markup: self-hosted, self-rated reviews aren't
+  // eligible for review rich results and risk a structured-data spam penalty.
+  // Testimonials still render on-page (see <Testimonials />) for conversion.
 };
 
 export default function Home() {
