@@ -18,7 +18,7 @@ type Category = {
 const CATEGORIES: Category[] = [
   {
     label: "Shirts",
-    href: "/quote?product=shirt",
+    href: "/?product=shirt#quick-quote",
     image: "/shopbycategories/shirt-categories.jpg",
     imageAlt: "Custom t shirts",
     imageTitle: "Custom t shirts in Vancouver",
@@ -29,7 +29,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: "Hoodies",
-    href: "/quote?product=hoodie",
+    href: "/?product=hoodie#quick-quote",
     image: "/shopbycategories/hoodie-cat.webp",
     imageAlt: "Custom hoodies",
     imageTitle: "Custom hoodies in Vancouver",
@@ -40,7 +40,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: "Hats",
-    href: "/quote?product=hat",
+    href: "/?product=hat#quick-quote",
     image: "/shopbycategories/hat-categories.jpg",
     imageAlt: "Custom hats and toques",
     imageTitle: "Custom hats in Vancouver",
@@ -51,7 +51,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: "Bags",
-    href: "/quote?product=bag",
+    href: "/?product=bag#quick-quote",
     image: "/shopbycategories/bag-cat.webp",
     imageAlt: "Custom tote bags",
     imageTitle: "Custom tote bags in Vancouver",

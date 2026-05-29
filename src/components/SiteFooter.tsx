@@ -2,11 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 const PRODUCT_LINKS = [
-  { label: "Shirts", href: "/quote?product=shirt" },
-  { label: "Hoodies", href: "/quote?product=hoodie" },
-  { label: "Hats", href: "/quote?product=hat" },
-  { label: "Totes", href: "/quote?product=bag" },
-  { label: "All products", href: "/quote" },
+  { label: "Shirts", href: "/?product=shirt#quick-quote" },
+  { label: "Hoodies", href: "/?product=hoodie#quick-quote" },
+  { label: "Hats", href: "/?product=hat#quick-quote" },
+  { label: "Totes", href: "/?product=bag#quick-quote" },
+  { label: "All products", href: "/#quick-quote" },
 ];
 
 const COMPANY_LINKS = [
@@ -59,7 +59,7 @@ export default function SiteFooter() {
             </h3>
             <div className="mt-4">
               <Link
-                href="/quote"
+                href="/#quick-quote"
                 className="inline-flex items-center justify-center rounded-full bg-dream-purple px-5 py-2.5 font-display text-sm font-bold text-white transition hover:-translate-y-0.5"
               >
                 Get a quote

@@ -54,7 +54,19 @@ export type QuoteFormData = {
   neededBy: string;
   notes: string;
   priceMatchLink: string;
+
+  // Attribution — how the customer found us (marketing source)
+  heardAbout: string;
 };
+
+export const HEARD_ABOUT_OPTIONS = [
+  "Google search",
+  "AI assistant (ChatGPT, etc.)",
+  "Instagram / TikTok",
+  "Friend or referral",
+  "Returning customer",
+  "Other",
+] as const;
 
 export const PRODUCT_OPTIONS: { value: ProductType; label: string }[] = [
   { value: "t-shirts", label: "T-shirts" },
@@ -126,6 +138,7 @@ export const emptyFormData: QuoteFormData = {
   neededBy: "",
   notes: "",
   priceMatchLink: "",
+  heardAbout: "",
 };
 
 /** Sum the entries of a SizeBreakdown, ignoring anything non-numeric. */

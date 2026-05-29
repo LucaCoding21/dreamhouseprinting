@@ -36,12 +36,14 @@ src/
   app/
     api/submit/route.ts   # POST — parses multipart, saves to Supabase, emails via Resend
     layout.tsx            # fonts + body bg
-    page.tsx              # renders <QuoteForm />
+    page.tsx              # home page — renders <QuoteCard /> (no separate /quote route)
     globals.css           # Tailwind + dream-* palette
   components/
-    QuoteForm.tsx         # single client component with all 5 steps + state + validation
+    QuoteCard.tsx         # the whole quote flow: price calculator → multi-step form → submit
+    pricing.ts (in lib/)  # real per-unit prices + quantity-break tables
   lib/
     formTypes.ts          # shared types + option lists (PRODUCT_OPTIONS, PRINT_LOCATIONS, etc.)
+    pricing.ts            # calculateQuote() + roundDisplayPrice() — see file header
     supabase.ts           # lazy server-side client, returns null if env vars missing
 public/
   dreamhouse-logo.svg     # the "Solo Logo" — house character, tinted via fill="#7664ff"
@@ -49,9 +51,9 @@ scripts/
   setup-supabase.mjs      # idempotent: makes bucket, prints SQL if table missing
 ```
 
-### Why QuoteForm is one file
+### Why the quote flow is one file (`QuoteCard.tsx`)
 
-All 5 steps live in `QuoteForm.tsx` as sibling `Step*` components below the parent. Keeping them co-located made the prop-drilling obvious and the full form readable top-to-bottom in one file. If a step grows past ~150 lines, split it then — not before.
+The price calculator and the multi-step request form are one client component with two phases (`"calc"` → `"form"`). Locking in a price swaps the same card from calculator to form, carrying the picks across; the `Step*` field components are co-located as siblings below the parent. Keeping it all in one file makes the prop-drilling obvious and the flow readable top-to-bottom. There is **no `/quote` route** — this card on the home page (`#quick-quote` anchor) owns the entire flow. `/quote` 301-redirects to `/#quick-quote` (see `next.config.ts`). If a step grows past ~150 lines, split it then — not before.
 
 ## Environment
 
@@ -106,6 +108,11 @@ create table if not exists public.submissions (
   needed_by date,
   notes text,
   price_match_link text,               -- URL pasted in the "paste link" tab (nullable)
+
+  heard_about text,                    -- marketing attribution ("how did you find us")
+  estimated_per_unit numeric,          -- per-item price shown to customer (CR -10%, rounded up)
+  estimated_total numeric,             -- estimated_per_unit * quantity
+  quote_estimate jsonb,                -- full snapshot: product, decoration, colors, locations, qty
 
   artwork_files jsonb not null default '[]'::jsonb,
   price_match_files jsonb not null default '[]'::jsonb
@@ -175,10 +182,12 @@ No separate dev log file exists on purpose. Historical "why did we do it this wa
 - ✅ `submissions` table provisioned via Supabase MCP (2026-04-10 session)
 - ✅ Resend sender set to `dreamhouseprinting@cloverfield.studio` (cloverfield.studio domain verified)
 - ✅ Quote emails CC'd to `william@cloverfield.studio` via `NOTIFY_CC_EMAILS` env var
-- ✅ Step 2 now asks for **brand tier** (Gildan/Bella+Canvas/Comfort Colors/no preference) and a **size breakdown** (S–3XL with "sizes later" escape hatch). Total quantity auto-derives from the sum. Columns: `garment_brand text`, `sizes jsonb`.
-- ✅ Price match on step 5 has a **tab toggle**: "Paste link" (new) or "Upload file". Link stored in `price_match_link` column; file uploads unchanged.
-- ⏳ No real end-to-end submission driven through the browser yet — form POSTs cleanly but hasn't been exercised against the live table + verified sender
-- 💭 **Punted this session:** adding a budget question (step 5), and killing/collapsing the print-method step. Julian-feedback-dependent — revisit after he sees the current flow.
+- ✅ Size breakdown (S–3XL with "sizes later" escape hatch); total quantity auto-derives. Columns: `garment_brand text`, `sizes jsonb`.
+- ✅ Price match has a **tab toggle**: "Paste link" or "Upload file". Link stored in `price_match_link`.
+- ✅ **Real pricing in `lib/pricing.ts`** (2026-05-28). Final customer prices (Coastal Reign −10%, markup baked in — no multiplier), quantity-break tables from `our_pricing.csv` for **all 6 SKUs**: tee (ATC1000), hoodie (Gildan 18500 — note: replaced the old ATC fleece), crewneck (Gildan 18000), tote (Q-Tees), toque (SP12), dad-cap (6245CM). Decoration derived from product (apparel/tote=screen, headwear=embroidery). Per-item display rounds **UP** to nearest $ (`roundDisplayPrice`). Add-ons (extra locations, names/numbers, 2XL+) in `our_pricing_addons.csv` **not yet wired** into `calculateQuote`. Only "other" + the form's generic "hats" can't be priced.
+- ✅ **Quote flow merged into one home-page card** (2026-05-28). Killed the separate `/quote` page and the standalone purple section; `QuoteCard.tsx` does calculator → form in place ("Lock in this price" swaps phases, picks carry over; **Back** on step 0 returns to the calculator). Calculator exposes Shirt/Hoodie/Crewneck/Tote/Toque/Dad Cap/Other. Sticky **yellow** bottom bar shows live price + product context + Back/Next (no top banner). All `/quote` links repointed to `/#quick-quote` (category links pass `?product=` to preselect); `/quote` 301-redirects; sitemap entries removed.
+- ⏳ No real end-to-end submission driven through the browser yet against the live table + verified sender.
+- 🐛 **Known gap:** `?product=` preselect only fires on mount, so clicking a category link (footer/ShopByCategories) **while already on the home page** scrolls to the card but doesn't switch the product. Works fine navigating in from other pages.
 
 ### Pick up from here
 
@@ -186,6 +195,6 @@ What the next Claude should do first when starting a new session — keep this t
 
 1. Read this file (you're here)
 2. Ask the user what they want to work on — don't assume
-3. If they want an end-to-end smoke test: drive the form in the browser, confirm a row lands in `public.submissions` (check `garment_brand`, `sizes`, `price_match_link` are populated) and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
-4. Phase 2 candidates: admin dashboard to browse submissions, order-status tracking, Irish's character illustrations when the Figma drops
-5. Possible form-v2 tweaks still on the table: budget question, simplify print-method step — ask Julian first
+3. Smoke test the merged card: calc → lock in → form steps → submit; confirm a row lands in `public.submissions` and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
+4. If wanted: fix the on-home `?product=` preselect gap, or wire the add-on pricing (locations/names/numbers) into the form quote
+5. Phase 2 candidates: admin dashboard, order-status tracking, Irish's character illustrations when the Figma drops

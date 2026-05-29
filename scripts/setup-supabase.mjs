@@ -48,11 +48,23 @@ const TABLE_SQL = `create table if not exists public.submissions (
   notes text,
   price_match_link text,
 
+  heard_about text,
+  estimated_per_unit numeric,
+  estimated_total numeric,
+  quote_estimate jsonb,
+
   artwork_files jsonb not null default '[]'::jsonb,
   price_match_files jsonb not null default '[]'::jsonb
 );
 
 alter table public.submissions enable row level security;
+
+-- Idempotent: brings an EXISTING table up to date with the columns above.
+alter table public.submissions
+  add column if not exists heard_about        text,
+  add column if not exists estimated_per_unit  numeric,
+  add column if not exists estimated_total     numeric,
+  add column if not exists quote_estimate      jsonb;
 
 create index if not exists submissions_created_at_idx
   on public.submissions (created_at desc);`;

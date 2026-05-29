@@ -88,7 +88,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-t-shirts-vancouver.jpg",
     imageAlt: "Custom screen-printed t-shirt",
     imageTitle: "Custom t shirts in Vancouver",
-    href: "/quote?product=shirt",
+    href: "/?product=shirt#quick-quote",
   },
   {
     name: "Hoodies",
@@ -99,7 +99,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-hoodies-vancouver.jpg",
     imageAlt: "Custom printed hoodie folded on a shelf",
     imageTitle: "Custom hoodies in Vancouver",
-    href: "/quote?product=hoodie",
+    href: "/?product=hoodie#quick-quote",
   },
   {
     name: "Hats & toques",
@@ -110,7 +110,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-hats-vancouver.jpg",
     imageAlt: "Custom embroidered cap",
     imageTitle: "Custom hats and toques in Vancouver",
-    href: "/quote?product=hat",
+    href: "/?product=hat#quick-quote",
   },
   {
     name: "Bags & totes",
@@ -121,7 +121,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-tote-bags-vancouver.jpg",
     imageAlt: "Custom printed canvas tote bag",
     imageTitle: "Custom tote bags in Vancouver",
-    href: "/quote?product=bag",
+    href: "/?product=bag#quick-quote",
   },
 ];
 
@@ -345,7 +345,7 @@ function Methods() {
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <Link
-                href="/quote"
+                href="/#quick-quote"
                 className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
               >
                 Get a quote
@@ -580,7 +580,7 @@ function CTA() {
               />
             ))}
             <Link
-              href="/quote"
+              href="/#quick-quote"
               className="relative inline-flex items-center justify-center rounded-full bg-dream-sun px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
             >
               Start your order

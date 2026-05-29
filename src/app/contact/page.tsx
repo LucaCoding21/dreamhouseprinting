@@ -268,7 +268,7 @@ export default function ContactPage() {
                 pricing within a business day.
               </p>
               <Link
-                href="/quote"
+                href="/#quick-quote"
                 className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
               >
                 Start a quote →
@@ -440,7 +440,7 @@ function SentState({ onReset }: { onReset: () => void }) {
       </p>
       <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
         <Link
-          href="/quote"
+          href="/#quick-quote"
           className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3.5 font-display text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5"
         >
           Start a quote

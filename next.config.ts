@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
     // and per-host cache misses across .com/.ca were inflating data transfer.
     minimumCacheTTL: 2592000,
   },
+  async redirects() {
+    // The standalone /quote page was folded into the home page's quote card.
+    // Redirect old inbound links / bookmarks to the card anchor so they don't
+    // 404 (query params like ?product= are dropped — the card defaults fine).
+    return [
+      { source: "/quote", destination: "/#quick-quote", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

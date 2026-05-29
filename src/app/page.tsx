@@ -1,7 +1,6 @@
-import Link from "next/link";
 import HeroImage from "@/components/HeroImage";
 import HowItWorks from "@/components/HowItWorks";
-import QuickQuote from "@/components/QuickQuote";
+import QuoteCard from "@/components/QuoteCard";
 import ShopByCategories from "@/components/ShopByCategories";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
@@ -93,12 +92,12 @@ export default function Home() {
               >
                 Get a quick quote
               </a>
-              <Link
-                href="/quote"
+              <a
+                href="#quick-quote"
                 className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5 lg:inline-flex"
               >
                 Start your order
-              </Link>
+              </a>
               <a
                 href="#quick-quote"
                 className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5 lg:inline-flex"
@@ -143,7 +142,7 @@ export default function Home() {
 
       <HowItWorks />
       <ShopByCategories />
-      <QuickQuote />
+      <QuoteCard />
       <Testimonials />
       <SiteFooter />
     </main>

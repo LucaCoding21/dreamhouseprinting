@@ -20,6 +20,39 @@ export const maxDuration = 60;
 
 type UploadedFile = { name: string; url: string; path: string };
 
+// Snapshot of the on-screen estimate the customer saw (sent by the client).
+type QuoteEstimate = {
+  available: boolean;
+  product: string;
+  sku: string | null;
+  decoration: "screen" | "embroidery" | null;
+  colors: number | null;
+  locations: number | null;
+  quantity: number;
+  perUnit: number;
+  total: number;
+};
+
+function parseEstimate(raw: unknown): QuoteEstimate | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  return {
+    available: o.available === true,
+    product: typeof o.product === "string" ? o.product : "Custom",
+    sku: typeof o.sku === "string" ? o.sku : null,
+    decoration:
+      o.decoration === "screen" || o.decoration === "embroidery"
+        ? o.decoration
+        : null,
+    colors: typeof o.colors === "number" ? o.colors : null,
+    locations: typeof o.locations === "number" ? o.locations : null,
+    quantity: num(o.quantity),
+    perUnit: num(o.perUnit),
+    total: num(o.total),
+  };
+}
+
 function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
@@ -64,6 +97,7 @@ function renderEmailHtml(
   data: QuoteFormData,
   artwork: UploadedFile[],
   priceMatch: UploadedFile[],
+  estimate: QuoteEstimate | null,
 ) {
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -115,6 +149,35 @@ function renderEmailHtml(
       ? `${priceMatchLinkHtml}${priceMatch.length > 0 ? priceMatchFilesHtml : ""}`
       : '<span style="color:#8a7bff;">None</span>';
 
+  // Quote estimate box — the price the customer saw, plus the "why" breakdown.
+  let estimateHtml = "";
+  if (estimate && estimate.available) {
+    const decoLabel =
+      estimate.decoration === "embroidery" ? "Embroidery" : "Screen print";
+    const parts = [
+      `${estimate.quantity} × ${esc(estimate.product)}`,
+      decoLabel,
+    ];
+    if (estimate.decoration === "screen" && estimate.colors)
+      parts.push(`${estimate.colors} colour${estimate.colors === 1 ? "" : "s"}`);
+    parts.push(
+      `${estimate.locations ?? 1} location${(estimate.locations ?? 1) === 1 ? "" : "s"}`,
+    );
+    estimateHtml = `
+    <div style="padding:18px 24px;background:#fff7d6;border-bottom:1px solid #eee;">
+      <p style="margin:0 0 4px;color:#4a3f9e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Quote shown to customer</p>
+      <p style="margin:0;color:#1b1458;font-size:24px;font-weight:800;">$${estimate.perUnit.toLocaleString()} / item &nbsp;·&nbsp; $${estimate.total.toLocaleString()} total</p>
+      <p style="margin:6px 0 0;color:#4a3f9e;font-size:14px;">${esc(parts.join(" · "))}</p>
+      <p style="margin:8px 0 0;color:#8a7bff;font-size:11px;">Auto-estimate = Coastal Reign −10%, rounded up. Final quote may vary.</p>
+    </div>`;
+  } else {
+    estimateHtml = `
+    <div style="padding:18px 24px;background:#fff7d6;border-bottom:1px solid #eee;">
+      <p style="margin:0 0 4px;color:#4a3f9e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Quote shown to customer</p>
+      <p style="margin:0;color:#1b1458;font-size:16px;font-weight:700;">No auto-estimate — custom item, needs a manual quote.</p>
+    </div>`;
+  }
+
   return `<!doctype html>
 <html>
 <body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;background:#afa6ff;padding:24px;">
@@ -123,12 +186,14 @@ function renderEmailHtml(
       <h1 style="margin:0;font-size:24px;font-weight:800;">New Dreamhouse quote request</h1>
       <p style="margin:4px 0 0;opacity:0.9;font-size:14px;">${esc(data.name)} just submitted the form.</p>
     </div>
+    ${estimateHtml}
     <table style="width:100%;border-collapse:collapse;">
       <tbody>
         ${row("Name", data.name)}
         ${row("Email", data.email)}
         ${row("Phone", data.phone)}
         ${row("Referral", data.referralCode || "—")}
+        ${row("Found us via", data.heardAbout || "—")}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
         ${row("Product", data.productType)}
         ${row("Brand tier", brandLabel || "—")}
@@ -162,6 +227,7 @@ async function sendEmail(
   data: QuoteFormData,
   artwork: UploadedFile[],
   priceMatch: UploadedFile[],
+  estimate: QuoteEstimate | null,
 ) {
   const apiKey = process.env.RESEND_API_KEY;
   const primary = process.env.JULIAN_NOTIFY_EMAIL;
@@ -191,7 +257,7 @@ async function sendEmail(
     to: recipients,
     replyTo: data.email,
     subject: `New quote request — ${data.name} (${data.quantity}x ${data.productType})`,
-    html: renderEmailHtml(data, artwork, priceMatch),
+    html: renderEmailHtml(data, artwork, priceMatch, estimate),
   });
   if (error) {
     console.error("[submit] Resend error", error);
@@ -239,6 +305,7 @@ function validatePayload(raw: unknown): QuoteFormData | null {
     neededBy: str(o.neededBy),
     notes: str(o.notes).trim(),
     priceMatchLink: str(o.priceMatchLink).trim(),
+    heardAbout: str(o.heardAbout).trim(),
   };
 }
 
@@ -263,6 +330,17 @@ export async function POST(request: Request) {
         { error: "Missing required contact fields" },
         { status: 400 },
       );
+    }
+
+    // Optional estimate snapshot (the price the customer saw). Best-effort.
+    const estimateRaw = form.get("estimate");
+    let estimate: QuoteEstimate | null = null;
+    if (typeof estimateRaw === "string") {
+      try {
+        estimate = parseEstimate(JSON.parse(estimateRaw));
+      } catch {
+        estimate = null;
+      }
     }
 
     const artworkFiles = form
@@ -297,6 +375,10 @@ export async function POST(request: Request) {
           needed_by: data.neededBy || null,
           notes: data.notes || null,
           price_match_link: data.priceMatchLink || null,
+          heard_about: data.heardAbout || null,
+          estimated_per_unit: estimate?.available ? estimate.perUnit : null,
+          estimated_total: estimate?.available ? estimate.total : null,
+          quote_estimate: estimate ?? null,
         })
         .select("id")
         .single();
@@ -339,7 +421,7 @@ export async function POST(request: Request) {
       }
     }
 
-    await sendEmail(data, artwork, priceMatch);
+    await sendEmail(data, artwork, priceMatch, estimate);
 
     return NextResponse.json({ ok: true, id: submissionId });
   } catch (err) {

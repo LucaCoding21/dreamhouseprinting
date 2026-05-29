@@ -42,40 +42,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "yearly",
       priority: 0.6,
     },
-    {
-      url: `${SITE_URL}/quote`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.9,
-    },
-    {
-      url: `${SITE_URL}/quote?product=shirt`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-      images: [`${SITE_URL}/products/custom-t-shirts-vancouver.jpg`],
-    },
-    {
-      url: `${SITE_URL}/quote?product=hoodie`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-      images: [`${SITE_URL}/products/custom-hoodies-vancouver.jpg`],
-    },
-    {
-      url: `${SITE_URL}/quote?product=hat`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-      images: [`${SITE_URL}/products/custom-hats-vancouver.jpg`],
-    },
-    {
-      url: `${SITE_URL}/quote?product=bag`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
-      images: [`${SITE_URL}/products/custom-tote-bags-vancouver.jpg`],
-    },
   ];
 
   return entries;

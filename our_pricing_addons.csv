@@ -1,0 +1,19 @@
+addon,applies_to,basis,qty_break,price_cad,note
+extra_print_colour_2,screen_print,per_unit_over_1_colour,any,1.30,
+extra_print_colour_3,screen_print,per_unit_over_1_colour,any,2.61,cumulative
+extra_print_colour_4plus,screen_print,per_unit_over_1_colour,any,3.75,4+ plateau
+extra_print_location,screen_print,per_unit,10,12.24,per extra print location
+extra_print_location,screen_print,per_unit,25,5.84,per extra print location
+extra_print_location,screen_print,per_unit,50,4.29,per extra print location
+extra_print_location,screen_print,per_unit,100,3.46,per extra print location
+extra_print_location,screen_print,per_unit,250,2.97,per extra print location
+extra_print_location,screen_print,per_unit,500,2.57,per extra print location
+extra_embroidery_location,embroidery,per_unit,10,15.81,per extra embroidery location
+extra_embroidery_location,embroidery,per_unit,25,10.98,per extra embroidery location
+extra_embroidery_location,embroidery,per_unit,50,9.25,per extra embroidery location
+extra_embroidery_location,embroidery,per_unit,100,8.23,per extra embroidery location
+extra_embroidery_location,embroidery,per_unit,250,7.62,per extra embroidery location
+extra_embroidery_location,embroidery,per_unit,500,6.77,per extra embroidery location
+individual_numbers,any,per_number_flat,any,6.75,
+individual_names,any,per_name_flat,any,6.75,
+size_surcharge_2XL_plus,any,per_unit,any,,varies - set your own
