@@ -95,6 +95,15 @@ function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
+// Format a North American phone as ###-###-#### as the user types. Strips
+// non-digits, caps at 10 digits, and inserts dashes between the groups.
+function formatPhone(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 10);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 const FORM_STEPS = [
   { title: "Garment details", subtitle: "Color, sizes, and where the print goes." },
   { title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS — whatever you've got." },
@@ -1232,8 +1241,8 @@ function StepContact({
           autoComplete="tel"
           inputMode="tel"
           value={data.phone}
-          onChange={(e) => update("phone", e.target.value)}
-          placeholder="(555) 123-4567"
+          onChange={(e) => update("phone", formatPhone(e.target.value))}
+          placeholder="555-123-4567"
           className={inputCls}
         />
       </Field>

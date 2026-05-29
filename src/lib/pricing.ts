@@ -238,10 +238,11 @@ export function pricedFromProductType(p: ProductType | ""): PricedProduct | null
   return null;
 }
 
-// Customer-facing display rounding — round UP to the nearest whole dollar so the
-// shown per-item estimate is never below the real price (protects margin). The
-// quote is an estimate ("final quote may vary"), so this is presentation only.
+// Customer-facing display rounding: round DOWN to the nearest whole dollar so
+// the shown per-item price is a clean, friendly number (e.g. $11.82 -> $11).
+// This is presentation only; the quote is an estimate and Julian confirms the
+// final price.
 export function roundDisplayPrice(amount: number): number {
   if (!Number.isFinite(amount) || amount <= 0) return 0;
-  return Math.ceil(amount);
+  return Math.floor(amount);
 }

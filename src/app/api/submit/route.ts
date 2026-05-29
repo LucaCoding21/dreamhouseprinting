@@ -168,7 +168,7 @@ function renderEmailHtml(
       <p style="margin:0 0 4px;color:#4a3f9e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Quote shown to customer</p>
       <p style="margin:0;color:#1b1458;font-size:24px;font-weight:800;">$${estimate.perUnit.toLocaleString()} / item &nbsp;·&nbsp; $${estimate.total.toLocaleString()} total</p>
       <p style="margin:6px 0 0;color:#4a3f9e;font-size:14px;">${esc(parts.join(" · "))}</p>
-      <p style="margin:8px 0 0;color:#8a7bff;font-size:11px;">Auto-estimate = Coastal Reign −10%, rounded up. Final quote may vary.</p>
+      <p style="margin:8px 0 0;color:#8a7bff;font-size:11px;">This is our best guess at the pricing for your order. We will review everything and get you back a final quote asap!</p>
     </div>`;
   } else {
     estimateHtml = `
