@@ -58,8 +58,8 @@ export default function Home() {
           {/* Condensed on mobile to avoid an awkward wrap, but still pulls both
               competitor names (Coastal Reign / Get Bold) — those are the hook. */}
           <span className="sm:hidden">
-            We beat Coastal Reign &amp; Get Bold{" "}
-            <span className="font-display font-extrabold uppercase tracking-wide">by 5%</span>
+            We price match Coastal Reign &amp; Get Bold and{" "}
+            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
           </span>
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
