@@ -76,7 +76,7 @@ const PRODUCT_PARAM: Record<string, CalcProduct> = {
   hoodie: "hoodies",
   crew: "crewnecks",
   crewneck: "crewnecks",
-  hat: "toque",
+  hat: "dad-cap",
   bag: "tote-bags",
   tote: "tote-bags",
 };
