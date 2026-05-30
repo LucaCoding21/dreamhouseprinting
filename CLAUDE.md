@@ -63,7 +63,9 @@ All secrets in `.env.local` (gitignored). Template in `.env.example`.
 | --------------------------- | ----------------------------------------------------------- |
 | `SUPABASE_URL`              | Project URL — the Dreamhouse project is `vnymgxztalayouvxxuzl` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only. Used by API route + setup script               |
-| `SUPABASE_ANON_KEY`         | Not currently used, kept for future client-side features    |
+| `SUPABASE_ANON_KEY`         | Server-side anon key, kept for future use                   |
+| `NEXT_PUBLIC_SUPABASE_URL`  | Browser-exposed project URL — direct-to-Storage artwork uploads |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-exposed anon key (public by design). **Must be set in Vercel** or uploads fail |
 | `RESEND_API_KEY`            | From resend.com                                             |
 | `JULIAN_NOTIFY_EMAIL`       | Primary recipient for new quote requests                    |
 | `NOTIFY_CC_EMAILS`          | Extra recipients, comma-separated. Added to the `to` list   |
@@ -78,9 +80,10 @@ All secrets in `.env.local` (gitignored). Template in `.env.example`.
 
 ### Storage
 
-- Private bucket: `quote-files`
-- Files are stored at `{submission_id}/artwork/{timestamp}-{filename}` and `{submission_id}/price-match/{...}`
-- The API route generates 30-day signed URLs and stores them in the row's `artwork_files` / `price_match_files` jsonb columns (+ includes the raw path so you can re-sign later)
+- Private bucket: `quote-files` (25MB file-size limit, no mime restriction)
+- **Files upload straight from the browser**, not through `/api/submit`. `POST /api/upload-url` mints short-lived signed upload URLs (service role); the browser PUTs each file to Supabase via `uploadToSignedUrl` (anon client). This bypasses Vercel's 4.5MB serverless request-body limit, which used to 413 any sizeable artwork.
+- Files are stored at `{uploadId}/artwork/{i}-{filename}` and `{uploadId}/price-match/{...}`, where `uploadId` is a per-submission UUID minted by `/api/upload-url` (no longer the submission row id, since the row doesn't exist yet at upload time).
+- `/api/submit` now takes **small JSON** ( `{ payload, estimate, artwork:[{name,path}], priceMatch:[...] }` ), generates 30-day signed download URLs per path, and stores `{name, path, url}` in the row's `artwork_files` / `price_match_files` jsonb columns (path kept so you can re-sign later).
 
 ### Schema — source of truth
 
@@ -186,8 +189,11 @@ No separate dev log file exists on purpose. Historical "why did we do it this wa
 - ✅ Price match has a **tab toggle**: "Paste link" or "Upload file". Link stored in `price_match_link`.
 - ✅ **Real pricing in `lib/pricing.ts`** (2026-05-28). Final customer prices (Coastal Reign −10%, markup baked in — no multiplier), quantity-break tables from `our_pricing.csv` for **all 6 SKUs**: tee (ATC1000), hoodie (Gildan 18500 — note: replaced the old ATC fleece), crewneck (Gildan 18000), tote (Q-Tees), toque (SP12), dad-cap (6245CM). Decoration derived from product (apparel/tote=screen, headwear=embroidery). Per-item display rounds **UP** to nearest $ (`roundDisplayPrice`). Add-ons (extra locations, names/numbers, 2XL+) in `our_pricing_addons.csv` **not yet wired** into `calculateQuote`. Only "other" + the form's generic "hats" can't be priced.
 - ✅ **Quote flow merged into one home-page card** (2026-05-28). Killed the separate `/quote` page and the standalone purple section; `QuoteCard.tsx` does calculator → form in place ("Lock in this price" swaps phases, picks carry over; **Back** on step 0 returns to the calculator). Calculator exposes Shirt/Hoodie/Crewneck/Tote/Toque/Dad Cap/Other. Sticky **yellow** bottom bar shows live price + product context + Back/Next (no top banner). All `/quote` links repointed to `/#quick-quote` (category links pass `?product=` to preselect); `/quote` 301-redirects; sitemap entries removed.
-- ⏳ No real end-to-end submission driven through the browser yet against the live table + verified sender.
-- 🐛 **Known gap:** `?product=` preselect only fires on mount, so clicking a category link (footer/ShopByCategories) **while already on the home page** scrolls to the card but doesn't switch the product. Works fine navigating in from other pages.
+- ✅ **Direct-to-Storage uploads** (2026-05-29). Artwork/price-match files no longer go through `/api/submit` (Vercel's 4.5MB body cap was 413'ing phone photos). New `POST /api/upload-url` mints signed upload URLs; the browser uploads via `uploadToSignedUrl`; submit is now small JSON. Mechanism verified against the live bucket. **Needs `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` set in Vercel** (local `.env.local` done).
+- ✅ **On-home `?product=` preselect fixed** (2026-05-29). QuoteCard now also intercepts clicks on any in-page link carrying `?product=` (document-level listener), so clicking a category link while already on the home page selects the product and snaps back to the calculator phase.
+- ✅ **Past dates allowed** in "needed by" (removed the `min={today}`). Submit now also runs the step-2 contact validation client-side before posting.
+- ✅ **Mobile sticky quote pill** restacks on phones (price above full-width Back/Next) — fixes the garbled overlap on narrow screens.
+- ⏳ No real end-to-end submission driven through the browser yet against the live table + verified sender (and not yet tested with `NEXT_PUBLIC_*` env on Vercel).
 
 ### Pick up from here
 
@@ -195,6 +201,6 @@ What the next Claude should do first when starting a new session — keep this t
 
 1. Read this file (you're here)
 2. Ask the user what they want to work on — don't assume
-3. Smoke test the merged card: calc → lock in → form steps → submit; confirm a row lands in `public.submissions` and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
-4. If wanted: fix the on-home `?product=` preselect gap, or wire the add-on pricing (locations/names/numbers) into the form quote
-5. Phase 2 candidates: admin dashboard, order-status tracking, Irish's character illustrations when the Figma drops
+3. **Set `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel** (prod + preview) — uploads throw "temporarily unavailable" without them
+4. Smoke test the merged card with a real file attached: calc → lock in → upload artwork → submit; confirm the file lands in the `quote-files` bucket, a row in `public.submissions`, and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
+5. If wanted: wire the add-on pricing (locations/names/numbers) into the form quote; Phase 2: admin dashboard, order-status tracking, Irish's character illustrations

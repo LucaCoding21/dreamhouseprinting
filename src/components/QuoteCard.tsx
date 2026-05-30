@@ -91,6 +91,85 @@ const ALLOWED_ARTWORK = [
   "application/illustrator",
 ];
 
+const STORAGE_BUCKET = "quote-files";
+
+type UploadedRef = { name: string; path: string };
+
+// Upload artwork + price-match files directly to Supabase Storage using
+// server-minted signed upload URLs, then return their {name, path} so the
+// submit call only carries small JSON. This sidesteps Vercel's 4.5MB
+// serverless request-body limit, which 413'd any sizeable artwork uploaded
+// through /api/submit. Throws on failure so the caller can surface an error.
+async function uploadAttachments(
+  artworkFiles: File[],
+  priceMatchFiles: File[],
+): Promise<{ artwork: UploadedRef[]; priceMatch: UploadedRef[] }> {
+  const all = [
+    ...artworkFiles.map((file, i) => ({ id: `a${i}`, kind: "artwork", file })),
+    ...priceMatchFiles.map((file, i) => ({ id: `p${i}`, kind: "price-match", file })),
+  ];
+  if (all.length === 0) return { artwork: [], priceMatch: [] };
+
+  const res = await fetch("/api/upload-url", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      files: all.map(({ id, kind, file }) => ({
+        id,
+        kind,
+        name: file.name,
+        size: file.size,
+      })),
+    }),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.error || "Couldn't prepare your files for upload.");
+  }
+  const data = (await res.json()) as {
+    configured?: boolean;
+    uploads?: { id: string; kind: string; path: string; token: string }[];
+  };
+  // Storage not configured (local dev without creds) — submit without files,
+  // matching the app's graceful-degradation behavior.
+  if (!data.configured) return { artwork: [], priceMatch: [] };
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) {
+    throw new Error("Uploads are temporarily unavailable. Please try again later.");
+  }
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabase = createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const byId = new Map(all.map((x) => [x.id, x.file]));
+  const artwork: UploadedRef[] = [];
+  const priceMatch: UploadedRef[] = [];
+
+  for (const up of data.uploads ?? []) {
+    const file = byId.get(up.id);
+    if (!file) continue;
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .uploadToSignedUrl(up.path, up.token, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+    if (error) {
+      console.error("[upload] failed", up.path, error);
+      throw new Error(`Couldn't upload "${file.name}". Please try again.`);
+    }
+    const ref: UploadedRef = { name: file.name, path: up.path };
+    if (up.kind === "price-match") priceMatch.push(ref);
+    else artwork.push(ref);
+  }
+
+  return { artwork, priceMatch };
+}
+
 function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
@@ -138,11 +217,40 @@ export default function QuoteCard() {
   const priceMatchInputRef = useRef<HTMLInputElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // Preselect the product from a ?product= hint (category links land here).
+  // Preselect the product from a ?product= hint. Two cases:
+  //  1. Landing here from another page (services, etc.) — read it on mount.
+  //  2. Clicking a category link while ALREADY on the home page — Next does a
+  //     client-side nav that doesn't remount this card, so we also intercept
+  //     clicks on any in-page link carrying ?product= and switch to it. This
+  //     stays self-contained here instead of touching every link site.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const p = new URLSearchParams(window.location.search).get("product");
-    if (p && PRODUCT_PARAM[p]) setCalcProduct(PRODUCT_PARAM[p]);
+
+    const selectFrom = (search: string) => {
+      const p = new URLSearchParams(search).get("product");
+      if (p && PRODUCT_PARAM[p]) {
+        setCalcProduct(PRODUCT_PARAM[p]);
+        setPhase("calc"); // back out of the form if they re-pick a category
+      }
+    };
+
+    selectFrom(window.location.search);
+
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest("a");
+      if (!anchor) return;
+      let url: URL;
+      try {
+        url = new URL(anchor.href, window.location.href);
+      } catch {
+        return;
+      }
+      if (url.pathname === "/" && url.searchParams.has("product")) {
+        selectFrom(url.search);
+      }
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
   }, []);
 
   // Keep the card in view as the user moves through form steps (it lives
@@ -317,6 +425,10 @@ export default function QuoteCard() {
   };
 
   const onSubmit = async () => {
+    // Final step still runs the step-2 checks (contact fields + needed-by date)
+    // so a past date or a missing field is caught before we hit the server.
+    setTouchedNext(true);
+    if (!canAdvance) return;
     setSubmitError(null);
     setSubmitting(true);
     try {
@@ -341,13 +453,19 @@ export default function QuoteCard() {
         total: displayPerUnit * submitQty,
       };
 
-      const body = new FormData();
-      body.append("payload", JSON.stringify(payload));
-      body.append("estimate", JSON.stringify(estimate));
-      artworkFiles.forEach((f) => body.append("artwork", f));
-      priceMatchFiles.forEach((f) => body.append("priceMatch", f));
+      // Push files straight to Supabase Storage first (bypasses Vercel's
+      // 4.5MB body cap, which 413'd large artwork). The submit body is then
+      // just small JSON: the form data plus the uploaded file paths.
+      const { artwork, priceMatch } = await uploadAttachments(
+        artworkFiles,
+        priceMatchFiles,
+      );
 
-      const res = await fetch("/api/submit", { method: "POST", body });
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ payload, estimate, artwork, priceMatch }),
+      });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `Something went wrong (${res.status}).`);
@@ -467,9 +585,11 @@ export default function QuoteCard() {
 
               {/* Sticky action bar — keeps the locked-in price and the primary
                   CTA glued to the bottom of the screen through every step.
-                  Opaque yellow bg so it cleanly covers fields it floats over. */}
-              <div className="sticky bottom-4 z-20 mt-8 rounded-full border-2 border-dream-ink/20 bg-dream-sun px-5 py-3 shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
-                <div className="flex items-center justify-between gap-3">
+                  Opaque yellow bg so it cleanly covers fields it floats over.
+                  On phones the price and buttons stack (a single squeezed row
+                  collided badly); from sm up they sit side by side as a pill. */}
+              <div className="sticky bottom-4 z-20 mt-8 rounded-3xl border-2 border-dream-ink/20 bg-dream-sun px-4 py-3 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:rounded-full sm:px-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <div className="min-w-0">
                     {formPerUnit > 0 ? (
                       <div className="flex items-baseline gap-1.5">
@@ -499,12 +619,12 @@ export default function QuoteCard() {
                       {priced && formLocations > 1 ? ` · ${formLocations} locations` : ""}
                     </div>
                   </div>
-                  <div className="flex flex-shrink-0 items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={onBack}
                       disabled={submitting}
-                      className="h-12 rounded-xl border-2 border-dream-ink/70 bg-transparent px-4 font-display text-base font-semibold text-dream-ink transition active:scale-[0.98] disabled:opacity-50"
+                      className="h-12 flex-1 rounded-xl border-2 border-dream-ink/70 bg-transparent px-4 font-display text-base font-semibold text-dream-ink transition active:scale-[0.98] disabled:opacity-50 sm:flex-none"
                     >
                       Back
                     </button>
@@ -512,7 +632,7 @@ export default function QuoteCard() {
                       <button
                         type="button"
                         onClick={onNext}
-                        className="h-12 rounded-xl border-2 border-dream-ink bg-white px-6 font-display text-lg font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
+                        className="h-12 flex-1 rounded-xl border-2 border-dream-ink bg-white px-6 font-display text-lg font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:flex-none"
                       >
                         Next
                       </button>
@@ -521,7 +641,7 @@ export default function QuoteCard() {
                         type="button"
                         onClick={onSubmit}
                         disabled={submitting}
-                        className="h-12 rounded-xl border-2 border-dream-ink bg-white px-6 font-display text-lg font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] disabled:opacity-60"
+                        className="h-12 flex-1 rounded-xl border-2 border-dream-ink bg-white px-6 font-display text-lg font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] disabled:opacity-60 sm:flex-none"
                       >
                         {submitting ? "Sending…" : "Submit :)"}
                       </button>
@@ -1303,9 +1423,6 @@ function StepTimeline({
   inputRef: React.MutableRefObject<HTMLInputElement | null>;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
-  // Single fixed reference date avoids new Date() churn on every render and is
-  // fine as a min for the date picker.
-  const today = todayISO();
   const [priceMatchMode, setPriceMatchMode] = useState<"link" | "file">(
     data.priceMatchLink ? "link" : files.length > 0 ? "file" : "link",
   );
@@ -1316,7 +1433,6 @@ function StepTimeline({
         <input
           id="needed"
           type="date"
-          min={today}
           value={data.neededBy}
           onChange={(e) => update("neededBy", e.target.value)}
           className={inputCls}
@@ -1424,10 +1540,6 @@ function StepTimeline({
       </div>
     </div>
   );
-}
-
-function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
 }
 
 function PillButton({

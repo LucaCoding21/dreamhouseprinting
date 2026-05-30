@@ -15,7 +15,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Allow large multipart uploads (artwork files can be big).
 export const maxDuration = 60;
 
 type UploadedFile = { name: string; url: string; path: string };
@@ -53,42 +52,41 @@ function parseEstimate(raw: unknown): QuoteEstimate | null {
   };
 }
 
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+// Files are uploaded straight from the browser to Supabase Storage (see
+// /api/upload-url). The client sends us the resulting {name, path} pairs; here
+// we just mint a 30-day signed download link per path for Julian's email.
+type UploadedRef = { name: string; path: string };
+
+function parseUploadedRefs(raw: unknown, prefix: "artwork" | "price-match"): UploadedRef[] {
+  if (!Array.isArray(raw)) return [];
+  const refs: UploadedRef[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const name = typeof o.name === "string" ? o.name : "file";
+    const path = typeof o.path === "string" ? o.path : "";
+    // Only accept paths shaped like {uuid}/{prefix}/... and never with `..`.
+    if (!path || path.includes("..")) continue;
+    if (!path.includes(`/${prefix}/`)) continue;
+    refs.push({ name, path });
+  }
+  return refs;
 }
 
-async function uploadFiles(
-  submissionId: string,
-  prefix: "artwork" | "price-match",
-  files: File[],
-): Promise<UploadedFile[]> {
+async function signUploaded(refs: UploadedRef[]): Promise<UploadedFile[]> {
   const supabase = getSupabaseAdmin();
-  if (!supabase || files.length === 0) return [];
+  if (!supabase || refs.length === 0) return [];
 
   const results: UploadedFile[] = [];
-  for (const file of files) {
-    const path = `${submissionId}/${prefix}/${Date.now()}-${sanitizeFileName(
-      file.name,
-    )}`;
-    const arrayBuffer = await file.arrayBuffer();
-    const { error } = await supabase.storage
+  for (const ref of refs) {
+    const { data: signed, error } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .upload(path, arrayBuffer, {
-        contentType: file.type || "application/octet-stream",
-        upsert: false,
-      });
-    if (error) {
-      console.error("[submit] storage upload failed", { path, error });
+      .createSignedUrl(ref.path, 60 * 60 * 24 * 30); // 30-day link for Julian
+    if (error || !signed) {
+      console.error("[submit] could not sign uploaded file", { path: ref.path, error });
       continue;
     }
-    const { data: signed } = await supabase.storage
-      .from(STORAGE_BUCKET)
-      .createSignedUrl(path, 60 * 60 * 24 * 30); // 30-day link for Julian
-    results.push({
-      name: file.name,
-      path,
-      url: signed?.signedUrl ?? "",
-    });
+    results.push({ name: ref.name, path: ref.path, url: signed.signedUrl });
   }
   return results;
 }
@@ -311,20 +309,17 @@ function validatePayload(raw: unknown): QuoteFormData | null {
 
 export async function POST(request: Request) {
   try {
-    const form = await request.formData();
-    const payloadRaw = form.get("payload");
-    if (typeof payloadRaw !== "string") {
-      return NextResponse.json({ error: "Missing payload" }, { status: 400 });
-    }
-
-    let parsed: unknown;
+    // Body is small JSON now — files were uploaded straight to Storage from the
+    // browser (see /api/upload-url), so we only receive their {name, path}.
+    let body: Record<string, unknown>;
     try {
-      parsed = JSON.parse(payloadRaw);
+      const json = await request.json();
+      body = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
     } catch {
       return NextResponse.json({ error: "Bad payload JSON" }, { status: 400 });
     }
 
-    const data = validatePayload(parsed);
+    const data = validatePayload(body.payload);
     if (!data) {
       return NextResponse.json(
         { error: "Missing required contact fields" },
@@ -333,22 +328,10 @@ export async function POST(request: Request) {
     }
 
     // Optional estimate snapshot (the price the customer saw). Best-effort.
-    const estimateRaw = form.get("estimate");
-    let estimate: QuoteEstimate | null = null;
-    if (typeof estimateRaw === "string") {
-      try {
-        estimate = parseEstimate(JSON.parse(estimateRaw));
-      } catch {
-        estimate = null;
-      }
-    }
+    const estimate: QuoteEstimate | null = parseEstimate(body.estimate);
 
-    const artworkFiles = form
-      .getAll("artwork")
-      .filter((v): v is File => v instanceof File);
-    const priceMatchFiles = form
-      .getAll("priceMatch")
-      .filter((v): v is File => v instanceof File);
+    const artworkRefs = parseUploadedRefs(body.artwork, "artwork");
+    const priceMatchRefs = parseUploadedRefs(body.priceMatch, "price-match");
 
     const supabase = getSupabaseAdmin();
     let submissionId = crypto.randomUUID();
@@ -395,17 +378,13 @@ export async function POST(request: Request) {
       console.log("[submit] Supabase not configured — logging submission:", {
         id: submissionId,
         data,
-        artworkCount: artworkFiles.length,
-        priceMatchCount: priceMatchFiles.length,
+        artworkCount: artworkRefs.length,
+        priceMatchCount: priceMatchRefs.length,
       });
     }
 
-    const artwork = await uploadFiles(submissionId, "artwork", artworkFiles);
-    const priceMatch = await uploadFiles(
-      submissionId,
-      "price-match",
-      priceMatchFiles,
-    );
+    const artwork = await signUploaded(artworkRefs);
+    const priceMatch = await signUploaded(priceMatchRefs);
 
     // Update row with file metadata if we have a real submission.
     if (supabase && (artwork.length > 0 || priceMatch.length > 0)) {
