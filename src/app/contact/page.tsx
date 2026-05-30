@@ -290,7 +290,7 @@ export default function ContactPage() {
               Coastal Reign orders
             </span>
             <h2 className="mt-3 font-display text-[26px] font-bold leading-tight text-dream-ink sm:text-[30px]">
-              Submitting a Coastal Reign order?
+              Submitting a Coastal Reign order for a price matching discount?
             </h2>
             <p className="mt-3 max-w-[680px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
               Orders from Coastal Reign can be submitted with a link. Just make
