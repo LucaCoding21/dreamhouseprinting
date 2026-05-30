@@ -52,13 +52,11 @@ export default function Home() {
 
       <Link
         href="/contact#coastal-reign"
-        className="hidden bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95 sm:block"
+        className="block bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
       >
-        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
-          <span className="hidden sm:inline">
-            We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
-            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
-          </span>
+        <p className="mx-auto max-w-[1400px] px-4 py-2 text-center text-[12px] font-bold sm:px-6 sm:text-[15px]">
+          We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
+          <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
         </p>
       </Link>
 
