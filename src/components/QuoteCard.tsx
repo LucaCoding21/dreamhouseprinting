@@ -471,6 +471,18 @@ export default function QuoteCard() {
         throw new Error(j.error || `Something went wrong (${res.status}).`);
       }
       setSubmitted(true);
+
+      // Fire a GA4 event on successful submit. Mark this as a Key Event in the
+      // GA4 dashboard (Admin > Events) to count it as a conversion.
+      const gtag = (window as unknown as {
+        gtag?: (...args: unknown[]) => void;
+      }).gtag;
+      gtag?.("event", "qualify_lead", {
+        currency: "CAD",
+        value: estimate.available ? estimate.total : 0,
+        product: estimate.product,
+        quantity: submitQty,
+      });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
