@@ -4,30 +4,33 @@ Allow: /
 
 Sitemap: https://www.dreamhouseprinting.com/sitemap.xml
 
+# Allow AI search / answer engines — these fetch pages to answer a user's
+# live question and cite us, so they can send real traffic. Distinct from the
+# training crawlers below, which only scrape to train models.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
 # Block AI training and content-scraping bots — they crawl every URL,
 # inflate Edge Requests and Fast Data Transfer, and offer nothing back.
 User-agent: GPTBot
 Disallow: /
 
-User-agent: ChatGPT-User
-Disallow: /
-
-User-agent: OAI-SearchBot
-Disallow: /
-
 User-agent: ClaudeBot
 Disallow: /
 
-User-agent: Claude-Web
-Disallow: /
-
 User-agent: anthropic-ai
-Disallow: /
-
-User-agent: PerplexityBot
-Disallow: /
-
-User-agent: Perplexity-User
 Disallow: /
 
 User-agent: Bytespider
