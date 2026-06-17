@@ -25,6 +25,7 @@ export interface DesignCanvasHandle {
   exportMockup: () => string | null;
   hasObjects: () => boolean;
   artOutsidePrintArea: () => boolean;
+  recalcOffset: () => void;
 }
 
 // The canvas sizes itself to the garment image's aspect ratio (within this
@@ -50,8 +51,12 @@ function fitDims(imgW: number, imgH: number) {
 
 export const DesignCanvas = forwardRef<
   DesignCanvasHandle,
-  { onSelectionChange?: (hasSelection: boolean) => void; onChange?: () => void }
->(function DesignCanvas({ onSelectionChange, onChange }, ref) {
+  {
+    onSelectionChange?: (hasSelection: boolean) => void;
+    onChange?: () => void;
+    onGarmentLoaded?: () => void;
+  }
+>(function DesignCanvas({ onSelectionChange, onChange, onGarmentLoaded }, ref) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const printRectRef = useRef<fabric.Rect | null>(null);
@@ -126,6 +131,7 @@ export const DesignCanvas = forwardRef<
       if (!url) {
         canvas.backgroundImage = undefined;
         canvas.requestRenderAll();
+        onGarmentLoaded?.();
         return;
       }
       fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" }).then((img) => {
@@ -150,6 +156,7 @@ export const DesignCanvas = forwardRef<
         // Re-place the dashed print guide against the (possibly resized) canvas.
         redrawPrintRect();
         c.requestRenderAll();
+        onGarmentLoaded?.();
       });
     },
     setPrintArea(box) {
@@ -283,6 +290,11 @@ export const DesignCanvas = forwardRef<
         const r = o.getBoundingRect();
         return r.left < bx - 1 || r.top < by - 1 || r.left + r.width > bx + bw + 1 || r.top + r.height > by + bh + 1;
       });
+    },
+    recalcOffset() {
+      // The canvas is CSS-scaled for zoom; refresh Fabric's cached element
+      // offset so pointer→canvas mapping stays accurate after a zoom change.
+      canvasRef.current?.calcOffset();
     },
   }));
 
