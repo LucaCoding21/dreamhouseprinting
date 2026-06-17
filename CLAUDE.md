@@ -178,29 +178,19 @@ No separate dev log file exists on purpose. Historical "why did we do it this wa
 
 ### Current status
 
-- ✅ Next.js + Tailwind scaffolded
-- ✅ 5-step form built, validated, visually matches wireframe
-- ✅ `/api/submit` wired to Supabase Storage + Resend
-- ✅ Storage bucket `quote-files` created
-- ✅ `submissions` table provisioned via Supabase MCP (2026-04-10 session)
-- ✅ Resend sender set to `dreamhouseprinting@cloverfield.studio` (cloverfield.studio domain verified)
-- ✅ Quote emails CC'd to `william@cloverfield.studio` via `NOTIFY_CC_EMAILS` env var
-- ✅ Size breakdown (S–3XL with "sizes later" escape hatch); total quantity auto-derives. Columns: `garment_brand text`, `sizes jsonb`.
-- ✅ Price match has a **tab toggle**: "Paste link" or "Upload file". Link stored in `price_match_link`.
-- ✅ **Real pricing in `lib/pricing.ts`** (2026-05-28). Final customer prices (Coastal Reign −10%, markup baked in — no multiplier), quantity-break tables from `our_pricing.csv` for **all 6 SKUs**: tee (ATC1000), hoodie (Gildan 18500 — note: replaced the old ATC fleece), crewneck (Gildan 18000), tote (Q-Tees), toque (SP12), dad-cap (6245CM). Decoration derived from product (apparel/tote=screen, headwear=embroidery). Per-item display rounds **UP** to nearest $ (`roundDisplayPrice`). Add-ons (extra locations, names/numbers, 2XL+) in `our_pricing_addons.csv` **not yet wired** into `calculateQuote`. Only "other" + the form's generic "hats" can't be priced.
-- ✅ **Quote flow merged into one home-page card** (2026-05-28). Killed the separate `/quote` page and the standalone purple section; `QuoteCard.tsx` does calculator → form in place ("Lock in this price" swaps phases, picks carry over; **Back** on step 0 returns to the calculator). Calculator exposes Shirt/Hoodie/Crewneck/Tote/Toque/Dad Cap/Other. Sticky **yellow** bottom bar shows live price + product context + Back/Next (no top banner). All `/quote` links repointed to `/#quick-quote` (category links pass `?product=` to preselect); `/quote` 301-redirects; sitemap entries removed.
-- ✅ **Direct-to-Storage uploads** (2026-05-29). Artwork/price-match files no longer go through `/api/submit` (Vercel's 4.5MB body cap was 413'ing phone photos). New `POST /api/upload-url` mints signed upload URLs; the browser uploads via `uploadToSignedUrl`; submit is now small JSON. Mechanism verified against the live bucket. **Needs `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` set in Vercel** (local `.env.local` done).
-- ✅ **On-home `?product=` preselect fixed** (2026-05-29). QuoteCard now also intercepts clicks on any in-page link carrying `?product=` (document-level listener), so clicking a category link while already on the home page selects the product and snaps back to the calculator phase.
-- ✅ **Past dates allowed** in "needed by" (removed the `min={today}`). Submit now also runs the step-2 contact validation client-side before posting.
-- ✅ **Mobile sticky quote pill** restacks on phones (price above full-width Back/Next) — fixes the garbled overlap on narrow screens.
-- ⏳ No real end-to-end submission driven through the browser yet against the live table + verified sender (and not yet tested with `NEXT_PUBLIC_*` env on Vercel).
+**The full platform from `prd.md` is now built (2026-06-16) — see `BUILD_PLAN.md` for the phased checklist.** The legacy quick-quote form (`QuoteCard.tsx` + `submissions` table + `/api/submit`) is untouched and still on the home page; the platform lives alongside it.
+
+Platform architecture (new this build):
+- **Data model** — all PRD §9 entities in `supabase/migrations/0001-0004` (products, categories, decoration_methods, print_areas, designs, orders, line_items, proofs, order_activity, quotes, profiles, organizations, settings) + RLS + seed. Migrations apply via `node --env-file=.env.local scripts/db-push.mjs` (Management API — **the Supabase MCP points to a DIFFERENT project; never write through it**). Generated DB types in `src/lib/db/types.ts`.
+- **Auth** — Supabase Auth via `@supabase/ssr`. Clients in `src/lib/supabase/{client,server,service}.ts`; session refresh in `src/proxy.ts`; role/permission guards in `src/lib/auth.ts` (`requireUser/requireStaff/requirePermission`). Profiles auto-created by a DB trigger. Auth project is set to `mailer_autoconfirm` for now (revisit before launch).
+- **S&S Activewear** — `src/lib/ss/*` (Canadian endpoint `api-ca.ssactivewear.com/v2`, CDN images CORS-`*`). Admin imports a style → Product, configures Admin-owned fields, re-syncs S&S-owned fields.
+- **Surfaces** — Storefront (`/shop` §3.3 wireframe + `/shop/[id]`), Designer (`/design/[productId]`, Fabric.js, print-area overlay, live price, submit→Order+mockup), Customer portal (`/account/*`: dashboard, orders + animated dog tracker, proof approve/request-changes, designs, account editing, reorder, help), Admin (`/admin/*`: dashboard, orders list+detail with status control/proof/notes/pricing/payment/activity, proofs queue, production kanban, products + S&S import + print-area editor, quotes, customers CRM, reports + CSV, settings).
+- **Pricing** `src/lib/pricing/platform.ts` (wholesale+markup+decoration+bulk). **Notifications** `src/lib/notify.ts` (Resend, fired on status change, gated by prefs, templated from settings). **UI primitives** `src/components/ui/*` (20 components, SaaS look using `dream-*` tokens incl. new app-surface tokens). Order status→tracker mapping `src/lib/orderStatus.ts`.
+- **Browser-QA'd end-to-end**: imported B+C 3001 (79 colours), configured+published, /shop→detail→designer→Order DH-2026-0001→admin status control→proof→customer approval→production move→tracker, plus dashboard/settings/customers/reports. Build + lint green (only 4 pre-existing marketing-component lint errors remain). Work on branch `feat/platform-build` (committed per phase, **not pushed**).
 
 ### Pick up from here
 
-What the next Claude should do first when starting a new session — keep this to ~5 bullets, replace with whatever is actually most pressing:
-
-1. Read this file (you're here)
-2. Ask the user what they want to work on — don't assume
-3. **Set `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel** (prod + preview) — uploads throw "temporarily unavailable" without them
-4. Smoke test the merged card with a real file attached: calc → lock in → upload artwork → submit; confirm the file lands in the `quote-files` bucket, a row in `public.submissions`, and emails arrive at `JULIAN_NOTIFY_EMAIL` + `NOTIFY_CC_EMAILS`
-5. If wanted: wire the add-on pricing (locations/names/numbers) into the form quote; Phase 2: admin dashboard, order-status tracking, Irish's character illustrations
+1. Read this file + `BUILD_PLAN.md` (phase checklist) + the `project_platform_build` / `project_supabase_mcp_mismatch` / `reference_ss_activewear` memories.
+2. **Remaining PRD work**: Organizations / team accounts (§6 — entity exists in schema; needs member management UI + shared-artwork reuse in the designer); saved-artwork-on-file reuse in the designer (§5.5); multi-view mockup export (designer currently exports the active view only); text curve/arch; admin category CRUD; bulk-tier pricing UI on quotes.
+3. **Before launch**: turn OFF `mailer_autoconfirm` + wire Resend SMTP for email verification; set `NEXT_PUBLIC_SUPABASE_*` in Vercel; review RLS with `get_advisors`; the Resend sender + test accounts (`julian@dreamhouse.test` staff_admin / `customer@dreamhouse.test`, pw `dreamhouse123`) are dev-only.
+4. Dev server runs on **:3001** (3000 is an unrelated app). Don't auto-open Chrome unless diagnosing.
