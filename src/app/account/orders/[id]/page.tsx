@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getMyOrder } from "@/lib/db/orders";
 import { OrderTracker } from "@/components/portal/OrderTracker";
 import { ProofApproval } from "./ProofApproval";
+import { ReorderButton } from "./ReorderButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { STATUS_META } from "@/lib/orderStatus";
@@ -47,7 +48,10 @@ export default async function OrderDetailPage({
             {order.order_number ?? "Order"}
           </h1>
         </div>
-        <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? order.status}</Badge>
+        <div className="flex items-center gap-3">
+          <ReorderButton orderId={order.id} />
+          <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? order.status}</Badge>
+        </div>
       </div>
 
       <OrderTracker status={order.status as OrderStatus} />

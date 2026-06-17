@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission, getProfile } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { sendOrderStatusEmail } from "@/lib/notify";
 import type { Json, Database } from "@/lib/db/types";
 import type { OrderStatus, PaymentStatus } from "@/lib/db/rows";
 
@@ -50,6 +51,7 @@ export async function setOrderStatusAction(
   if (error) return { error: error.message };
 
   await logActivity(service, orderId, "status_change", { from: prev?.status, to: status });
+  await sendOrderStatusEmail(orderId, status);
   revalidateOrder(orderId);
   return { ok: true };
 }
@@ -140,6 +142,7 @@ export async function uploadProofAction(
     .eq("id", orderId);
 
   await logActivity(service, orderId, "proof_uploaded", {});
+  await sendOrderStatusEmail(orderId, "proof_ready");
   revalidateOrder(orderId);
   return { ok: true };
 }
