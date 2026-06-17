@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getProfile } from "@/lib/auth";
 import { getMyOrders } from "@/lib/db/orders";
 import { OrderTracker } from "@/components/portal/OrderTracker";
@@ -52,14 +53,25 @@ export default async function AccountDashboardPage() {
       </div>
 
       {orders.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-start gap-3 py-10">
-            <p className="text-dream-muted">You have no orders yet. Let’s make something.</p>
-            <Link href="/shop">
-              <Button variant="primary">Start a design</Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-dream-line bg-white p-8 text-center shadow-sm">
+          <Image
+            src="/testimonailsplusfooter/dogasset.png"
+            alt=""
+            width={120}
+            height={205}
+            className="mx-auto mb-2 h-28 w-auto"
+          />
+          <h2 className="font-display text-xl font-bold text-dream-ink">No orders yet</h2>
+          <p className="mx-auto mt-1 max-w-sm text-dream-ink-soft">
+            Pick a blank, add your art, and we&apos;ll take it from there — free proof before anything prints.
+          </p>
+          <Link
+            href="/shop"
+            className="rough-pill rough-pill-filled mt-5 inline-flex items-center justify-center px-7 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+          >
+            Start designing
+          </Link>
+        </div>
       ) : (
         <>
           {hasActionNeeded && (

@@ -105,6 +105,35 @@ body {
   }
 }
 
+/* Order-tracker dog: a gentle trotting hop (bob + tilt) as it carries the bag
+   along the progress track. The horizontal position/centering is handled by a
+   wrapper, so this only animates the bounce. */
+@keyframes dog-trot {
+  0%   { transform: translateY(0) rotate(-2deg); }
+  25%  { transform: translateY(-5px) rotate(1deg); }
+  50%  { transform: translateY(0) rotate(-1deg); }
+  75%  { transform: translateY(-3px) rotate(2deg); }
+  100% { transform: translateY(0) rotate(-2deg); }
+}
+.animate-dog-trot {
+  animation: dog-trot 0.9s ease-in-out infinite;
+}
+/* A little celebratory hop when the order is complete (dog has arrived). */
+@keyframes dog-cheer {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  30%      { transform: translateY(-10px) rotate(-6deg) scale(1.05); }
+  60%      { transform: translateY(0) rotate(4deg) scale(1); }
+}
+.animate-dog-cheer {
+  animation: dog-cheer 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-dog-trot,
+  .animate-dog-cheer {
+    animation: none;
+  }
+}
+
 /* Subtle highlight from the top so the lavender has a little depth */
 body {
   background-image: radial-gradient(

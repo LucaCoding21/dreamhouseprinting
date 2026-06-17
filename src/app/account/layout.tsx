@@ -13,7 +13,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   // (They can still view customer pages, but their home is /admin.)
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-dream-bg">
+      <div className="min-h-screen bg-dream-cream">
         <PortalNav name={profile.name ?? profile.email ?? "My account"} />
         <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
       </div>

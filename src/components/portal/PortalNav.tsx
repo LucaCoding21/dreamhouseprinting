@@ -18,16 +18,15 @@ export function PortalNav({ name }: { name: string }) {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-dream-line bg-dream-surface">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/dreamhouse-logo.svg" alt="Dreamhouse Printing" width={32} height={32} />
-          <span className="font-display text-lg font-bold text-dream-ink">Dreamhouse</span>
+    <header className="border-b border-dream-line bg-dream-lavender-soft">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2.5">
+        <Link href="/" className="flex items-center">
+          <Image src="/dreamhouse-logo-full.png" alt="Dreamhouse Printing" width={900} height={300} className="h-9 w-auto sm:h-10" />
         </Link>
         <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-dream-muted sm:block">{name}</span>
+          <span className="hidden text-sm font-medium text-dream-ink-soft sm:block">{name}</span>
           <form action={signOutAction}>
-            <button className="rounded-lg border border-dream-line px-3 py-1.5 text-xs font-medium text-dream-ink hover:bg-dream-bg">
+            <button className="rounded-full bg-white px-4 py-2 text-xs font-bold text-dream-ink shadow-sm transition-transform hover:-translate-y-0.5">
               Sign out
             </button>
           </form>
@@ -42,10 +41,10 @@ export function PortalNav({ name }: { name: string }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors",
+                "whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold transition-colors",
                 active
                   ? "border-dream-purple text-dream-purple"
-                  : "border-transparent text-dream-muted hover:text-dream-ink"
+                  : "border-transparent text-dream-ink-soft hover:text-dream-ink"
               )}
             >
               {item.label}
