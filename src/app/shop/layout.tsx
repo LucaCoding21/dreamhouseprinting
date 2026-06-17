@@ -1,6 +1,6 @@
-import React, { Suspense } from "react";
+import React from "react";
 import type { Metadata } from "next";
-import { StorefrontNav } from "@/components/storefront/StorefrontNav";
+import SiteNav from "@/components/SiteNav";
 
 export const metadata: Metadata = {
   title: "Shop — Dreamhouse Printing",
@@ -14,10 +14,10 @@ export default function ShopLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-dream-bg">
-      <Suspense fallback={<div className="h-16 border-b border-dream-line bg-dream-surface" />}>
-        <StorefrontNav />
-      </Suspense>
+    <div className="min-h-screen bg-dream-cream">
+      <div className="bg-dream-lavender-soft">
+        <SiteNav />
+      </div>
       {children}
     </div>
   );

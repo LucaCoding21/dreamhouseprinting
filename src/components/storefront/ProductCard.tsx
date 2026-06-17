@@ -28,20 +28,20 @@ export function ProductCard({
     <Link
       href={`/shop/${product.id}`}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-xl border border-dream-line bg-dream-surface",
-        "shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-dream-line-strong",
+        "group flex flex-col overflow-hidden rounded-2xl border border-dream-line bg-white",
+        "shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_14px_34px_-14px_rgba(118,100,255,0.4)] hover:border-dream-purple/40",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
         className,
       )}
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-dream-bg">
+      <div className="relative aspect-square w-full overflow-hidden bg-dream-cream">
         {image ? (
           <Image
             src={image}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 22vw"
-            className="object-contain p-4 transition-transform duration-200 group-hover:scale-[1.03]"
+            className="object-contain p-4 transition-transform duration-200 group-hover:scale-[1.05]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-dream-lavender-soft">
@@ -60,12 +60,10 @@ export function ProductCard({
           {product.name}
         </h3>
 
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="text-sm text-dream-muted">
-            from{" "}
-            <span className="font-display font-semibold text-dream-ink">
-              {formatCAD(startingAtPrice(product))}
-            </span>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
+          <span className="inline-flex items-baseline gap-1 rounded-full bg-dream-sun-soft px-2.5 py-1 font-display text-sm font-bold text-dream-ink">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">from</span>
+            {formatCAD(startingAtPrice(product))}
           </span>
           {swatches.length > 0 && (
             <span className="flex items-center gap-1" aria-hidden="true">

@@ -13,12 +13,16 @@ import { productPrimaryImage } from "@/lib/productImage";
 import { ShopSidebar } from "@/components/storefront/ShopSidebar";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { CategoryTabs, type CategoryTab } from "@/components/storefront/CategoryTabs";
+import { SortSelect } from "@/components/storefront/SortSelect";
+import { ShopSearch } from "@/components/storefront/ShopSearch";
 import { EmptyState } from "@/components/ui";
+import { startingAtPrice } from "@/lib/pricing/platform";
 import { cn } from "@/lib/cn";
 
 interface ShopSearchParams {
   category?: string;
   search?: string;
+  sort?: string;
 }
 
 export default async function ShopPage({
@@ -26,7 +30,7 @@ export default async function ShopPage({
 }: {
   searchParams: Promise<ShopSearchParams>;
 }) {
-  const { category, search } = await searchParams;
+  const { category, search, sort } = await searchParams;
   const filtered = Boolean(category || search);
 
   const [categories, majors] = await Promise.all([
@@ -43,14 +47,17 @@ export default async function ShopPage({
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-      <header className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">
-          Shop all
-        </h1>
-        <p className="mt-1 text-sm text-dream-muted">
-          Pick a blank, make it yours. Every product is ready to customize in the
-          designer.
-        </p>
+      <header className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-dream-ink sm:text-4xl">
+            Shop the blanks
+          </h1>
+          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-dream-ink-soft">
+            Pick a blank and make it yours — every product opens right in our designer, and you&apos;ll
+            get a free proof before anything prints.
+          </p>
+        </div>
+        <ShopSearch />
       </header>
 
       {/* Category tiles — 4 majors + an "All Products" catch-all (§3.3.1). */}
@@ -70,7 +77,7 @@ export default async function ShopPage({
 
         <section className="min-w-0 flex-1">
           {filtered ? (
-            <FilteredView category={category} search={search} />
+            <FilteredView category={category} search={search} sort={sort} />
           ) : (
             <DefaultView majors={majors} featured={featured} />
           )}
@@ -114,16 +121,16 @@ async function DefaultView({
   return (
     <div className="flex flex-col gap-10">
       {featured.length > 0 && (
-        <div>
+        <div className="rounded-3xl bg-dream-lavender-soft/60 p-5 sm:p-6">
           <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold text-dream-ink">
-              Top picks
+            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dream-ink">
+              <span aria-hidden className="text-dream-sun">★</span> Top picks
             </h2>
-            <span className="text-xs text-dream-faint">
+            <span className="text-xs font-semibold text-dream-purple">
               One favourite per category
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {featured.map((f) => (
               <ProductCard key={f.product.id} product={f.product} />
             ))}
@@ -137,7 +144,7 @@ async function DefaultView({
         </h2>
         {empty ? (
           <EmptyState
-            className="rounded-xl border border-dashed border-dream-line bg-dream-surface"
+            className="rounded-2xl border border-dashed border-dream-line bg-white"
             title="No products yet — check back soon"
             description="We're still loading the catalog. New blanks land here as they're added."
           />
@@ -155,14 +162,25 @@ async function DefaultView({
 async function FilteredView({
   category,
   search,
+  sort,
 }: {
   category?: string;
   search?: string;
+  sort?: string;
 }) {
-  const [cat, products] = await Promise.all([
+  const dbSort = sort === "name" ? "name" : sort === "newest" ? "newest" : "featured";
+  const [cat, fetched] = await Promise.all([
     category ? getCategoryBySlug(category) : Promise.resolve(null),
-    getActiveProducts({ categorySlug: category, search, sort: "featured" }),
+    getActiveProducts({ categorySlug: category, search, sort: dbSort }),
   ]);
+
+  // Price sorts run on the computed "from" price (not a stored column).
+  const products =
+    sort === "price-asc"
+      ? [...fetched].sort((a, b) => startingAtPrice(a) - startingAtPrice(b))
+      : sort === "price-desc"
+        ? [...fetched].sort((a, b) => startingAtPrice(b) - startingAtPrice(a))
+        : fetched;
 
   const heading = search
     ? `Results for “${search}”`
@@ -170,13 +188,14 @@ async function FilteredView({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-xl font-semibold text-dream-ink">
-          {heading}
-        </h2>
-        <span className="text-sm text-dream-muted">
-          {products.length} {products.length === 1 ? "product" : "products"}
-        </span>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="font-display text-xl font-bold text-dream-ink">{heading}</h2>
+          <span className="text-sm text-dream-muted">
+            {products.length} {products.length === 1 ? "product" : "products"}
+          </span>
+        </div>
+        {products.length > 0 && <SortSelect value={sort ?? "featured"} />}
       </div>
 
       {products.length > 0 ? (
@@ -197,7 +216,7 @@ async function FilteredView({
           action={
             <Link
               href="/shop"
-              className="inline-flex h-10 items-center rounded-lg bg-dream-purple px-4 text-sm font-medium text-white transition-colors hover:bg-dream-purple-dark"
+              className="inline-flex h-10 items-center rounded-full bg-dream-purple px-5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
             >
               Browse all products
             </Link>
@@ -252,12 +271,12 @@ function Tile({
     <Link
       href={href}
       className={cn(
-        "group relative flex h-28 items-end overflow-hidden rounded-xl border p-3 transition-all",
+        "group relative flex h-28 items-end overflow-hidden rounded-2xl border p-3 transition-all hover:-translate-y-0.5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
         active
           ? "border-dream-purple ring-1 ring-dream-purple/30"
-          : "border-dream-line hover:border-dream-line-strong hover:shadow-sm",
-        image ? "bg-dream-surface" : "bg-dream-lavender-soft",
+          : "border-dream-line hover:border-dream-purple/40 hover:shadow-md",
+        image ? "bg-white" : "bg-dream-lavender-soft",
       )}
     >
       {image && (
