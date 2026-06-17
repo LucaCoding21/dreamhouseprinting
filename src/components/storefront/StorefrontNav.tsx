@@ -9,8 +9,8 @@ import { cn } from "@/lib/cn";
 
 /**
  * Storefront header (PRD §3.3.1): logo, a catalog search field that pushes to
- * /shop?search=…, an account link, and a cart icon. Clean white bar with a
- * subtle bottom border — the SaaS aesthetic carried across the storefront.
+ * /shop?search=…, and an account link. No cart — this is a quote/design flow,
+ * not a checkout, so products go straight to the designer.
  */
 export function StorefrontNav() {
   const router = useRouter();
@@ -75,13 +75,6 @@ export function StorefrontNav() {
           >
             <UserIcon className="h-5 w-5" />
           </Link>
-          <Link
-            href="/cart"
-            aria-label="Cart"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-dream-muted transition-colors hover:bg-dream-bg hover:text-dream-ink"
-          >
-            <CartIcon className="h-5 w-5" />
-          </Link>
         </nav>
       </div>
     </header>
@@ -102,16 +95,6 @@ function UserIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function CartIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="9" cy="21" r="1" />
-      <circle cx="20" cy="21" r="1" />
-      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
     </svg>
   );
 }

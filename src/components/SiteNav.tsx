@@ -7,6 +7,7 @@ import Link from "next/link";
 import ScribbleButton from "./ScribbleButton";
 
 const NAV_LINKS = [
+  { label: "Shop All", href: "/shop", rotate: 1 },
   { label: "Services", href: "/services", rotate: -1 },
   { label: "About", href: "/about", rotate: 1 },
   { label: "Contact", href: "/contact", rotate: -0.5 },
