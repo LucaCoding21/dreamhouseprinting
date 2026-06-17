@@ -16,6 +16,24 @@
   --color-dream-periwinkle: #8080ff;
   --color-dream-lime: #d9f561;
 
+  /* App-surface tokens — the clean SaaS look for storefront/portal/admin
+     surfaces (white cards on a light ground), distinct from the playful
+     lavender marketing pages. Matches the reference designs. */
+  --color-dream-surface: #ffffff;
+  --color-dream-bg: #f6f6fb;
+  --color-dream-line: #e8e7f1;
+  --color-dream-line-strong: #d6d4e6;
+  --color-dream-muted: #6c6890;
+  --color-dream-faint: #9a97b8;
+  --color-dream-success: #18966a;
+  --color-dream-success-soft: #e3f5ee;
+  --color-dream-warn: #c98a16;
+  --color-dream-warn-soft: #fbeecd;
+  --color-dream-danger: #d6453f;
+  --color-dream-danger-soft: #fbe4e3;
+  --color-dream-info: #3b6fe0;
+  --color-dream-info-soft: #e4ecfb;
+
   --font-display: var(--font-archivo);
   --font-daruma: var(--font-darumadrop);
   --font-sans: var(--font-inter);
