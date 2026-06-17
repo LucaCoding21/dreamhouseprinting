@@ -27,7 +27,26 @@ export interface DesignCanvasHandle {
   artOutsidePrintArea: () => boolean;
 }
 
-const SIZE = 520; // logical canvas px (square)
+// The canvas sizes itself to the garment image's aspect ratio (within this
+// envelope) so the garment FILLS the frame with no letterboxing. That makes
+// normalized 0..1 print-area coords map 1:1 to canvas pixels — the same basis
+// the admin PrintAreaEditor uses — so the print box lines up exactly across
+// colours and views. (Previously a fixed 520² square letterboxed the garment,
+// so the box drifted on any non-square image.)
+const MAX_W = 520;
+const MAX_H = 600;
+const DEFAULT_DIMS = { w: 480, h: 560 };
+
+function fitDims(imgW: number, imgH: number) {
+  const aspect = imgW / imgH || DEFAULT_DIMS.w / DEFAULT_DIMS.h;
+  let w = MAX_W;
+  let h = Math.round(w / aspect);
+  if (h > MAX_H) {
+    h = MAX_H;
+    w = Math.round(h * aspect);
+  }
+  return { w, h };
+}
 
 export const DesignCanvas = forwardRef<
   DesignCanvasHandle,
@@ -37,13 +56,14 @@ export const DesignCanvas = forwardRef<
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const printRectRef = useRef<fabric.Rect | null>(null);
   const printBoxRef = useRef<PrintBox | null>(null);
+  const dimsRef = useRef({ ...DEFAULT_DIMS });
 
   useEffect(() => {
     if (!elRef.current) return;
     const canvas = new fabric.Canvas(elRef.current, {
-      width: SIZE,
-      height: SIZE,
-      backgroundColor: "#f6f6fb",
+      width: dimsRef.current.w,
+      height: dimsRef.current.h,
+      backgroundColor: "#ffffff",
       preserveObjectStacking: true,
     });
     canvasRef.current = canvas;
@@ -75,11 +95,12 @@ export const DesignCanvas = forwardRef<
       canvas.requestRenderAll();
       return;
     }
+    const { w, h } = dimsRef.current;
     const rect = new fabric.Rect({
-      left: box.x * SIZE,
-      top: box.y * SIZE,
-      width: box.width * SIZE,
-      height: box.height * SIZE,
+      left: box.x * w,
+      top: box.y * h,
+      width: box.width * w,
+      height: box.height * h,
       fill: "transparent",
       stroke: "#7664ff",
       strokeWidth: 1.5,
@@ -104,18 +125,27 @@ export const DesignCanvas = forwardRef<
         return;
       }
       fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" }).then((img) => {
-        if (!canvasRef.current) return;
-        const scale = Math.min(SIZE / (img.width ?? SIZE), SIZE / (img.height ?? SIZE));
+        const c = canvasRef.current;
+        if (!c) return;
+        const iw = img.width ?? DEFAULT_DIMS.w;
+        const ih = img.height ?? DEFAULT_DIMS.h;
+        const { w, h } = fitDims(iw, ih);
+        dimsRef.current = { w, h };
+        c.setDimensions({ width: w, height: h });
+        // Fill the canvas exactly — aspect matches, so this is not a stretch
+        // beyond sub-pixel rounding. The garment now fills the frame edge-to-edge.
         img.set({
-          scaleX: scale,
-          scaleY: scale,
-          left: (SIZE - (img.width ?? 0) * scale) / 2,
-          top: (SIZE - (img.height ?? 0) * scale) / 2,
+          scaleX: w / iw,
+          scaleY: h / ih,
+          left: 0,
+          top: 0,
           originX: "left",
           originY: "top",
         });
-        canvas.backgroundImage = img;
-        canvas.requestRenderAll();
+        c.backgroundImage = img;
+        // Re-place the dashed print guide against the (possibly resized) canvas.
+        redrawPrintRect();
+        c.requestRenderAll();
       });
     },
     setPrintArea(box) {
@@ -127,11 +157,12 @@ export const DesignCanvas = forwardRef<
       if (!canvas) return;
       const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
       const box = printBoxRef.current;
-      const targetW = (box ? box.width : 0.5) * SIZE * 0.85;
+      const { w, h } = dimsRef.current;
+      const targetW = (box ? box.width : 0.5) * w * 0.85;
       const scale = targetW / (img.width ?? targetW);
       img.set({ scaleX: scale, scaleY: scale });
-      const cx = (box ? box.x + box.width / 2 : 0.5) * SIZE;
-      const cy = (box ? box.y + box.height / 2 : 0.5) * SIZE;
+      const cx = (box ? box.x + box.width / 2 : 0.5) * w;
+      const cy = (box ? box.y + box.height / 2 : 0.5) * h;
       img.set({ left: cx, top: cy, originX: "center", originY: "center" });
       canvas.add(img);
       canvas.setActiveObject(img);
@@ -141,8 +172,9 @@ export const DesignCanvas = forwardRef<
       const canvas = canvasRef.current;
       if (!canvas) return;
       const box = printBoxRef.current;
-      const cx = (box ? box.x + box.width / 2 : 0.5) * SIZE;
-      const cy = (box ? box.y + box.height / 2 : 0.5) * SIZE;
+      const { w, h } = dimsRef.current;
+      const cx = (box ? box.x + box.width / 2 : 0.5) * w;
+      const cy = (box ? box.y + box.height / 2 : 0.5) * h;
       const t = new fabric.IText(text, {
         left: cx,
         top: cy,
@@ -237,10 +269,11 @@ export const DesignCanvas = forwardRef<
       const canvas = canvasRef.current;
       const box = printBoxRef.current;
       if (!canvas || !box) return false;
-      const bx = box.x * SIZE,
-        by = box.y * SIZE,
-        bw = box.width * SIZE,
-        bh = box.height * SIZE;
+      const { w, h } = dimsRef.current;
+      const bx = box.x * w,
+        by = box.y * h,
+        bw = box.width * w,
+        bh = box.height * h;
       return canvas.getObjects().some((o) => {
         if (o === printRectRef.current) return false;
         const r = o.getBoundingRect();
@@ -250,7 +283,7 @@ export const DesignCanvas = forwardRef<
   }));
 
   return (
-    <div className="mx-auto w-full max-w-[520px]">
+    <div className="flex w-full justify-center">
       <canvas ref={elRef} className="rounded-xl border border-dream-line" />
     </div>
   );

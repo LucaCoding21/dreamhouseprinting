@@ -72,6 +72,10 @@ export function PrintAreaEditor({
     })
   );
   const [selected, setSelected] = useState<number | null>(null);
+  // Aspect ratio of the loaded garment image. The frame matches it so the
+  // image fills with no letterbox — then % box coords and drag deltas (which
+  // divide by the container rect) map 1:1 to the same basis the designer uses.
+  const [imgAspect, setImgAspect] = useState(1);
 
   const img = imageForView(colours, view);
   const visibleIdx = areas.map((a, i) => ({ a, i })).filter(({ a }) => a.view === view);
@@ -193,11 +197,23 @@ export function PrintAreaEditor({
           {/* Canvas */}
           <div
             ref={containerRef}
-            className="relative aspect-square w-full select-none overflow-hidden rounded-xl border border-dream-line bg-dream-bg"
+            className="relative mx-auto w-full max-w-[420px] select-none overflow-hidden rounded-xl border border-dream-line bg-dream-bg"
+            style={{ aspectRatio: img ? imgAspect : 1 }}
           >
             {img ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={img} alt={view} className="pointer-events-none h-full w-full object-contain" draggable={false} />
+              <img
+                key={`${view}:${img}`}
+                src={img}
+                alt={view}
+                onLoad={(e) => {
+                  const el = e.currentTarget;
+                  if (el.naturalWidth && el.naturalHeight)
+                    setImgAspect(el.naturalWidth / el.naturalHeight);
+                }}
+                className="pointer-events-none h-full w-full object-contain"
+                draggable={false}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-dream-muted">No image for this view</div>
             )}
