@@ -91,7 +91,7 @@ export function ProductGallery({
                 aria-label={`View ${g.label}`}
                 aria-current={i === activeImage}
                 className={cn(
-                  "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-dream-surface transition-colors",
+                  "relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-white transition-colors",
                   i === activeImage
                     ? "border-dream-purple ring-1 ring-dream-purple/30"
                     : "border-dream-line hover:border-dream-line-strong",
@@ -103,7 +103,7 @@ export function ProductGallery({
           </div>
         )}
 
-        <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-dream-line bg-dream-surface">
+        <div className="relative aspect-square w-full overflow-hidden rounded-3xl border border-dream-line bg-white shadow-[0_12px_44px_-18px_rgba(118,100,255,0.35)]">
           {main ? (
             <Image
               src={main.src}
@@ -193,30 +193,28 @@ export function ProductGallery({
         )}
 
         {/* Estimated total card */}
-        <div className="rounded-xl border border-dream-line bg-dream-bg p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-faint">
+        <div className="rounded-2xl border border-dream-line bg-gradient-to-br from-white to-dream-lavender-soft/50 p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">
             Estimated total
           </p>
-          <p className="font-display text-2xl font-bold text-dream-ink">
+          <p className="font-display text-3xl font-extrabold text-dream-ink">
             from {formatCAD(startingPrice)}
-            <span className="ml-1 text-sm font-normal text-dream-muted">
-              / unit
-            </span>
+            <span className="ml-1 text-sm font-normal text-dream-ink-soft">/ unit</span>
           </p>
-          <p className="mt-2 text-xs text-dream-muted">
+          <p className="mt-2 text-xs leading-relaxed text-dream-ink-soft">
             Final price depends on quantity, decoration, and ink colours. No
             surprises — you&apos;ll see live pricing in the designer.
           </p>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-4 space-y-2">
             <Link
               href={`/design/${productId}`}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-dream-purple px-5 font-display text-sm font-medium text-white transition-colors hover:bg-dream-purple-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+              className="rough-pill rough-pill-filled flex w-full items-center justify-center px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
             >
               Design now
             </Link>
             <Link
               href={`/design/${productId}?quote=1`}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-dream-line bg-dream-surface px-5 font-display text-sm font-medium text-dream-ink transition-colors hover:bg-dream-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+              className="flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream"
             >
               Customize quote
             </Link>

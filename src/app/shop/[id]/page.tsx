@@ -135,7 +135,7 @@ export default async function ProductDetailPage({
       {related.length > 0 && (
         <section className="mt-14">
           <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-xl font-semibold text-dream-ink">
+            <h2 className="font-display text-xl font-bold text-dream-ink">
               You might also like
             </h2>
             <Link
