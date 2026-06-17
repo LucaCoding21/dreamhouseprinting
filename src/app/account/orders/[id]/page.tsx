@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getMyOrder } from "@/lib/db/orders";
 import { OrderTracker } from "@/components/portal/OrderTracker";
+import { ProofApproval } from "./ProofApproval";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { STATUS_META } from "@/lib/orderStatus";
@@ -21,7 +22,8 @@ export default async function OrderDetailPage({
   const detail = await getMyOrder(id);
   if (!detail) notFound();
 
-  const { order, lineItems, designs } = detail;
+  const { order, lineItems, designs, proofs } = detail;
+  const latestProof = proofs[0];
   const meta = STATUS_META[order.status as OrderStatus];
   const pricing = (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number };
   const firstMockup = designs
@@ -49,6 +51,17 @@ export default async function OrderDetailPage({
       </div>
 
       <OrderTracker status={order.status as OrderStatus} />
+
+      {latestProof && (
+        <ProofApproval
+          proof={{
+            id: latestProof.id,
+            image: latestProof.image,
+            status: latestProof.status,
+            change_request_comment: latestProof.change_request_comment,
+          }}
+        />
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2">

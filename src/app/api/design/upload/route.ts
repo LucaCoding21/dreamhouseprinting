@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // logged-in user can stage uploads, scoped under their own user id.
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-const BUCKETS = new Set(["designs", "artwork"]);
+const BUCKETS = new Set(["designs", "artwork", "proofs"]);
 
 function sanitize(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "file";
