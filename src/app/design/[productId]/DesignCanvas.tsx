@@ -101,6 +101,10 @@ export const DesignCanvas = forwardRef<
       top: box.y * h,
       width: box.width * w,
       height: box.height * h,
+      // Fabric v7 defaults origin to center; the box coords are a top-left
+      // anchor, so pin the origin or the rect renders offset by half its size.
+      originX: "left",
+      originY: "top",
       fill: "transparent",
       stroke: "#7664ff",
       strokeWidth: 1.5,
