@@ -19,9 +19,9 @@ const CATEGORIES: Category[] = [
   {
     label: "Shirts",
     href: "/?product=shirt#quick-quote",
-    image: "/shopbycategories/shirt-categories.jpg",
-    imageAlt: "Custom t shirts",
-    imageTitle: "Custom t shirts in Vancouver",
+    image: "/shopbycategories/custom-printed-t-shirts-vancouver.jpg",
+    imageAlt: "Stack of folded screen-printed t-shirts in white, yellow, and grey with graphic designs",
+    imageTitle: "Custom t-shirts",
     imageWidth: "100%",
     startingAt: "$12",
     tagTilt: -6,
@@ -30,9 +30,9 @@ const CATEGORIES: Category[] = [
   {
     label: "Hoodies",
     href: "/?product=hoodie#quick-quote",
-    image: "/shopbycategories/hoodie-cat.webp",
-    imageAlt: "Custom hoodies",
-    imageTitle: "Custom hoodies in Vancouver",
+    image: "/shopbycategories/custom-printed-hoodies-vancouver.webp",
+    imageAlt: "Three folded pullover hoodies in black, tan, and navy with printed front graphics",
+    imageTitle: "Custom hoodies",
     imageWidth: "100%",
     startingAt: "$32",
     tagTilt: 5,
@@ -41,9 +41,9 @@ const CATEGORIES: Category[] = [
   {
     label: "Hats",
     href: "/?product=hat#quick-quote",
-    image: "/shopbycategories/hat-categories.jpg",
-    imageAlt: "Custom hats and toques",
-    imageTitle: "Custom hats in Vancouver",
+    image: "/shopbycategories/custom-embroidered-dad-caps-vancouver-v2.webp",
+    imageAlt: "Stack of four embroidered dad caps in green, maroon, navy, and grey on a light grey background",
+    imageTitle: "Custom embroidered hats",
     imageWidth: "100%",
     startingAt: "$18",
     tagTilt: -4,
@@ -52,14 +52,13 @@ const CATEGORIES: Category[] = [
   {
     label: "Bags",
     href: "/?product=bag#quick-quote",
-    image: "/shopbycategories/bag-cat.webp",
-    imageAlt: "Custom tote bags",
-    imageTitle: "Custom tote bags in Vancouver",
+    image: "/shopbycategories/custom-tote-bags-vancouver.webp",
+    imageAlt: "Three natural cotton canvas tote bags with orange printed graphics",
+    imageTitle: "Custom tote bags",
     imageWidth: "100%",
     startingAt: "$14",
     tagTilt: 6,
     photo: true,
-    photoScale: 1.15,
   },
 ];
 
@@ -105,7 +104,7 @@ export default function ShopByCategories() {
                 height={400}
                 className={
                   cat.photo
-                    ? "absolute inset-0 z-10 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                    ? "absolute inset-0 z-10 h-full w-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-transform duration-300 ease-out group-hover:scale-105"
                     : "relative z-10 h-auto transition-transform duration-300 ease-out group-hover:scale-105"
                 }
                 style={

@@ -34,6 +34,16 @@ const LOCAL_BUSINESS_LD = {
     { "@type": "City", name: "Surrey" },
     { "@type": "City", name: "North Vancouver" },
   ],
+  // Mon–Fri 10am–6pm, closed weekends. Keep in sync with the Google Business
+  // Profile — mismatched hours hurt local trust signals.
+  openingHoursSpecification: [
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "10:00",
+      closes: "18:00",
+    },
+  ],
   // No aggregateRating/review markup: self-hosted, self-rated reviews aren't
   // eligible for review rich results and risk a structured-data spam penalty.
   // Testimonials still render on-page (see <Testimonials />) for conversion.

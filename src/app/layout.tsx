@@ -36,6 +36,11 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  verification: {
+    other: {
+      "msvalidate.01": "27A83B2C9B2565EDD432463C6D609049",
+    },
+  },
   openGraph: {
     title: homeTitle,
     description: homeDescription,
