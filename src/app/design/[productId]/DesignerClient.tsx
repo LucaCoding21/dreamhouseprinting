@@ -72,6 +72,8 @@ function imageForView(colour: ProductColourJson | undefined, view: View): string
 
 const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6];
 const RUSH_MULTIPLIER = 1.5;
+// Quick-pick total quantities (bulk price breaks).
+const QTY_PRESETS = [24, 48, 72, 100, 150, 250, 500];
 
 // A graph-paper grid that bleeds behind the whole canvas column.
 const GRID_BG: React.CSSProperties = {
@@ -81,8 +83,9 @@ const GRID_BG: React.CSSProperties = {
   backgroundSize: "26px 26px",
 };
 
-// Floating "hover box" — the card style that sits on the grid/lavender ground.
-const CARD = "rounded-2xl bg-white shadow-[0_14px_36px_-18px_rgba(27,20,88,0.5)] ring-1 ring-dream-ink/[0.05]";
+// Floating canvas toolbars — frosted glass, no drop shadow, so the chrome sits
+// light over the grid instead of reading as a raised surface.
+const GLASS = "rounded-2xl bg-white/60 ring-1 ring-dream-ink/[0.06] backdrop-blur-md";
 
 // A small built-in clip-art tray. Each entry is an inline SVG rendered onto the
 // Fabric canvas as an image (the canvas loads any image URL, including data
@@ -115,7 +118,7 @@ const CLIPART: { name: string; svg: string }[] = [
 ];
 
 const TOOLS: { id: Tool; label: string; icon: string }[] = [
-  { id: "upload", label: "Upload", icon: "/designer/dreamhouse-home.svg" },
+  { id: "upload", label: "Upload", icon: "/designer/upload.svg" },
   { id: "text", label: "Text", icon: "/designer/tool-text.svg" },
   { id: "clipart", label: "Clipart", icon: "/designer/tool-clipart.svg" },
 ];
@@ -146,8 +149,14 @@ export function DesignerClient(props: Props) {
   // switches it by clicking a canvas or the "Adding to" pills.
   const [activeView, setActiveView] = useState<View>(views[0] ?? "front");
   const [tool, setTool] = useState<Tool>("upload");
+  // Left panel collapse — shrinks the column to just the icon rail.
+  const [leftOpen, setLeftOpen] = useState(true);
+  // Friendly heads-up when an uploaded raster is a bit low-res for large prints.
+  const [lowResNote, setLowResNote] = useState<string | null>(null);
   const [methodId, setMethodId] = useState(props.methods[0]?.id ?? null);
-  const [sizeQty, setSizeQty] = useState<Record<string, number>>({});
+  // Total quantity only. The per-size (S/M/L) breakdown is collected at
+  // checkout, not here — see the seam note in finalize().
+  const [quantity, setQuantity] = useState(0);
   const [inkColours, setInkColours] = useState(1);
   const [rush, setRush] = useState(false);
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
@@ -157,8 +166,12 @@ export function DesignerClient(props: Props) {
   const [loadedViews, setLoadedViews] = useState<Set<View>>(new Set());
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  // Two side-by-side canvases need to be a touch smaller to both fit.
-  const [zoom, setZoom] = useState(views.length > 1 ? 0.75 : 1);
+  // Zoom of the canvas stage. Single mode fits one canvas at 1; "see both"
+  // drops it so two fit side by side.
+  const [zoom, setZoom] = useState(1);
+  // Single = one side shown big (default); both = side-by-side. Only meaningful
+  // when the product has more than one decorated view.
+  const [viewMode, setViewMode] = useState<"single" | "both">("single");
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#1b1458");
@@ -176,7 +189,6 @@ export function DesignerClient(props: Props) {
   const sizeRange =
     props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
 
-  const quantity = Object.values(sizeQty).reduce((a, b) => a + (b || 0), 0);
   const base = useMemo(
     () =>
       calcPrice({
@@ -221,10 +233,12 @@ export function DesignerClient(props: Props) {
   }, [colourName]);
 
   // Keep each Fabric canvas's cached offset in sync with the CSS zoom transform.
+  // Also re-measure after a canvas is un-hidden (single<->both / side switch),
+  // since a display:none canvas reports a stale/zero offset.
   useEffect(() => {
-    views.forEach((v) => canvasRefs.current[v]?.recalcOffset());
+    requestAnimationFrame(() => views.forEach((v) => canvasRefs.current[v]?.recalcOffset()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom]);
+  }, [zoom, viewMode, activeView]);
 
   // Undo/redo state reflects whichever canvas is currently active.
   useEffect(() => {
@@ -241,6 +255,18 @@ export function DesignerClient(props: Props) {
   function focusView(v: View) {
     setActiveView(v);
     stageRefs.current[v]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+
+  /** Switch single/both view mode, picking a zoom that fits. */
+  function setMode(m: "single" | "both") {
+    setViewMode(m);
+    setZoom(m === "both" ? 0.75 : 1);
+  }
+
+  /** In single mode, show one side and make it the tool target. */
+  function showSide(v: View) {
+    setMode("single");
+    focusView(v);
   }
 
   function snapshot(v: View) {
@@ -303,9 +329,22 @@ export function DesignerClient(props: Props) {
     const id = crypto.randomUUID();
     const reader = new FileReader();
     reader.onload = async () => {
-      await canvasRefs.current[v]?.addImageFromUrl(reader.result as string);
+      const dataUrl = reader.result as string;
+      await canvasRefs.current[v]?.addImageFromUrl(dataUrl);
       artworkFiles.current.push({ id, file });
       onCanvasChange(v);
+      // Heads-up if a raster upload is small for large-format printing. Vectors
+      // (SVG/PDF) scale cleanly, so skip them.
+      if (/^image\/(png|jpe?g)/.test(file.type)) {
+        const probe = new window.Image();
+        probe.onload = () => {
+          const min = Math.min(probe.naturalWidth, probe.naturalHeight);
+          setLowResNote(min < 1200 ? `${probe.naturalWidth} × ${probe.naturalHeight}px` : null);
+        };
+        probe.src = dataUrl;
+      } else {
+        setLowResNote(null);
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -428,7 +467,11 @@ export function DesignerClient(props: Props) {
         productId: props.productId,
         colourName,
         colourHex: colour?.hex,
-        sizeQuantities: sizeQty,
+        // SEAM: the designer no longer collects a per-size breakdown — sizes
+        // move to William's checkout step. Sending {} keeps the existing payload
+        // shape until we lock the draft contract together. Total qty lives in
+        // priceSnapshot.quantity below.
+        sizeQuantities: {},
         decorationMethodId: methodId,
         printAreaIds: viewsArt.map((v) => printAreaForView(v)?.id).filter(Boolean) as string[],
         scenes: allScenes,
@@ -490,17 +533,44 @@ export function DesignerClient(props: Props) {
 
       {/* Full-bleed work area. Page itself never scrolls; each column scrolls on its own. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-        {/* Left — clean white column: flat icon rail + product/tools panel */}
-        <aside className="flex shrink-0 bg-white lg:w-[23rem] lg:overflow-hidden lg:border-r lg:border-dream-line">
+        {/* Left — clean white column: flat icon rail + product/tools panel.
+            Collapses to just the rail (lg:w-20) when leftOpen is false. */}
+        <aside
+          className={cn(
+            "flex shrink-0 bg-white transition-[width] duration-200 lg:overflow-hidden lg:border-r lg:border-dream-line",
+            leftOpen ? "lg:w-[23rem]" : "lg:w-20"
+          )}
+        >
           {/* Vertical icon rail */}
           <div className="flex shrink-0 flex-row items-center gap-5 border-b border-dream-line px-3 py-3 lg:w-20 lg:flex-col lg:gap-9 lg:border-b-0 lg:border-r lg:py-7">
-            <Link href="/" className="flex flex-col items-center gap-1 transition-transform hover:-translate-y-0.5">
-              <Image src="/designer/tool-upload.svg" alt="" width={20} height={20} className="h-5 w-auto" />
-              <span className="text-[11px] font-semibold text-dream-ink">Home</span>
-            </Link>
+            {/* Single panel toggle — pinned to the top of the always-visible rail,
+                same spot whether open or closed; the chevron just flips. */}
+            <button
+              onClick={() => setLeftOpen((o) => !o)}
+              aria-label={leftOpen ? "Hide panel" : "Show panel"}
+              aria-expanded={leftOpen}
+              className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-0.5"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-dream-lavender-soft text-dream-purple">
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn("transition-transform", !leftOpen && "rotate-180")}
+                >
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </span>
+              <span className="text-[11px] font-semibold text-dream-ink">{leftOpen ? "Hide" : "Show"}</span>
+            </button>
             <Link
               href={`/shop/${props.productId}`}
-              className="flex flex-col items-center gap-1 text-dream-purple transition-transform hover:-translate-y-0.5"
+              className="flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
             >
               <BackArrowIcon />
               <span className="text-[11px] font-semibold text-dream-ink">Back</span>
@@ -510,10 +580,13 @@ export function DesignerClient(props: Props) {
               return (
                 <button
                   key={t.id}
-                  onClick={() => setTool(t.id)}
+                  onClick={() => {
+                    setTool(t.id);
+                    setLeftOpen(true);
+                  }}
                   aria-pressed={isActive}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-1 transition-transform hover:-translate-y-0.5",
+                    "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
                     isActive && "h-14 w-14 rounded-lg bg-dream-ink shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
                   )}
                 >
@@ -533,15 +606,15 @@ export function DesignerClient(props: Props) {
             <div className="hidden lg:block lg:flex-1" />
             <Link
               href="/account/help"
-              className="flex flex-col items-center gap-1 text-dream-purple transition-transform hover:-translate-y-0.5"
+              className="flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
             >
               <SupportIcon />
               <span className="text-[11px] font-semibold text-dream-ink">Support</span>
             </Link>
           </div>
 
-          {/* Panel — scrolls within the fixed-height aside */}
-          <div className="no-scrollbar min-w-0 flex-1 overflow-y-auto p-5 lg:p-6">
+          {/* Panel — scrolls within the fixed-height aside; hidden when collapsed */}
+          <div className={cn("no-scrollbar min-w-0 flex-1 overflow-y-auto p-5 lg:p-6", !leftOpen && "hidden")}>
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Garment</div>
             <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
             {sizeRange && <p className="mt-1 text-xs text-dream-muted">Sizes {sizeRange}</p>}
@@ -550,7 +623,7 @@ export function DesignerClient(props: Props) {
               <span className="text-xs font-medium text-dream-muted">Colour</span>
               <span className="truncate text-xs font-bold text-dream-purple">{colourName || "Pick one"}</span>
             </div>
-            <div className="no-scrollbar mt-3 grid max-h-44 grid-cols-6 gap-x-2 gap-y-2.5 overflow-y-auto px-0.5 py-1">
+            <div className="no-scrollbar mt-3 grid max-h-44 grid-cols-6 gap-x-2 gap-y-2.5 overflow-y-auto px-2.5 py-2.5">
               {props.colours.map((c) => {
                 const selected = colourName === c.name;
                 return (
@@ -568,8 +641,8 @@ export function DesignerClient(props: Props) {
                     {/* swatch face with an inset ring so white/light colours stay visible */}
                     <span
                       className={cn(
-                        "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15",
-                        selected && "ring-2 ring-dream-purple"
+                        "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15 transition-shadow",
+                        selected && "ring-2 ring-dream-purple shadow-[0_0_7px_1px_rgba(118,100,255,0.5)]"
                       )}
                       style={{ backgroundColor: c.hex }}
                     />
@@ -592,7 +665,7 @@ export function DesignerClient(props: Props) {
               })}
             </div>
 
-            <hr className="my-5 border-dream-line" />
+            <hr className="my-6 border-dream-line" />
 
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Design tools</div>
 
@@ -625,28 +698,6 @@ export function DesignerClient(props: Props) {
               })}
             </div>
 
-            {/* Active-canvas selector — which side new art lands on (front + back
-                are both visible at once, so this just picks the tool target). */}
-            {views.length > 1 && (
-              <>
-                <div className="mt-3 text-[11px] font-medium text-dream-muted">Adding to</div>
-                <div className="mt-1.5 inline-flex w-full gap-1 rounded-full border border-dream-line bg-dream-cream/60 p-1">
-                  {views.map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => focusView(v)}
-                      className={cn(
-                        "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                        v === activeView ? "bg-dream-purple text-white shadow-sm" : "text-dream-muted hover:text-dream-ink"
-                      )}
-                    >
-                      {VIEW_LABEL[v]}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
             {/* Active tool panel */}
             <div className="mt-4 rounded-2xl bg-dream-cream/60 p-4">
               {tool === "upload" && (
@@ -656,11 +707,26 @@ export function DesignerClient(props: Props) {
                     onClick={() => fileInputRef.current?.click()}
                     className="mt-3 flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-dream-line-strong px-3 py-7 text-center transition-colors hover:border-dream-purple hover:bg-white/70"
                   >
-                    <Image src="/designer/tool-upload.svg" alt="" width={26} height={26} className="h-6 w-auto" />
+                    <Image src="/designer/upload.svg" alt="" width={26} height={26} className="h-6 w-auto" />
                     <span className="text-sm font-bold text-dream-ink">Drop a file or click to browse</span>
                     <span className="text-xs text-dream-faint">PNG, SVG, JPG, PDF up to 25 MB</span>
                   </button>
-                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">Drag &amp; resize lands in step 2.</p>
+                  {lowResNote && (
+                    <p className="mt-3 rounded-lg bg-dream-sun/25 px-3 py-2 text-xs leading-relaxed text-dream-ink">
+                      Heads up — that file is {lowResNote}, a bit low-res for large prints. No worries, we&apos;ll clean it up or vectorize it for you, free.
+                    </p>
+                  )}
+                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">
+                    Not print-ready? We&apos;ll vectorize or touch up your art for print, free.
+                  </p>
+                  {(() => {
+                    const pa = printAreaForView(activeView);
+                    return pa?.maxWidthIn && pa?.maxHeightIn ? (
+                      <p className="mt-2 text-xs leading-relaxed text-dream-faint">
+                        {VIEW_LABEL[activeView]} prints up to {pa.maxWidthIn} × {pa.maxHeightIn} in.
+                      </p>
+                    ) : null;
+                  })()}
                 </>
               )}
 
@@ -743,16 +809,33 @@ export function DesignerClient(props: Props) {
         <main className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0" style={GRID_BG}>
           {/* Floating top bar */}
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex items-center justify-between px-4">
-            <span className={cn(CARD, "pointer-events-auto px-3 py-1.5 font-display text-xs font-bold text-dream-ink")}>
-              {views.length > 1 ? `Editing the ${VIEW_LABEL[activeView].toLowerCase()}` : "Design preview"}
+            <span className={cn(GLASS, "pointer-events-auto px-3 py-1.5 font-display text-xs font-bold text-dream-ink")}>
+              {views.length <= 1
+                ? "Design preview"
+                : viewMode === "both"
+                  ? "Front & back"
+                  : `Editing the ${VIEW_LABEL[activeView].toLowerCase()}`}
             </span>
-            <div className={cn(CARD, "pointer-events-auto inline-flex items-center gap-0.5 p-1")}>
-              <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>
-                <UndoIcon />
-              </IconBtn>
-              <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>
-                <RedoIcon />
-              </IconBtn>
+            <div className="pointer-events-auto flex items-center gap-2">
+              <div className={cn(GLASS, "inline-flex items-center gap-0.5 p-1")}>
+                <IconBtn label="Zoom out" disabled={zoomIdx <= 0} onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}>
+                  <MinusIcon />
+                </IconBtn>
+                <button onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-2 text-xs font-semibold text-dream-muted hover:text-dream-ink">
+                  {Math.round(zoom * 100)}%
+                </button>
+                <IconBtn label="Zoom in" disabled={zoomIdx >= ZOOM_STEPS.length - 1} onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}>
+                  <PlusIcon />
+                </IconBtn>
+              </div>
+              <div className={cn(GLASS, "inline-flex items-center gap-0.5 p-1")}>
+                <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>
+                  <UndoIcon />
+                </IconBtn>
+                <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>
+                  <RedoIcon />
+                </IconBtn>
+              </div>
             </div>
           </div>
 
@@ -760,9 +843,11 @@ export function DesignerClient(props: Props) {
               active one is ringed; clicking a canvas makes it the tool target. */}
           <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-5 overflow-auto p-4 pt-16 pb-20">
             {views.map((v) => {
-              const isActive = views.length > 1 && v === activeView;
+              const isActive = viewMode === "both" && views.length > 1 && v === activeView;
               const loading = !loadedViews.has(v);
-              const empty = !viewsWithArt.has(v);
+              // In single mode only the active side is shown; the others stay
+              // mounted (so their art is preserved + still exports) but hidden.
+              const hidden = viewMode === "single" && v !== activeView;
               return (
                 <div
                   key={v}
@@ -770,9 +855,9 @@ export function DesignerClient(props: Props) {
                     stageRefs.current[v] = el;
                   }}
                   onMouseDown={() => setActiveView(v)}
-                  className="flex shrink-0 flex-col items-center"
+                  className={cn("flex shrink-0 flex-col items-center", hidden && "hidden")}
                 >
-                  {views.length > 1 && (
+                  {viewMode === "both" && views.length > 1 && (
                     <span
                       className={cn(
                         "mb-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors",
@@ -782,7 +867,7 @@ export function DesignerClient(props: Props) {
                       {VIEW_LABEL[v]}
                     </span>
                   )}
-                  <div className={cn(CARD, "relative w-fit p-4 transition-shadow sm:p-5", isActive && "ring-2 ring-dream-purple")}>
+                  <div className={cn("relative w-fit rounded-2xl bg-white ring-1 ring-dream-ink/[0.05] p-2 transition-shadow sm:p-2.5", isActive && "ring-2 ring-dream-purple")}>
                     <div
                       className="mx-auto w-fit transition-transform duration-150"
                       style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
@@ -797,17 +882,6 @@ export function DesignerClient(props: Props) {
                       />
                     </div>
 
-                    {/* Empty hint */}
-                    {empty && !loading && (
-                      <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-6 text-center">
-                        <span className="rounded-full bg-dream-ink/75 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
-                          {views.length > 1
-                            ? `Add art to the ${VIEW_LABEL[v].toLowerCase()}`
-                            : "Upload your logo or add text to start designing"}
-                        </span>
-                      </div>
-                    )}
-
                     {/* Loading shimmer */}
                     {loading && (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60">
@@ -820,21 +894,42 @@ export function DesignerClient(props: Props) {
             })}
           </div>
 
-          {/* Floating bottom bar — zoom + selected-object actions */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-wrap items-center justify-center gap-2 px-4">
-            <div className={cn(CARD, "pointer-events-auto inline-flex items-center gap-0.5 p-1")}>
-              <IconBtn label="Zoom out" disabled={zoomIdx <= 0} onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}>
-                <MinusIcon />
-              </IconBtn>
-              <button onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-2 text-xs font-semibold text-dream-muted hover:text-dream-ink">
-                {Math.round(zoom * 100)}%
-              </button>
-              <IconBtn label="Zoom in" disabled={zoomIdx >= ZOOM_STEPS.length - 1} onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}>
-                <PlusIcon />
-              </IconBtn>
-            </div>
+          {/* Floating bottom bar — side switch (left) + selected-object actions */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-wrap items-center justify-start gap-2 px-4">
+            {/* Side switch — pick which side to design; "See both" shows them together */}
+            {views.length > 1 && (
+              <div className={cn(GLASS, "pointer-events-auto inline-flex items-center gap-1 p-1.5")}>
+                {views.map((v) => {
+                  const on = viewMode === "single" && v === activeView;
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => showSide(v)}
+                      aria-pressed={on}
+                      className={cn(
+                        "rounded-full px-4 py-2 text-[13px] font-bold transition-colors",
+                        on ? "bg-dream-ink text-white" : "text-dream-muted hover:text-dream-ink"
+                      )}
+                    >
+                      {VIEW_LABEL[v]}
+                    </button>
+                  );
+                })}
+                <span aria-hidden className="mx-1 h-6 w-px bg-dream-line" />
+                <button
+                  onClick={() => setMode(viewMode === "both" ? "single" : "both")}
+                  aria-pressed={viewMode === "both"}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors",
+                    viewMode === "both" ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
+                  )}
+                >
+                  See both
+                </button>
+              </div>
+            )}
             {selection && (
-              <div className={cn(CARD, "pointer-events-auto inline-flex items-center gap-1.5 p-1.5")}>
+              <div className={cn(GLASS, "pointer-events-auto inline-flex items-center gap-1.5 p-1.5")}>
                 <ChipBtn onClick={() => layer("forward")}>Forward</ChipBtn>
                 <ChipBtn onClick={() => layer("back")}>Back</ChipBtn>
                 <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-dream-line bg-white" title="Text colour">
@@ -851,75 +946,75 @@ export function DesignerClient(props: Props) {
           </div>
         </main>
 
-        {/* Right — floating order cards (its own lavender column) */}
-        <aside className="no-scrollbar shrink-0 space-y-3 p-3 lg:w-80 lg:overflow-y-auto">
+        {/* Right — clean borderless order column (sections split by hairlines) */}
+        <aside className="no-scrollbar shrink-0 bg-white p-5 lg:w-80 lg:overflow-y-auto lg:border-l lg:border-dream-line">
           {/* Estimate */}
-          <section className={cn(CARD, "relative overflow-hidden bg-gradient-to-br from-white to-dream-lavender-soft/60 p-4")}>
-            <div className="relative z-10">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">Estimated total</div>
-              <div className="font-display text-4xl font-extrabold leading-tight text-dream-ink">{formatCAD(breakdown.total)}</div>
-              <div className="text-sm text-dream-ink-soft">
-                {formatCAD(breakdown.unitPrice)} / item · {quantity || 0} pcs
-              </div>
-              {breakdown.setupTotal > 0 && (
-                <div className="text-xs text-dream-faint">includes {formatCAD(breakdown.setupTotal)} one-time setup</div>
-              )}
-              {rush && <div className="text-xs font-semibold text-dream-purple">includes {formatCAD(breakdown.rushAddon)} rush</div>}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Estimated total</div>
+            <div className="mt-1 font-display text-[40px] font-extrabold leading-none text-dream-ink">{formatCAD(breakdown.total)}</div>
+            <div className="mt-2 text-sm text-dream-ink-soft">
+              {formatCAD(breakdown.unitPrice)}/ea · {quantity || 0} pcs
             </div>
-            <Image
-              src="/testimonailsplusfooter/dogasset.png"
-              alt=""
-              aria-hidden
-              width={120}
-              height={205}
-              className="pointer-events-none absolute -bottom-2 right-1 h-20 w-auto opacity-90"
+          </div>
+
+          {/* Quantity */}
+          <hr className="my-6 border-dream-line" />
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Quantity</div>
+          <div className="mt-3 flex items-center justify-between rounded-full border border-dream-line px-2 py-1.5">
+            <button
+              onClick={() => setQuantity((q) => Math.max(0, q - 1))}
+              aria-label="Decrease quantity"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-dream-ink transition-colors hover:bg-dream-cream"
+            >
+              <MinusIcon />
+            </button>
+            <input
+              type="number"
+              min={0}
+              value={quantity || ""}
+              placeholder="0"
+              onChange={(e) => setQuantity(Math.max(0, Number(e.target.value) || 0))}
+              className="w-16 bg-transparent text-center font-display text-lg font-bold text-dream-ink placeholder:font-normal placeholder:text-dream-faint focus:outline-none"
             />
-          </section>
+            <button
+              onClick={() => setQuantity((q) => q + 1)}
+              aria-label="Increase quantity"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-dream-ink transition-colors hover:bg-dream-cream"
+            >
+              <PlusIcon />
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {QTY_PRESETS.map((n) => (
+              <button
+                key={n}
+                onClick={() => setQuantity(n)}
+                aria-pressed={quantity === n}
+                className={cn(
+                  "rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors",
+                  quantity === n
+                    ? "border-dream-purple bg-dream-purple text-white"
+                    : "border-dream-line text-dream-ink hover:border-dream-line-strong"
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
 
-          {/* Sizes & quantity */}
-          <section className={cn(CARD, "p-4")}>
-            <div className="mb-2.5 flex items-baseline justify-between gap-2">
-              <h3 className="font-display text-sm font-bold text-dream-ink">Sizes &amp; quantity</h3>
-              <span className="rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-semibold text-dream-purple">{quantity} pcs</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3">
-              {props.sizes.map((s) => {
-                const val = sizeQty[s.name] ?? 0;
-                return (
-                  <label
-                    key={s.name}
-                    className={cn(
-                      "flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 transition-colors",
-                      val > 0 ? "border-dream-purple bg-dream-lavender-soft/50" : "border-dream-line"
-                    )}
-                  >
-                    <span className="text-[11px] font-semibold uppercase text-dream-muted">{s.name}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={sizeQty[s.name] ?? ""}
-                      placeholder="0"
-                      onChange={(e) => setSizeQty((q) => ({ ...q, [s.name]: Math.max(0, Number(e.target.value) || 0) }))}
-                      className="w-full bg-transparent text-center text-sm font-semibold text-dream-ink placeholder:font-normal placeholder:text-dream-faint focus:outline-none"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Ink colours */}
+          {/* Ink colors */}
           {method && method.per_color_cost > 0 && (
-            <section className={cn(CARD, "p-4")}>
-              <h3 className="mb-2.5 font-display text-sm font-bold text-dream-ink">Ink colours</h3>
-              <div className="flex gap-2">
+            <>
+              <hr className="my-6 border-dream-line" />
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Ink colors</div>
+              <div className="mt-3 flex gap-2">
                 {[1, 2, 3, 4].map((n) => (
                   <button
                     key={n}
                     onClick={() => setInkColours(n)}
                     aria-pressed={inkColours === n}
                     className={cn(
-                      "h-10 flex-1 rounded-xl border text-sm font-bold transition-colors",
+                      "h-11 flex-1 rounded-full border text-sm font-bold transition-colors",
                       inkColours === n
                         ? "border-dream-purple bg-dream-purple text-white"
                         : "border-dream-line text-dream-ink hover:border-dream-line-strong"
@@ -929,45 +1024,42 @@ export function DesignerClient(props: Props) {
                   </button>
                 ))}
               </div>
-            </section>
+            </>
           )}
 
           {/* Print locations */}
-          <section className={cn(CARD, "p-4")}>
-            <h3 className="mb-2.5 font-display text-sm font-bold text-dream-ink">Print locations</h3>
-            <div className="flex flex-wrap gap-2">
-              {views.map((v) => {
-                const active = viewsWithArt.has(v);
-                return (
-                  <button
-                    key={v}
-                    onClick={() => focusView(v)}
-                    className={cn(
-                      "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
-                      active
-                        ? "border-dream-purple bg-dream-lavender-soft text-dream-purple"
-                        : v === activeView
-                          ? "border-dream-line-strong text-dream-ink"
-                          : "border-dream-line text-dream-muted hover:text-dream-ink"
-                    )}
-                  >
-                    {active && <span aria-hidden>✓ </span>}
-                    {VIEW_LABEL[v]}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-2 text-xs text-dream-faint">Jump to a side to design it. Checked sides have artwork.</p>
-          </section>
+          <hr className="my-6 border-dream-line" />
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Print locations</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {views.map((v) => {
+              const active = viewsWithArt.has(v);
+              return (
+                <button
+                  key={v}
+                  onClick={() => showSide(v)}
+                  aria-pressed={active}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-[13px] font-bold transition-colors",
+                    active
+                      ? "border-dream-purple bg-dream-purple text-white"
+                      : "border-dream-line text-dream-ink hover:border-dream-line-strong"
+                  )}
+                >
+                  {VIEW_LABEL[v]}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Rush delivery */}
+          <hr className="my-6 border-dream-line" />
           <button
             onClick={() => setRush((r) => !r)}
             aria-pressed={rush}
-            className={cn(CARD, "flex w-full items-center justify-between gap-3 p-4 text-left transition-colors", rush && "ring-2 ring-dream-purple")}
+            className="flex w-full items-center justify-between gap-3 text-left"
           >
             <span>
-              <span className="block font-display text-sm font-bold text-dream-ink">Rush delivery</span>
+              <span className="block font-display text-base font-bold text-dream-ink">Rush delivery</span>
               <span className="block text-xs text-dream-faint">+50% · faster turnaround</span>
             </span>
             <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", rush ? "bg-dream-purple" : "bg-dream-line-strong")}>
@@ -980,13 +1072,38 @@ export function DesignerClient(props: Props) {
             </span>
           </button>
 
+          {/* Price specs */}
+          <hr className="my-6 border-dream-line" />
+          <dl className="space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-dream-ink-soft">Base ({inkColours}-color)</dt>
+              <dd className="font-semibold text-dream-ink">{formatCAD(base.unitPrice)}</dd>
+            </div>
+            {breakdown.setupTotal > 0 && (
+              <div className="flex items-center justify-between">
+                <dt className="text-dream-ink-soft">Setup (one-time)</dt>
+                <dd className="font-semibold text-dream-ink">{formatCAD(breakdown.setupTotal)}</dd>
+              </div>
+            )}
+            {rush && (
+              <div className="flex items-center justify-between">
+                <dt className="text-dream-ink-soft">Rush (+50%)</dt>
+                <dd className="font-semibold text-dream-ink">{formatCAD(breakdown.rushAddon)}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <dt className="text-dream-ink-soft">Turnaround</dt>
+              <dd className="font-semibold text-dream-purple">{props.leadTimeDays} business days</dd>
+            </div>
+          </dl>
+
           {/* CTAs */}
-          <div className="space-y-2.5">
+          <div className="mt-8 space-y-3.5">
             {error && <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
             <button
               onClick={() => finalize(false)}
               disabled={busy !== null}
-              className="rough-pill rough-pill-filled inline-flex w-full items-center justify-center px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center rounded-full bg-dream-purple px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60"
             >
               {busy === "submit" ? "Working…" : props.isLoggedIn ? "Start your order" : "Log in to order"}
             </button>
@@ -997,7 +1114,16 @@ export function DesignerClient(props: Props) {
             >
               {busy === "save" ? "Saving…" : "Save & share"}
             </button>
-            <p className="text-center text-xs text-dream-faint">No payment now. We confirm your quote first.</p>
+            <button
+              onClick={() => finalize(true)}
+              disabled={busy !== null}
+              className="block w-full text-center text-sm font-semibold text-dream-muted transition-colors hover:text-dream-ink disabled:opacity-60"
+            >
+              Email me this quote
+            </button>
+            <p className="mt-1 text-center text-xs leading-relaxed text-dream-faint">
+              No payment now. Our team reviews &amp; cleans up your artwork, then sends a proof to approve.
+            </p>
           </div>
         </aside>
         </div>
@@ -1046,7 +1172,9 @@ function ProductDetails({
     stockStatus === "in_stock" ? "In stock" : stockStatus === "out_of_stock" ? "Made to order" : stockStatus.replace(/_/g, " ");
   return (
     <section className="border-t border-dream-line bg-dream-cream/40">
-      <div className="mx-auto max-w-[1400px] px-6 py-12 lg:px-10 lg:py-16">
+      {/* Extra bottom padding reserves a band for the SiteFooter dog (which pokes
+          up out of the footer, right-aligned) so it clears the spec card. */}
+      <div className="mx-auto max-w-[1400px] px-6 pt-12 pb-44 lg:px-10 lg:pt-16 lg:pb-60">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Product details</div>
         <h2 className="mt-2 font-display text-2xl font-extrabold leading-tight text-dream-ink lg:text-3xl">{productName}</h2>
         {brand && <p className="mt-1 text-sm font-semibold text-dream-purple">by {brand}</p>}
@@ -1117,7 +1245,7 @@ function IconBtn({
 
 function BackArrowIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 14 4 9l5-5" />
       <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
     </svg>
