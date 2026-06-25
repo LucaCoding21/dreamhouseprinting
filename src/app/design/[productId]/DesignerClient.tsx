@@ -7,7 +7,10 @@ import Image from "next/image";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import { DesignCanvas, type DesignCanvasHandle, type PrintBox } from "./DesignCanvas";
-import { submitDesignAction, saveDraftAction, type DesignSubmitInput } from "./actions";
+import { saveDraftAction, type DesignSubmitInput } from "./actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
+import { Field } from "@/components/ui/Field";
+import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { calcPrice } from "@/lib/pricing/platform";
@@ -52,6 +55,7 @@ interface Props {
   printAreas: PrintAreaLite[];
   methods: MethodLite[];
   isLoggedIn: boolean;
+  accountEmail: string | null;
   startAsQuote: boolean;
 }
 
@@ -161,7 +165,9 @@ export function DesignerClient(props: Props) {
   );
   // Ink-colour count is determined from the artwork at proofing, not chosen here.
   const inkColours = 1;
-  const [rush, setRush] = useState(false);
+  // Rush delivery is disabled for now — the toggle was removed from the review
+  // screen. Kept as a const so the pricing/snapshot plumbing stays intact.
+  const rush = false;
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
   // Which canvas currently has a selected object (drives the selection toolbar).
   const [selection, setSelection] = useState<{ view: View } | null>(null);
@@ -183,6 +189,12 @@ export function DesignerClient(props: Props) {
   // Mockup of the design, rendered on the left of the review screen.
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#1b1458");
+  // "Save your design" modal — gates the checkout funnel, captures a name + lead
+  // email before we send the customer into checkout.
+  const [showSave, setShowSave] = useState(false);
+  const [designName, setDesignName] = useState(props.productName);
+  const [leadEmail, setLeadEmail] = useState(props.accountEmail ?? "");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const artworkFiles = useRef<{ id: string; file: File }[]>([]);
 
@@ -437,14 +449,29 @@ export function DesignerClient(props: Props) {
     setPhase("review");
   }
 
-  async function finalize(asQuote: boolean) {
+  /**
+   * Persist the current design as a draft, then route on. "checkout" sends the
+   * customer into the checkout funnel carrying the name + lead email collected in
+   * the save modal; "designs" parks the draft in My Designs. The actual Order is
+   * NOT created here — it's placed at the end of checkout.
+   */
+  async function saveDesign(
+    destination: "checkout" | "designs",
+    extras?: { name?: string; leadEmail?: string }
+  ) {
     setError(null);
+    setSaveError(null);
+    // Route errors to the modal when we're in the checkout flow, else inline.
+    const reportErr = (msg: string) => {
+      if (destination === "checkout") setSaveError(msg);
+      else setError(msg);
+    };
     if (!props.isLoggedIn) {
       router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
       return;
     }
-    if (quantity < 1 && !asQuote) {
-      setError("Add at least one size & quantity.");
+    if (destination === "checkout" && quantity < 1) {
+      setSaveError("Add at least one size & quantity first.");
       return;
     }
     // Snapshot every canvas; figure out which views actually carry art.
@@ -457,11 +484,11 @@ export function DesignerClient(props: Props) {
       if (c.hasObjects()) viewsArt.push(v);
     }
     if (viewsArt.length === 0) {
-      setError("Add some artwork or text to your design first.");
+      reportErr("Add some artwork or text to your design first.");
       return;
     }
 
-    setBusy(asQuote ? "save" : "submit");
+    setBusy(destination === "checkout" ? "submit" : "save");
     try {
       // Export one mockup per decorated view (front + back proofs).
       const uploadItems: { id: string; bucket: string; name: string; kind: string; blob: Blob }[] = [];
@@ -485,6 +512,8 @@ export function DesignerClient(props: Props) {
 
       const input: DesignSubmitInput = {
         productId: props.productId,
+        name: extras?.name,
+        leadEmail: extras?.leadEmail,
         colourName,
         colourHex: colour?.hex,
         // Per-size breakdown collected on the review screen.
@@ -502,25 +531,23 @@ export function DesignerClient(props: Props) {
           quantity,
           rush,
         },
-        asQuote,
+        asQuote: true,
       };
 
-      const res = asQuote ? await saveDraftAction(input) : await submitDesignAction(input);
-      if ("needsLogin" in res && res.needsLogin) {
+      const res = await saveDraftAction(input);
+      if (res.needsLogin) {
         router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
         return;
       }
-      if ("error" in res && res.error) {
-        setError(res.error);
+      if (res.error) {
+        reportErr(res.error);
         return;
       }
-      if (asQuote && "designId" in res) {
-        router.push("/account/designs");
-      } else if ("orderId" in res && res.orderId) {
-        router.push(`/account/orders/${res.orderId}?placed=1`);
+      if (res.designId) {
+        router.push(destination === "checkout" ? `/checkout/${res.designId}` : "/account/designs");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      reportErr(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setBusy(null);
     }
@@ -1090,27 +1117,6 @@ export function DesignerClient(props: Props) {
                 </div>
 
                 <hr className="my-5 border-dream-line" />
-                {/* Rush */}
-                <button
-                  onClick={() => setRush((r) => !r)}
-                  aria-pressed={rush}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-dream-line px-4 py-3 text-left transition-colors hover:border-dream-line-strong"
-                >
-                  <span>
-                    <span className="block font-display text-sm font-bold text-dream-ink">Rush delivery</span>
-                    <span className="block text-xs text-dream-faint">+50% · {props.leadTimeDays} business days standard</span>
-                  </span>
-                  <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", rush ? "bg-dream-purple" : "bg-dream-line-strong")}>
-                    <span
-                      className={cn(
-                        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                        rush ? "translate-x-[1.375rem]" : "translate-x-0.5"
-                      )}
-                    />
-                  </span>
-                </button>
-
-                <hr className="my-5 border-dream-line" />
                 {/* CTA */}
                 <div className="space-y-3">
                   {error && <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
@@ -1118,14 +1124,17 @@ export function DesignerClient(props: Props) {
                     <p className="rounded-xl bg-dream-cream px-3 py-2 text-center text-sm text-dream-muted">Please enter more than 0 items.</p>
                   )}
                   <button
-                    onClick={() => finalize(false)}
+                    onClick={() => {
+                      setSaveError(null);
+                      setShowSave(true);
+                    }}
                     disabled={busy !== null || quantity < 1}
                     className="inline-flex w-full items-center justify-center rounded-full bg-dream-purple px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {busy === "submit" ? "Working…" : props.isLoggedIn ? "Start your order" : "Log in to order"}
+                    Begin checkout
                   </button>
                   <button
-                    onClick={() => finalize(true)}
+                    onClick={() => saveDesign("designs")}
                     disabled={busy !== null}
                     className="inline-flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
                   >
@@ -1153,6 +1162,64 @@ export function DesignerClient(props: Props) {
         leadTimeDays={props.leadTimeDays}
         stockStatus={props.stockStatus}
       />
+
+      {/* Save-your-design gate — names the design + captures a lead email, then
+          sends the customer into checkout. */}
+      <Dialog open={showSave} onOpenChange={(o) => { if (busy === null) setShowSave(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save your design</DialogTitle>
+            <DialogDescription>
+              Name it so you can find it later, and confirm your email — that’s where we’ll send your proof.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-5 pb-1">
+            <Field label="Design name" htmlFor="design-name" required>
+              <Input
+                id="design-name"
+                value={designName}
+                onChange={(e) => setDesignName(e.target.value)}
+                placeholder="e.g. Team hoodies 2026"
+                maxLength={80}
+              />
+            </Field>
+            <Field label="Email" htmlFor="lead-email" required hint="Where we’ll send your proof & order updates.">
+              <Input
+                id="lead-email"
+                type="email"
+                value={leadEmail}
+                onChange={(e) => setLeadEmail(e.target.value)}
+                placeholder="you@email.com"
+              />
+            </Field>
+            {saveError && (
+              <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{saveError}</p>
+            )}
+          </div>
+          <div className="flex items-center justify-end gap-2 p-5 pt-4">
+            <button
+              onClick={() => setShowSave(false)}
+              disabled={busy !== null}
+              className="rounded-full px-4 py-2.5 font-display text-sm font-bold text-dream-muted transition-colors hover:text-dream-ink disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const name = designName.trim();
+                const email = leadEmail.trim();
+                if (!name) { setSaveError("Give your design a name."); return; }
+                if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setSaveError("Enter a valid email."); return; }
+                saveDesign("checkout", { name, leadEmail: email });
+              }}
+              disabled={busy !== null}
+              className="inline-flex items-center justify-center rounded-full bg-dream-purple px-6 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy === "submit" ? "Saving…" : "Save & continue"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <SiteFooter />
     </div>

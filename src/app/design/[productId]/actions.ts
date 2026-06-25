@@ -9,6 +9,10 @@ const YEAR = 60 * 60 * 24 * 365;
 
 export interface DesignSubmitInput {
   productId: string;
+  /** Customer-given name for the design (collected in the save-your-design modal). */
+  name?: string;
+  /** Lead email captured at save time — may differ from the account email. */
+  leadEmail?: string;
   colourName: string;
   colourHex?: string;
   sizeQuantities: Record<string, number>;
@@ -56,6 +60,8 @@ async function persistDesign(
   const row = {
     product_id: input.productId,
     customer_id: userId,
+    name: input.name?.trim() || null,
+    lead_email: input.leadEmail?.trim() || null,
     scene_definition: asJson(input.scenes),
     mockup_images: asJson(mockupImages),
     source_artwork_files: asJson(sourceArtwork),

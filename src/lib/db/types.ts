@@ -125,7 +125,9 @@ export type Database = {
           customer_id: string | null
           decoration_method_id: string | null
           id: string
+          lead_email: string | null
           mockup_images: Json
+          name: string | null
           organization_id: string | null
           price_snapshot: Json | null
           print_area_ids: string[]
@@ -142,7 +144,9 @@ export type Database = {
           customer_id?: string | null
           decoration_method_id?: string | null
           id?: string
+          lead_email?: string | null
           mockup_images?: Json
+          name?: string | null
           organization_id?: string | null
           price_snapshot?: Json | null
           print_area_ids?: string[]
@@ -159,7 +163,9 @@ export type Database = {
           customer_id?: string | null
           decoration_method_id?: string | null
           id?: string
+          lead_email?: string | null
           mockup_images?: Json
+          name?: string | null
           organization_id?: string | null
           price_snapshot?: Json | null
           print_area_ids?: string[]

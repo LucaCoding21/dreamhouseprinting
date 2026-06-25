@@ -75,6 +75,7 @@ export default async function DesignPage({
         per_color_cost: m.per_color_cost,
       }))}
       isLoggedIn={!!user}
+      accountEmail={user?.email ?? null}
       startAsQuote={quote === "1"}
     />
   );
