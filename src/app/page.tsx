@@ -82,7 +82,7 @@ export default function Home() {
         <div className="grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
           <div className="-mt-[84px] order-2 text-center lg:mt-0 lg:order-none lg:pl-10 lg:text-left">
             <h1 className="pt-14 font-display text-[30px] font-bold leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
-              We do quality custom Screenprinting and Embroidery right here in Vancouver.
+              We do quality custom Screen printing and Embroidery right here in Vancouver.
             </h1>
             <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto lg:mt-8 lg:mx-0 lg:text-[17px]">
               Premium custom apparel for Vancouver businesses, teams, and brands. Upload your design, get a quote in minutes. Thanks for coming by!
