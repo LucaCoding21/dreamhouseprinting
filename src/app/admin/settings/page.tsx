@@ -1,5 +1,6 @@
 import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { mergeCheckoutSettings } from "@/lib/checkoutSettings";
 import type { DecorationMethodRow, ProfileRow, SettingRow } from "@/lib/db/rows";
 import { SettingsClient } from "./SettingsClient";
 
@@ -18,7 +19,7 @@ export default async function AdminSettingsPage() {
   const [{ data: methods }, { data: staff }, { data: settings }] = await Promise.all([
     service.from("decoration_methods").select("*").order("display_order"),
     service.from("profiles").select("*").in("role", ["staff", "staff_admin"]),
-    service.from("settings").select("*").in("key", ["shipping", "tax", "email_templates", "shop"]),
+    service.from("settings").select("*").in("key", ["shipping", "tax", "email_templates", "shop", "checkout"]),
   ]);
 
   const decorationMethods = (methods ?? []) as DecorationMethodRow[];
@@ -35,11 +36,15 @@ export default async function AdminSettingsPage() {
   const emailRow = settingRows.find((s) => s.key === "email_templates");
   const emailTemplates = (emailRow?.value ?? {}) as unknown as Record<string, EmailTemplate>;
 
+  const checkoutRow = settingRows.find((s) => s.key === "checkout");
+  const checkout = mergeCheckoutSettings(checkoutRow?.value);
+
   return (
     <SettingsClient
       decorationMethods={decorationMethods}
       staff={staffRows}
       emailTemplates={emailTemplates}
+      checkout={checkout}
     />
   );
 }

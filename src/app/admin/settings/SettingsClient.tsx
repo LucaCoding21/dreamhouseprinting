@@ -15,9 +15,11 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import type { DecorationMethodRow } from "@/lib/db/rows";
+import type { CheckoutSettings } from "@/lib/checkoutSettings";
 import {
   updateDecorationMethodAction,
   updateEmailTemplatesAction,
+  updateCheckoutSettingsAction,
   type EmailTemplateMap,
 } from "./actions";
 
@@ -38,9 +40,10 @@ interface SettingsClientProps {
   decorationMethods: DecorationMethodRow[];
   staff: StaffRow[];
   emailTemplates: Record<string, EmailTemplate>;
+  checkout: CheckoutSettings;
 }
 
-export function SettingsClient({ decorationMethods, staff, emailTemplates }: SettingsClientProps) {
+export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout }: SettingsClientProps) {
   return (
     <div>
       <AdminHeader title="Settings" />
@@ -48,12 +51,17 @@ export function SettingsClient({ decorationMethods, staff, emailTemplates }: Set
         <Tabs defaultValue="decoration">
           <TabsList>
             <TabsTrigger value="decoration">Decoration methods</TabsTrigger>
+            <TabsTrigger value="checkout">Checkout</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="email">Email templates</TabsTrigger>
           </TabsList>
 
           <TabsContent value="decoration" className="mt-4">
             <DecorationMethodsTab methods={decorationMethods} />
+          </TabsContent>
+
+          <TabsContent value="checkout" className="mt-4">
+            <CheckoutTab settings={checkout} />
           </TabsContent>
 
           <TabsContent value="staff" className="mt-4">
@@ -171,6 +179,111 @@ function DecorationMethodCard({ method }: { method: DecorationMethodRow }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Checkout                                                           */
+/* ------------------------------------------------------------------ */
+
+function CheckoutTab({ settings }: { settings: CheckoutSettings }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [pending, start] = useTransition();
+  const [draft, setDraft] = useState<CheckoutSettings>(settings);
+
+  const set = (patch: Partial<CheckoutSettings>) => setDraft((d) => ({ ...d, ...patch }));
+
+  function save() {
+    start(async () => {
+      const res = await updateCheckoutSettingsAction(draft);
+      if (res.error) toast({ title: "Failed", description: res.error, variant: "error" });
+      else {
+        toast({ title: "Checkout settings saved", variant: "success" });
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-dream-muted">
+        Controls the copy and options on the customer checkout (delivery + timeline steps). Tax rates are statutory and
+        set in code.
+      </p>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Field label="Shipping note" htmlFor="co-shipping">
+              <Input id="co-shipping" value={draft.shippingNote} onChange={(e) => set({ shippingNote: e.target.value })} />
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-dream-ink">
+              <Switch checked={draft.pickupEnabled} onCheckedChange={(v) => set({ pickupEnabled: v })} />
+              Offer in-shop pickup
+            </label>
+            <Field label="Pickup note" htmlFor="co-pickup">
+              <Input
+                id="co-pickup"
+                value={draft.pickupNote}
+                onChange={(e) => set({ pickupNote: e.target.value })}
+                disabled={!draft.pickupEnabled}
+              />
+            </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Timeline</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <label className="flex items-center gap-2 text-sm text-dream-ink">
+              <Switch checked={draft.rushEnabled} onCheckedChange={(v) => set({ rushEnabled: v })} />
+              Offer the rush / ASAP option
+            </label>
+            <Field label="Standard note" htmlFor="co-standard">
+              <Input id="co-standard" value={draft.standardNote} onChange={(e) => set({ standardNote: e.target.value })} />
+            </Field>
+            <Field label="Rush note" htmlFor="co-rush">
+              <Input
+                id="co-rush"
+                value={draft.rushNote}
+                onChange={(e) => set({ rushNote: e.target.value })}
+                disabled={!draft.rushEnabled}
+              />
+            </Field>
+            <Field label="Timeline intro" htmlFor="co-timeline">
+              <Textarea
+                id="co-timeline"
+                rows={3}
+                value={draft.timelineNote}
+                onChange={(e) => set({ timelineNote: e.target.value })}
+                disabled={!draft.rushEnabled}
+              />
+            </Field>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Reassurance footnote</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Field label="Shown under the checkout buttons" htmlFor="co-footnote">
+            <Textarea id="co-footnote" rows={2} value={draft.footnote} onChange={(e) => set({ footnote: e.target.value })} />
+          </Field>
+          <div className="flex justify-end">
+            <Button variant="primary" loading={pending} onClick={save}>
+              Save checkout settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSettings";
 import type { Json, Database } from "@/lib/db/types";
 
 type DecorationMethodUpdate = Database["public"]["Tables"]["decoration_methods"]["Update"];
@@ -55,6 +56,23 @@ export async function updateEmailTemplatesAction(
   const { error } = await service
     .from("settings")
     .upsert({ key: "email_templates", value: asJson(templates) }, { onConflict: "key" });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings");
+  return { ok: true };
+}
+
+export async function updateCheckoutSettingsAction(
+  settings: CheckoutSettings
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("settings.manage");
+  const service = requireSupabaseServiceClient();
+
+  // Normalize through the merge so partial/odd payloads can't corrupt the row.
+  const clean = mergeCheckoutSettings(settings);
+  const { error } = await service
+    .from("settings")
+    .upsert({ key: "checkout", value: asJson(clean) }, { onConflict: "key" });
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings");
