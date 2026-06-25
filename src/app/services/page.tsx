@@ -42,10 +42,10 @@ const METHODS: Method[] = [
     name: "Embroidery",
     description:
       "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
-    image: "/custom-embroidery-vancouver.webp",
+    image: "/custom-embroidery-vancouver.png",
     imageAlt: "Embroidered logo thread close-up on apparel",
     imageTitle: "Custom logo embroidery on caps and jackets in Vancouver",
-    imageClassName: "w-[150px] -rotate-12 sm:w-[175px]",
+    imageClassName: "w-[165px] -rotate-12 sm:w-[188px] -mt-8",
     bg: "bg-white",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
