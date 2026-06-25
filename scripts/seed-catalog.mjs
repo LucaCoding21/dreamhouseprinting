@@ -164,13 +164,26 @@ async function buildProductDraft(styleId) {
 
 /* ------------------------- curated catalog ------------------------------ */
 
-// Default front print area per product family (normalized 0..1 on the front
-// image). After the alignment fix these map 1:1 to the rendered garment.
+// Default print areas per product family (normalized 0..1 on the matching view
+// image). After the alignment fix these map 1:1 to the rendered garment. Apparel
+// gets a front AND a back so the designer shows both sides at once; caps are
+// front-only (no back print).
 const PRINT_AREA = {
-  shirts: { name: "Front center", position: { x: 0.32, y: 0.27, width: 0.36, height: 0.34 }, maxWidthIn: 12, maxHeightIn: 14 },
-  hoodies: { name: "Front center", position: { x: 0.33, y: 0.31, width: 0.34, height: 0.28 }, maxWidthIn: 12, maxHeightIn: 14 },
-  "hats-toques": { name: "Front", position: { x: 0.37, y: 0.33, width: 0.26, height: 0.15 }, maxWidthIn: 4.5, maxHeightIn: 2.5 },
-  totes: { name: "Front center", position: { x: 0.29, y: 0.30, width: 0.42, height: 0.40 }, maxWidthIn: 12, maxHeightIn: 14 },
+  shirts: {
+    front: { name: "Front center", position: { x: 0.32, y: 0.27, width: 0.36, height: 0.34 }, maxWidthIn: 12, maxHeightIn: 14 },
+    back: { name: "Full back", position: { x: 0.24, y: 0.16, width: 0.52, height: 0.5 }, maxWidthIn: 14, maxHeightIn: 16 },
+  },
+  hoodies: {
+    front: { name: "Front center", position: { x: 0.33, y: 0.31, width: 0.34, height: 0.28 }, maxWidthIn: 12, maxHeightIn: 14 },
+    back: { name: "Full back", position: { x: 0.25, y: 0.18, width: 0.5, height: 0.44 }, maxWidthIn: 14, maxHeightIn: 16 },
+  },
+  "hats-toques": {
+    front: { name: "Front", position: { x: 0.37, y: 0.33, width: 0.26, height: 0.15 }, maxWidthIn: 4.5, maxHeightIn: 2.5 },
+  },
+  totes: {
+    front: { name: "Front center", position: { x: 0.29, y: 0.3, width: 0.42, height: 0.4 }, maxWidthIn: 12, maxHeightIn: 14 },
+    back: { name: "Back center", position: { x: 0.29, y: 0.3, width: 0.42, height: 0.4 }, maxWidthIn: 12, maxHeightIn: 14 },
+  },
 };
 
 // q = S&S free-text search; match = exact styleName to pick out of results;
@@ -281,19 +294,23 @@ async function main() {
         productId = data.id;
       }
 
-      // (Re)write the default front print area so it opens cleanly in the designer.
-      const pa = PRINT_AREA[entry.category] ?? PRINT_AREA.shirts;
+      // (Re)write the default print areas (front + back for apparel) so the
+      // product opens cleanly in the designer with both sides editable.
+      const fam = PRINT_AREA[entry.category] ?? PRINT_AREA.shirts;
       await supabase.from("print_areas").delete().eq("product_id", productId);
-      const { error: paErr } = await supabase.from("print_areas").insert({
-        product_id: productId,
-        name: pa.name,
-        view: "front",
-        position: pa.position,
-        max_width_in: pa.maxWidthIn,
-        max_height_in: pa.maxHeightIn,
-        px_per_inch: 0,
-        display_order: 0,
-      });
+      const areas = ["front", "back"]
+        .filter((view) => fam[view])
+        .map((view, i) => ({
+          product_id: productId,
+          name: fam[view].name,
+          view,
+          position: fam[view].position,
+          max_width_in: fam[view].maxWidthIn,
+          max_height_in: fam[view].maxHeightIn,
+          px_per_inch: 0,
+          display_order: i,
+        }));
+      const { error: paErr } = await supabase.from("print_areas").insert(areas);
       if (paErr) throw paErr;
 
       console.log(

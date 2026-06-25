@@ -64,8 +64,8 @@ export default function SiteNav() {
     };
   }, [menuOpen]);
 
-  // Mobile: hide nav on scroll-down, reveal on scroll-up. Desktop ignores
-  // the transform since the header is `xl:relative`.
+  // Hide nav on scroll-down, reveal on scroll-up, on all viewports. The
+  // header is `fixed` at every breakpoint so the transform always applies.
   useEffect(() => {
     lastScrollY.current = window.scrollY;
     const onScroll = () => {
@@ -96,8 +96,8 @@ export default function SiteNav() {
     <>
     <header
       ref={headerRef}
-      className={`fixed inset-x-0 top-0 z-50 w-full bg-dream-lavender-soft px-5 py-1.5 transition-transform duration-300 ease-out xl:relative xl:bg-transparent xl:px-10 xl:py-3 ${
-        shouldHide ? "-translate-y-full xl:translate-y-0" : "translate-y-0"
+      className={`fixed inset-x-0 top-0 z-50 w-full bg-dream-lavender-soft px-5 py-1.5 transition-transform duration-300 ease-out xl:px-10 xl:py-3 ${
+        shouldHide ? "-translate-y-full" : "translate-y-0"
       }`}
     >
       <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
@@ -333,9 +333,9 @@ export default function SiteNav() {
         </nav>
       </div>
 
-    {/* Spacer reserves the nav's height on mobile (header is `fixed`).
-        Hidden on desktop where the header is back to `relative`. */}
-    <div aria-hidden="true" className="h-[68px] lg:h-[88px] xl:hidden" />
+    {/* Spacer reserves the nav's height since the header is `fixed` at every
+        breakpoint. Heights track the logo + vertical padding per breakpoint. */}
+    <div aria-hidden="true" className="h-[68px] lg:h-[112px] xl:h-[124px]" />
     </>
   );
 }

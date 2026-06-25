@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import SiteNav from "@/components/SiteNav";
+import SiteFooter from "@/components/SiteFooter";
 import { DesignCanvas, type DesignCanvasHandle, type PrintBox } from "./DesignCanvas";
 import { submitDesignAction, saveDraftAction, type DesignSubmitInput } from "./actions";
 import { cn } from "@/lib/cn";
@@ -13,6 +15,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ProductColourJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
 type View = "front" | "back" | "sleeve";
+type Tool = "upload" | "text" | "clipart";
 
 interface PrintAreaLite {
   id: string;
@@ -34,6 +37,8 @@ interface Props {
   productId: string;
   productName: string;
   brand: string | null;
+  description: string | null;
+  stockStatus: string;
   pricing: {
     wholesale_cost: number | null;
     base_price: number | null;
@@ -66,13 +71,69 @@ function imageForView(colour: ProductColourJson | undefined, view: View): string
 }
 
 const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6];
+const RUSH_MULTIPLIER = 1.5;
+
+// A graph-paper grid that bleeds behind the whole canvas column.
+const GRID_BG: React.CSSProperties = {
+  backgroundColor: "#fbfaff",
+  backgroundImage:
+    "linear-gradient(to right, rgba(118,100,255,0.10) 1px, transparent 1px), linear-gradient(to bottom, rgba(118,100,255,0.10) 1px, transparent 1px)",
+  backgroundSize: "26px 26px",
+};
+
+// Floating "hover box" — the card style that sits on the grid/lavender ground.
+const CARD = "rounded-2xl bg-white shadow-[0_14px_36px_-18px_rgba(27,20,88,0.5)] ring-1 ring-dream-ink/[0.05]";
+
+// A small built-in clip-art tray. Each entry is an inline SVG rendered onto the
+// Fabric canvas as an image (the canvas loads any image URL, including data
+// URLs). The star reuses the brand-purple star icon supplied for the toolbar.
+const CLIPART: { name: string; svg: string }[] = [
+  {
+    name: "Star",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7-6.3-3.8L5.4 21l1.7-7L1.7 9.5l7.1-.6z" fill="#7664ff"/></svg>`,
+  },
+  {
+    name: "Heart",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.7-9.7-9.1C.8 8.6 2.3 5.3 5.5 5.3c2 0 3.4 1.2 4.2 2.6C10.6 6.5 12 5.3 14 5.3c3.2 0 4.7 3.3 3.2 6.6C19 16.3 12 21 12 21z" fill="#ff5d8f"/></svg>`,
+  },
+  {
+    name: "Circle",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1b1458"/></svg>`,
+  },
+  {
+    name: "Bolt",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="#ffc83d"/></svg>`,
+  },
+  {
+    name: "Burst",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 1l2 5 5-2-2 5 5 2-5 2 2 5-5-2-2 5-2-5-5 2 2-5-5-2 5-2-2-5 5 2z" fill="#7664ff"/></svg>`,
+  },
+  {
+    name: "Smile",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffc83d"/><circle cx="9" cy="10" r="1.3" fill="#1b1458"/><circle cx="15" cy="10" r="1.3" fill="#1b1458"/><path d="M8 14c1 1.6 2.4 2.4 4 2.4s3-.8 4-2.4" fill="none" stroke="#1b1458" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  },
+];
+
+const TOOLS: { id: Tool; label: string; icon: string }[] = [
+  { id: "upload", label: "Upload", icon: "/designer/dreamhouse-home.svg" },
+  { id: "text", label: "Text", icon: "/designer/tool-text.svg" },
+  { id: "clipart", label: "Clipart", icon: "/designer/tool-clipart.svg" },
+];
+
+function svgToDataUrl(svg: string) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
 
 export function DesignerClient(props: Props) {
   const router = useRouter();
-  const canvasRef = useRef<DesignCanvasHandle>(null);
+  // One Fabric canvas per decorated view (front/back/...), all mounted at once
+  // and editable side by side. Keyed by view.
+  const canvasRefs = useRef<Record<string, DesignCanvasHandle | null>>({});
+  const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const prevViewRef = useRef<View | null>(null);
-  const history = useRef<object[]>([]);
+  // Per-view undo/redo stacks (each canvas owns its own history).
+  const histories = useRef<Record<string, object[]>>({});
+  const futures = useRef<Record<string, object[]>>({});
 
   // Distinct views that have a print area, ordered.
   const views = useMemo(() => {
@@ -81,17 +142,23 @@ export function DesignerClient(props: Props) {
   }, [props.printAreas]);
 
   const [colourName, setColourName] = useState(props.colours[0]?.name ?? "");
-  const [view, setView] = useState<View>(views[0] ?? "front");
+  // The canvas that tool actions (upload/text/clip-art/undo) target. The user
+  // switches it by clicking a canvas or the "Adding to" pills.
+  const [activeView, setActiveView] = useState<View>(views[0] ?? "front");
+  const [tool, setTool] = useState<Tool>("upload");
   const [methodId, setMethodId] = useState(props.methods[0]?.id ?? null);
   const [sizeQty, setSizeQty] = useState<Record<string, number>>({});
   const [inkColours, setInkColours] = useState(1);
-  const [scenes, setScenes] = useState<Record<string, object>>({});
+  const [rush, setRush] = useState(false);
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
-  const [hasSelection, setHasSelection] = useState(false);
-  const [hasArt, setHasArt] = useState(false);
+  // Which canvas currently has a selected object (drives the selection toolbar).
+  const [selection, setSelection] = useState<{ view: View } | null>(null);
+  // Views whose garment image has finished loading (for the per-canvas shimmer).
+  const [loadedViews, setLoadedViews] = useState<Set<View>>(new Set());
   const [canUndo, setCanUndo] = useState(false);
-  const [garmentLoading, setGarmentLoading] = useState(true);
-  const [zoom, setZoom] = useState(1);
+  const [canRedo, setCanRedo] = useState(false);
+  // Two side-by-side canvases need to be a touch smaller to both fit.
+  const [zoom, setZoom] = useState(views.length > 1 ? 0.75 : 1);
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#1b1458");
@@ -106,8 +173,11 @@ export function DesignerClient(props: Props) {
     return pa ? pa.position : null;
   };
 
+  const sizeRange =
+    props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
+
   const quantity = Object.values(sizeQty).reduce((a, b) => a + (b || 0), 0);
-  const breakdown = useMemo(
+  const base = useMemo(
     () =>
       calcPrice({
         product: {
@@ -125,99 +195,156 @@ export function DesignerClient(props: Props) {
     [props.pricing, method, quantity, inkColours, viewsWithArt]
   );
 
-  // Apply garment + print area when colour or view changes; load that view's scene on a view switch.
-  useEffect(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    setGarmentLoading(true);
-    c.setGarment(imageForView(colour, view));
-    c.setPrintArea(boxForView(view));
-    if (prevViewRef.current !== view) {
-      const saved = scenes[view];
-      if (saved) c.loadScene(saved);
-      else c.clearArt();
-      prevViewRef.current = view;
-      history.current = [];
-      setCanUndo(false);
-    }
-    setHasArt(!!c.hasObjects());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colourName, view]);
+  // Rush is a flat surcharge on the whole job (garment + decoration + setup).
+  const breakdown = useMemo(() => {
+    const f = rush ? RUSH_MULTIPLIER : 1;
+    return {
+      unitPrice: base.unitPrice * f,
+      subtotal: base.subtotal * f,
+      setupTotal: base.setupTotal * f,
+      total: base.total * f,
+      rushAddon: base.total * (f - 1),
+    };
+  }, [base, rush]);
 
-  // Keep Fabric's cached offset in sync with the CSS zoom transform.
+  // (Re)load every mounted canvas's garment + print area when the colour changes.
+  // Art on each canvas is preserved — only the garment backdrop swaps.
   useEffect(() => {
-    canvasRef.current?.recalcOffset();
+    setLoadedViews(new Set());
+    views.forEach((v) => {
+      const c = canvasRefs.current[v];
+      if (!c) return;
+      c.setGarment(imageForView(colour, v));
+      c.setPrintArea(boxForView(v));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colourName]);
+
+  // Keep each Fabric canvas's cached offset in sync with the CSS zoom transform.
+  useEffect(() => {
+    views.forEach((v) => canvasRefs.current[v]?.recalcOffset());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
 
-  function snapshot() {
-    const c = canvasRef.current;
+  // Undo/redo state reflects whichever canvas is currently active.
+  useEffect(() => {
+    setCanUndo((histories.current[activeView]?.length ?? 0) > 0);
+    setCanRedo((futures.current[activeView]?.length ?? 0) > 0);
+  }, [activeView]);
+
+  function refreshUndo(v: View) {
+    setCanUndo((histories.current[v]?.length ?? 0) > 0);
+    setCanRedo((futures.current[v]?.length ?? 0) > 0);
+  }
+
+  /** Focus a canvas (tool target) and scroll it into view. */
+  function focusView(v: View) {
+    setActiveView(v);
+    stageRefs.current[v]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+
+  function snapshot(v: View) {
+    const c = canvasRefs.current[v];
     if (!c) return;
-    history.current.push(c.exportScene());
-    if (history.current.length > 30) history.current.shift();
-    setCanUndo(true);
+    (histories.current[v] ??= []).push(c.exportScene());
+    if (histories.current[v].length > 30) histories.current[v].shift();
+    futures.current[v] = [];
+    refreshUndo(v);
   }
 
   function undo() {
-    const c = canvasRef.current;
-    if (!c || history.current.length === 0) return;
-    const prev = history.current.pop()!;
-    c.loadScene(prev);
-    setCanUndo(history.current.length > 0);
-    setHasSelection(false);
-    onCanvasChange();
+    const v = activeView;
+    const c = canvasRefs.current[v];
+    const hist = histories.current[v];
+    if (!c || !hist || hist.length === 0) return;
+    (futures.current[v] ??= []).push(c.exportScene());
+    c.loadScene(hist.pop()!);
+    setSelection(null);
+    onCanvasChange(v);
+    refreshUndo(v);
   }
 
-  function changeView(nv: View) {
-    if (nv === view) return;
-    const c = canvasRef.current;
-    if (c) setScenes((s) => ({ ...s, [view]: c.exportScene() }));
-    setView(nv);
+  function redo() {
+    const v = activeView;
+    const c = canvasRefs.current[v];
+    const fut = futures.current[v];
+    if (!c || !fut || fut.length === 0) return;
+    (histories.current[v] ??= []).push(c.exportScene());
+    c.loadScene(fut.pop()!);
+    setSelection(null);
+    onCanvasChange(v);
+    refreshUndo(v);
   }
 
-  function onCanvasChange() {
-    const c = canvasRef.current;
+  /** Recompute whether a given view has artwork. */
+  function onCanvasChange(v: View) {
+    const c = canvasRefs.current[v];
     if (!c) return;
     const has = c.hasObjects();
-    setHasArt(has);
     setViewsWithArt((prev) => {
       const next = new Set(prev);
-      if (has) next.add(view);
-      else next.delete(view);
+      if (has) next.add(v);
+      else next.delete(v);
       return next;
     });
+  }
+
+  function onSelectionChange(v: View, has: boolean) {
+    if (has) setActiveView(v);
+    setSelection((prev) => (has ? { view: v } : prev?.view === v ? null : prev));
   }
 
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    snapshot();
+    const v = activeView;
+    snapshot(v);
     const id = crypto.randomUUID();
     const reader = new FileReader();
     reader.onload = async () => {
-      await canvasRef.current?.addImageFromUrl(reader.result as string);
+      await canvasRefs.current[v]?.addImageFromUrl(reader.result as string);
       artworkFiles.current.push({ id, file });
-      onCanvasChange();
+      onCanvasChange(v);
     };
     reader.readAsDataURL(file);
   }
 
   function addText() {
     // Add an editable text object; the customer double-clicks on the canvas to edit it.
-    snapshot();
-    canvasRef.current?.addText("Your text");
-    onCanvasChange();
+    const v = activeView;
+    snapshot(v);
+    canvasRefs.current[v]?.addText("Your text");
+    onCanvasChange(v);
+  }
+
+  async function addClipart(svg: string) {
+    const v = activeView;
+    snapshot(v);
+    await canvasRefs.current[v]?.addImageFromUrl(svgToDataUrl(svg));
+    onCanvasChange(v);
   }
 
   function applyTextColor(hex: string) {
     setTextColor(hex);
-    canvasRef.current?.setActiveColor(hex);
+    const v = selection?.view ?? activeView;
+    canvasRefs.current[v]?.setActiveColor(hex);
+  }
+
+  function layer(dir: "forward" | "back") {
+    const v = selection?.view ?? activeView;
+    const c = canvasRefs.current[v];
+    if (!c) return;
+    if (dir === "forward") c.bringForward();
+    else c.sendBackward();
   }
 
   function deleteActive() {
-    snapshot();
-    canvasRef.current?.deleteActive();
-    onCanvasChange();
+    const v = selection?.view ?? activeView;
+    snapshot(v);
+    canvasRefs.current[v]?.deleteActive();
+    setSelection(null);
+    onCanvasChange(v);
   }
 
   async function stageUploads(items: { id: string; bucket: string; name: string; kind: string; blob: Blob }[]) {
@@ -261,30 +388,38 @@ export function DesignerClient(props: Props) {
       setError("Add at least one size & quantity.");
       return;
     }
-    // Save current view scene.
-    const c = canvasRef.current;
-    if (!c) return;
-    const currentScene = c.exportScene();
-    const allScenes = { ...scenes, [view]: currentScene };
-    if (!c.hasObjects() && viewsWithArt.size === 0) {
+    // Snapshot every canvas; figure out which views actually carry art.
+    const allScenes: Record<string, object> = {};
+    const viewsArt: View[] = [];
+    for (const v of views) {
+      const c = canvasRefs.current[v];
+      if (!c) continue;
+      allScenes[v] = c.exportScene();
+      if (c.hasObjects()) viewsArt.push(v);
+    }
+    if (viewsArt.length === 0) {
       setError("Add some artwork or text to your design first.");
       return;
     }
 
     setBusy(asQuote ? "save" : "submit");
     try {
-      // Mockup of the current view (the visible proof).
-      const mockupData = c.exportMockup();
+      // Export one mockup per decorated view (front + back proofs).
       const uploadItems: { id: string; bucket: string; name: string; kind: string; blob: Blob }[] = [];
-      if (mockupData) {
-        uploadItems.push({ id: "mockup-" + view, bucket: "designs", name: `mockup-${view}.png`, kind: "mockup", blob: dataUrlToBlob(mockupData) });
+      const mockupViews: View[] = [];
+      for (const v of viewsArt) {
+        const data = canvasRefs.current[v]?.exportMockup();
+        if (data) {
+          uploadItems.push({ id: "mockup-" + v, bucket: "designs", name: `mockup-${v}.png`, kind: "mockup", blob: dataUrlToBlob(data) });
+          mockupViews.push(v);
+        }
       }
       for (const af of artworkFiles.current) {
         uploadItems.push({ id: af.id, bucket: "artwork", name: af.file.name, kind: "artwork", blob: af.file });
       }
       const staged = await stageUploads(uploadItems);
 
-      const mockups = mockupData ? [{ view, bucket: "designs", path: staged["mockup-" + view].path }] : [];
+      const mockups = mockupViews.map((v) => ({ view: v, bucket: "designs", path: staged["mockup-" + v].path }));
       const artwork = artworkFiles.current
         .filter((af) => staged[af.id])
         .map((af) => ({ name: af.file.name, bucket: "artwork", path: staged[af.id].path }));
@@ -295,7 +430,7 @@ export function DesignerClient(props: Props) {
         colourHex: colour?.hex,
         sizeQuantities: sizeQty,
         decorationMethodId: methodId,
-        printAreaIds: [...viewsWithArt].map((v) => printAreaForView(v)?.id).filter(Boolean) as string[],
+        printAreaIds: viewsArt.map((v) => printAreaForView(v)?.id).filter(Boolean) as string[],
         scenes: allScenes,
         mockups,
         artwork,
@@ -305,6 +440,7 @@ export function DesignerClient(props: Props) {
           setupTotal: breakdown.setupTotal,
           total: breakdown.total,
           quantity,
+          rush,
         },
         asQuote,
       };
@@ -333,33 +469,266 @@ export function DesignerClient(props: Props) {
   const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-dream-cream text-dream-ink">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-dream-line bg-dream-lavender-soft px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link
-            href={`/shop/${props.productId}`}
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-medium text-dream-purple transition-colors hover:bg-white/60"
-          >
-            <span aria-hidden>←</span> Back
-          </Link>
-          <span className="truncate font-display text-base font-bold">{props.productName}</span>
-          {props.brand && <span className="hidden text-xs text-dream-ink-soft sm:inline">{props.brand}</span>}
+    <div className="bg-dream-lavender-soft text-dream-ink">
+      {/* App screen — exactly one viewport tall; each column scrolls on its own.
+          The shirt-details section + footer below sit in normal page flow, so
+          the whole page scrolls past the editor to reveal them. */}
+      <div className="flex h-dvh flex-col overflow-hidden">
+        {/* Site nav + price-match banner — same chrome as the rest of the store */}
+        <div className="shrink-0 bg-dream-lavender-soft">
+          <SiteNav />
         </div>
-        <Link href="/" className="flex shrink-0 items-center">
-          <Image src="/dreamhouse-logo-full.png" alt="Dreamhouse Printing" width={900} height={300} className="h-8 w-auto" priority />
-        </Link>
-      </header>
+      <Link
+        href="/contact#coastal-reign"
+        className="block shrink-0 bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
+      >
+        <p className="mx-auto max-w-[1400px] px-4 py-1.5 text-center text-[12px] font-bold sm:px-6 sm:text-[13px]">
+          We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
+          <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
+        </p>
+      </Link>
 
-      <div className="mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-4 p-3 sm:p-4 lg:flex-row lg:gap-5 lg:p-5">
-        {/* Left rail — tools + colours */}
-        <aside className="order-2 w-full shrink-0 space-y-4 lg:order-1 lg:w-72">
-          <section className="rounded-2xl border border-dream-line bg-white p-4 shadow-sm">
-            <h3 className="mb-3 font-display text-sm font-bold text-dream-ink">Add to your design</h3>
-            <div className="grid grid-cols-2 gap-2.5">
-              <ToolButton label="Upload art" onClick={() => fileInputRef.current?.click()} icon={<UploadIcon />} />
-              <ToolButton label="Add text" onClick={addText} icon={<TextIcon />} />
+      {/* Full-bleed work area. Page itself never scrolls; each column scrolls on its own. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        {/* Left — clean white column: flat icon rail + product/tools panel */}
+        <aside className="flex shrink-0 bg-white lg:w-[23rem] lg:overflow-hidden lg:border-r lg:border-dream-line">
+          {/* Vertical icon rail */}
+          <div className="flex shrink-0 flex-row items-center gap-5 border-b border-dream-line px-3 py-3 lg:w-20 lg:flex-col lg:gap-9 lg:border-b-0 lg:border-r lg:py-7">
+            <Link href="/" className="flex flex-col items-center gap-1 transition-transform hover:-translate-y-0.5">
+              <Image src="/designer/tool-upload.svg" alt="" width={20} height={20} className="h-5 w-auto" />
+              <span className="text-[11px] font-semibold text-dream-ink">Home</span>
+            </Link>
+            <Link
+              href={`/shop/${props.productId}`}
+              className="flex flex-col items-center gap-1 text-dream-purple transition-transform hover:-translate-y-0.5"
+            >
+              <BackArrowIcon />
+              <span className="text-[11px] font-semibold text-dream-ink">Back</span>
+            </Link>
+            {TOOLS.map((t) => {
+              const isActive = tool === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTool(t.id)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 transition-transform hover:-translate-y-0.5",
+                    isActive && "h-14 w-14 rounded-lg bg-dream-ink shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+                  )}
+                >
+                  <Image
+                    src={t.icon}
+                    alt=""
+                    width={20}
+                    height={20}
+                    className={cn("h-5 w-auto", isActive && "[filter:brightness(0)_invert(1)]")}
+                  />
+                  <span className={cn("font-semibold", isActive ? "text-[10px] text-white" : "text-[11px] text-dream-ink")}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+            <div className="hidden lg:block lg:flex-1" />
+            <Link
+              href="/account/help"
+              className="flex flex-col items-center gap-1 text-dream-purple transition-transform hover:-translate-y-0.5"
+            >
+              <SupportIcon />
+              <span className="text-[11px] font-semibold text-dream-ink">Support</span>
+            </Link>
+          </div>
+
+          {/* Panel — scrolls within the fixed-height aside */}
+          <div className="no-scrollbar min-w-0 flex-1 overflow-y-auto p-5 lg:p-6">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Garment</div>
+            <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
+            {sizeRange && <p className="mt-1 text-xs text-dream-muted">Sizes {sizeRange}</p>}
+
+            <div className="mt-4 flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-dream-muted">Colour</span>
+              <span className="truncate text-xs font-bold text-dream-purple">{colourName || "Pick one"}</span>
             </div>
+            <div className="no-scrollbar mt-3 grid max-h-44 grid-cols-6 gap-x-2 gap-y-2.5 overflow-y-auto px-0.5 py-1">
+              {props.colours.map((c) => {
+                const selected = colourName === c.name;
+                return (
+                  <button
+                    key={c.name}
+                    title={c.name}
+                    aria-label={c.name}
+                    aria-pressed={selected}
+                    onClick={() => setColourName(c.name)}
+                    className={cn(
+                      "relative flex aspect-square items-center justify-center rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple",
+                      selected && "scale-105"
+                    )}
+                  >
+                    {/* swatch face with an inset ring so white/light colours stay visible */}
+                    <span
+                      className={cn(
+                        "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15",
+                        selected && "ring-2 ring-dream-purple"
+                      )}
+                      style={{ backgroundColor: c.hex }}
+                    />
+                    {/* selected check — drops a contrasting tick on the chosen swatch */}
+                    {selected && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="pointer-events-none absolute h-3.5 w-3.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+                        fill="none"
+                        stroke="#fff"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m5 13 4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <hr className="my-5 border-dream-line" />
+
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Design tools</div>
+
+            {/* Tool pills mirror the rail selection */}
+            <div className="mt-3 grid grid-cols-3 gap-2.5">
+              {TOOLS.map((t) => {
+                const isActive = tool === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setTool(t.id)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 py-3 transition-colors",
+                      isActive
+                        ? "border-dream-ink bg-dream-ink text-white shadow-sm"
+                        : "border-dream-line bg-white text-dream-ink hover:border-dream-line-strong"
+                    )}
+                  >
+                    <Image
+                      src={t.icon}
+                      alt=""
+                      width={22}
+                      height={22}
+                      className={cn("h-5 w-auto", isActive && "[filter:brightness(0)_invert(1)]")}
+                    />
+                    <span className="text-xs font-semibold">{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active-canvas selector — which side new art lands on (front + back
+                are both visible at once, so this just picks the tool target). */}
+            {views.length > 1 && (
+              <>
+                <div className="mt-3 text-[11px] font-medium text-dream-muted">Adding to</div>
+                <div className="mt-1.5 inline-flex w-full gap-1 rounded-full border border-dream-line bg-dream-cream/60 p-1">
+                  {views.map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => focusView(v)}
+                      className={cn(
+                        "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                        v === activeView ? "bg-dream-purple text-white shadow-sm" : "text-dream-muted hover:text-dream-ink"
+                      )}
+                    >
+                      {VIEW_LABEL[v]}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Active tool panel */}
+            <div className="mt-4 rounded-2xl bg-dream-cream/60 p-4">
+              {tool === "upload" && (
+                <>
+                  <h3 className="font-display text-base font-bold text-dream-ink">Upload artwork</h3>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-3 flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-dream-line-strong px-3 py-7 text-center transition-colors hover:border-dream-purple hover:bg-white/70"
+                  >
+                    <Image src="/designer/tool-upload.svg" alt="" width={26} height={26} className="h-6 w-auto" />
+                    <span className="text-sm font-bold text-dream-ink">Drop a file or click to browse</span>
+                    <span className="text-xs text-dream-faint">PNG, SVG, JPG, PDF up to 25 MB</span>
+                  </button>
+                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">Drag &amp; resize lands in step 2.</p>
+                </>
+              )}
+
+              {tool === "text" && (
+                <>
+                  <h3 className="font-display text-base font-bold text-dream-ink">Add text</h3>
+                  <button
+                    onClick={addText}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dream-line bg-white px-3 py-3 text-sm font-semibold text-dream-ink transition-colors hover:border-dream-purple"
+                  >
+                    <Image src="/designer/tool-text.svg" alt="" width={16} height={16} className="h-4 w-auto" />
+                    Add a text box
+                  </button>
+                  <label className="mt-3 flex items-center justify-between gap-2 text-xs font-medium text-dream-muted">
+                    Text colour
+                    <input
+                      type="color"
+                      value={textColor}
+                      onChange={(e) => applyTextColor(e.target.value)}
+                      className="h-7 w-10 cursor-pointer rounded border border-dream-line bg-transparent p-0.5"
+                    />
+                  </label>
+                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">Double-click the text on the shirt to edit it.</p>
+                </>
+              )}
+
+              {tool === "clipart" && (
+                <>
+                  <h3 className="font-display text-base font-bold text-dream-ink">Clip art</h3>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {CLIPART.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => addClipart(c.svg)}
+                        title={c.name}
+                        className="flex aspect-square items-center justify-center rounded-xl border border-dream-line bg-white p-2.5 transition-colors hover:border-dream-purple [&>svg]:h-full [&>svg]:w-auto"
+                        dangerouslySetInnerHTML={{ __html: c.svg }}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">Tap a graphic to drop it on, then drag to place it.</p>
+                </>
+              )}
+            </div>
+
+            {/* Print method */}
+            {props.methods.length > 0 && (
+              <div className="mt-5">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Print method</div>
+                <div className="mt-3 space-y-1.5">
+                  {props.methods.map((m) => (
+                    <label
+                      key={m.id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
+                        methodId === m.id
+                          ? "border-dream-purple bg-dream-lavender-soft text-dream-ink"
+                          : "border-dream-line hover:border-dream-line-strong"
+                      )}
+                    >
+                      <input type="radio" name="method" className="accent-dream-purple" checked={methodId === m.id} onChange={() => setMethodId(m.id)} />
+                      {m.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <input
               ref={fileInputRef}
               type="file"
@@ -367,129 +736,108 @@ export function DesignerClient(props: Props) {
               hidden
               onChange={onPickFile}
             />
-            <p className="mt-2.5 text-xs leading-relaxed text-dream-faint">
-              PNG, JPG, SVG or PDF. We&apos;ll send a free proof before anything prints.
-            </p>
-          </section>
-
-          <section className="rounded-2xl border border-dream-line bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-baseline justify-between gap-2">
-              <h3 className="font-display text-sm font-bold text-dream-ink">Colour</h3>
-              <span className="truncate rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-semibold text-dream-purple">
-                {colourName || "—"}
-              </span>
-            </div>
-            <div className="no-scrollbar flex max-h-52 flex-wrap gap-2 overflow-y-auto pr-1">
-              {props.colours.map((c) => (
-                <button
-                  key={c.name}
-                  title={c.name}
-                  aria-label={c.name}
-                  aria-pressed={colourName === c.name}
-                  onClick={() => setColourName(c.name)}
-                  className={cn(
-                    "h-8 w-8 rounded-full border transition-transform hover:scale-110",
-                    colourName === c.name
-                      ? "border-dream-purple ring-2 ring-dream-purple/40"
-                      : "border-dream-line-strong"
-                  )}
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
-            </div>
-          </section>
+          </div>
         </aside>
 
-        {/* Center — canvas */}
-        <main className="order-1 flex min-w-0 flex-1 flex-col items-center lg:order-2">
-          {views.length > 1 && (
-            <div className="mb-3 inline-flex gap-1 rounded-full border border-dream-line bg-white p-1 shadow-sm">
-              {views.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => changeView(v)}
-                  className={cn(
-                    "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-                    v === view ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
-                  )}
-                >
-                  {VIEW_LABEL[v]}
-                </button>
-              ))}
+        {/* Center — grid-backed canvas stage (full bleed) */}
+        <main className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0" style={GRID_BG}>
+          {/* Floating top bar */}
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex items-center justify-between px-4">
+            <span className={cn(CARD, "pointer-events-auto px-3 py-1.5 font-display text-xs font-bold text-dream-ink")}>
+              {views.length > 1 ? `Editing the ${VIEW_LABEL[activeView].toLowerCase()}` : "Design preview"}
+            </span>
+            <div className={cn(CARD, "pointer-events-auto inline-flex items-center gap-0.5 p-1")}>
+              <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>
+                <UndoIcon />
+              </IconBtn>
+              <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>
+                <RedoIcon />
+              </IconBtn>
             </div>
-          )}
-
-          {/* Soft framed canvas card */}
-          <div className="relative w-full max-w-2xl overflow-auto rounded-3xl border border-dream-line bg-white p-4 shadow-[0_10px_40px_-12px_rgba(118,100,255,0.28)] sm:p-6">
-            <div
-              className="mx-auto w-fit transition-transform duration-150"
-              style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
-            >
-              <DesignCanvas
-                ref={canvasRef}
-                onSelectionChange={setHasSelection}
-                onChange={onCanvasChange}
-                onGarmentLoaded={() => setGarmentLoading(false)}
-              />
-            </div>
-
-            {/* Empty hint */}
-            {!hasArt && !garmentLoading && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-5 flex flex-col items-center gap-1 px-6 text-center">
-                <span className="rounded-full bg-dream-ink/75 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
-                  Upload your logo or add text to start designing
-                </span>
-              </div>
-            )}
-
-            {/* Loading shimmer */}
-            {garmentLoading && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-3xl bg-white/60">
-                <span className="h-8 w-8 animate-spin rounded-full border-2 border-dream-line border-t-dream-purple" />
-              </div>
-            )}
           </div>
 
-          {/* Zoom + undo toolbar */}
-          <div className="mt-3 flex items-center gap-2">
-            <div className="inline-flex items-center gap-0.5 rounded-full border border-dream-line bg-white p-1 shadow-sm">
-              <IconBtn
-                label="Zoom out"
-                disabled={zoomIdx <= 0}
-                onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}
-              >
+          {/* Canvases — every decorated side side by side, each editable. The
+              active one is ringed; clicking a canvas makes it the tool target. */}
+          <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-5 overflow-auto p-4 pt-16 pb-20">
+            {views.map((v) => {
+              const isActive = views.length > 1 && v === activeView;
+              const loading = !loadedViews.has(v);
+              const empty = !viewsWithArt.has(v);
+              return (
+                <div
+                  key={v}
+                  ref={(el) => {
+                    stageRefs.current[v] = el;
+                  }}
+                  onMouseDown={() => setActiveView(v)}
+                  className="flex shrink-0 flex-col items-center"
+                >
+                  {views.length > 1 && (
+                    <span
+                      className={cn(
+                        "mb-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors",
+                        isActive ? "bg-dream-ink text-white" : "bg-white text-dream-muted ring-1 ring-dream-ink/10"
+                      )}
+                    >
+                      {VIEW_LABEL[v]}
+                    </span>
+                  )}
+                  <div className={cn(CARD, "relative w-fit p-4 transition-shadow sm:p-5", isActive && "ring-2 ring-dream-purple")}>
+                    <div
+                      className="mx-auto w-fit transition-transform duration-150"
+                      style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
+                    >
+                      <DesignCanvas
+                        ref={(h) => {
+                          canvasRefs.current[v] = h;
+                        }}
+                        onSelectionChange={(has) => onSelectionChange(v, has)}
+                        onChange={() => onCanvasChange(v)}
+                        onGarmentLoaded={() => setLoadedViews((s) => new Set(s).add(v))}
+                      />
+                    </div>
+
+                    {/* Empty hint */}
+                    {empty && !loading && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-6 text-center">
+                        <span className="rounded-full bg-dream-ink/75 px-3 py-1.5 text-xs font-medium text-white shadow-sm">
+                          {views.length > 1
+                            ? `Add art to the ${VIEW_LABEL[v].toLowerCase()}`
+                            : "Upload your logo or add text to start designing"}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Loading shimmer */}
+                    {loading && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60">
+                        <span className="h-8 w-8 animate-spin rounded-full border-2 border-dream-line border-t-dream-purple" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Floating bottom bar — zoom + selected-object actions */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-wrap items-center justify-center gap-2 px-4">
+            <div className={cn(CARD, "pointer-events-auto inline-flex items-center gap-0.5 p-1")}>
+              <IconBtn label="Zoom out" disabled={zoomIdx <= 0} onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}>
                 <MinusIcon />
               </IconBtn>
-              <button
-                onClick={() => setZoom(1)}
-                className="min-w-[3rem] rounded-full px-2 text-xs font-semibold text-dream-muted hover:text-dream-ink"
-              >
+              <button onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-2 text-xs font-semibold text-dream-muted hover:text-dream-ink">
                 {Math.round(zoom * 100)}%
               </button>
-              <IconBtn
-                label="Zoom in"
-                disabled={zoomIdx >= ZOOM_STEPS.length - 1}
-                onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}
-              >
+              <IconBtn label="Zoom in" disabled={zoomIdx >= ZOOM_STEPS.length - 1} onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}>
                 <PlusIcon />
               </IconBtn>
             </div>
-            <button
-              onClick={undo}
-              disabled={!canUndo}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dream-line bg-white px-3 py-2 text-sm font-medium text-dream-ink shadow-sm transition-colors hover:bg-dream-cream disabled:opacity-40"
-            >
-              <UndoIcon /> Undo
-            </button>
-          </div>
-
-          {/* Object toolbar */}
-          <div className="mt-3 flex min-h-[2.5rem] items-center gap-1.5">
-            {hasSelection ? (
-              <>
-                <ChipBtn onClick={() => canvasRef.current?.bringForward()}>Bring forward</ChipBtn>
-                <ChipBtn onClick={() => canvasRef.current?.sendBackward()}>Send back</ChipBtn>
-                <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-dream-line bg-white shadow-sm" title="Text colour">
+            {selection && (
+              <div className={cn(CARD, "pointer-events-auto inline-flex items-center gap-1.5 p-1.5")}>
+                <ChipBtn onClick={() => layer("forward")}>Forward</ChipBtn>
+                <ChipBtn onClick={() => layer("back")}>Back</ChipBtn>
+                <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-dream-line bg-white" title="Text colour">
                   <input
                     type="color"
                     value={textColor}
@@ -498,19 +846,17 @@ export function DesignerClient(props: Props) {
                   />
                 </label>
                 <ChipBtn onClick={deleteActive}>Delete</ChipBtn>
-              </>
-            ) : (
-              <p className="text-xs text-dream-faint">Drag to move · corner handles resize/rotate · click text to edit</p>
+              </div>
             )}
           </div>
         </main>
 
-        {/* Right rail — order */}
-        <aside className="order-3 w-full shrink-0 space-y-4 lg:w-80">
-          {/* Price panel */}
-          <section className="relative overflow-hidden rounded-2xl border border-dream-line bg-gradient-to-br from-white to-dream-lavender-soft/50 p-4 shadow-sm">
+        {/* Right — floating order cards (its own lavender column) */}
+        <aside className="no-scrollbar shrink-0 space-y-3 p-3 lg:w-80 lg:overflow-y-auto">
+          {/* Estimate */}
+          <section className={cn(CARD, "relative overflow-hidden bg-gradient-to-br from-white to-dream-lavender-soft/60 p-4")}>
             <div className="relative z-10">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">Your estimate</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">Estimated total</div>
               <div className="font-display text-4xl font-extrabold leading-tight text-dream-ink">{formatCAD(breakdown.total)}</div>
               <div className="text-sm text-dream-ink-soft">
                 {formatCAD(breakdown.unitPrice)} / item · {quantity || 0} pcs
@@ -518,6 +864,7 @@ export function DesignerClient(props: Props) {
               {breakdown.setupTotal > 0 && (
                 <div className="text-xs text-dream-faint">includes {formatCAD(breakdown.setupTotal)} one-time setup</div>
               )}
+              {rush && <div className="text-xs font-semibold text-dream-purple">includes {formatCAD(breakdown.rushAddon)} rush</div>}
             </div>
             <Image
               src="/testimonailsplusfooter/dogasset.png"
@@ -529,43 +876,12 @@ export function DesignerClient(props: Props) {
             />
           </section>
 
-          {/* Decoration */}
-          <section className="rounded-2xl border border-dream-line bg-white p-4 shadow-sm">
-            <h3 className="mb-2.5 font-display text-sm font-bold text-dream-ink">Decoration method</h3>
-            <div className="space-y-1.5">
-              {props.methods.map((m) => (
-                <label
-                  key={m.id}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors",
-                    methodId === m.id
-                      ? "border-dream-purple bg-dream-lavender-soft text-dream-ink"
-                      : "border-dream-line hover:border-dream-line-strong"
-                  )}
-                >
-                  <input type="radio" name="method" className="accent-dream-purple" checked={methodId === m.id} onChange={() => setMethodId(m.id)} />
-                  {m.name}
-                </label>
-              ))}
-            </div>
-            {method && method.per_color_cost > 0 && (
-              <div className="mt-3">
-                <label className="text-xs font-medium text-dream-muted">Ink colours</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={8}
-                  value={inkColours}
-                  onChange={(e) => setInkColours(Math.max(1, Number(e.target.value) || 1))}
-                  className="mt-1 w-full rounded-lg border border-dream-line px-3 py-2 text-sm focus-visible:border-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
-                />
-              </div>
-            )}
-          </section>
-
           {/* Sizes & quantity */}
-          <section className="rounded-2xl border border-dream-line bg-white p-4 shadow-sm">
-            <h3 className="mb-2.5 font-display text-sm font-bold text-dream-ink">Sizes &amp; quantity</h3>
+          <section className={cn(CARD, "p-4")}>
+            <div className="mb-2.5 flex items-baseline justify-between gap-2">
+              <h3 className="font-display text-sm font-bold text-dream-ink">Sizes &amp; quantity</h3>
+              <span className="rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-semibold text-dream-purple">{quantity} pcs</span>
+            </div>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3">
               {props.sizes.map((s) => {
                 const val = sizeQty[s.name] ?? 0;
@@ -592,6 +908,78 @@ export function DesignerClient(props: Props) {
             </div>
           </section>
 
+          {/* Ink colours */}
+          {method && method.per_color_cost > 0 && (
+            <section className={cn(CARD, "p-4")}>
+              <h3 className="mb-2.5 font-display text-sm font-bold text-dream-ink">Ink colours</h3>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setInkColours(n)}
+                    aria-pressed={inkColours === n}
+                    className={cn(
+                      "h-10 flex-1 rounded-xl border text-sm font-bold transition-colors",
+                      inkColours === n
+                        ? "border-dream-purple bg-dream-purple text-white"
+                        : "border-dream-line text-dream-ink hover:border-dream-line-strong"
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Print locations */}
+          <section className={cn(CARD, "p-4")}>
+            <h3 className="mb-2.5 font-display text-sm font-bold text-dream-ink">Print locations</h3>
+            <div className="flex flex-wrap gap-2">
+              {views.map((v) => {
+                const active = viewsWithArt.has(v);
+                return (
+                  <button
+                    key={v}
+                    onClick={() => focusView(v)}
+                    className={cn(
+                      "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                      active
+                        ? "border-dream-purple bg-dream-lavender-soft text-dream-purple"
+                        : v === activeView
+                          ? "border-dream-line-strong text-dream-ink"
+                          : "border-dream-line text-dream-muted hover:text-dream-ink"
+                    )}
+                  >
+                    {active && <span aria-hidden>✓ </span>}
+                    {VIEW_LABEL[v]}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-dream-faint">Jump to a side to design it. Checked sides have artwork.</p>
+          </section>
+
+          {/* Rush delivery */}
+          <button
+            onClick={() => setRush((r) => !r)}
+            aria-pressed={rush}
+            className={cn(CARD, "flex w-full items-center justify-between gap-3 p-4 text-left transition-colors", rush && "ring-2 ring-dream-purple")}
+          >
+            <span>
+              <span className="block font-display text-sm font-bold text-dream-ink">Rush delivery</span>
+              <span className="block text-xs text-dream-faint">+50% · faster turnaround</span>
+            </span>
+            <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", rush ? "bg-dream-purple" : "bg-dream-line-strong")}>
+              <span
+                className={cn(
+                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                  rush ? "translate-x-[1.375rem]" : "translate-x-0.5"
+                )}
+              />
+            </span>
+          </button>
+
           {/* CTAs */}
           <div className="space-y-2.5">
             {error && <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
@@ -607,35 +995,97 @@ export function DesignerClient(props: Props) {
               disabled={busy !== null}
               className="inline-flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
             >
-              {busy === "save" ? "Saving…" : "Save & finish later"}
+              {busy === "save" ? "Saving…" : "Save & share"}
             </button>
-            <p className="text-center text-xs text-dream-faint">No payment now — we confirm your quote first.</p>
+            <p className="text-center text-xs text-dream-faint">No payment now. We confirm your quote first.</p>
           </div>
         </aside>
+        </div>
       </div>
+
+      {/* Shirt details — full width, below the editor (scroll down to reach it) */}
+      <ProductDetails
+        productName={props.productName}
+        brand={props.brand}
+        description={props.description}
+        sizeRange={sizeRange}
+        colourCount={props.colours.length}
+        areaNames={[...new Set(props.printAreas.map((p) => p.name))]}
+        methodNames={props.methods.map((m) => m.name)}
+        leadTimeDays={props.leadTimeDays}
+        stockStatus={props.stockStatus}
+      />
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+function ProductDetails({
+  productName,
+  brand,
+  description,
+  sizeRange,
+  colourCount,
+  areaNames,
+  methodNames,
+  leadTimeDays,
+  stockStatus,
+}: {
+  productName: string;
+  brand: string | null;
+  description: string | null;
+  sizeRange: string | null;
+  colourCount: number;
+  areaNames: string[];
+  methodNames: string[];
+  leadTimeDays: number;
+  stockStatus: string;
+}) {
+  const stockLabel =
+    stockStatus === "in_stock" ? "In stock" : stockStatus === "out_of_stock" ? "Made to order" : stockStatus.replace(/_/g, " ");
+  return (
+    <section className="border-t border-dream-line bg-dream-cream/40">
+      <div className="mx-auto max-w-[1400px] px-6 py-12 lg:px-10 lg:py-16">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Product details</div>
+        <h2 className="mt-2 font-display text-2xl font-extrabold leading-tight text-dream-ink lg:text-3xl">{productName}</h2>
+        {brand && <p className="mt-1 text-sm font-semibold text-dream-purple">by {brand}</p>}
+
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1.5fr_1fr] lg:gap-12">
+          <p className="max-w-2xl text-[15px] leading-relaxed text-dream-ink-soft">
+            {description ||
+              "A customer favourite, ready for your custom print. Pick your colour, drop on your artwork, and we'll handle the rest. Need a hand with sizing or placement? We're a message away."}
+          </p>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 self-start rounded-2xl bg-white p-6 ring-1 ring-dream-ink/5">
+            <Spec label="Sizes" value={sizeRange ?? "Standard"} />
+            <Spec label="Colours" value={`${colourCount} options`} />
+            <Spec label="Print areas" value={areaNames.length ? areaNames.join(", ") : "Front"} />
+            <Spec label="Decoration" value={methodNames.length ? methodNames.join(", ") : "Screen print"} />
+            <Spec label="Turnaround" value={`${leadTimeDays} business days`} />
+            <Spec label="Availability" value={stockLabel} />
+          </dl>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Spec({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-dream-faint">{label}</dt>
+      <dd className="mt-0.5 text-sm font-semibold capitalize text-dream-ink">{value}</dd>
     </div>
   );
 }
 
 /* --------------------------------- bits --------------------------------- */
 
-function ToolButton({ label, icon, onClick }: { label: string; icon: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dream-line bg-dream-cream/60 px-3 py-4 text-sm font-semibold text-dream-ink transition-all hover:-translate-y-0.5 hover:border-dream-purple hover:bg-dream-lavender-soft/60"
-    >
-      <span className="text-dream-purple">{icon}</span>
-      {label}
-    </button>
-  );
-}
-
 function ChipBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="rounded-full border border-dream-line bg-white px-3 py-1.5 text-xs font-medium text-dream-ink shadow-sm transition-colors hover:bg-dream-cream"
+      className="rounded-full border border-dream-line bg-white px-3 py-1.5 text-xs font-medium text-dream-ink transition-colors hover:bg-dream-cream"
     >
       {children}
     </button>
@@ -665,18 +1115,20 @@ function IconBtn({
   );
 }
 
-function UploadIcon() {
+function BackArrowIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 16V4m0 0L7 9m5-5 5 5" />
-      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
     </svg>
   );
 }
-function TextIcon() {
+function SupportIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 7V5h16v2M9 19h6M12 5v14" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9.25" />
+      <path d="M9.4 9.3a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.2-2.6 3.7" />
+      <circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -685,6 +1137,14 @@ function UndoIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 14 4 9l5-5" />
       <path d="M4 9h11a5 5 0 0 1 0 10h-1" />
+    </svg>
+  );
+}
+function RedoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9a5 5 0 0 0 0 10h1" />
     </svg>
   );
 }

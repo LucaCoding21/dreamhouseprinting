@@ -23,6 +23,7 @@ export interface DesignSubmitInput {
     setupTotal: number;
     total: number;
     quantity: number;
+    rush?: boolean;
   };
   notes?: string;
   asQuote?: boolean;

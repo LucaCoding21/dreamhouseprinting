@@ -47,6 +47,8 @@ export default async function DesignPage({
       productId={product.id}
       productName={product.name}
       brand={product.brand}
+      description={product.description}
+      stockStatus={product.stock_status}
       pricing={{
         wholesale_cost: product.wholesale_cost,
         base_price: product.base_price,
