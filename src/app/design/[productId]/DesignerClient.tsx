@@ -72,8 +72,6 @@ function imageForView(colour: ProductColourJson | undefined, view: View): string
 
 const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6];
 const RUSH_MULTIPLIER = 1.5;
-// Quick-pick total quantities (bulk price breaks).
-const QTY_PRESETS = [24, 48, 72, 100, 150, 250, 500];
 
 // A graph-paper grid that bleeds behind the whole canvas column.
 const GRID_BG: React.CSSProperties = {
@@ -154,10 +152,15 @@ export function DesignerClient(props: Props) {
   // Friendly heads-up when an uploaded raster is a bit low-res for large prints.
   const [lowResNote, setLowResNote] = useState<string | null>(null);
   const [methodId, setMethodId] = useState(props.methods[0]?.id ?? null);
-  // Total quantity only. The per-size (S/M/L) breakdown is collected at
-  // checkout, not here — see the seam note in finalize().
-  const [quantity, setQuantity] = useState(0);
-  const [inkColours, setInkColours] = useState(1);
+  // Per-size quantity breakdown, collected on the review screen. Total quantity
+  // is derived from the sum and drives pricing.
+  const [sizeQty, setSizeQty] = useState<Record<string, number>>({});
+  const quantity = useMemo(
+    () => Object.values(sizeQty).reduce((sum, n) => sum + (n > 0 ? n : 0), 0),
+    [sizeQty]
+  );
+  // Ink-colour count is determined from the artwork at proofing, not chosen here.
+  const inkColours = 1;
   const [rush, setRush] = useState(false);
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
   // Which canvas currently has a selected object (drives the selection toolbar).
@@ -174,6 +177,11 @@ export function DesignerClient(props: Props) {
   const [viewMode, setViewMode] = useState<"single" | "both">("single");
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
+  // Two-screen flow: design the artwork, then a review screen collects the
+  // quantity and shows pricing before the order is placed.
+  const [phase, setPhase] = useState<"design" | "review">("design");
+  // Mockup of the design, rendered on the left of the review screen.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#1b1458");
 
   const artworkFiles = useRef<{ id: string; file: File }[]>([]);
@@ -417,6 +425,18 @@ export function DesignerClient(props: Props) {
     return new Blob([arr], { type: mime });
   }
 
+  /** Design -> review. Requires at least one decorated side before continuing. */
+  function goToReview() {
+    setError(null);
+    const artView = views.find((v) => canvasRefs.current[v]?.hasObjects());
+    if (!artView) {
+      setError("Add some artwork or text to your design first.");
+      return;
+    }
+    setPreviewUrl(canvasRefs.current[artView]?.exportMockup() ?? null);
+    setPhase("review");
+  }
+
   async function finalize(asQuote: boolean) {
     setError(null);
     if (!props.isLoggedIn) {
@@ -467,11 +487,8 @@ export function DesignerClient(props: Props) {
         productId: props.productId,
         colourName,
         colourHex: colour?.hex,
-        // SEAM: the designer no longer collects a per-size breakdown — sizes
-        // move to William's checkout step. Sending {} keeps the existing payload
-        // shape until we lock the draft contract together. Total qty lives in
-        // priceSnapshot.quantity below.
-        sizeQuantities: {},
+        // Per-size breakdown collected on the review screen.
+        sizeQuantities: sizeQty,
         decorationMethodId: methodId,
         printAreaIds: viewsArt.map((v) => printAreaForView(v)?.id).filter(Boolean) as string[],
         scenes: allScenes,
@@ -510,6 +527,8 @@ export function DesignerClient(props: Props) {
   }
 
   const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
+  // Sides that actually carry art — listed in the review spec table.
+  const decoratedViews = views.filter((v) => viewsWithArt.has(v));
 
   return (
     <div className="bg-dream-lavender-soft text-dream-ink">
@@ -531,8 +550,9 @@ export function DesignerClient(props: Props) {
         </p>
       </Link>
 
-      {/* Full-bleed work area. Page itself never scrolls; each column scrolls on its own. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      {/* Full-bleed work area. Stays mounted (hidden) during the review phase so
+          the canvases keep their artwork for mockup export. */}
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden", phase !== "design" && "hidden")}>
         {/* Left — clean white column: flat icon rail + product/tools panel.
             Collapses to just the rail (lg:w-20) when leftOpen is false. */}
         <aside
@@ -945,188 +965,180 @@ export function DesignerClient(props: Props) {
             )}
           </div>
         </main>
-
-        {/* Right — clean borderless order column (sections split by hairlines) */}
-        <aside className="no-scrollbar shrink-0 bg-white p-5 lg:w-80 lg:overflow-y-auto lg:border-l lg:border-dream-line">
-          {/* Estimate */}
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Estimated total</div>
-            <div className="mt-1 font-display text-[40px] font-extrabold leading-none text-dream-ink">{formatCAD(breakdown.total)}</div>
-            <div className="mt-2 text-sm text-dream-ink-soft">
-              {formatCAD(breakdown.unitPrice)}/ea · {quantity || 0} pcs
-            </div>
-          </div>
-
-          {/* Quantity */}
-          <hr className="my-6 border-dream-line" />
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Quantity</div>
-          <div className="mt-3 flex items-center justify-between rounded-full border border-dream-line px-2 py-1.5">
-            <button
-              onClick={() => setQuantity((q) => Math.max(0, q - 1))}
-              aria-label="Decrease quantity"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-dream-ink transition-colors hover:bg-dream-cream"
-            >
-              <MinusIcon />
-            </button>
-            <input
-              type="number"
-              min={0}
-              value={quantity || ""}
-              placeholder="0"
-              onChange={(e) => setQuantity(Math.max(0, Number(e.target.value) || 0))}
-              className="w-16 bg-transparent text-center font-display text-lg font-bold text-dream-ink placeholder:font-normal placeholder:text-dream-faint focus:outline-none"
-            />
-            <button
-              onClick={() => setQuantity((q) => q + 1)}
-              aria-label="Increase quantity"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-dream-ink transition-colors hover:bg-dream-cream"
-            >
-              <PlusIcon />
-            </button>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {QTY_PRESETS.map((n) => (
-              <button
-                key={n}
-                onClick={() => setQuantity(n)}
-                aria-pressed={quantity === n}
-                className={cn(
-                  "rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors",
-                  quantity === n
-                    ? "border-dream-purple bg-dream-purple text-white"
-                    : "border-dream-line text-dream-ink hover:border-dream-line-strong"
-                )}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-
-          {/* Ink colors */}
-          {method && method.per_color_cost > 0 && (
-            <>
-              <hr className="my-6 border-dream-line" />
-              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Ink colors</div>
-              <div className="mt-3 flex gap-2">
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setInkColours(n)}
-                    aria-pressed={inkColours === n}
-                    className={cn(
-                      "h-11 flex-1 rounded-full border text-sm font-bold transition-colors",
-                      inkColours === n
-                        ? "border-dream-purple bg-dream-purple text-white"
-                        : "border-dream-line text-dream-ink hover:border-dream-line-strong"
-                    )}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Print locations */}
-          <hr className="my-6 border-dream-line" />
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Print locations</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {views.map((v) => {
-              const active = viewsWithArt.has(v);
-              return (
-                <button
-                  key={v}
-                  onClick={() => showSide(v)}
-                  aria-pressed={active}
-                  className={cn(
-                    "rounded-full border px-4 py-2 text-[13px] font-bold transition-colors",
-                    active
-                      ? "border-dream-purple bg-dream-purple text-white"
-                      : "border-dream-line text-dream-ink hover:border-dream-line-strong"
-                  )}
-                >
-                  {VIEW_LABEL[v]}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Rush delivery */}
-          <hr className="my-6 border-dream-line" />
-          <button
-            onClick={() => setRush((r) => !r)}
-            aria-pressed={rush}
-            className="flex w-full items-center justify-between gap-3 text-left"
-          >
-            <span>
-              <span className="block font-display text-base font-bold text-dream-ink">Rush delivery</span>
-              <span className="block text-xs text-dream-faint">+50% · faster turnaround</span>
-            </span>
-            <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", rush ? "bg-dream-purple" : "bg-dream-line-strong")}>
-              <span
-                className={cn(
-                  "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                  rush ? "translate-x-[1.375rem]" : "translate-x-0.5"
-                )}
-              />
-            </span>
-          </button>
-
-          {/* Price specs */}
-          <hr className="my-6 border-dream-line" />
-          <dl className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <dt className="text-dream-ink-soft">Base ({inkColours}-color)</dt>
-              <dd className="font-semibold text-dream-ink">{formatCAD(base.unitPrice)}</dd>
-            </div>
-            {breakdown.setupTotal > 0 && (
-              <div className="flex items-center justify-between">
-                <dt className="text-dream-ink-soft">Setup (one-time)</dt>
-                <dd className="font-semibold text-dream-ink">{formatCAD(breakdown.setupTotal)}</dd>
-              </div>
-            )}
-            {rush && (
-              <div className="flex items-center justify-between">
-                <dt className="text-dream-ink-soft">Rush (+50%)</dt>
-                <dd className="font-semibold text-dream-ink">{formatCAD(breakdown.rushAddon)}</dd>
-              </div>
-            )}
-            <div className="flex items-center justify-between">
-              <dt className="text-dream-ink-soft">Turnaround</dt>
-              <dd className="font-semibold text-dream-purple">{props.leadTimeDays} business days</dd>
-            </div>
-          </dl>
-
-          {/* CTAs */}
-          <div className="mt-8 space-y-3.5">
-            {error && <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
-            <button
-              onClick={() => finalize(false)}
-              disabled={busy !== null}
-              className="inline-flex w-full items-center justify-center rounded-full bg-dream-purple px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60"
-            >
-              {busy === "submit" ? "Working…" : props.isLoggedIn ? "Start your order" : "Log in to order"}
-            </button>
-            <button
-              onClick={() => finalize(true)}
-              disabled={busy !== null}
-              className="inline-flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
-            >
-              {busy === "save" ? "Saving…" : "Save & share"}
-            </button>
-            <button
-              onClick={() => finalize(true)}
-              disabled={busy !== null}
-              className="block w-full text-center text-sm font-semibold text-dream-muted transition-colors hover:text-dream-ink disabled:opacity-60"
-            >
-              Email me this quote
-            </button>
-            <p className="mt-1 text-center text-xs leading-relaxed text-dream-faint">
-              No payment now. Our team reviews &amp; cleans up your artwork, then sends a proof to approve.
-            </p>
-          </div>
-        </aside>
         </div>
+
+        {/* Design footer — pricing & quantity live on the review screen; this advances to it */}
+        {phase === "design" && (
+          <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3">
+            <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
+              <p className={cn("truncate text-sm", error ? "text-dream-danger" : "text-dream-muted")}>
+                {error ?? "Looking good — set your quantity and see pricing next."}
+              </p>
+              <button
+                onClick={goToReview}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+              >
+                Continue
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Review screen — quantity, pricing & turnaround, then place the order */}
+        {phase === "review" && (
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white">
+            {/* Item (left) + details (right) */}
+            <div className="mx-auto flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:px-8 lg:py-8">
+              {/* Preview — compact, not full-width; sits on the white page */}
+              <div className="relative flex min-h-[280px] shrink-0 items-center justify-center overflow-hidden p-3 lg:w-[440px]">
+                {previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewUrl} alt="Your design" className="max-h-[56vh] w-auto max-w-full object-contain" />
+                ) : (
+                  <span className="text-sm text-dream-muted">Preview unavailable</span>
+                )}
+              </div>
+
+              {/* Details — fills the rest of the width out to the right */}
+              <div className="flex-1 p-6 sm:p-7 lg:border-l lg:border-dream-line lg:p-8">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPhase("design")}
+                    aria-label="Back to design"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-cream hover:text-dream-ink"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+                  </button>
+                  <h2 className="font-display text-lg font-extrabold text-dream-ink">{props.productName}</h2>
+                </div>
+
+                <hr className="my-5 border-dream-line" />
+                {/* Decoration spec */}
+                <div className="overflow-hidden rounded-2xl border border-dream-line">
+                  <div className="grid grid-cols-[1fr_1fr_auto] gap-x-3 bg-dream-cream px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-dream-muted">
+                    <span>Location</span>
+                    <span>Type</span>
+                    <span>Colours</span>
+                  </div>
+                  {decoratedViews.map((v) => (
+                    <div
+                      key={v}
+                      className="grid grid-cols-[1fr_1fr_auto] gap-x-3 border-t border-dream-line px-4 py-2.5 text-sm text-dream-ink first:border-t-0"
+                    >
+                      <span>{VIEW_LABEL[v]}</span>
+                      <span>{method?.name ?? "Print"}</span>
+                      <span>{inkColours}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Colour */}
+                <div className="mt-4 flex items-center gap-2.5">
+                  <span
+                    className="h-6 w-6 rounded-full border border-dream-line"
+                    style={{ backgroundColor: colour?.hex ?? "#e5e7eb" }}
+                  />
+                  <span className="text-sm font-semibold text-dream-ink">{colourName}</span>
+                </div>
+
+                <hr className="my-5 border-dream-line" />
+                {/* Per-size quantities — same raised-pill design as the quote form's size breakdown */}
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Quantity by size</div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                    {props.sizes.map((s) => {
+                      const v = sizeQty[s.name] ?? 0;
+                      const active = v > 0;
+                      return (
+                        <label
+                          key={s.name}
+                          className={cn(
+                            "flex items-center gap-2 rounded-2xl border-2 bg-white px-3 py-2.5 transition",
+                            active ? "border-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.9)]" : "border-dream-ink/60"
+                          )}
+                        >
+                          <span className="font-display text-sm font-bold text-dream-ink">{s.name}</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={v || ""}
+                            placeholder="0"
+                            onChange={(e) =>
+                              setSizeQty((q) => ({ ...q, [s.name]: Math.max(0, Number(e.target.value.replace(/[^0-9]/g, "")) || 0) }))
+                            }
+                            className="w-full min-w-0 bg-transparent text-right text-base font-semibold text-dream-ink outline-none placeholder:text-dream-ink/30"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Quantity + total */}
+                <div className="mt-5 flex items-end justify-between border-t border-dream-line pt-5">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Quantity</div>
+                    <div className="font-display text-2xl font-extrabold text-dream-ink">{quantity || 0}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Total</div>
+                    <div className="font-display text-2xl font-extrabold text-dream-purple">{formatCAD(breakdown.total)}</div>
+                    <div className="text-xs text-dream-faint">{formatCAD(breakdown.unitPrice)} / unit</div>
+                  </div>
+                </div>
+
+                <hr className="my-5 border-dream-line" />
+                {/* Rush */}
+                <button
+                  onClick={() => setRush((r) => !r)}
+                  aria-pressed={rush}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-dream-line px-4 py-3 text-left transition-colors hover:border-dream-line-strong"
+                >
+                  <span>
+                    <span className="block font-display text-sm font-bold text-dream-ink">Rush delivery</span>
+                    <span className="block text-xs text-dream-faint">+50% · {props.leadTimeDays} business days standard</span>
+                  </span>
+                  <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", rush ? "bg-dream-purple" : "bg-dream-line-strong")}>
+                    <span
+                      className={cn(
+                        "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                        rush ? "translate-x-[1.375rem]" : "translate-x-0.5"
+                      )}
+                    />
+                  </span>
+                </button>
+
+                <hr className="my-5 border-dream-line" />
+                {/* CTA */}
+                <div className="space-y-3">
+                  {error && <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
+                  {quantity < 1 && !error && (
+                    <p className="rounded-xl bg-dream-cream px-3 py-2 text-center text-sm text-dream-muted">Please enter more than 0 items.</p>
+                  )}
+                  <button
+                    onClick={() => finalize(false)}
+                    disabled={busy !== null || quantity < 1}
+                    className="inline-flex w-full items-center justify-center rounded-full bg-dream-purple px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {busy === "submit" ? "Working…" : props.isLoggedIn ? "Start your order" : "Log in to order"}
+                  </button>
+                  <button
+                    onClick={() => finalize(true)}
+                    disabled={busy !== null}
+                    className="inline-flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
+                  >
+                    {busy === "save" ? "Saving…" : "Save & share"}
+                  </button>
+                  <p className="text-center text-xs leading-relaxed text-dream-faint">
+                    No payment now. Our team reviews &amp; cleans up your artwork, then sends a proof to approve.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Shirt details — full width, below the editor (scroll down to reach it) */}
