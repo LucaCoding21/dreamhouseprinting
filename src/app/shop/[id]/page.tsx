@@ -11,7 +11,6 @@ import type { ProductSizeJson, ProductPhotoJson } from "@/lib/db/rows";
 import { enabledColours } from "@/lib/productImage";
 import { startingAtPrice } from "@/lib/pricing/platform";
 import { ProductGallery } from "./ProductGallery";
-import { Collapsible } from "@/components/storefront/Collapsible";
 import { ProductCard } from "@/components/storefront/ProductCard";
 
 export async function generateMetadata({
@@ -61,9 +60,20 @@ export default async function ProductDetailPage({
   const starting = startingAtPrice(product);
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+      {/* Back to shop */}
+      <Link
+        href={cat ? `/shop?category=${cat.slug}` : "/shop"}
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-dream-ink transition-colors hover:text-dream-purple"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back to shop
+      </Link>
+
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-6 text-sm text-dream-muted">
+      <nav aria-label="Breadcrumb" className="mb-10 text-sm text-dream-muted">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link href="/" className="hover:text-dream-ink">
@@ -98,42 +108,22 @@ export default async function ProductDetailPage({
       <ProductGallery
         productId={product.id}
         brand={product.brand}
+        sku={product.ss_part_number}
         name={product.name}
         colours={colours}
         sizes={sizes}
         extraPhotos={extraPhotos}
         startingPrice={starting}
+        description={product.description}
+        leadTimeDays={product.lead_time_days}
       />
-
-      {/* Collapsible info sections */}
-      <div className="mt-8 max-w-3xl">
-        <Collapsible title="Product details" defaultOpen>
-          {product.description ? (
-            <p>{product.description}</p>
-          ) : (
-            <p>
-              A custom-ready blank, decorated in-house. Choose your colour and
-              sizes, then add artwork in the designer — screenprint, embroidery,
-              or DTG depending on the piece.
-            </p>
-          )}
-        </Collapsible>
-        <Collapsible title="Shipping & turnaround">
-          <p>
-            Ships in ~{product.lead_time_days} business day
-            {product.lead_time_days === 1 ? "" : "s"} once your proof is
-            approved. Local Vancouver pickup is available — choose it at
-            checkout to skip shipping.
-          </p>
-        </Collapsible>
-      </div>
 
       {/* Value props */}
       <ValueProps />
 
       {/* You might also like */}
       {related.length > 0 && (
-        <section className="mt-14">
+        <section className="mt-24">
           <div className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-display text-xl font-bold text-dream-ink">
               You might also like
@@ -142,7 +132,7 @@ export default async function ProductDetailPage({
               href="/shop"
               className="text-sm font-medium text-dream-purple hover:underline"
             >
-              Shop all →
+              Shop all
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -164,32 +154,44 @@ function ValueProps() {
       title: "Price-match guarantee",
       desc: "Find it cheaper in Vancouver and we'll match it.",
       icon: <ShieldIcon className="h-5 w-5" />,
+      badge: "bg-dream-purple text-white",
+      tilt: "-rotate-3",
     },
     {
       title: "Free art proof",
       desc: "See a digital mockup before we print a thing.",
       icon: <PencilIcon className="h-5 w-5" />,
+      badge: "bg-dream-sun text-dream-ink",
+      tilt: "rotate-3",
     },
     {
       title: "Local Vancouver delivery",
       desc: "Free drop-off across the city, printed in-house.",
       icon: <TruckIcon className="h-5 w-5" />,
+      badge: "bg-dream-peach text-dream-ink",
+      tilt: "-rotate-2",
     },
   ];
   return (
-    <section className="mt-12 grid gap-4 sm:grid-cols-3">
+    <section className="mt-20 grid gap-3 sm:grid-cols-3">
       {props.map((p) => (
         <div
           key={p.title}
-          className="flex flex-col items-center gap-2 rounded-[2rem] bg-dream-lavender-soft px-6 py-8 text-center"
+          className="rough-card group relative flex items-start gap-4 px-6 py-6 transition-transform duration-200 hover:-translate-y-1"
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-dream-surface text-dream-purple">
+          <span
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-[0_3px_0_0_rgba(27,20,88,0.22)] transition-transform duration-200 group-hover:rotate-0 ${p.badge} ${p.tilt}`}
+          >
             {p.icon}
           </span>
-          <h3 className="font-display text-sm font-semibold text-dream-ink">
-            {p.title}
-          </h3>
-          <p className="max-w-[16rem] text-xs text-dream-ink-soft">{p.desc}</p>
+          <div>
+            <h3 className="font-display text-[15px] font-bold text-dream-ink">
+              {p.title}
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-dream-ink-soft">
+              {p.desc}
+            </p>
+          </div>
         </div>
       ))}
     </section>

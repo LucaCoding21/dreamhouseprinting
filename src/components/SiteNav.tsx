@@ -132,10 +132,10 @@ export default function SiteNav() {
       <div className="relative z-50 mx-auto flex max-w-[1400px] items-center justify-between gap-4">
         <Link href="/" className="flex items-center">
           <Image
-            src="/dreamhouse-logo-full.png"
+            src="/dreamhouse-logo-nav.svg"
             alt="Dreamhouse Printing"
-            width={1800}
-            height={600}
+            width={448}
+            height={297}
             priority
             className="h-14 w-auto lg:h-[100px]"
           />
