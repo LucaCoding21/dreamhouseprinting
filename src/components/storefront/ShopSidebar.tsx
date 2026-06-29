@@ -39,7 +39,7 @@ export function ShopSidebar({
           "mb-1 block rounded-lg px-3 py-2 font-display font-semibold transition-colors",
           !activeSlug
             ? "bg-dream-lavender-soft text-dream-purple"
-            : "text-dream-ink hover:bg-dream-bg",
+            : "text-dream-ink hover:bg-dream-lavender-soft",
         )}
       >
         All Products
@@ -56,7 +56,7 @@ export function ShopSidebar({
                   "block rounded-lg px-3 py-2 font-display font-semibold transition-colors",
                   isActive(cat.slug)
                     ? "bg-dream-lavender-soft text-dream-purple"
-                    : "text-dream-ink hover:bg-dream-bg",
+                    : "text-dream-ink hover:bg-dream-lavender-soft",
                 )}
               >
                 {cat.name}
@@ -71,7 +71,7 @@ export function ShopSidebar({
                           "block rounded-lg px-3 py-1.5 text-[13px] transition-colors",
                           isActive(sub.slug)
                             ? "font-medium text-dream-purple"
-                            : "text-dream-muted hover:bg-dream-bg hover:text-dream-ink",
+                            : "text-dream-muted hover:bg-dream-lavender-soft hover:text-dream-ink",
                         )}
                       >
                         {sub.name}

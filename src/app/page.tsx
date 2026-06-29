@@ -80,7 +80,7 @@ export default function Home() {
 
       <section className="mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
         <div className="grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
-          <div className="-mt-[84px] order-2 text-center lg:mt-0 lg:order-none lg:pl-10 lg:text-left">
+          <div className="-mt-[84px] order-2 text-center sm:mt-0 lg:order-none lg:pl-10 lg:pt-12 lg:text-left">
             <h1 className="pt-14 font-display text-[30px] font-bold leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
               We do quality custom Screen printing and Embroidery right here in Vancouver.
             </h1>
@@ -93,26 +93,26 @@ export default function Home() {
                   two buttons (Start your order + outline Get a quick quote). */}
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 lg:hidden"
+                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-12 py-5 font-display text-xl font-bold text-white transition-transform hover:-translate-y-0.5 lg:hidden"
               >
                 Get a quick quote
               </a>
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5 lg:inline-flex"
+                className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 lg:inline-flex min-[1273px]:px-12 min-[1273px]:py-6 min-[1273px]:text-xl"
               >
                 Start your order
               </a>
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5 lg:inline-flex"
+                className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-8 py-4 font-display text-base font-bold text-dream-purple transition-transform hover:-translate-y-0.5 lg:inline-flex min-[1273px]:px-12 min-[1273px]:py-6 min-[1273px]:text-xl"
               >
                 Get a quick quote
               </a>
             </div>
           </div>
 
-          <div className="relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-0 sm:mt-0 sm:-mx-6 sm:max-w-none lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
+          <div className="relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
             <HeroImage />
           </div>
         </div>

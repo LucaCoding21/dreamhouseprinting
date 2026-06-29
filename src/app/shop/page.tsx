@@ -1,18 +1,14 @@
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   getCategories,
   getMajorCategories,
-  getFeaturedByCategory,
   getActiveProducts,
   getCategoryBySlug,
 } from "@/lib/db/catalog";
-import type { CategoryRow, ProductRow } from "@/lib/db/rows";
-import { productPrimaryImage } from "@/lib/productImage";
+import type { CategoryRow } from "@/lib/db/rows";
 import { ShopSidebar } from "@/components/storefront/ShopSidebar";
 import { ProductCard } from "@/components/storefront/ProductCard";
-import { CategoryTabs, type CategoryTab } from "@/components/storefront/CategoryTabs";
 import { SortSelect } from "@/components/storefront/SortSelect";
 import { ShopSearch } from "@/components/storefront/ShopSearch";
 import { EmptyState } from "@/components/ui";
@@ -38,37 +34,21 @@ export default async function ShopPage({
     getMajorCategories(),
   ]);
 
-  // Tile images: borrow a representative product image per major (best-effort).
-  const featured = await getFeaturedByCategory();
-  const tileImageByCat = new Map<string, string | null>();
-  for (const f of featured) {
-    tileImageByCat.set(f.category.id, productPrimaryImage(f.product));
-  }
-
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-      <header className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <main className="mx-auto max-w-[88rem] px-4 pb-6 pt-9 sm:px-6 sm:pb-8 sm:pt-12">
+      <header className="mb-11 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-extrabold tracking-tight text-dream-ink sm:text-4xl">
-            Shop the blanks
+            Shop Custom Apparel in Vancouver
           </h1>
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-dream-ink-soft">
-            Pick a blank and make it yours — every product opens right in our designer, and you&apos;ll
-            get a free proof before anything prints.
+            Pick a blank, customize it in our designer, and get a free proof before we print.
           </p>
         </div>
         <ShopSearch />
       </header>
 
-      {/* Category tiles — 4 majors + an "All Products" catch-all (§3.3.1). */}
-      <CategoryTiles
-        majors={majors}
-        tileImageByCat={tileImageByCat}
-        activeSlug={category}
-        allActive={!category}
-      />
-
-      <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:gap-10">
+      <div className="mt-2 flex flex-col gap-8 lg:flex-row lg:gap-10">
         <aside className="lg:w-60 lg:shrink-0">
           <div className="lg:sticky lg:top-20">
             <ShopSidebar categories={categories} activeSlug={category} />
@@ -76,11 +56,20 @@ export default async function ShopPage({
         </aside>
 
         <section className="min-w-0 flex-1">
-          {filtered ? (
-            <FilteredView category={category} search={search} sort={sort} />
-          ) : (
-            <DefaultView majors={majors} featured={featured} />
-          )}
+          {/* Category tiles — 4 majors + an "All Products" catch-all (§3.3.1). */}
+          <CategoryTiles
+            majors={majors}
+            activeSlug={category}
+            allActive={!category}
+          />
+
+          <div className="mt-8">
+            {filtered ? (
+              <FilteredView category={category} search={search} sort={sort} />
+            ) : (
+              <DefaultView sort={sort} />
+            )}
+          </div>
         </section>
       </div>
     </main>
@@ -88,70 +77,44 @@ export default async function ShopPage({
 }
 
 /* ----------------------------- Default view ----------------------------- */
-/* Top-5 favourites row, then the client tab strip swapping the grid in place. */
+/* One calm "all products" grid. Category filtering lives in the tiles +      */
+/* sidebar, so the body stays a single browse surface (no redundant tabs).    */
 
-async function DefaultView({
-  majors,
-  featured,
-}: {
-  majors: CategoryRow[];
-  featured: { category: CategoryRow; product: ProductRow }[];
-}) {
-  // Pre-fetch each major's products on the server so the client tabs swap
-  // without a navigation. Plus an "All Products" virtual tab.
-  const perMajor = await Promise.all(
-    majors.map(async (m) => ({
-      category: m,
-      products: await getActiveProducts({ categorySlug: m.slug, limit: 12 }),
-    })),
-  );
-  const allProducts = await getActiveProducts({ sort: "featured", limit: 24 });
-
-  const tabs: CategoryTab[] = [
-    { value: "all", label: "All Products", products: allProducts },
-    ...perMajor.map((p) => ({
-      value: p.category.slug,
-      label: p.category.name,
-      products: p.products,
-    })),
-  ];
-
+async function DefaultView({ sort }: { sort?: string }) {
+  const dbSort = sort === "name" ? "name" : sort === "newest" ? "newest" : "featured";
+  const fetched = await getActiveProducts({ sort: dbSort, limit: 48 });
+  const allProducts =
+    sort === "price-asc"
+      ? [...fetched].sort((a, b) => startingAtPrice(a) - startingAtPrice(b))
+      : sort === "price-desc"
+        ? [...fetched].sort((a, b) => startingAtPrice(b) - startingAtPrice(a))
+        : fetched;
   const empty = allProducts.length === 0;
 
   return (
-    <div className="flex flex-col gap-10">
-      {featured.length > 0 && (
-        <div className="rounded-3xl bg-dream-lavender-soft/60 p-5 sm:p-6">
-          <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-dream-ink">
-              <span aria-hidden className="text-dream-sun">★</span> Top picks
-            </h2>
-            <span className="text-xs font-semibold text-dream-purple">
-              One favourite per category
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {featured.map((f) => (
-              <ProductCard key={f.product.id} product={f.product} />
-            ))}
-          </div>
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="font-display text-xl font-bold text-dream-ink">All products</h2>
+          <span className="text-sm text-dream-muted">
+            {allProducts.length} {allProducts.length === 1 ? "product" : "products"}
+          </span>
+        </div>
+        {allProducts.length > 0 && <SortSelect value={sort ?? "featured"} />}
+      </div>
+      {empty ? (
+        <EmptyState
+          className="rounded-2xl border border-dashed border-dream-line bg-white"
+          title="No products yet, check back soon"
+          description="We're still loading the catalog. New blanks land here as they're added."
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {allProducts.map((p) => (
+            <ProductCard key={p.id} product={p} featured={p.is_featured} />
+          ))}
         </div>
       )}
-
-      <div>
-        <h2 className="mb-2 font-display text-lg font-semibold text-dream-ink">
-          Browse the catalog
-        </h2>
-        {empty ? (
-          <EmptyState
-            className="rounded-2xl border border-dashed border-dream-line bg-white"
-            title="No products yet — check back soon"
-            description="We're still loading the catalog. New blanks land here as they're added."
-          />
-        ) : (
-          <CategoryTabs tabs={tabs} />
-        )}
-      </div>
     </div>
   );
 }
@@ -231,27 +194,25 @@ async function FilteredView({
 
 function CategoryTiles({
   majors,
-  tileImageByCat,
   activeSlug,
   allActive,
 }: {
   majors: CategoryRow[];
-  tileImageByCat: Map<string, string | null>;
   activeSlug?: string;
   allActive: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-5 gap-2 sm:gap-5">
+      <Tile href="/shop" label="All Products" slug="all" active={allActive} />
       {majors.map((cat) => (
         <Tile
           key={cat.id}
           href={`/shop?category=${cat.slug}`}
           label={cat.name}
-          image={tileImageByCat.get(cat.id) ?? null}
+          slug={cat.slug}
           active={activeSlug === cat.slug}
         />
       ))}
-      <Tile href="/shop" label="All Products" image={null} active={allActive} />
     </div>
   );
 }
@@ -259,39 +220,45 @@ function CategoryTiles({
 function Tile({
   href,
   label,
-  image,
+  slug,
   active,
 }: {
   href: string;
   label: string;
-  image: string | null;
+  slug: string;
   active: boolean;
 }) {
+  const icon = CATEGORY_ICONS[slug] ?? CATEGORY_ICONS.all;
   return (
     <Link
       href={href}
-      className={cn(
-        "group relative flex h-28 items-end overflow-hidden rounded-2xl border p-3 transition-all hover:-translate-y-0.5",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
-        active
-          ? "border-dream-purple ring-1 ring-dream-purple/30"
-          : "border-dream-line hover:border-dream-purple/40 hover:shadow-md",
-        image ? "bg-white" : "bg-dream-lavender-soft",
-      )}
+      className="group flex flex-col items-center gap-2.5 focus-visible:outline-none"
     >
-      {image && (
-        <Image
-          src={image}
-          alt=""
-          fill
-          sizes="(max-width: 640px) 50vw, 20vw"
-          className="object-contain p-3 opacity-90 transition-transform duration-200 group-hover:scale-105"
-        />
-      )}
       <span
         className={cn(
-          "relative z-10 rounded-md px-2 py-1 font-display text-sm font-semibold text-dream-ink",
-          image && "bg-dream-surface/85 backdrop-blur-sm",
+          // Blobby squircle disc — the non-rectangular shape, brand lavender.
+          "flex aspect-square w-full max-w-[7.5rem] items-center justify-center rounded-[42%_58%_55%_45%/55%_45%_55%_45%] border-2 transition-all duration-200 group-hover:-translate-y-1",
+          "group-focus-visible:ring-2 group-focus-visible:ring-dream-purple/40",
+          active
+            ? "border-dream-purple bg-dream-purple/10 ring-1 ring-dream-purple/30"
+            : "border-transparent bg-dream-lavender-soft group-hover:shadow-[0_8px_0_0_rgba(27,20,88,0.9)]",
+        )}
+      >
+        <span
+          className={cn(
+            "h-[46%] w-[46%] transition-colors [&_svg]:transition-[fill]",
+            active
+              ? "text-dream-purple [&_svg]:fill-current"
+              : "text-dream-purple/70 group-hover:text-dream-purple",
+          )}
+        >
+          {icon}
+        </span>
+      </span>
+      <span
+        className={cn(
+          "text-center font-display text-[13px] font-semibold leading-tight sm:text-sm",
+          active ? "text-dream-purple" : "text-dream-ink",
         )}
       >
         {label}
@@ -299,3 +266,41 @@ function Tile({
     </Link>
   );
 }
+
+/* Inline apparel icons, keyed by category slug. Stroked, inherit currentColor. */
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  shirts: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
+      <path d="M8.4 3.5 5.6 5 2.8 7.4 5 10.2 7 9.1V20.5h10V9.1l2 1.1 2.2-2.8L18.4 5l-2.8-1.5c-.4 1.6-1.7 2.6-3.6 2.6s-3.2-1-3.6-2.6Z" />
+    </svg>
+  ),
+  hoodies: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
+      <path d="M8 4 5.4 5.4 2.7 8l2.2 2.8L7 9.6V20.5h10V9.6l2.1 1.2L21.3 8l-2.7-2.6L16 4" />
+      <path d="M8 4c.6 2.1 2 3.1 4 3.1S15.4 6.1 16 4" />
+      <path d="M11 7.2v2.6M13 7.2v2.6" />
+      <path d="M9.4 13.2h5.2l-.5 3.8H9.9Z" />
+    </svg>
+  ),
+  "hats-toques": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
+      <path d="M4.5 14c0-4.7 3.4-8 7.5-8s7.5 3.3 7.5 7.6" />
+      <path d="M4 14h12.2c3.1 0 5.6.6 5.6 1.7s-1.4 1.6-3.3 1.6H4Z" />
+      <path d="M12 6V4.2" />
+    </svg>
+  ),
+  totes: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
+      <path d="M6.2 8h11.6l-1 12.5H7.2Z" />
+      <path d="M9 8V6.4a3 3 0 0 1 6 0V8" />
+    </svg>
+  ),
+  all: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.8" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.8" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.8" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.8" />
+    </svg>
+  ),
+};

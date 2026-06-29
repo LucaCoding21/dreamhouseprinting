@@ -15,9 +15,11 @@ import type { ProductRow } from "@/lib/db/rows";
 export function ProductCard({
   product,
   className,
+  featured = false,
 }: {
   product: ProductRow;
   className?: string;
+  featured?: boolean;
 }) {
   const image = productPrimaryImage(product);
   const colours = enabledColours(product);
@@ -29,12 +31,17 @@ export function ProductCard({
       href={`/shop/${product.id}`}
       className={cn(
         "group flex flex-col overflow-hidden rounded-2xl border border-dream-line bg-white",
-        "shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_14px_34px_-14px_rgba(118,100,255,0.4)] hover:border-dream-purple/40",
+        "shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-dream-purple hover:shadow-[0_8px_0_0_rgba(27,20,88,0.9)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
         className,
       )}
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-dream-cream">
+      <div className="relative aspect-square w-full overflow-hidden bg-white">
+        {featured && (
+          <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-dream-sun px-2.5 py-1 font-display text-xs font-bold text-white shadow-sm">
+            <span aria-hidden>★</span> Top pick
+          </span>
+        )}
         {image ? (
           <Image
             src={image}
@@ -51,21 +58,19 @@ export function ProductCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
-        {product.brand && (
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-dream-faint">
-            {product.brand}
-          </span>
-        )}
-        <h3 className="line-clamp-2 font-display text-sm font-semibold leading-snug text-dream-ink">
-          {product.name}
-        </h3>
+        <div className="flex min-h-[3.25rem] flex-col justify-end gap-0.5">
+          {product.brand && (
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-dream-faint">
+              {product.brand}
+            </span>
+          )}
+          <h3 className="line-clamp-2 font-display text-sm font-semibold leading-snug text-dream-ink">
+            {product.name}
+          </h3>
+        </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2.5">
-          <span className="inline-flex items-baseline gap-1 rounded-full bg-dream-sun-soft px-2.5 py-1 font-display text-sm font-bold text-dream-ink">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">from</span>
-            {formatCAD(startingAtPrice(product))}
-          </span>
-          {swatches.length > 0 && (
+        <div className="flex items-center justify-between gap-2 pt-2.5">
+          {swatches.length > 0 ? (
             <span className="flex items-center gap-1" aria-hidden="true">
               {swatches.map((c, i) => (
                 <span
@@ -81,7 +86,13 @@ export function ProductCard({
                 </span>
               )}
             </span>
+          ) : (
+            <span />
           )}
+          <span className="inline-flex items-baseline gap-1 font-display text-sm font-bold text-dream-ink">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">from</span>
+            {formatCAD(startingAtPrice(product))}
+          </span>
         </div>
       </div>
     </Link>

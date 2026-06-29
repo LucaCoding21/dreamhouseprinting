@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
+import { Collapsible } from "@/components/storefront/Collapsible";
 import type { ProductColourJson, ProductSizeJson } from "@/lib/db/rows";
 
 interface GalleryImage {
@@ -23,20 +24,26 @@ interface GalleryImage {
 export function ProductGallery({
   productId,
   brand,
+  sku,
   name,
   colours,
   sizes,
   extraPhotos,
   startingPrice,
+  description,
+  leadTimeDays,
 }: {
   productId: string;
   brand: string | null;
+  sku: string | null;
   name: string;
   colours: ProductColourJson[];
   sizes: ProductSizeJson[];
   /** Generic product photos (non-colour-specific) to append to the gallery. */
   extraPhotos: string[];
   startingPrice: number;
+  description: string | null;
+  leadTimeDays: number;
 }) {
   // Build the gallery: each enabled colour's front (and back/side/model) shots,
   // then any generic photos. The first colour with a front image leads.
@@ -63,6 +70,10 @@ export function ProductGallery({
     const i = images.findIndex((g) => g.colourIdx === (firstColourWithImage >= 0 ? firstColourWithImage : 0));
     return i >= 0 ? i : 0;
   });
+  const firstInStockSize = sizes.findIndex((s) => s.inStock !== false);
+  const [selectedSize, setSelectedSize] = useState(
+    firstInStockSize >= 0 ? firstInStockSize : 0,
+  );
 
   function pickColour(idx: number) {
     setSelectedColour(idx);
@@ -75,11 +86,11 @@ export function ProductGallery({
   const thumbs = images;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
       {/* Left: gallery */}
       <div className="flex flex-col-reverse gap-4 sm:flex-row">
         {thumbs.length > 1 && (
-          <div className="flex shrink-0 gap-2 overflow-x-auto sm:max-h-[28rem] sm:flex-col sm:overflow-y-auto">
+          <div className="flex shrink-0 gap-2 overflow-x-auto p-1 sm:max-h-[28rem] sm:flex-col sm:overflow-y-auto">
             {thumbs.map((g, i) => (
               <button
                 key={`${g.src}-${i}`}
@@ -91,7 +102,7 @@ export function ProductGallery({
                 aria-label={`View ${g.label}`}
                 aria-current={i === activeImage}
                 className={cn(
-                  "relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-white transition-colors",
+                  "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-white transition-colors",
                   i === activeImage
                     ? "border-dream-purple ring-1 ring-dream-purple/30"
                     : "border-dream-line hover:border-dream-line-strong",
@@ -103,7 +114,7 @@ export function ProductGallery({
           </div>
         )}
 
-        <div className="relative aspect-square w-full overflow-hidden rounded-3xl border border-dream-line bg-white shadow-[0_12px_44px_-18px_rgba(118,100,255,0.35)]">
+        <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-dream-line bg-white">
           {main ? (
             <Image
               src={main.src}
@@ -122,23 +133,30 @@ export function ProductGallery({
       </div>
 
       {/* Right: details */}
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-7">
+        {/* 1 — Identity: brand/sku, then the product name as the clear primary */}
         <div>
-          {brand && (
-            <p className="text-xs font-semibold uppercase tracking-wide text-dream-purple">
-              {brand}
+          {(brand || sku) && (
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-dream-muted">
+              {brand && <span>{brand}</span>}
+              {brand && sku && (
+                <span aria-hidden="true" className="text-dream-faint">/</span>
+              )}
+              {sku && <span className="font-medium normal-case tracking-normal text-dream-faint">SKU {sku}</span>}
             </p>
           )}
-          <h1 className="mt-1 font-display text-2xl font-bold leading-tight text-dream-ink sm:text-3xl">
+          <h1 className="mt-1.5 font-display text-3xl font-bold leading-tight text-dream-ink sm:text-4xl">
             {name}
           </h1>
         </div>
 
+        {/* 2 — Options: colour + size, grouped tightly with matching labels */}
+        <div className="flex flex-col gap-6 border-t border-dream-line pt-7">
         {colours.length > 0 && (
           <div>
-            <div className="mb-2 flex items-center gap-2 text-sm">
-              <span className="font-medium text-dream-ink">Colour</span>
-              <span className="text-dream-muted">{colours[selectedColour]?.name}</span>
+            <div className="mb-3 flex items-baseline gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">Colour</span>
+              <span className="text-sm text-dream-muted">{colours[selectedColour]?.name}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {colours.map((c, idx) => (
@@ -170,55 +188,100 @@ export function ProductGallery({
 
         {sizes.length > 0 && (
           <div>
-            <div className="mb-2 text-sm font-medium text-dream-ink">Size</div>
-            <div className="flex flex-wrap gap-2">
-              {sizes.map((s, idx) => (
-                <span
-                  key={`${s.name}-${idx}`}
-                  className={cn(
-                    "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-2.5 text-sm font-medium",
-                    s.inStock === false
-                      ? "border-dream-line bg-dream-bg text-dream-faint line-through"
-                      : "border-dream-line bg-dream-surface text-dream-ink",
-                  )}
-                >
-                  {s.name}
-                </span>
-              ))}
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">Size</span>
+                <span className="text-sm text-dream-muted">{sizes[selectedSize]?.name}</span>
+              </div>
+              <button
+                type="button"
+                className="text-xs font-medium text-dream-purple hover:underline"
+              >
+                Size guide
+              </button>
             </div>
-            <p className="mt-2 text-xs text-dream-faint">
+            <div className="flex flex-wrap gap-2">
+              {sizes.map((s, idx) => {
+                const oos = s.inStock === false;
+                return (
+                  <button
+                    key={`${s.name}-${idx}`}
+                    type="button"
+                    disabled={oos}
+                    onClick={() => setSelectedSize(idx)}
+                    aria-pressed={idx === selectedSize}
+                    className={cn(
+                      "inline-flex h-10 min-w-10 items-center justify-center rounded-full border px-3 text-sm font-semibold transition-colors",
+                      oos
+                        ? "cursor-not-allowed border-dream-line bg-dream-bg text-dream-faint line-through"
+                        : idx === selectedSize
+                          ? "border-dream-ink bg-dream-ink text-white"
+                          : "border-dream-line bg-white text-dream-ink-soft hover:border-dream-ink/40 hover:text-dream-ink",
+                    )}
+                  >
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2.5 text-xs text-dream-muted">
               Pick sizes and quantities in the designer.
             </p>
           </div>
         )}
+        </div>
 
         {/* Estimated total card */}
-        <div className="rounded-2xl border border-dream-line bg-gradient-to-br from-white to-dream-lavender-soft/50 p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">
-            Estimated total
-          </p>
-          <p className="font-display text-3xl font-extrabold text-dream-ink">
-            from {formatCAD(startingPrice)}
-            <span className="ml-1 text-sm font-normal text-dream-ink-soft">/ unit</span>
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-dream-ink-soft">
-            Final price depends on quantity, decoration, and ink colours. No
-            surprises — you&apos;ll see live pricing in the designer.
-          </p>
-          <div className="mt-4 space-y-2">
+        <div className="flex flex-col gap-4 rounded-lg border border-dream-line bg-dream-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+              Estimated total
+            </p>
+            <p className="font-display text-3xl font-extrabold text-dream-purple-dark">
+              from {formatCAD(startingPrice)}
+              <span className="ml-1 text-base font-normal text-dream-muted">/unit</span>
+            </p>
+            <p className="mt-1 text-sm text-dream-muted">
+              Final pricing depends on quantity &amp; decoration.
+            </p>
+          </div>
+          <div className="flex flex-col items-stretch gap-1.5 sm:items-center">
             <Link
               href={`/design/${productId}`}
-              className="rough-pill rough-pill-filled flex w-full items-center justify-center px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+              className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
             >
-              Design now
+              Design Now
             </Link>
             <Link
               href={`/design/${productId}?quote=1`}
-              className="flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream"
+              className="text-center text-sm font-semibold text-dream-purple hover:underline"
             >
-              Customize quote
+              Quick Quote
             </Link>
           </div>
+        </div>
+
+        {/* Collapsible info sections — under the estimated total box */}
+        <div>
+          <Collapsible title="Product details" defaultOpen>
+            {description ? (
+              <p>{description}</p>
+            ) : (
+              <p>
+                A custom-ready blank, decorated in-house. Choose your colour and
+                sizes, then add artwork in the designer — screenprint,
+                embroidery, or DTG depending on the piece.
+              </p>
+            )}
+          </Collapsible>
+          <Collapsible title="Shipping & turnaround">
+            <p>
+              Ships in ~{leadTimeDays} business day
+              {leadTimeDays === 1 ? "" : "s"} once your proof is approved. Local
+              Vancouver pickup is available — choose it at checkout to skip
+              shipping.
+            </p>
+          </Collapsible>
         </div>
       </div>
     </div>
