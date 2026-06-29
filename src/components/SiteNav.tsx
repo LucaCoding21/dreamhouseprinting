@@ -134,8 +134,8 @@ export default function SiteNav() {
           <Image
             src="/dreamhouse-logo-nav.svg"
             alt="Dreamhouse Printing"
-            width={448}
-            height={297}
+            width={457}
+            height={298}
             priority
             className="h-14 w-auto lg:h-[100px]"
           />
