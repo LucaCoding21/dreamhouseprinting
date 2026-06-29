@@ -1,11 +1,24 @@
 "use server";
 
 import { getUser } from "@/lib/auth";
+import { getOrCreateGuestToken } from "@/lib/guest";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Json } from "@/lib/db/types";
 
 const asJson = (v: unknown) => v as unknown as Json;
 const YEAR = 60 * 60 * 24 * 365;
+
+/** Who owns a design — a logged-in customer, or a guest browser by cookie token. */
+type DesignOwner = { userId: string } | { guestToken: string };
+
+export interface DesignColorway {
+  colourName: string;
+  colourHex?: string;
+  sizeQuantities: Record<string, number>;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
 
 export interface DesignSubmitInput {
   productId: string;
@@ -16,6 +29,9 @@ export interface DesignSubmitInput {
   colourName: string;
   colourHex?: string;
   sizeQuantities: Record<string, number>;
+  /** Every garment colourway ordered (same artwork). The first mirrors the
+   *  legacy colour/sizeQuantities above; downstream creates one line item each. */
+  colorways: DesignColorway[];
   decorationMethodId: string | null;
   printAreaIds: string[];
   scenes: Record<string, unknown>;
@@ -49,7 +65,7 @@ async function signAll(
 /** Persist a Design (draft or submitted) with its mockups + artwork. Shared by save + submit. */
 async function persistDesign(
   service: ReturnType<typeof requireSupabaseServiceClient>,
-  userId: string,
+  owner: DesignOwner,
   input: DesignSubmitInput,
   status: "draft" | "submitted"
 ) {
@@ -57,9 +73,11 @@ async function persistDesign(
   const mockupImages = input.mockups.map((m) => ({ view: m.view, path: m.path, url: signed[m.path] ?? null }));
   const sourceArtwork = input.artwork.map((a) => ({ name: a.name, path: a.path, url: signed[a.path] ?? null }));
 
+  const isUser = "userId" in owner;
   const row = {
     product_id: input.productId,
-    customer_id: userId,
+    customer_id: isUser ? owner.userId : null,
+    guest_token: isUser ? null : owner.guestToken,
     name: input.name?.trim() || null,
     lead_email: input.leadEmail?.trim() || null,
     scene_definition: asJson(input.scenes),
@@ -67,6 +85,7 @@ async function persistDesign(
     source_artwork_files: asJson(sourceArtwork),
     colour: asJson({ name: input.colourName, hex: input.colourHex ?? null }),
     size_quantities: asJson(input.sizeQuantities),
+    colorways: asJson(input.colorways ?? []),
     decoration_method_id: input.decorationMethodId,
     print_area_ids: input.printAreaIds,
     price_snapshot: asJson(input.priceSnapshot),
@@ -74,13 +93,9 @@ async function persistDesign(
   };
 
   if (input.designId) {
-    const { data, error } = await service
-      .from("designs")
-      .update(row)
-      .eq("id", input.designId)
-      .eq("customer_id", userId)
-      .select("id")
-      .single();
+    const q = service.from("designs").update(row).eq("id", input.designId);
+    const scoped = isUser ? q.eq("customer_id", owner.userId) : q.eq("guest_token", owner.guestToken);
+    const { data, error } = await scoped.select("id").single();
     if (error) throw new Error(error.message);
     return data.id;
   }
@@ -93,10 +108,16 @@ export async function saveDraftAction(
   input: DesignSubmitInput
 ): Promise<{ designId?: string; needsLogin?: boolean; error?: string }> {
   const user = await getUser();
-  if (!user) return { needsLogin: true };
   const service = requireSupabaseServiceClient();
   try {
-    const designId = await persistDesign(service, user.id, input, "draft");
+    if (user) {
+      const designId = await persistDesign(service, { userId: user.id }, input, "draft");
+      return { designId };
+    }
+    // Guest path — proceed with just an email, identified by a cookie token.
+    if (!input.leadEmail?.trim()) return { error: "Enter your email to continue." };
+    const guestToken = await getOrCreateGuestToken();
+    const designId = await persistDesign(service, { guestToken }, input, "draft");
     return { designId };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save draft" };
@@ -111,7 +132,7 @@ export async function submitDesignAction(
   const service = requireSupabaseServiceClient();
 
   try {
-    const designId = await persistDesign(service, user.id, input, "submitted");
+    const designId = await persistDesign(service, { userId: user.id }, input, "submitted");
 
     // Quote path — staff price it later.
     if (input.asQuote) {

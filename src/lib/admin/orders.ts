@@ -76,10 +76,12 @@ export async function getAdminOrders(): Promise<AdminOrderListItem[]> {
     const iNotes = (order.internal_notes ?? []) as { text?: string }[];
     const latestNote = [...iNotes, ...cNotes].slice(-1)[0]?.text ?? null;
 
+    // Guests have no profile — fall back to the order's guest email + ship-to name.
+    const ship = (order.shipping_address ?? {}) as { name?: string };
     return {
       order,
-      customerName: profile?.name ?? null,
-      customerEmail: profile?.email ?? null,
+      customerName: profile?.name ?? ship.name ?? null,
+      customerEmail: profile?.email ?? order.guest_email ?? null,
       pieces: sumQuantities(items),
       total: pricing.total ?? 0,
       mockups: [...officials, ...mockups],
@@ -123,6 +125,12 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
       .eq("id", order.customer_id)
       .maybeSingle();
     customer = data ?? null;
+  } else {
+    // Guest order — synthesize a contact from the order's guest email + ship-to.
+    const ship = (order.shipping_address ?? {}) as { name?: string; phone?: string };
+    if (order.guest_email || ship.name) {
+      customer = { id: "guest", name: ship.name ?? null, email: order.guest_email ?? null, phone: ship.phone ?? null };
+    }
   }
 
   return {

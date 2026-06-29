@@ -44,15 +44,18 @@ export function ReviewClient({
     setBusy(true);
     try {
       const res = await placeOrderAction({ designId, fulfillment, turnaround });
-      if (res.needsLogin) {
-        router.push(`/login?next=/checkout/${designId}/review`);
-        return;
-      }
       if (res.error) {
         setError(res.error);
         return;
       }
-      if (res.orderId) router.push(`/account/orders/${res.orderId}?placed=1`);
+      if (res.orderId) {
+        // Guests have no account — send them to a public confirmation page.
+        if (res.isGuest) {
+          router.push(`/checkout/done?order=${encodeURIComponent(res.orderNumber ?? "")}`);
+        } else {
+          router.push(`/account/orders/${res.orderId}?placed=1`);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -150,7 +153,7 @@ export function ReviewClient({
         {/* Line item detail */}
         <section className="mt-6 rounded-2xl border border-dream-line bg-white p-6">
           <div className="flex flex-col gap-6 sm:flex-row">
-            <div className="relative h-52 w-full shrink-0 overflow-hidden rounded-xl border border-dream-line bg-dream-bg sm:h-44 sm:w-44">
+            <div className="relative h-52 w-full shrink-0 overflow-hidden rounded-xl bg-white sm:h-44 sm:w-44">
               {summary.mockupUrl ? (
                 <Image src={summary.mockupUrl} alt={summary.designName} fill className="object-contain" sizes="(max-width: 640px) 100vw, 176px" unoptimized />
               ) : (
@@ -175,23 +178,38 @@ export function ReviewClient({
                     {formatCAD(summary.subtotal)} CAD
                   </div>
                   <div className="mt-1 text-xs text-dream-muted">
-                    {summary.quantity} @ {formatCAD(ctx.unitPrice)} CAD/unit
+                    {summary.quantity} {summary.quantity === 1 ? "item" : "items"}
+                    {summary.colorways.length > 1 ? ` · ${summary.colorways.length} colours` : ""}
                   </div>
                 </div>
               </div>
 
-              <p className="mt-4 text-xs font-bold uppercase tracking-wide text-dream-muted">Item breakdown</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-dream-line px-2.5 py-1 text-sm">
-                  {summary.colourHex && (
-                    <span className="h-3 w-3 rounded-full border border-dream-line" style={{ backgroundColor: summary.colourHex }} />
-                  )}
-                  {summary.colourName ?? "—"}
-                </span>
-                {summary.sizeBreakdown.map((s) => (
-                  <span key={s.size} className="rounded-full bg-dream-bg px-2.5 py-1 text-sm font-medium">
-                    {s.size} ({s.qty})
-                  </span>
+              <p className="mt-4 text-xs font-bold uppercase tracking-wide text-dream-muted">Colours &amp; sizes</p>
+              <div className="mt-2 space-y-2">
+                {summary.colorways.map((cw, i) => (
+                  <div key={i} className="rounded-xl border border-dream-line p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-dream-ink">
+                        {cw.colourHex && (
+                          <span className="h-3.5 w-3.5 rounded-full border border-dream-line" style={{ backgroundColor: cw.colourHex }} />
+                        )}
+                        {cw.colourName ?? "—"}
+                      </span>
+                      <span className="text-xs text-dream-muted">
+                        {cw.quantity} @ {formatCAD(cw.unitPrice)} ={" "}
+                        <span className="font-bold text-dream-ink">{formatCAD(cw.lineTotal)} CAD</span>
+                      </span>
+                    </div>
+                    {cw.sizeBreakdown.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {cw.sizeBreakdown.map((s) => (
+                          <span key={s.size} className="rounded-full bg-dream-bg px-2.5 py-1 text-xs font-medium">
+                            {s.size} ({s.qty})
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
 

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ScribbleButton from "./ScribbleButton";
+import { AccountIcon } from "./AccountIcon";
 
 const NAV_LINKS = [
   { label: "Shop All", href: "/shop", rotate: 1 },
@@ -178,6 +179,17 @@ export default function SiteNav() {
             Quick Quote
           </Link>
           </div>
+
+          {/* Account — links to the portal; the /account route bounces logged-out
+              visitors to /login. Visible at every breakpoint. */}
+          <Link
+            href="/account"
+            aria-label="Your account"
+            title="Your account"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+          >
+            <AccountIcon className="h-[19px] w-[19px]" />
+          </Link>
 
           <button
             type="button"

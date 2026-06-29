@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { getOrCreateGuestToken } from "@/lib/guest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Mints signed upload URLs so the browser pushes design mockups + source artwork
-// straight to Storage (bypassing serverless body limits). Auth-gated: only a
-// logged-in user can stage uploads, scoped under their own user id.
+// straight to Storage (bypassing serverless body limits). Open to logged-in
+// customers (scoped under their user id) and guests (scoped under a cookie
+// token, minted here so guest checkout can stage uploads before the design is
+// saved).
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 const BUCKETS = new Set(["designs", "artwork", "proofs"]);
@@ -21,7 +24,9 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supa.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  // Logged-in customers scope under their user id; guests under their cookie
+  // token (created here on first upload — guest checkout uploads before saving).
+  const ownerPrefix = user ? user.id : `guest/${await getOrCreateGuestToken()}`;
 
   let body: unknown;
   try {
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `"${f.name}" exceeds the size limit.` }, { status: 413 });
     }
     const kind = sanitize(f.kind ?? "file");
-    const path = `${user.id}/${batch}/${kind}/${i}-${sanitize(f.name ?? "file")}`;
+    const path = `${ownerPrefix}/${batch}/${kind}/${i}-${sanitize(f.name ?? "file")}`;
     const { data, error } = await service.storage.from(bucket).createSignedUploadUrl(path);
     if (error || !data) {
       return NextResponse.json({ error: "Could not prepare upload." }, { status: 500 });

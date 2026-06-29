@@ -4,14 +4,21 @@ import Image from "next/image";
 import { formatCAD } from "@/lib/money";
 import { calcTax, type ProvinceCode } from "@/lib/pricing/tax";
 
-export interface CheckoutSummary {
-  designName: string;
-  productName: string;
-  brand: string | null;
+export interface SummaryColorway {
   colourName: string | null;
   colourHex: string | null;
   sizeBreakdown: { size: string; qty: number }[];
   quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface CheckoutSummary {
+  designName: string;
+  productName: string;
+  brand: string | null;
+  colorways: SummaryColorway[];
+  quantity: number; // total across all colourways
   mockupUrl: string | null;
   subtotal: number;
   setup: number;
@@ -45,7 +52,7 @@ export function OrderSummary({
 
       {/* Line item */}
       <div className="mt-4 flex gap-3">
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-dream-line bg-dream-bg">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-white">
           {summary.mockupUrl ? (
             <Image src={summary.mockupUrl} alt={summary.designName} fill className="object-contain" sizes="80px" unoptimized />
           ) : (
@@ -64,17 +71,23 @@ export function OrderSummary({
             {summary.productName}
             {summary.brand ? ` · ${summary.brand}` : ""}
           </p>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-dream-muted">
-            {summary.colourHex && (
-              <span className="inline-block h-3 w-3 rounded-full border border-dream-line" style={{ backgroundColor: summary.colourHex }} />
-            )}
-            {summary.colourName ?? "—"} · {summary.quantity} {summary.quantity === 1 ? "item" : "items"}
-          </p>
-          {summary.sizeBreakdown.length > 0 && (
-            <p className="mt-1 text-[11px] text-dream-faint">
-              {summary.sizeBreakdown.map((s) => `${s.size}×${s.qty}`).join("  ")}
-            </p>
-          )}
+          <div className="mt-1.5 space-y-1.5">
+            {summary.colorways.map((cw, i) => (
+              <div key={i}>
+                <p className="flex items-center gap-1.5 text-xs text-dream-muted">
+                  {cw.colourHex && (
+                    <span className="inline-block h-3 w-3 rounded-full border border-dream-line" style={{ backgroundColor: cw.colourHex }} />
+                  )}
+                  {cw.colourName ?? "—"} · {cw.quantity} {cw.quantity === 1 ? "item" : "items"}
+                </p>
+                {cw.sizeBreakdown.length > 0 && (
+                  <p className="mt-0.5 text-[11px] text-dream-faint">
+                    {cw.sizeBreakdown.map((s) => `${s.size}×${s.qty}`).join("  ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

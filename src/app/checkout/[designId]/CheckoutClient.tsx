@@ -74,10 +74,6 @@ export function CheckoutClient({
         province: form.province,
         postal: form.postal.trim(),
       });
-      if (res.needsLogin) {
-        router.push(`/login?next=/checkout/${designId}`);
-        return;
-      }
       if (res.error) {
         setError(res.error);
         return;

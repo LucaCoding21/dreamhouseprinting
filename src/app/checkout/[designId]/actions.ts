@@ -1,11 +1,33 @@
 "use server";
 
-import { getUser } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
+import { roundCents } from "@/lib/money";
+import { resolveCheckoutAuth } from "./context";
 import type { Json } from "@/lib/db/types";
 
 const asJson = (v: unknown) => v as unknown as Json;
+
+interface GuestContact {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  street?: string;
+  city?: string;
+  province?: string;
+  postal?: string;
+}
+
+interface StoredColorway {
+  colourName?: string;
+  colourHex?: string | null;
+  sizeQuantities?: Record<string, number>;
+  quantity?: number;
+  unitPrice?: number;
+  lineTotal?: number;
+}
 
 interface StoredAddress {
   name?: string;
@@ -46,21 +68,37 @@ export interface CheckoutContactInput {
  */
 export async function saveContactAction(
   input: CheckoutContactInput
-): Promise<{ ok?: boolean; needsLogin?: boolean; error?: string }> {
-  const user = await getUser();
-  if (!user) return { needsLogin: true };
+): Promise<{ ok?: boolean; error?: string }> {
+  const auth = await resolveCheckoutAuth(input.designId);
+  if (!auth) return { error: "We couldn’t find your design — please start over." };
   const service = requireSupabaseServiceClient();
 
-  // Make sure the design belongs to this customer before we tie anything to it.
-  const { data: design } = await service
-    .from("designs")
-    .select("id")
-    .eq("id", input.designId)
-    .eq("customer_id", user.id)
-    .single();
-  if (!design) return { error: "Design not found." };
-
   const fullName = `${input.firstName} ${input.lastName}`.replace(/\s+/g, " ").trim();
+
+  if (auth.isGuest) {
+    // Guests have no profile, so their contact + address lives on the design.
+    const { error } = await service
+      .from("designs")
+      .update({
+        guest_contact: asJson({
+          firstName: input.firstName.trim(),
+          lastName: input.lastName.trim(),
+          email: input.email.trim(),
+          phone: input.phone.trim(),
+          company: input.company?.trim() || "",
+          street: input.street.trim(),
+          city: input.city.trim(),
+          province: input.province,
+          postal: input.postal.trim().toUpperCase(),
+        }),
+        lead_email: input.email.trim() || null,
+      })
+      .eq("id", input.designId)
+      .eq("guest_token", auth.guestToken!);
+    if (error) return { error: error.message };
+    return { ok: true };
+  }
+
   const address = {
     label: "Primary",
     name: fullName,
@@ -80,7 +118,7 @@ export async function saveContactAction(
       phone: input.phone.trim() || null,
       addresses: asJson([address]),
     })
-    .eq("id", user.id);
+    .eq("id", auth.userId!);
   if (error) return { error: error.message };
 
   return { ok: true };
@@ -103,25 +141,42 @@ export interface PlaceOrderInput {
  */
 export async function placeOrderAction(
   input: PlaceOrderInput
-): Promise<{ orderId?: string; orderNumber?: string; needsLogin?: boolean; error?: string }> {
-  const user = await getUser();
-  if (!user) return { needsLogin: true };
+): Promise<{ orderId?: string; orderNumber?: string; isGuest?: boolean; error?: string }> {
+  const auth = await resolveCheckoutAuth(input.designId);
+  if (!auth) return { error: "We couldn’t find your design — please start over." };
   const service = requireSupabaseServiceClient();
 
   const { data: design } = await service
     .from("designs")
-    .select("id, name, product_id, colour, size_quantities, price_snapshot, decoration_method_id")
+    .select("id, name, product_id, colour, colorways, size_quantities, price_snapshot, decoration_method_id, guest_contact")
     .eq("id", input.designId)
-    .eq("customer_id", user.id)
     .single();
   if (!design) return { error: "Design not found." };
 
-  const { data: profile } = await service
-    .from("profiles")
-    .select("addresses")
-    .eq("id", user.id)
-    .single();
-  const address = (((profile?.addresses ?? []) as StoredAddress[])[0] ?? null) as StoredAddress | null;
+  // Contact + shipping address: the profile for logged-in customers, the
+  // design's guest_contact for guests (who have no profile).
+  let address: StoredAddress | null;
+  let guestEmail: string | null = null;
+  if (auth.isGuest) {
+    const gc = (design.guest_contact ?? {}) as GuestContact;
+    const fullName = `${gc.firstName ?? ""} ${gc.lastName ?? ""}`.replace(/\s+/g, " ").trim();
+    guestEmail = gc.email?.trim() || null;
+    address = gc.street
+      ? {
+          name: fullName,
+          company: gc.company || null,
+          phone: gc.phone || "",
+          street: gc.street,
+          city: gc.city || "",
+          prov: gc.province || "",
+          postal: gc.postal || "",
+          country: "CA",
+        }
+      : null;
+  } else {
+    const { data: profile } = await service.from("profiles").select("addresses").eq("id", auth.userId!).single();
+    address = (((profile?.addresses ?? []) as StoredAddress[])[0] ?? null) as StoredAddress | null;
+  }
   if (!address?.street) return { error: "Add your contact details first." };
 
   const snap = (design.price_snapshot ?? {}) as StoredSnapshot;
@@ -151,7 +206,8 @@ export async function placeOrderAction(
   const { data: order, error: orderErr } = await service
     .from("orders")
     .insert({
-      customer_id: user.id,
+      customer_id: auth.userId,
+      guest_email: guestEmail,
       status: "submitted",
       payment_status: "unpaid",
       pricing: asJson({ subtotal, setupFees: setup, shipping, tax, total }),
@@ -165,30 +221,50 @@ export async function placeOrderAction(
     .single();
   if (orderErr) return { error: orderErr.message };
 
-  const { error: liErr } = await service.from("line_items").insert({
+  // One line item per garment colourway. Setup is a single shared fee, placed on
+  // the first line so the line totals sum to the order's subtotal + setup.
+  const rawColorways = (design.colorways ?? []) as StoredColorway[];
+  const legacySizes = (design.size_quantities ?? {}) as Record<string, number>;
+  const legacyColour = (design.colour ?? {}) as { name?: string; hex?: string | null };
+  const colorways: StoredColorway[] = rawColorways.length
+    ? rawColorways
+    : [
+        {
+          colourName: legacyColour.name,
+          colourHex: legacyColour.hex ?? null,
+          sizeQuantities: legacySizes,
+          quantity: Object.values(legacySizes).reduce((s, n) => s + (Number(n) > 0 ? Number(n) : 0), 0),
+          unitPrice: Number(snap.unitPrice ?? 0),
+          lineTotal: Number(snap.subtotal ?? subtotal),
+        },
+      ];
+
+  const lineRows = colorways.map((cw, i) => ({
     order_id: order.id,
     product_id: design.product_id,
     design_id: design.id,
     product_name: product?.name ?? null,
-    colour: design.colour,
-    size_quantities: design.size_quantities,
+    colour: asJson({ name: cw.colourName ?? null, hex: cw.colourHex ?? null }),
+    size_quantities: asJson(cw.sizeQuantities ?? {}),
     decoration_method_id: design.decoration_method_id,
-    unit_price: Number(snap.unitPrice ?? 0),
-    setup_fee: setup,
-    line_total: Number(snap.total ?? subtotal + setup),
-  });
+    unit_price: Number(cw.unitPrice ?? 0),
+    setup_fee: i === 0 ? setup : 0,
+    line_total: roundCents(Number(cw.lineTotal ?? 0) + (i === 0 ? setup : 0)),
+  }));
+  const { error: liErr } = await service.from("line_items").insert(lineRows);
   if (liErr) return { error: liErr.message };
 
   // The design was a draft until the order was placed.
-  await service.from("designs").update({ status: "submitted" }).eq("id", design.id).eq("customer_id", user.id);
+  const statusUpdate = service.from("designs").update({ status: "submitted" }).eq("id", design.id);
+  await (auth.isGuest ? statusUpdate.eq("guest_token", auth.guestToken!) : statusUpdate.eq("customer_id", auth.userId!));
 
   await service.from("order_activity").insert({
     order_id: order.id,
-    actor_id: user.id,
+    actor_id: auth.userId,
     actor_name: "Customer",
     type: "order_created",
-    detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround }),
+    detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround, guest: auth.isGuest }),
   });
 
-  return { orderId: order.id, orderNumber: order.order_number ?? undefined };
+  return { orderId: order.id, orderNumber: order.order_number ?? undefined, isGuest: auth.isGuest };
 }
