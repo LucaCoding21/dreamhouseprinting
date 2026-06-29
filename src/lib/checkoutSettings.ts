@@ -30,7 +30,7 @@ export const DEFAULT_CHECKOUT_SETTINGS: CheckoutSettings = {
   rushNote: "Fastest we can — we'll confirm timing + fee",
   timelineNote:
     "Printing time isn't included above. Tell us if it's a rush — we'll confirm the exact timeline and any rush fee on your proof.",
-  footnote: "No payment now — we review your artwork and send a proof to approve before anything is charged.",
+  footnote: "No payment now. An expert will review your artwork and send a proof to approve before anything is charged.",
 };
 
 /** Merge a stored settings blob over the defaults (defaults win for missing keys). */

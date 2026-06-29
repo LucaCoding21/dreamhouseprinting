@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { getUser } from "@/lib/auth";
 import { loadReviewContext } from "../context";
 import { ReviewClient } from "./ReviewClient";
 
@@ -29,10 +28,7 @@ export default async function ReviewStepPage({
 }) {
   const { designId } = await params;
   const sp = await searchParams;
-  const user = await getUser();
-  if (!user) redirect(`/login?next=/checkout/${designId}/review`);
-
-  const ctx = await loadReviewContext(designId, user.id, user.email ?? null);
+  const ctx = await loadReviewContext(designId);
   if (!ctx) notFound();
   if (!ctx.hasAddress) redirect(`/checkout/${designId}`);
 

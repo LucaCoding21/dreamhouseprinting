@@ -1,7 +1,9 @@
+import { getUser } from "@/lib/auth";
+import { getGuestToken } from "@/lib/guest";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { isProvinceCode, type ProvinceCode } from "@/lib/pricing/tax";
 import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSettings";
-import type { CheckoutSummary } from "./OrderSummary";
+import type { CheckoutSummary, SummaryColorway } from "./OrderSummary";
 
 interface PriceSnapshot {
   unitPrice?: number;
@@ -13,6 +15,14 @@ interface PriceSnapshot {
 interface ColourJson {
   name?: string;
   hex?: string | null;
+}
+interface StoredColorway {
+  colourName?: string;
+  colourHex?: string | null;
+  sizeQuantities?: Record<string, number>;
+  quantity?: number;
+  unitPrice?: number;
+  lineTotal?: number;
 }
 interface MockupJson {
   view?: string;
@@ -27,6 +37,12 @@ interface AddressJson {
   prov?: string;
   postal?: string;
   country?: string;
+}
+
+function breakdownOf(sizes: Record<string, number>): { size: string; qty: number }[] {
+  return Object.entries(sizes)
+    .filter(([, n]) => Number(n) > 0)
+    .map(([size, n]) => ({ size, qty: Number(n) }));
 }
 
 export interface CheckoutContact {
@@ -48,6 +64,14 @@ export interface CheckoutContext {
   contact: CheckoutContact;
   hasAddress: boolean;
   checkout: CheckoutSettings;
+  isGuest: boolean;
+}
+
+export interface CheckoutAuth {
+  isGuest: boolean;
+  userId: string | null;
+  guestToken: string | null;
+  userEmail: string | null;
 }
 
 function splitName(full: string | null | undefined): { first: string; last: string } {
@@ -58,22 +82,45 @@ function splitName(full: string | null | undefined): { first: string; last: stri
 }
 
 /**
- * Loads everything both checkout steps need from a saved design + the customer's
- * profile: the order summary, the prefilled contact form, and the province (for
- * tax). Returns null if the design doesn't exist or isn't this customer's.
+ * Authorize the current request for a design: it must belong to the logged-in
+ * user (customer_id) OR to this browser's guest cookie (guest_token). Returns
+ * null when neither matches — the design id alone never grants access.
  */
-export async function loadCheckoutContext(
-  designId: string,
-  userId: string,
-  userEmail: string | null,
-): Promise<CheckoutContext | null> {
+export async function resolveCheckoutAuth(designId: string): Promise<CheckoutAuth | null> {
+  const service = requireSupabaseServiceClient();
+  const [user, guestToken] = await Promise.all([getUser(), getGuestToken()]);
+
+  const { data: design } = await service
+    .from("designs")
+    .select("customer_id, guest_token")
+    .eq("id", designId)
+    .single();
+  if (!design) return null;
+
+  if (user && design.customer_id === user.id) {
+    return { isGuest: false, userId: user.id, guestToken: null, userEmail: user.email ?? null };
+  }
+  if (guestToken && design.guest_token && design.guest_token === guestToken) {
+    return { isGuest: true, userId: null, guestToken, userEmail: null };
+  }
+  return null;
+}
+
+/**
+ * Loads everything both checkout steps need from a saved design: the order
+ * summary, the prefilled contact form, and the province (for tax). Contact comes
+ * from the customer's profile when logged in, or the design's guest_contact for
+ * guests. Returns null if the requester isn't authorized for the design.
+ */
+export async function loadCheckoutContext(designId: string): Promise<CheckoutContext | null> {
+  const auth = await resolveCheckoutAuth(designId);
+  if (!auth) return null;
   const service = requireSupabaseServiceClient();
 
   const { data: design } = await service
     .from("designs")
-    .select("id, name, colour, size_quantities, price_snapshot, mockup_images, product_id, lead_email")
+    .select("id, name, colour, colorways, size_quantities, price_snapshot, mockup_images, product_id, lead_email, guest_contact")
     .eq("id", designId)
-    .eq("customer_id", userId)
     .single();
   if (!design) return null;
 
@@ -81,11 +128,9 @@ export async function loadCheckoutContext(
     ? await service.from("products").select("name, brand").eq("id", design.product_id).single()
     : { data: null };
 
-  const { data: profile } = await service
-    .from("profiles")
-    .select("name, phone, email, addresses")
-    .eq("id", userId)
-    .single();
+  const { data: profile } = auth.userId
+    ? await service.from("profiles").select("name, phone, email, addresses").eq("id", auth.userId).single()
+    : { data: null };
 
   const { data: checkoutSetting } = await service
     .from("settings")
@@ -97,44 +142,83 @@ export async function loadCheckoutContext(
   const colour = (design.colour ?? {}) as ColourJson;
   const sizes = (design.size_quantities ?? {}) as Record<string, number>;
   const mockups = (design.mockup_images ?? []) as MockupJson[];
-  const quantity = Object.values(sizes).reduce((s, n) => s + (Number(n) > 0 ? Number(n) : 0), 0);
+  const rawColorways = (design.colorways ?? []) as StoredColorway[];
+
+  // Prefer the stored colourways; fall back to the legacy single colour/sizes
+  // for designs saved before multi-colour existed.
+  const colorways: SummaryColorway[] = rawColorways.length
+    ? rawColorways.map((cw) => ({
+        colourName: cw.colourName ?? null,
+        colourHex: cw.colourHex ?? null,
+        sizeBreakdown: breakdownOf(cw.sizeQuantities ?? {}),
+        quantity: Number(cw.quantity ?? 0),
+        unitPrice: Number(cw.unitPrice ?? 0),
+        lineTotal: Number(cw.lineTotal ?? 0),
+      }))
+    : [
+        {
+          colourName: colour.name ?? null,
+          colourHex: colour.hex ?? null,
+          sizeBreakdown: breakdownOf(sizes),
+          quantity: Object.values(sizes).reduce((s, n) => s + (Number(n) > 0 ? Number(n) : 0), 0),
+          unitPrice: Number(snap.unitPrice ?? 0),
+          lineTotal: Number(snap.subtotal ?? 0),
+        },
+      ];
+  const quantity = colorways.reduce((s, c) => s + c.quantity, 0);
 
   const summary: CheckoutSummary = {
     designName: design.name ?? "Your design",
     productName: product?.name ?? "Custom item",
     brand: product?.brand ?? null,
-    colourName: colour.name ?? null,
-    colourHex: colour.hex ?? null,
-    sizeBreakdown: Object.entries(sizes)
-      .filter(([, n]) => Number(n) > 0)
-      .map(([size, n]) => ({ size, qty: Number(n) })),
+    colorways,
     quantity,
     mockupUrl: mockups.find((m) => m.url)?.url ?? null,
     subtotal: Number(snap.subtotal ?? 0),
     setup: Number(snap.setupTotal ?? 0),
   };
 
-  const addr = (((profile?.addresses ?? []) as AddressJson[])[0] ?? {}) as AddressJson;
-  const { first, last } = splitName(addr.name || profile?.name);
-  const contact: CheckoutContact = {
-    firstName: first,
-    lastName: last,
-    email: design.lead_email || profile?.email || userEmail || "",
-    phone: addr.phone || profile?.phone || "",
-    company: addr.company || "",
-    street: addr.street || "",
-    city: addr.city || "",
-    province: addr.prov || "",
-    postal: addr.postal || "",
-  };
+  let contact: CheckoutContact;
+  let province: ProvinceCode | null;
+  if (auth.isGuest) {
+    const gc = (design.guest_contact ?? {}) as Partial<CheckoutContact>;
+    contact = {
+      firstName: gc.firstName || "",
+      lastName: gc.lastName || "",
+      email: gc.email || design.lead_email || "",
+      phone: gc.phone || "",
+      company: gc.company || "",
+      street: gc.street || "",
+      city: gc.city || "",
+      province: gc.province || "",
+      postal: gc.postal || "",
+    };
+    province = isProvinceCode(contact.province) ? contact.province : null;
+  } else {
+    const addr = (((profile?.addresses ?? []) as AddressJson[])[0] ?? {}) as AddressJson;
+    const { first, last } = splitName(addr.name || profile?.name);
+    contact = {
+      firstName: first,
+      lastName: last,
+      email: design.lead_email || profile?.email || auth.userEmail || "",
+      phone: addr.phone || profile?.phone || "",
+      company: addr.company || "",
+      street: addr.street || "",
+      city: addr.city || "",
+      province: addr.prov || "",
+      postal: addr.postal || "",
+    };
+    province = isProvinceCode(addr.prov) ? addr.prov : null;
+  }
 
   return {
     designId: design.id,
     summary,
     contact,
-    province: isProvinceCode(addr.prov) ? addr.prov : null,
-    hasAddress: !!(addr.street && addr.prov),
+    province,
+    hasAddress: !!(contact.street && isProvinceCode(contact.province)),
     checkout: mergeCheckoutSettings(checkoutSetting?.value),
+    isGuest: auth.isGuest,
   };
 }
 
@@ -149,20 +233,16 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Everything the order-review step shows on top of the base checkout context:
  *  the line-item decoration detail + the product lead time for the projection. */
-export async function loadReviewContext(
-  designId: string,
-  userId: string,
-  userEmail: string | null,
-): Promise<ReviewContext | null> {
-  const base = await loadCheckoutContext(designId, userId, userEmail);
+export async function loadReviewContext(designId: string): Promise<ReviewContext | null> {
+  const base = await loadCheckoutContext(designId);
   if (!base) return null;
   const service = requireSupabaseServiceClient();
 
+  // Already authorized by loadCheckoutContext — safe to fetch by id.
   const { data: design } = await service
     .from("designs")
     .select("decoration_method_id, print_area_ids, price_snapshot, product_id")
     .eq("id", designId)
-    .eq("customer_id", userId)
     .single();
 
   const snap = (design?.price_snapshot ?? {}) as PriceSnapshot;

@@ -120,10 +120,13 @@ export type Database = {
       }
       designs: {
         Row: {
+          colorways: Json
           colour: Json | null
           created_at: string
           customer_id: string | null
           decoration_method_id: string | null
+          guest_contact: Json | null
+          guest_token: string | null
           id: string
           lead_email: string | null
           mockup_images: Json
@@ -139,10 +142,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          colorways?: Json
           colour?: Json | null
           created_at?: string
           customer_id?: string | null
           decoration_method_id?: string | null
+          guest_contact?: Json | null
+          guest_token?: string | null
           id?: string
           lead_email?: string | null
           mockup_images?: Json
@@ -158,10 +164,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          colorways?: Json
           colour?: Json | null
           created_at?: string
           customer_id?: string | null
           decoration_method_id?: string | null
+          guest_contact?: Json | null
+          guest_token?: string | null
           id?: string
           lead_email?: string | null
           mockup_images?: Json
@@ -337,6 +346,7 @@ export type Database = {
           customer_notes: Json
           due_date: string | null
           fulfillment_method: string | null
+          guest_email: string | null
           hold_note: string | null
           id: string
           internal_notes: Json
@@ -359,6 +369,7 @@ export type Database = {
           customer_notes?: Json
           due_date?: string | null
           fulfillment_method?: string | null
+          guest_email?: string | null
           hold_note?: string | null
           id?: string
           internal_notes?: Json
@@ -381,6 +392,7 @@ export type Database = {
           customer_notes?: Json
           due_date?: string | null
           fulfillment_method?: string | null
+          guest_email?: string | null
           hold_note?: string | null
           id?: string
           internal_notes?: Json

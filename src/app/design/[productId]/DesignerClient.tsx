@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
-import { formatCAD } from "@/lib/money";
+import { formatCAD, roundCents } from "@/lib/money";
 import { calcPrice } from "@/lib/pricing/platform";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ProductColourJson, PrintAreaPositionJson } from "@/lib/db/rows";
@@ -75,7 +75,13 @@ function imageForView(colour: ProductColourJson | undefined, view: View): string
 }
 
 const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6];
-const RUSH_MULTIPLIER = 1.5;
+
+// Quick-pick text colours (common ink colours). 15 presets + a custom picker
+// fill two rows of eight. Lowercase so selection matching is case-insensitive.
+const TEXT_COLORS = [
+  "#ffffff", "#d1d5db", "#6b7280", "#111111", "#1b1458", "#2563eb", "#38bdf8", "#14b8a6",
+  "#16a34a", "#facc15", "#f97316", "#ef4444", "#be123c", "#ec4899", "#7c3aed",
+];
 
 // A graph-paper grid that bleeds behind the whole canvas column.
 const GRID_BG: React.CSSProperties = {
@@ -159,10 +165,12 @@ export function DesignerClient(props: Props) {
   // Per-size quantity breakdown, collected on the review screen. Total quantity
   // is derived from the sum and drives pricing.
   const [sizeQty, setSizeQty] = useState<Record<string, number>>({});
-  const quantity = useMemo(
-    () => Object.values(sizeQty).reduce((sum, n) => sum + (n > 0 ? n : 0), 0),
-    [sizeQty]
-  );
+  // Additional garment colourways for the same artwork — each with its own size
+  // breakdown. The primary (canvas) colour + sizeQty is the first colourway;
+  // these are the "Add another colour" rows on the review screen.
+  const [extraColorways, setExtraColorways] = useState<
+    { id: string; colourName: string; sizeQty: Record<string, number> }[]
+  >([]);
   // Ink-colour count is determined from the artwork at proofing, not chosen here.
   const inkColours = 1;
   // Rush delivery is disabled for now — the toggle was removed from the review
@@ -209,35 +217,80 @@ export function DesignerClient(props: Props) {
   const sizeRange =
     props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
 
-  const base = useMemo(
-    () =>
-      calcPrice({
-        product: {
-          wholesale_cost: props.pricing.wholesale_cost,
-          base_price: props.pricing.base_price,
-          markup_type: props.pricing.markup_type,
-          markup_value: props.pricing.markup_value,
-          pricing_rules: props.pricing.pricing_rules as never,
-        },
-        method,
-        quantity: Math.max(quantity, 1),
-        colourCount: inkColours,
-        locationCount: Math.max(1, viewsWithArt.size),
-      }),
-    [props.pricing, method, quantity, inkColours, viewsWithArt]
+  const productInput = useMemo(
+    () => ({
+      wholesale_cost: props.pricing.wholesale_cost,
+      base_price: props.pricing.base_price,
+      markup_type: props.pricing.markup_type,
+      markup_value: props.pricing.markup_value,
+      pricing_rules: props.pricing.pricing_rules as never,
+    }),
+    [props.pricing]
+  );
+  const locationCount = Math.max(1, viewsWithArt.size);
+
+  // Per-colourway pricing. Each colour is bulk-tiered on ITS OWN quantity; the
+  // one-time setup is quantity-independent and counted once for the whole job.
+  const colourwayList = useMemo(
+    () => [
+      { colourName, sizeQty },
+      ...extraColorways.map((e) => ({ colourName: e.colourName, sizeQty: e.sizeQty })),
+    ],
+    [colourName, sizeQty, extraColorways]
   );
 
-  // Rush is a flat surcharge on the whole job (garment + decoration + setup).
-  const breakdown = useMemo(() => {
-    const f = rush ? RUSH_MULTIPLIER : 1;
-    return {
-      unitPrice: base.unitPrice * f,
-      subtotal: base.subtotal * f,
-      setupTotal: base.setupTotal * f,
-      total: base.total * f,
-      rushAddon: base.total * (f - 1),
-    };
-  }, [base, rush]);
+  const pricedColorways = useMemo(
+    () =>
+      colourwayList.map((cw) => {
+        const qty = Object.values(cw.sizeQty).reduce((s, n) => s + (n > 0 ? n : 0), 0);
+        const p = calcPrice({
+          product: productInput,
+          method,
+          quantity: Math.max(qty, 1),
+          colourCount: inkColours,
+          locationCount,
+        });
+        return {
+          colourName: cw.colourName,
+          hex: props.colours.find((c) => c.name === cw.colourName)?.hex ?? null,
+          sizeQty: cw.sizeQty,
+          quantity: qty,
+          unitPrice: p.unitPrice,
+          lineTotal: roundCents(p.unitPrice * qty),
+        };
+      }),
+    [colourwayList, productInput, method, inkColours, locationCount, props.colours]
+  );
+
+  const quantity = pricedColorways.reduce((s, c) => s + c.quantity, 0);
+  const setupTotal = useMemo(
+    () => calcPrice({ product: productInput, method, quantity: 1, colourCount: inkColours, locationCount }).setupTotal,
+    [productInput, method, inkColours, locationCount]
+  );
+  const grandSubtotal = roundCents(pricedColorways.reduce((s, c) => s + c.lineTotal, 0));
+  const breakdown = {
+    unitPrice: pricedColorways[0]?.unitPrice ?? 0,
+    subtotal: grandSubtotal,
+    setupTotal,
+    total: roundCents(grandSubtotal + setupTotal),
+  };
+
+  const colorwayId = useRef(0);
+  const usedColours = new Set(colourwayList.map((c) => c.colourName));
+  function addColorway() {
+    const next = props.colours.find((c) => !usedColours.has(c.name)) ?? props.colours[0];
+    if (!next) return;
+    setExtraColorways((rows) => [...rows, { id: `cw-${colorwayId.current++}`, colourName: next.name, sizeQty: {} }]);
+  }
+  function removeColorway(id: string) {
+    setExtraColorways((rows) => rows.filter((r) => r.id !== id));
+  }
+  function setColorwayColour(id: string, name: string) {
+    setExtraColorways((rows) => rows.map((r) => (r.id === id ? { ...r, colourName: name } : r)));
+  }
+  function setColorwaySize(id: string, size: string, val: number) {
+    setExtraColorways((rows) => rows.map((r) => (r.id === id ? { ...r, sizeQty: { ...r.sizeQty, [size]: val } } : r)));
+  }
 
   // (Re)load every mounted canvas's garment + print area when the colour changes.
   // Art on each canvas is preserved — only the garment backdrop swaps.
@@ -466,7 +519,9 @@ export function DesignerClient(props: Props) {
       if (destination === "checkout") setSaveError(msg);
       else setError(msg);
     };
-    if (!props.isLoggedIn) {
+    // "Save & share" parks the draft in My Designs, which needs an account.
+    // "Begin checkout" allows guests (they save with just an email + cookie).
+    if (!props.isLoggedIn && destination === "designs") {
       router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
       return;
     }
@@ -516,8 +571,19 @@ export function DesignerClient(props: Props) {
         leadEmail: extras?.leadEmail,
         colourName,
         colourHex: colour?.hex,
-        // Per-size breakdown collected on the review screen.
+        // Per-size breakdown of the primary colour (first colourway).
         sizeQuantities: sizeQty,
+        // Every colourway with quantity — one order line item each.
+        colorways: pricedColorways
+          .filter((c) => c.quantity > 0)
+          .map((c) => ({
+            colourName: c.colourName,
+            colourHex: c.hex ?? undefined,
+            sizeQuantities: c.sizeQty,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            lineTotal: c.lineTotal,
+          })),
         decorationMethodId: methodId,
         printAreaIds: viewsArt.map((v) => printAreaForView(v)?.id).filter(Boolean) as string[],
         scenes: allScenes,
@@ -689,7 +755,7 @@ export function DesignerClient(props: Props) {
                     <span
                       className={cn(
                         "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15 transition-shadow",
-                        selected && "ring-2 ring-dream-purple shadow-[0_0_7px_1px_rgba(118,100,255,0.5)]"
+                        selected && "ring-2 ring-dream-purple"
                       )}
                       style={{ backgroundColor: c.hex }}
                     />
@@ -716,37 +782,8 @@ export function DesignerClient(props: Props) {
 
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Design tools</div>
 
-            {/* Tool pills mirror the rail selection */}
-            <div className="mt-3 grid grid-cols-3 gap-2.5">
-              {TOOLS.map((t) => {
-                const isActive = tool === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTool(t.id)}
-                    aria-pressed={isActive}
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 py-3 transition-colors",
-                      isActive
-                        ? "border-dream-ink bg-dream-ink text-white shadow-sm"
-                        : "border-dream-line bg-white text-dream-ink hover:border-dream-line-strong"
-                    )}
-                  >
-                    <Image
-                      src={t.icon}
-                      alt=""
-                      width={22}
-                      height={22}
-                      className={cn("h-5 w-auto", isActive && "[filter:brightness(0)_invert(1)]")}
-                    />
-                    <span className="text-xs font-semibold">{t.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Active tool panel */}
-            <div className="mt-4 rounded-2xl bg-dream-cream/60 p-4">
+            {/* Selected tool's content — the tool is chosen from the icon rail. */}
+            <div className="mt-3 rounded-2xl bg-dream-cream/60 p-4">
               {tool === "upload" && (
                 <>
                   <h3 className="font-display text-base font-bold text-dream-ink">Upload artwork</h3>
@@ -787,16 +824,44 @@ export function DesignerClient(props: Props) {
                     <Image src="/designer/tool-text.svg" alt="" width={16} height={16} className="h-4 w-auto" />
                     Add a text box
                   </button>
-                  <label className="mt-3 flex items-center justify-between gap-2 text-xs font-medium text-dream-muted">
-                    Text colour
-                    <input
-                      type="color"
-                      value={textColor}
-                      onChange={(e) => applyTextColor(e.target.value)}
-                      className="h-7 w-10 cursor-pointer rounded border border-dream-line bg-transparent p-0.5"
-                    />
-                  </label>
-                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">Double-click the text on the shirt to edit it.</p>
+                  <div className="mt-3 text-xs font-medium text-dream-muted">Text colour</div>
+                  <div className="mt-2 grid grid-cols-8 gap-1.5">
+                    {TEXT_COLORS.map((hex) => {
+                      const selected = textColor.toLowerCase() === hex;
+                      return (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => applyTextColor(hex)}
+                          aria-label={hex}
+                          aria-pressed={selected}
+                          title={hex}
+                          className={cn(
+                            "aspect-square rounded-full transition-transform hover:scale-110",
+                            selected ? "ring-2 ring-dream-purple" : "ring-1 ring-inset ring-dream-ink/15"
+                          )}
+                          style={{ backgroundColor: hex }}
+                        />
+                      );
+                    })}
+                    {/* Custom colour — opens the native picker for anything else. */}
+                    <label
+                      title="Custom colour"
+                      className={cn(
+                        "relative aspect-square cursor-pointer rounded-full transition-transform hover:scale-110",
+                        TEXT_COLORS.includes(textColor.toLowerCase()) ? "ring-1 ring-inset ring-dream-ink/15" : "ring-2 ring-dream-purple"
+                      )}
+                      style={{ background: "conic-gradient(from 0deg, #ef4444, #facc15, #16a34a, #38bdf8, #7c3aed, #ec4899, #ef4444)" }}
+                    >
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(e) => applyTextColor(e.target.value)}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        aria-label="Custom text colour"
+                      />
+                    </label>
+                  </div>
                 </>
               )}
 
@@ -999,7 +1064,7 @@ export function DesignerClient(props: Props) {
           <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3">
             <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
               <p className={cn("truncate text-sm", error ? "text-dream-danger" : "text-dream-muted")}>
-                {error ?? "Looking good — set your quantity and see pricing next."}
+                {error ?? "Looking good! Set your quantity and see pricing next."}
               </p>
               <button
                 onClick={goToReview}
@@ -1060,47 +1125,44 @@ export function DesignerClient(props: Props) {
                   ))}
                 </div>
 
-                {/* Colour */}
-                <div className="mt-4 flex items-center gap-2.5">
-                  <span
-                    className="h-6 w-6 rounded-full border border-dream-line"
-                    style={{ backgroundColor: colour?.hex ?? "#e5e7eb" }}
-                  />
-                  <span className="text-sm font-semibold text-dream-ink">{colourName}</span>
-                </div>
-
                 <hr className="my-5 border-dream-line" />
-                {/* Per-size quantities — same raised-pill design as the quote form's size breakdown */}
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Quantity by size</div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                    {props.sizes.map((s) => {
-                      const v = sizeQty[s.name] ?? 0;
-                      const active = v > 0;
-                      return (
-                        <label
-                          key={s.name}
-                          className={cn(
-                            "flex items-center gap-2 rounded-2xl border-2 bg-white px-3 py-2.5 transition",
-                            active ? "border-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.9)]" : "border-dream-ink/60"
-                          )}
-                        >
-                          <span className="font-display text-sm font-bold text-dream-ink">{s.name}</span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={v || ""}
-                            placeholder="0"
-                            onChange={(e) =>
-                              setSizeQty((q) => ({ ...q, [s.name]: Math.max(0, Number(e.target.value.replace(/[^0-9]/g, "")) || 0) }))
-                            }
-                            className="w-full min-w-0 bg-transparent text-right text-base font-semibold text-dream-ink outline-none placeholder:text-dream-ink/30"
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
+                {/* Colours & sizes — one block per garment colourway. Same artwork,
+                    different shirt colours; each colour is priced on its own qty. */}
+                <div className="space-y-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Colours &amp; sizes</div>
+
+                  <ColorwayBlock
+                    hex={colour?.hex ?? null}
+                    name={colourName}
+                    sizes={props.sizes}
+                    sizeQty={sizeQty}
+                    onSize={(size, val) => setSizeQty((q) => ({ ...q, [size]: val }))}
+                    pricing={pricedColorways[0]}
+                  />
+
+                  {extraColorways.map((cw, i) => (
+                    <ColorwayBlock
+                      key={cw.id}
+                      hex={props.colours.find((c) => c.name === cw.colourName)?.hex ?? null}
+                      name={cw.colourName}
+                      colours={props.colours}
+                      onColour={(name) => setColorwayColour(cw.id, name)}
+                      onRemove={() => removeColorway(cw.id)}
+                      sizes={props.sizes}
+                      sizeQty={cw.sizeQty}
+                      onSize={(size, val) => setColorwaySize(cw.id, size, val)}
+                      pricing={pricedColorways[i + 1]}
+                    />
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={addColorway}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-dream-purple/50 px-4 py-3 font-display text-sm font-bold text-dream-purple transition-colors hover:bg-dream-lavender-soft"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+                    Add another colour
+                  </button>
                 </div>
 
                 {/* Quantity + total */}
@@ -1112,7 +1174,9 @@ export function DesignerClient(props: Props) {
                   <div className="text-right">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Total</div>
                     <div className="font-display text-2xl font-extrabold text-dream-purple">{formatCAD(breakdown.total)}</div>
-                    <div className="text-xs text-dream-faint">{formatCAD(breakdown.unitPrice)} / unit</div>
+                    {breakdown.setupTotal > 0 && (
+                      <div className="text-xs text-dream-faint">incl. {formatCAD(breakdown.setupTotal)} setup</div>
+                    )}
                   </div>
                 </div>
 
@@ -1170,7 +1234,7 @@ export function DesignerClient(props: Props) {
           <DialogHeader>
             <DialogTitle>Save your design</DialogTitle>
             <DialogDescription>
-              Name it so you can find it later, and confirm your email — that’s where we’ll send your proof.
+              Name it so you can find it later, and confirm your email. That’s where we’ll send your proof.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 px-5 pb-1">
@@ -1183,7 +1247,7 @@ export function DesignerClient(props: Props) {
                 maxLength={80}
               />
             </Field>
-            <Field label="Email" htmlFor="lead-email" required hint="Where we’ll send your proof & order updates.">
+            <Field label="Email" htmlFor="lead-email" required>
               <Input
                 id="lead-email"
                 type="email"
@@ -1222,6 +1286,99 @@ export function DesignerClient(props: Props) {
       </Dialog>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+/** One garment colourway on the review screen: a colour (static for the primary,
+ *  a picker for added ones) + a per-size grid + that colour's running subtotal. */
+function ColorwayBlock({
+  hex,
+  name,
+  colours,
+  onColour,
+  onRemove,
+  sizes,
+  sizeQty,
+  onSize,
+  pricing,
+}: {
+  hex: string | null;
+  name: string;
+  colours?: ProductColourJson[];
+  onColour?: (name: string) => void;
+  onRemove?: () => void;
+  sizes: { name: string; inStock: boolean }[];
+  sizeQty: Record<string, number>;
+  onSize: (size: string, val: number) => void;
+  pricing?: { quantity: number; unitPrice: number; lineTotal: number };
+}) {
+  return (
+    <div className="rounded-2xl border border-dream-line p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="h-6 w-6 shrink-0 rounded-full border border-dream-line" style={{ backgroundColor: hex ?? "#e5e7eb" }} />
+          {onColour ? (
+            <select
+              value={name}
+              onChange={(e) => onColour(e.target.value)}
+              className="min-w-0 rounded-lg border border-dream-line bg-white px-2 py-1.5 text-sm font-semibold text-dream-ink outline-none focus:border-dream-purple"
+            >
+              {colours?.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="truncate text-sm font-semibold text-dream-ink">{name}</span>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {pricing && pricing.quantity > 0 && (
+            <span className="text-right text-xs text-dream-faint">
+              {pricing.quantity} @ {formatCAD(pricing.unitPrice)} ={" "}
+              <span className="font-bold text-dream-ink">{formatCAD(pricing.lineTotal)}</span>
+            </span>
+          )}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label="Remove colour"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-cream hover:text-dream-danger"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {sizes.map((s) => {
+          const v = sizeQty[s.name] ?? 0;
+          const active = v > 0;
+          return (
+            <label
+              key={s.name}
+              className={cn(
+                "flex items-center gap-2 rounded-2xl border-2 bg-white px-3 py-2.5 transition",
+                active ? "border-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.9)]" : "border-dream-ink/60"
+              )}
+            >
+              <span className="font-display text-sm font-bold text-dream-ink">{s.name}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={v || ""}
+                placeholder="0"
+                onChange={(e) => onSize(s.name, Math.max(0, Number(e.target.value.replace(/[^0-9]/g, "")) || 0))}
+                className="w-full min-w-0 bg-transparent text-right text-base font-semibold text-dream-ink outline-none placeholder:text-dream-ink/30"
+              />
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { getUser } from "@/lib/auth";
 import { loadCheckoutContext } from "../context";
 import { ShippingClient } from "./ShippingClient";
 
@@ -11,10 +10,7 @@ export default async function ShippingStepPage({
   params: Promise<{ designId: string }>;
 }) {
   const { designId } = await params;
-  const user = await getUser();
-  if (!user) redirect(`/login?next=/checkout/${designId}/shipping`);
-
-  const ctx = await loadCheckoutContext(designId, user.id, user.email ?? null);
+  const ctx = await loadCheckoutContext(designId);
   if (!ctx) notFound();
   // Can't pick delivery before we have contact details — send them back.
   if (!ctx.hasAddress) redirect(`/checkout/${designId}`);
