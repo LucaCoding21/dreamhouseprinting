@@ -48,7 +48,7 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
   proof_ready: { label: "Proof ready", badge: "purple" },
   changes_requested: { label: "Changes requested", badge: "warn" },
   approved: { label: "Approved", badge: "success" },
-  in_production: { label: "In production", badge: "purple" },
+  in_production: { label: "In production", badge: "info" },
   quality_check: { label: "Quality check", badge: "info" },
   shipped: { label: "Shipped", badge: "success" },
   ready_for_pickup: { label: "Ready for pickup", badge: "success" },

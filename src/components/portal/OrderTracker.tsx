@@ -32,7 +32,7 @@ export function OrderTracker({ status }: { status: OrderStatus }) {
   const complete = stage >= last;
 
   return (
-    <div className="rounded-2xl border border-dream-line bg-white p-5 pt-4 shadow-sm">
+    <div className="rounded-2xl border border-dream-line bg-white px-5 py-8 shadow-sm">
       <div className="relative mx-3 mt-12">
         {/* Track */}
         <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-dream-lavender-soft" />

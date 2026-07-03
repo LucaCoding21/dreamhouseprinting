@@ -1,17 +1,22 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ScribbleButton from "./ScribbleButton";
 import { AccountIcon } from "./AccountIcon";
+import CartNavButton from "./CartNavButton";
+import { BRANDS, brandHref } from "@/lib/brands";
 
 const NAV_LINKS = [
   { label: "Shop All", href: "/shop", rotate: 1 },
+  { label: "Brands", href: "/brands", rotate: -0.75 },
   { label: "Services", href: "/services", rotate: -1 },
+  { label: "How to Order", href: "/#how-it-works", rotate: -0.5 },
   { label: "About", href: "/about", rotate: 1 },
-  { label: "Contact", href: "/contact", rotate: -0.5 },
+  { label: "Contact", href: "/contact", rotate: 0.5 },
 ];
 
 // 12 rays on an ellipse around the Quick Quote pill.
@@ -34,25 +39,47 @@ const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
 });
 
 export default function SiteNav() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [spacerH, setSpacerH] = useState<number | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const lastScrollY = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  function handleSearch(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    router.push(q ? `/shop?search=${encodeURIComponent(q)}` : "/shop");
+    setSearchOpen(false);
+    setSearchQuery("");
+  }
+
+  function openSearch() {
+    setSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearchQuery("");
+  }
 
   useEffect(() => {
-    if (!menuOpen) return;
-    // Escape closes the menu. We don't register a pointerdown-outside-header
-    // listener because the full-screen backdrop <button> already handles
-    // "tap outside menu items to close" — and the listener would race the
-    // link's click event, sometimes swallowing navigation.
+    if (!menuOpen && !searchOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") {
+        if (searchOpen) closeSearch();
+        else setMenuOpen(false);
+      }
     };
     document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("keydown", handleKey);
     };
-  }, [menuOpen]);
+  }, [menuOpen, searchOpen]);
 
   // Lock body scroll while the full-screen mobile menu is open so the page
   // underneath doesn't bleed through when the user drags.
@@ -64,6 +91,20 @@ export default function SiteNav() {
       document.body.style.overflow = prev;
     };
   }, [menuOpen]);
+
+  // The header is `fixed` (out of flow), so a spacer below it reserves its
+  // height. Measure the real header instead of hardcoding — the scribble-button
+  // links row renders taller than its raw padding, and the height shifts with
+  // breakpoints and the search open/closed state.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => setSpacerH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Hide nav on scroll-down, reveal on scroll-up, on all viewports. The
   // header is `fixed` at every breakpoint so the transform always applies.
@@ -97,7 +138,7 @@ export default function SiteNav() {
     <>
     <header
       ref={headerRef}
-      className={`fixed inset-x-0 top-0 z-50 w-full bg-dream-lavender-soft px-5 py-1.5 transition-transform duration-300 ease-out xl:px-10 xl:py-3 ${
+      className={`fixed inset-x-0 top-0 z-50 w-full border-b border-dream-ink/15 bg-dream-lavender-soft px-5 transition-transform duration-300 ease-out xl:px-10 ${
         shouldHide ? "-translate-y-full" : "translate-y-0"
       }`}
     >
@@ -130,128 +171,210 @@ export default function SiteNav() {
         </defs>
       </svg>
 
-      <div className="relative z-50 mx-auto flex max-w-[1400px] items-center justify-between gap-4">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/dreamhouse-logo-nav.svg"
-            alt="Dreamhouse Printing"
-            width={457}
-            height={298}
-            priority
-            className="h-14 w-auto lg:h-[100px]"
-          />
-        </Link>
+      <div className="relative z-50 mx-auto max-w-[1600px]">
+        {/* Row 1: logo · nav links · search · sign-in · CTA */}
+        <div className="flex items-center justify-between gap-4 pt-6 pb-6 xl:pt-6 xl:pb-6">
+          <Link href="/" className="flex items-center pr-8">
+            <Image
+              src="/dreamhouse-logo-nav.svg"
+              alt="Dreamhouse Printing"
+              width={457}
+              height={298}
+              priority
+              className="h-14 w-auto lg:h-[80px] xl:h-[72px]"
+            />
+          </Link>
 
-        <div className="flex items-center gap-4 lg:gap-10">
-          <nav className="hidden items-center gap-3 xl:flex">
-            {NAV_LINKS.map((link) => (
-              <ScribbleButton
-                key={link.href}
-                href={link.href}
-                rotate={link.rotate}
-              >
-                {link.label}
-              </ScribbleButton>
-            ))}
+          {/* Nav links — desktop only */}
+          <nav
+            aria-label="Main"
+            className="hidden items-center justify-center gap-3 xl:flex"
+          >
+            {NAV_LINKS.map((link) =>
+              link.label === "Brands" ? (
+                // Hover (or keyboard focus) reveals the brand list; clicking the
+                // label itself navigates to the /brands index page.
+                <div key={link.href} className="group relative">
+                  <ScribbleButton href={link.href} rotate={link.rotate}>
+                    <span className="inline-flex items-center gap-1.5">
+                      {link.label}
+                      <ChevronDownIcon className="h-3 w-3 transition-transform duration-200 group-hover:rotate-180" />
+                    </span>
+                  </ScribbleButton>
+                  {/* Transparent pt-2 keeps the hover region continuous from
+                      the trigger into the panel (no dead gap that drops hover). */}
+                  <div className="invisible absolute left-1/2 top-full z-50 -translate-x-1/2 pt-2 opacity-0 transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                    <div className="w-64 rounded-2xl border-2 border-dream-purple/20 bg-white p-2 shadow-[0_8px_0_0_rgba(118,100,255,0.12)]">
+                      <ul className="flex flex-col">
+                        {BRANDS.map((b) => (
+                          <li key={b.brand}>
+                            <Link
+                              href={brandHref(b.brand)}
+                              className="block rounded-xl px-4 py-2.5 font-display text-[15px] font-medium text-dream-ink transition-colors hover:bg-dream-lavender-soft hover:text-dream-purple"
+                            >
+                              {b.label}
+                            </Link>
+                          </li>
+                        ))}
+                        <li className="mt-1 border-t border-dream-ink/10 pt-1">
+                          <Link
+                            href={link.href}
+                            className="block rounded-xl px-4 py-2.5 font-display text-[15px] font-bold text-dream-purple transition-colors hover:bg-dream-lavender-soft"
+                          >
+                            All brands
+                          </Link>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ScribbleButton
+                  key={link.href}
+                  href={link.href}
+                  rotate={link.rotate}
+                >
+                  {link.label}
+                </ScribbleButton>
+              ),
+            )}
           </nav>
 
-          <div className="sun-burst relative hidden xl:inline-block">
-          {SUN_RAYS.map((ray, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className="sun-ray"
-              style={
-                {
-                  "--x": `${ray.x}px`,
-                  "--y": `${ray.y}px`,
-                  "--r": `${ray.r}deg`,
-                  "--delay": `${ray.delay}s`,
-                  width: `${ray.len}px`,
-                } as CSSProperties
-              }
-            />
-          ))}
-          <Link
-            href="/#quick-quote"
-            className="rough-pill rough-pill-filled relative inline-flex items-center justify-center px-5 py-2.5 font-display text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5 lg:px-8 lg:py-3.5 lg:text-[17px]"
-          >
-            Quick Quote
-          </Link>
-          </div>
+          <div className="flex items-center gap-3 lg:gap-4">
+            {/* Search slot — reserves the open width at xl so toggling never
+                shifts the centered nav links. Closed: right-aligned icon. */}
+            <div className="flex w-auto justify-end xl:w-72">
+            {searchOpen ? (
+              <form
+                onSubmit={handleSearch}
+                role="search"
+                className="flex h-11 w-64 items-center gap-2.5 rounded-full border-2 border-dream-purple/25 bg-white pl-4 pr-1.5 shadow-sm focus-within:border-dream-purple focus-within:ring-2 focus-within:ring-dream-purple/25 sm:w-72 xl:w-full"
+              >
+                <SketchSearchIcon className="h-[22px] w-[22px] shrink-0 text-dream-purple/55" />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  name="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search shirts, hoodies, hats…"
+                  aria-label="Search the catalog"
+                  className="min-w-0 flex-1 border-0 bg-transparent text-sm text-dream-ink placeholder:text-dream-purple/40 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label="Close search"
+                  onClick={closeSearch}
+                  className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple/70 transition-colors hover:bg-dream-purple/10 hover:text-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+                >
+                  <SketchCloseIcon className="h-[17px] w-[17px]" />
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                aria-label="Search the catalog"
+                onClick={openSearch}
+                className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+              >
+                <SketchSearchIcon className="h-[24px] w-[24px]" />
+              </button>
+            )}
+            </div>
 
-          {/* Account — links to the portal; the /account route bounces logged-out
-              visitors to /login. Visible at every breakpoint. */}
-          <Link
-            href="/account"
-            aria-label="Your account"
-            title="Your account"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
-          >
-            <AccountIcon className="h-[19px] w-[19px]" />
-          </Link>
+            {/* Cart */}
+            <CartNavButton />
 
-          <button
-            type="button"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((o) => !o)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-dream-scribble xl:hidden"
-          >
-            {/* Hand-drawn hamburger. Each "line" is two stacked paths:
-                a fatter, low-opacity "ink bleed" underlay (pressure variation)
-                + a crisp top stroke with a subtle dash pattern (tiny ink
-                skips). All paths pass through #stroke-rough for pen-tremor
-                wobble. Each line has its own resting tilt and uneven endpoints
-                so the three don't read as machine-aligned. */}
-            {/* Sketchy hamburger: one clean stroke per line, with subtle bezier
-                curves + tiny resting tilts so the three don't read as machine
-                aligned, plus the rough filter for a hand-drawn wobble. */}
-            <svg
-              viewBox="0 0 28 22"
-              aria-hidden="true"
-              className="h-7 w-9 overflow-visible"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ filter: "url(#stroke-rough)" }}
+            {/* Account */}
+            <Link
+              href="/account"
+              aria-label="Your account"
+              title="Your account"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
             >
-              <path
-                d="M 2 3.5 C 9 2.5, 19 4.2, 26 3"
-                style={{
-                  transformBox: "fill-box",
-                  transformOrigin: "center",
-                  transform: menuOpen
-                    ? "translateY(7.5px) rotate(44deg)"
-                    : "rotate(-2deg)",
-                  transition: "transform 320ms ease-out",
-                }}
-              />
-              <path
-                d="M 2 11 C 9 11.7, 19 10.3, 26 11.4"
-                style={{
-                  opacity: menuOpen ? 0 : 1,
-                  transition: "opacity 180ms ease-out",
-                  transformBox: "fill-box",
-                  transformOrigin: "center",
-                  transform: "rotate(1.5deg)",
-                }}
-              />
-              <path
-                d="M 2 18.5 C 9 19.6, 19 17.8, 26 19"
-                style={{
-                  transformBox: "fill-box",
-                  transformOrigin: "center",
-                  transform: menuOpen
-                    ? "translateY(-7.5px) rotate(-46deg)"
-                    : "rotate(1deg)",
-                  transition: "transform 320ms ease-out",
-                }}
-              />
-            </svg>
-          </button>
+              <AccountIcon className="h-[19px] w-[19px]" />
+            </Link>
+
+            {/* Quick Quote CTA — desktop only */}
+            <div className="sun-burst relative hidden xl:inline-block">
+              {SUN_RAYS.map((ray, i) => (
+                <span
+                  key={i}
+                  aria-hidden
+                  className="sun-ray"
+                  style={
+                    {
+                      "--x": `${ray.x}px`,
+                      "--y": `${ray.y}px`,
+                      "--r": `${ray.r}deg`,
+                      "--delay": `${ray.delay}s`,
+                      width: `${ray.len}px`,
+                    } as CSSProperties
+                  }
+                />
+              ))}
+              <Link
+                href="/#quick-quote"
+                className="rough-pill rough-pill-filled relative inline-flex items-center justify-center px-5 py-2.5 font-display text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5"
+              >
+                Quick Quote
+              </Link>
+            </div>
+
+            {/* Hamburger — mobile / tablet only */}
+            <button
+              type="button"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((o) => !o)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-dream-scribble xl:hidden"
+            >
+              <svg
+                viewBox="0 0 28 22"
+                aria-hidden="true"
+                className="h-7 w-9 overflow-visible"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ filter: "url(#stroke-rough)" }}
+              >
+                <path
+                  d="M 2 3.5 C 9 2.5, 19 4.2, 26 3"
+                  style={{
+                    transformBox: "fill-box",
+                    transformOrigin: "center",
+                    transform: menuOpen
+                      ? "translateY(7.5px) rotate(44deg)"
+                      : "rotate(-2deg)",
+                    transition: "transform 320ms ease-out",
+                  }}
+                />
+                <path
+                  d="M 2 11 C 9 11.7, 19 10.3, 26 11.4"
+                  style={{
+                    opacity: menuOpen ? 0 : 1,
+                    transition: "opacity 180ms ease-out",
+                    transformBox: "fill-box",
+                    transformOrigin: "center",
+                    transform: "rotate(1.5deg)",
+                  }}
+                />
+                <path
+                  d="M 2 18.5 C 9 19.6, 19 17.8, 26 19"
+                  style={{
+                    transformBox: "fill-box",
+                    transformOrigin: "center",
+                    transform: menuOpen
+                      ? "translateY(-7.5px) rotate(-46deg)"
+                      : "rotate(1deg)",
+                    transition: "transform 320ms ease-out",
+                  }}
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -347,7 +470,71 @@ export default function SiteNav() {
 
     {/* Spacer reserves the nav's height since the header is `fixed` at every
         breakpoint. Heights track the logo + vertical padding per breakpoint. */}
-    <div aria-hidden="true" className="h-[68px] lg:h-[112px] xl:h-[124px]" />
+    <div
+      aria-hidden="true"
+      style={spacerH != null ? { height: spacerH } : undefined}
+      className="h-[72px] lg:h-[96px] xl:h-[96px]"
+    />
     </>
+  );
+}
+
+/** Hand-drawn magnifying glass — a wobbly circle that overshoots where it
+ *  closes (a classic sketched cue) so it reads as a doodle, matching the
+ *  brand's rough aesthetic. */
+function SketchSearchIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M13.1 4.5C8.9 3.7 5 6.7 5 10.5c0 3.6 3.2 6.4 6.8 5.8 3.3-.5 5.5-4 4.5-7.2-.6-2.1-2.6-3.9-5.1-4.4" />
+      <path d="M15.3 14.7c1.6 1.4 3.1 2.9 4.7 4.6" />
+    </svg>
+  );
+}
+
+/** Hand-drawn chevron — a single wobbly down-stroke for the Brands dropdown
+ *  cue, matching the sketched aesthetic. */
+function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M5 8.5c2.6 2.7 4.8 5 7 7.2 2.2-2.2 4.5-4.6 7-7.4" />
+    </svg>
+  );
+}
+
+/** Hand-drawn close (X) — two gently curved strokes so it looks sketched
+ *  rather than geometric. */
+function SketchCloseIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M6.4 6.1c3.8 3.8 7.6 7.7 11.3 11.7" />
+      <path d="M17.6 6.3c-3.7 3.9-7.5 7.7-11.2 11.6" />
+    </svg>
   );
 }

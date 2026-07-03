@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { loadCheckoutContext } from "./context";
 import { CheckoutClient } from "./CheckoutClient";
 
-export const metadata = { title: "Checkout — Dreamhouse Printing" };
+export const metadata = { title: "Checkout | Dreamhouse Printing" };
 
 export default async function CheckoutPage({
   params,

@@ -1,16 +1,21 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { startingAtPrice } from "@/lib/pricing/platform";
 import { productPrimaryImage, enabledColours } from "@/lib/productImage";
+import { swatchStyle, sortColours } from "@/lib/swatch";
 import type { ProductRow } from "@/lib/db/rows";
 
 /**
- * Catalog product card — image, brand, name, "from $X", a few colour dots.
- * The whole card links into the designer (/design/[id], PRD §3.3.2); that route
- * lands in a later phase, but linking here is correct now.
+ * Catalog product card — image, brand, name, "from $X", colour dots. The card
+ * links into the product page (overlay <Link>), while the colour dots are real
+ * buttons that swap the displayed image to the selected colour without
+ * navigating (so they sit above the overlay link, not nested inside it).
  */
 export function ProductCard({
   product,
@@ -21,30 +26,56 @@ export function ProductCard({
   className?: string;
   featured?: boolean;
 }) {
-  const image = productPrimaryImage(product);
-  const colours = enabledColours(product);
-  const swatches = colours.slice(0, 5);
+  const fallbackImage = productPrimaryImage(product);
+  // Show the most-popular colours first (staples + primaries, then light -> dark),
+  // so the 6 dots on the card surface the colours people actually order.
+  const colours = sortColours(enabledColours(product));
+  const swatches = colours.slice(0, 6);
   const extra = colours.length - swatches.length;
 
+  // Default to the first colour that actually has a front image.
+  const firstWithImage = swatches.findIndex((c) => c.images?.front);
+  const [selected, setSelected] = useState(firstWithImage >= 0 ? firstWithImage : 0);
+  const activeImage = swatches[selected]?.images?.front ?? fallbackImage;
+
+  // Remember the exact shop listing this card was clicked from (incl. category /
+  // search / sort) so the product page's "Back to shop" returns here, not to the
+  // product's own category. Only carry it when we're actually on /shop.
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const from =
+    pathname === "/shop"
+      ? `/shop${search.toString() ? `?${search.toString()}` : ""}`
+      : null;
+  const href = from
+    ? `/shop/${product.id}?from=${encodeURIComponent(from)}`
+    : `/shop/${product.id}`;
+
   return (
-    <Link
-      href={`/shop/${product.id}`}
+    <div
       className={cn(
-        "group flex flex-col overflow-hidden rounded-2xl border border-dream-line bg-white",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-dream-line bg-white",
         "shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-dream-purple hover:shadow-[0_8px_0_0_rgba(27,20,88,0.9)]",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
+        "focus-within:ring-2 focus-within:ring-dream-purple/40",
         className,
       )}
     >
+      {/* Overlay link — covers the whole card; swatches sit above it (z-20). */}
+      <Link
+        href={href}
+        aria-label={product.name}
+        className="absolute inset-0 z-10 rounded-2xl focus:outline-none"
+      />
+
       <div className="relative aspect-square w-full overflow-hidden bg-white">
         {featured && (
-          <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-dream-sun px-2.5 py-1 font-display text-xs font-bold text-white shadow-sm">
+          <span className="absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-full bg-dream-sun px-2.5 py-1 font-display text-xs font-bold text-white shadow-sm">
             <span aria-hidden>★</span> Top pick
           </span>
         )}
-        {image ? (
+        {activeImage ? (
           <Image
-            src={image}
+            src={activeImage}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 22vw"
@@ -57,45 +88,52 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <div className="flex min-h-[3.25rem] flex-col justify-end gap-0.5">
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <div className="flex min-h-[3.5rem] flex-col justify-end gap-0.5">
           {product.brand && (
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-dream-faint">
+            <span className="text-xs font-semibold uppercase tracking-wide text-dream-purple">
               {product.brand}
             </span>
           )}
-          <h3 className="line-clamp-2 font-display text-sm font-semibold leading-snug text-dream-ink">
+          <h3 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-dream-ink">
             {product.name}
           </h3>
         </div>
 
-        <div className="flex items-center justify-between gap-2 pt-2.5">
-          {swatches.length > 0 ? (
-            <span className="flex items-center gap-1" aria-hidden="true">
-              {swatches.map((c, i) => (
-                <span
-                  key={`${c.name}-${i}`}
-                  title={c.name}
-                  className="h-3.5 w-3.5 rounded-full border border-dream-line"
-                  style={{ backgroundColor: c.hex || "#ddd" }}
-                />
-              ))}
-              {extra > 0 && (
-                <span className="text-[11px] font-medium text-dream-faint">
-                  +{extra}
-                </span>
-              )}
-            </span>
-          ) : (
-            <span />
-          )}
-          <span className="inline-flex items-baseline gap-1 font-display text-sm font-bold text-dream-ink">
+        {swatches.length > 0 && (
+          <div className="relative z-20 flex items-center gap-1.5">
+            {swatches.map((c, i) => (
+              <button
+                key={`${c.name}-${i}`}
+                type="button"
+                title={c.name}
+                aria-label={`Show ${c.name}`}
+                aria-pressed={i === selected}
+                onClick={() => setSelected(i)}
+                className={cn(
+                  "h-[22px] w-[22px] rounded-full border border-dream-line transition-transform hover:scale-110",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
+                  i === selected && "ring-2 ring-dream-purple ring-offset-1 ring-offset-white",
+                )}
+                style={swatchStyle(c)}
+              />
+            ))}
+            {extra > 0 && (
+              <span className="ml-0.5 text-xs font-medium text-dream-faint">
+                +{extra}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="mt-auto border-t border-dream-line pt-3">
+          <span className="inline-flex items-baseline gap-1.5 self-start font-display text-lg font-bold text-dream-ink">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">from</span>
             {formatCAD(startingAtPrice(product))}
           </span>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 

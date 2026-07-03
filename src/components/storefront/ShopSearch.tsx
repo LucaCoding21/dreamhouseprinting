@@ -16,7 +16,7 @@ export function ShopSearch() {
   }
 
   return (
-    <form onSubmit={onSubmit} role="search" className="relative w-full max-w-md">
+    <form onSubmit={onSubmit} role="search" className="relative w-full lg:w-[26rem]">
       <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-dream-faint" />
       <input
         type="search"

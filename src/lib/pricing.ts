@@ -1,4 +1,5 @@
 import type { ProductType } from "@/lib/formTypes";
+import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pricing model — Julian's real quick-quote prices (2026-05-28)
@@ -158,7 +159,7 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
 // purpose — see CLAUDE.md philosophy + it errs high, which protects margin.
 // REVISIT (make quantity-aware) if large multi-colour orders start bouncing off
 // the estimate; you'd want to capture more colour data points first.
-const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
+export const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
   1: 0,
   2: 1.3,
   3: 2.61,
@@ -169,7 +170,7 @@ const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
 // Per-unit surcharge for EACH print/embroidery location beyond the first (the
 // base price already includes one). Adds linearly — a 3rd location costs the
 // same as the 2nd. Drops with quantity as setup amortizes. Values are CR −10%.
-const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
+export const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
   screen: [
     [10, 12.24], [25, 5.84], [50, 4.29], [100, 3.46], [250, 2.97], [500, 2.57],
   ],
@@ -181,7 +182,7 @@ const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
 // Max number of decoration locations the quick quote prices.
 export const MAX_LOCATIONS = 4;
 
-function priceAtQty(breaks: Break[], qty: number): number {
+export function priceAtQty(breaks: Break[], qty: number): number {
   let price = breaks[0][1];
   for (const [min, p] of breaks) {
     if (qty >= min) price = p;
@@ -245,4 +246,18 @@ export function pricedFromProductType(p: ProductType | ""): PricedProduct | null
 export function roundDisplayPrice(amount: number): number {
   if (!Number.isFinite(amount) || amount <= 0) return 0;
   return Math.floor(amount);
+}
+
+// Snapshot a priced product's quantity-break tables into the storefront's
+// `ProductQuoteCurveJson` shape, so each catalog product can carry an editable
+// copy (in pricing_rules.quote) that the Detailed Quote prices against. This is
+// the bridge from the legacy quick-quote curves to the platform catalog.
+export function legacyCurveFor(p: PricedProduct): ProductQuoteCurveJson {
+  const decorations = AVAILABLE_DECORATIONS[p] as QuoteDecoration[];
+  const breaks: ProductQuoteCurveJson["breaks"] = {};
+  for (const d of decorations) {
+    const table = BASE_PRICE[p][d];
+    if (table) breaks[d] = table.map(([minQty, price]) => ({ minQty, price }));
+  }
+  return { decorations, breaks };
 }

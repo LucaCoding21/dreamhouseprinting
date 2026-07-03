@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { loadCheckoutContext } from "../context";
 import { ShippingClient } from "./ShippingClient";
 
-export const metadata = { title: "Shipping — Dreamhouse Printing" };
+export const metadata = { title: "Shipping | Dreamhouse Printing" };
 
 export default async function ShippingStepPage({
   params,

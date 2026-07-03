@@ -12,6 +12,8 @@ import type { CategoryRow, ProductRow, DecorationMethodRow } from "./rows";
 export interface ProductFilter {
   categorySlug?: string;
   search?: string;
+  /** Substring matched against the stored S&S brand name (e.g. "Gildan"). */
+  brand?: string;
   decorationMethodId?: string;
   sort?: "newest" | "name" | "featured";
   limit?: number;
@@ -51,6 +53,7 @@ export async function getActiveProducts(filter: ProductFilter = {}): Promise<Pro
     }
   }
   if (filter.search) q = q.ilike("name", `%${filter.search}%`);
+  if (filter.brand) q = q.ilike("brand", `%${filter.brand}%`);
   if (filter.decorationMethodId) q = q.contains("allowed_decoration_method_ids", [filter.decorationMethodId]);
 
   if (filter.sort === "name") q = q.order("name", { ascending: true });

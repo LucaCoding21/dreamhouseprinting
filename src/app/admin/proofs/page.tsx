@@ -3,7 +3,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, ProfileRow } from "@/lib/db/rows";
 import { ProofsClient, type ProofQueueRow } from "./ProofsClient";
 
-export const metadata = { title: "Proofs & Artwork — Admin" };
+export const metadata = { title: "Proofs & Artwork | Admin" };
 
 /** Statuses that surface in the proofing queue (PRD §7.4). */
 const QUEUE_STATUSES = ["submitted", "in_review", "proof_ready", "changes_requested"];

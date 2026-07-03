@@ -34,11 +34,24 @@ export function Collapsible({
         </span>
         <PlusMinus open={open} />
       </button>
-      {open && (
-        <div id={id} className="pb-4 text-sm leading-relaxed text-dream-muted">
-          {children}
+      <div
+        id={id}
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div
+            className={cn(
+              "pb-4 text-sm leading-relaxed text-dream-muted transition-opacity duration-300",
+              open ? "opacity-100" : "opacity-0",
+            )}
+          >
+            {children}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

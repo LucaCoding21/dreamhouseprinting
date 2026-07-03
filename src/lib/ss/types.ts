@@ -53,6 +53,27 @@ export interface SSProduct {
   warehouses: SSWarehouse[];
 }
 
+/** One size-spec measurement row from GET /specs/?style=… (e.g. Body Length of size M). */
+export interface SSSpec {
+  specID: number;
+  styleID: number;
+  brandName: string;
+  styleName: string;  // e.g. "3001"
+  sizeName: string;   // "XS".."5XL" | "One Size" | "M/L"
+  sizeOrder: string;  // "B0".. — lexical sort = size order
+  specName: string;   // "Body Length" | "Chest Width (Laid Flat)" | …
+  value: string;      // measurement value, usually inches
+}
+
+/** Pivoted size guide: ordered sizes × measurement columns, ready to render as a table. */
+export interface SizeGuide {
+  styleName: string;            // e.g. "3001"
+  brandName: string;
+  columns: string[];            // measurement names, in display order
+  /** One row per size (already ordered); `values` keyed by column name. */
+  rows: { size: string; values: Record<string, string> }[];
+}
+
 /** Normalized colour assembled from all SKUs of one colour. */
 export interface ProductColour {
   name: string;

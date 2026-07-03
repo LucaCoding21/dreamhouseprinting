@@ -13,7 +13,7 @@ import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
 import type { OrderStatus } from "@/lib/db/rows";
 
-export const metadata = { title: "Customer — Admin" };
+export const metadata = { title: "Customer | Admin" };
 
 interface SavedArtwork {
   name: string;

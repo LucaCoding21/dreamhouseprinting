@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { LoginForm } from "./LoginForm";
 
-export const metadata = { title: "Log in — Dreamhouse Printing" };
+export const metadata = { title: "Log in | Dreamhouse Printing" };
 
 export default async function LoginPage({
   searchParams,

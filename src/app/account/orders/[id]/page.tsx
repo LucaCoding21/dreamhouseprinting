@@ -6,7 +6,8 @@ import { OrderTracker } from "@/components/portal/OrderTracker";
 import { ProofApproval } from "./ProofApproval";
 import { ReorderButton } from "./ReorderButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { StatusTag } from "@/components/portal/StatusTag";
+import { IconArrowLeft } from "@/components/portal/icons";
 import { STATUS_META } from "@/lib/orderStatus";
 import { formatCAD } from "@/lib/money";
 import type { OrderStatus } from "@/lib/db/rows";
@@ -39,19 +40,23 @@ export default async function OrderDetailPage({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="mb-2 flex items-start justify-between gap-3">
         <div>
-          <Link href="/account/orders" className="text-sm text-dream-muted hover:text-dream-ink">
-            ← My orders
+          <Link
+            href="/account/orders"
+            className="group inline-flex items-center gap-1.5 text-sm font-medium text-dream-muted transition-colors hover:text-dream-ink"
+          >
+            <IconArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            My orders
           </Link>
-          <h1 className="font-display text-2xl font-bold text-dream-ink">
-            {order.order_number ?? "Order"}
-          </h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2.5">
+            <h1 className="font-display text-2xl font-bold text-dream-ink">
+              {order.order_number ?? "Order"}
+            </h1>
+            <StatusTag tone={meta?.badge ?? "neutral"}>{meta?.label ?? order.status}</StatusTag>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <ReorderButton orderId={order.id} />
-          <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? order.status}</Badge>
-        </div>
+        <ReorderButton orderId={order.id} />
       </div>
 
       <OrderTracker status={order.status as OrderStatus} />

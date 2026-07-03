@@ -1,21 +1,25 @@
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth";
-import { PortalNav } from "@/components/portal/PortalNav";
+import { PortalSidebar } from "@/components/portal/PortalSidebar";
+import { PortalTopbar } from "@/components/portal/PortalTopbar";
 import { ToastProvider } from "@/components/ui/Toaster";
 
-export const metadata = { title: "My Account — Dreamhouse Printing" };
+export const metadata = { title: "My Account | Dreamhouse Printing" };
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
   if (!profile) redirect("/login?next=/account");
 
-  // Staff use the admin portal; send them there if they land on /account by accident.
-  // (They can still view customer pages, but their home is /admin.)
+  const name = profile.name ?? profile.email ?? "My account";
+
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-dream-cream">
-        <PortalNav name={profile.name ?? profile.email ?? "My account"} />
-        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <div className="flex min-h-dvh bg-[#f8f7fd]">
+        <PortalSidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <PortalTopbar name={name} />
+          <main className="mx-auto w-full max-w-6xl px-5 py-8 lg:px-8">{children}</main>
+        </div>
       </div>
     </ToastProvider>
   );

@@ -9,7 +9,7 @@ import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
 import type { OrderRow, LineItemRow, ProfileRow, OrderStatus } from "@/lib/db/rows";
 
-export const metadata = { title: "Reports — Admin" };
+export const metadata = { title: "Reports | Admin" };
 
 interface PricingShape {
   subtotal?: number;

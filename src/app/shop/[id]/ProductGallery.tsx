@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { Collapsible } from "@/components/storefront/Collapsible";
-import type { ProductColourJson, ProductSizeJson } from "@/lib/db/rows";
+import { DetailedQuote } from "@/components/storefront/DetailedQuote";
+import { SizeGuideModal } from "@/components/storefront/SizeGuideModal";
+import { swatchStyle, sortColours } from "@/lib/swatch";
+import type { ProductColourJson, ProductSizeJson, ProductQuoteCurveJson } from "@/lib/db/rows";
 
 interface GalleryImage {
   src: string;
@@ -23,17 +26,21 @@ interface GalleryImage {
  */
 export function ProductGallery({
   productId,
+  ssStyleId,
   brand,
   sku,
   name,
-  colours,
+  colours: coloursProp,
   sizes,
   extraPhotos,
   startingPrice,
+  quoteCurve,
   description,
   leadTimeDays,
 }: {
   productId: string;
+  /** S&S styleID, for the live size-guide lookup. Null for non-S&S products. */
+  ssStyleId: string | null;
   brand: string | null;
   sku: string | null;
   name: string;
@@ -42,9 +49,14 @@ export function ProductGallery({
   /** Generic product photos (non-colour-specific) to append to the gallery. */
   extraPhotos: string[];
   startingPrice: number;
+  /** Per-product quote curve (pricing_rules.quote); null falls back to the static card. */
+  quoteCurve: ProductQuoteCurveJson | null;
   description: string | null;
   leadTimeDays: number;
 }) {
+  // Show the most-popular colours first (staples + primaries, then light -> dark).
+  const colours = useMemo(() => sortColours(coloursProp), [coloursProp]);
+
   // Build the gallery: each enabled colour's front (and back/side/model) shots,
   // then any generic photos. The first colour with a front image leads.
   const images = useMemo<GalleryImage[]>(() => {
@@ -74,6 +86,25 @@ export function ProductGallery({
   const [selectedSize, setSelectedSize] = useState(
     firstInStockSize >= 0 ? firstInStockSize : 0,
   );
+  // Cursor position (as %) for the hover-to-magnify effect on the main image.
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+  // Whether the full-size lightbox popup is open.
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // Close the lightbox on Escape, and lock body scroll while it's open.
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [lightboxOpen]);
 
   function pickColour(idx: number) {
     setSelectedColour(idx);
@@ -114,16 +145,50 @@ export function ProductGallery({
           </div>
         )}
 
-        <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-dream-line bg-white">
+        <div
+          className="group relative aspect-square w-full cursor-zoom-in overflow-hidden rounded-xl border border-dream-line bg-white"
+          onClick={main ? () => setLightboxOpen(true) : undefined}
+          role={main ? "button" : undefined}
+          tabIndex={main ? 0 : undefined}
+          aria-label={main ? "View full-size image" : undefined}
+          onKeyDown={
+            main
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setLightboxOpen(true);
+                  }
+                }
+              : undefined
+          }
+          onMouseMove={
+            main
+              ? (e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setHoverPos({
+                    x: ((e.clientX - r.left) / r.width) * 100,
+                    y: ((e.clientY - r.top) / r.height) * 100,
+                  });
+                }
+              : undefined
+          }
+          onMouseLeave={() => setHoverPos(null)}
+        >
           {main ? (
-            <Image
-              src={main.src}
-              alt={`${name} — ${main.label}`}
-              fill
-              sizes="(max-width: 1024px) 100vw, 40vw"
-              className="object-contain p-6"
-              priority
-            />
+            <>
+              <Image
+                src={main.src}
+                alt={`${name} — ${main.label}`}
+                fill
+                sizes="(max-width: 1024px) 100vw, 40vw"
+                className="cursor-zoom-in object-contain p-6 transition-transform duration-150 ease-out"
+                style={{
+                  transform: hoverPos ? "scale(2)" : "scale(1)",
+                  transformOrigin: hoverPos ? `${hoverPos.x}% ${hoverPos.y}%` : "center",
+                }}
+                priority
+              />
+            </>
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-dream-lavender-soft">
               <span className="text-sm text-dream-lavender-deep">No image</span>
@@ -151,7 +216,7 @@ export function ProductGallery({
         </div>
 
         {/* 2 — Options: colour + size, grouped tightly with matching labels */}
-        <div className="flex flex-col gap-6 border-t border-dream-line pt-7">
+        <div className="-mt-3 flex flex-col gap-6 border-t border-dream-line pt-7">
         {colours.length > 0 && (
           <div>
             <div className="mb-3 flex items-baseline gap-2">
@@ -169,16 +234,19 @@ export function ProductGallery({
                   aria-pressed={idx === selectedColour}
                   className={cn(
                     "relative h-8 w-8 rounded-full border border-dream-line transition-transform",
-                    "hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
+                    c.inStock
+                      ? "hover:scale-105"
+                      : "cursor-not-allowed opacity-50",
                     idx === selectedColour &&
-                      "ring-2 ring-dream-purple ring-offset-2 ring-offset-dream-surface",
+                      "ring-2 ring-offset-2 ring-offset-dream-surface",
+                    idx === selectedColour &&
+                      (c.inStock ? "ring-dream-purple" : "ring-dream-muted"),
                   )}
-                  style={{ backgroundColor: c.hex || "#ddd" }}
+                  style={swatchStyle(c)}
                 >
                   {!c.inStock && (
-                    <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="h-px w-7 rotate-45 bg-dream-danger" />
-                    </span>
+                    <span className="absolute inset-0 rounded-full bg-dream-ink/50" />
                   )}
                 </button>
               ))}
@@ -187,18 +255,13 @@ export function ProductGallery({
         )}
 
         {sizes.length > 0 && (
-          <div>
+          <div className="pb-2">
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">Size</span>
                 <span className="text-sm text-dream-muted">{sizes[selectedSize]?.name}</span>
               </div>
-              <button
-                type="button"
-                className="text-xs font-medium text-dream-purple hover:underline"
-              >
-                Size guide
-              </button>
+              <SizeGuideModal ssStyleId={ssStyleId} productName={name} />
             </div>
             <div className="flex flex-wrap gap-2">
               {sizes.map((s, idx) => {
@@ -219,71 +282,153 @@ export function ProductGallery({
                           : "border-dream-line bg-white text-dream-ink-soft hover:border-dream-ink/40 hover:text-dream-ink",
                     )}
                   >
-                    {s.name}
+                    {sizeLabel(s.name)}
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2.5 text-xs text-dream-muted">
-              Pick sizes and quantities in the designer.
-            </p>
           </div>
         )}
         </div>
 
-        {/* Estimated total card */}
-        <div className="flex flex-col gap-4 rounded-lg border border-dream-line bg-dream-surface p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
-              Estimated total
-            </p>
-            <p className="font-display text-3xl font-extrabold text-dream-purple-dark">
-              from {formatCAD(startingPrice)}
-              <span className="ml-1 text-base font-normal text-dream-muted">/unit</span>
-            </p>
-            <p className="mt-1 text-sm text-dream-muted">
-              Final pricing depends on quantity &amp; decoration.
-            </p>
+        {/* Interactive detailed quote (or the static estimate card as a fallback) */}
+        {quoteCurve ? (
+          <DetailedQuote
+            curve={quoteCurve}
+            productId={productId}
+            colourName={colours[selectedColour]?.name}
+          />
+        ) : (
+          <div className="-mt-3 flex flex-col gap-4 rounded-lg border border-dream-line bg-dream-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+                Estimated total
+              </p>
+              <p className="font-display text-3xl font-extrabold text-dream-purple-dark">
+                from {formatCAD(startingPrice)}
+                <span className="ml-1 text-base font-normal text-dream-muted">/unit</span>
+              </p>
+              <p className="mt-1 text-xs text-dream-muted">
+                Final pricing depends on quantity &amp; decoration.
+              </p>
+            </div>
+            <div className="flex flex-col items-stretch gap-1.5 sm:items-center">
+              <Link
+                href={`/design/${productId}?colour=${encodeURIComponent(colours[selectedColour]?.name ?? "")}`}
+                className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+              >
+                Design Now
+              </Link>
+              <Link
+                href={`/design/${productId}?quote=1&colour=${encodeURIComponent(colours[selectedColour]?.name ?? "")}`}
+                className="text-center text-sm font-semibold text-dream-purple hover:underline"
+              >
+                Quick Quote
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-col items-stretch gap-1.5 sm:items-center">
-            <Link
-              href={`/design/${productId}`}
-              className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
-            >
-              Design Now
-            </Link>
-            <Link
-              href={`/design/${productId}?quote=1`}
-              className="text-center text-sm font-semibold text-dream-purple hover:underline"
-            >
-              Quick Quote
-            </Link>
-          </div>
-        </div>
+        )}
 
         {/* Collapsible info sections — under the estimated total box */}
         <div>
-          <Collapsible title="Product details" defaultOpen>
-            {description ? (
-              <p>{description}</p>
-            ) : (
-              <p>
-                A custom-ready blank, decorated in-house. Choose your colour and
-                sizes, then add artwork in the designer — screenprint,
-                embroidery, or DTG depending on the piece.
-              </p>
-            )}
+          <Collapsible title="Product details">
+            {(() => {
+              const items = description ? parseDescription(description) : [];
+              if (items.length > 1) {
+                return (
+                  <ul className="flex list-none flex-col gap-1.5 pl-0">
+                    {items.map((item, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-dream-purple/60" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              }
+              if (items.length === 1) return <p>{items[0]}</p>;
+              return (
+                <p>
+                  A custom-ready blank, decorated in-house. Choose your colour and
+                  sizes, then add artwork in the designer. Screenprint,
+                  embroidery, or DTG depending on the piece.
+                </p>
+              );
+            })()}
           </Collapsible>
           <Collapsible title="Shipping & turnaround">
             <p>
               Ships in ~{leadTimeDays} business day
               {leadTimeDays === 1 ? "" : "s"} once your proof is approved. Local
-              Vancouver pickup is available — choose it at checkout to skip
+              Vancouver pickup is available. Choose it at checkout to skip
               shipping.
             </p>
           </Collapsible>
         </div>
       </div>
+
+      {/* Full-size image lightbox */}
+      {lightboxOpen && main && (
+        <div
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/90 p-4 sm:p-8"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${name} — full size`}
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Close"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-dream-ink shadow-md transition-colors hover:bg-white"
+          >
+            <span aria-hidden="true" className="text-2xl leading-none">&times;</span>
+          </button>
+          {/* Click anywhere (image included) closes — no dead-zones, instant. */}
+          <div className="pointer-events-none relative h-full max-h-[85vh] w-full max-w-4xl">
+            <Image
+              src={main.src}
+              alt={`${name} — ${main.label}`}
+              fill
+              sizes="90vw"
+              className="object-contain"
+              priority
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+/** Common print-colour names -> hex, for splitting two-tone swatches like "Natural/Black". */
+/** Decode the handful of HTML entities that show up in S&S descriptions. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+/**
+ * S&S descriptions arrive as one run-on string with "•" bullet separators and
+ * raw HTML entities. Split into clean bullet items so the panel reads as a list.
+ */
+function parseDescription(raw: string): string[] {
+  return decodeEntities(raw)
+    .split(/\s*[•·]\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Abbreviate verbose size names for the compact pills (e.g. "One Size" -> "OS"). */
+function sizeLabel(name: string | undefined): string {
+  if (!name) return "";
+  if (/^one\s*size$/i.test(name.trim())) return "OS";
+  return name;
 }

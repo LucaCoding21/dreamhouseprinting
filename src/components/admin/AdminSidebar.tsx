@@ -28,10 +28,13 @@ export function AdminSidebar({
   name,
   role,
   permissions,
+  badges = {},
 }: {
   name: string;
   role: string;
   permissions: string[];
+  /** Notification counts keyed by nav href, e.g. { "/admin/proofs": 3 }. */
+  badges?: Record<string, number>;
 }) {
   const pathname = usePathname();
   const isAdmin = role === "staff_admin";
@@ -50,16 +53,27 @@ export function AdminSidebar({
         {items.map((item) => {
           const active =
             item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+          const badge = badges[item.href] ?? 0;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "block rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 active ? "bg-dream-purple text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
               )}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {badge > 0 && (
+                <span
+                  className={cn(
+                    "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold tabular-nums",
+                    active ? "bg-white text-dream-purple" : "bg-dream-purple text-white"
+                  )}
+                >
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

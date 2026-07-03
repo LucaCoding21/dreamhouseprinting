@@ -81,7 +81,7 @@ export default function Home() {
       <section className="mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
         <div className="grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
           <div className="-mt-[84px] order-2 text-center sm:mt-0 lg:order-none lg:pl-10 lg:pt-12 lg:text-left">
-            <h1 className="pt-14 font-display text-[30px] font-bold leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
+            <h1 className="pt-14 font-display font-extrabold text-[30px] leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
               We do quality custom Screen printing and Embroidery right here in Vancouver.
             </h1>
             <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto lg:mt-8 lg:mx-0 lg:text-[17px]">

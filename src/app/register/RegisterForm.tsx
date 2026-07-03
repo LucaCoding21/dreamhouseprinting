@@ -5,6 +5,7 @@ import { signUpAction } from "@/app/login/actions";
 import type { AuthState } from "@/app/login/actions";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 
 export function RegisterForm({ next }: { next: string }) {
@@ -23,7 +24,7 @@ export function RegisterForm({ next }: { next: string }) {
         <Input name="phone" type="tel" autoComplete="tel" placeholder="(604) 555-0123" />
       </Field>
       <Field label="Password" required hint="At least 8 characters.">
-        <Input name="password" type="password" autoComplete="new-password" placeholder="••••••••" required minLength={8} />
+        <PasswordInput name="password" autoComplete="new-password" placeholder="••••••••" required minLength={8} />
       </Field>
       {state.error && (
         <p className="rounded-lg bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{state.error}</p>

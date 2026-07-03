@@ -1,0 +1,298 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import Link from "next/link";
+import { cn } from "@/lib/cn";
+import { formatCAD } from "@/lib/money";
+import { priceFromCurve, MAX_LOCATIONS } from "@/lib/pricing/quote";
+import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
+
+const DECO_LABEL: Record<QuoteDecoration, string> = {
+  screen: "Screen print",
+  embroidery: "Embroidery",
+};
+
+const QTY_MIN = 1;
+const QTY_MAX = 1000;
+const DEFAULT_QTY = 25;
+const PRESETS = [10, 25, 50, 100, 250];
+
+/**
+ * Interactive "Detailed Quote" on the product page (replaces the old static
+ * Estimated total card). Customers pick decoration / ink colours / locations and
+ * set quantity to watch the per-unit price drop, mirroring the quick-quote curve
+ * in lib/pricing.ts (via priceFromCurve). One scannable column: choices up top,
+ * a grounded price summary, then the CTA.
+ */
+export function DetailedQuote({
+  curve,
+  productId,
+  colourName,
+}: {
+  curve: ProductQuoteCurveJson;
+  productId: string;
+  /** Currently selected colour name, carried into the designer link. */
+  colourName?: string;
+}) {
+  const designHref = colourName
+    ? `/design/${productId}?colour=${encodeURIComponent(colourName)}`
+    : `/design/${productId}`;
+  const quoteHref = colourName
+    ? `/design/${productId}?quote=1&colour=${encodeURIComponent(colourName)}`
+    : `/design/${productId}?quote=1`;
+  const decorations = curve.decorations.length ? curve.decorations : (["screen"] as QuoteDecoration[]);
+  const [decoration, setDecoration] = useState<QuoteDecoration>(decorations[0]);
+  const [colours, setColours] = useState(1);
+  const [locations, setLocations] = useState(1);
+  const [qty, setQty] = useState(DEFAULT_QTY);
+  // Raw text of the number field, so partial edits (clearing, typing "2" then
+  // "50") don't get clamped mid-keystroke. qty stays the source of truth.
+  const [qtyText, setQtyText] = useState(String(DEFAULT_QTY));
+
+  const isScreen = decoration === "screen";
+
+  const result = useMemo(
+    () => priceFromCurve(curve, { qty: Math.max(qty, 1), colours, locations, decoration }),
+    [curve, qty, colours, locations, decoration],
+  );
+
+  // Slider + preset chips set the quantity directly and mirror it into the field.
+  function setQtyFromControl(raw: number) {
+    const clamped = Math.min(QTY_MAX, Math.max(QTY_MIN, Math.round(raw)));
+    setQty(clamped);
+    setQtyText(String(clamped));
+  }
+
+  // Number field: keep the live text, only update qty when it's a valid in-range
+  // number; defer clamping until the field is committed (blur / Enter).
+  function onQtyTextChange(value: string) {
+    setQtyText(value);
+    const n = Number(value);
+    if (value.trim() !== "" && Number.isFinite(n) && n >= QTY_MIN && n <= QTY_MAX) {
+      setQty(Math.round(n));
+    }
+  }
+
+  function commitQtyText() {
+    const n = Number(qtyText);
+    const clamped = Number.isFinite(n)
+      ? Math.min(QTY_MAX, Math.max(QTY_MIN, Math.round(n)))
+      : QTY_MIN;
+    setQty(clamped);
+    setQtyText(String(clamped));
+  }
+
+  return (
+    <div className="-mt-3 flex flex-col gap-3">
+      <Link
+        href={designHref}
+        className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+      >
+        Design Now
+      </Link>
+
+      <div className="flex flex-col gap-5 rounded-2xl border border-dream-line bg-dream-surface p-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+          Instant estimate
+        </p>
+        <h2 className="mt-0.5 font-display text-lg font-bold text-dream-ink">Build your quote</h2>
+      </div>
+
+      {/* Decoration — only when the product offers a choice */}
+      {decorations.length > 1 && (
+        <Row label="Decoration">
+          <div className="flex gap-1.5 rounded-full bg-dream-bg p-1">
+            {decorations.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDecoration(d)}
+                aria-pressed={d === decoration}
+                className={cn(
+                  "flex-1 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
+                  d === decoration
+                    ? "bg-dream-ink text-white shadow-sm"
+                    : "text-dream-ink-soft hover:text-dream-ink",
+                )}
+              >
+                {DECO_LABEL[d]}
+              </button>
+            ))}
+          </div>
+        </Row>
+      )}
+
+      {/* Ink colours (screen only) + locations, aligned side by side */}
+      <div className={cn("grid gap-4", isScreen ? "grid-cols-2" : "grid-cols-1")}>
+        {isScreen && (
+          <Row label="Ink colours">
+            <Chips values={[1, 2, 3, 4]} selected={colours} onSelect={setColours} />
+          </Row>
+        )}
+        <Row label="Print locations">
+          <Chips
+            values={Array.from({ length: MAX_LOCATIONS }, (_, i) => i + 1)}
+            selected={locations}
+            onSelect={setLocations}
+          />
+        </Row>
+      </div>
+
+      {/* Quantity — number field + quick-pick presets */}
+      <Row
+        label="Quantity"
+        action={
+          <div className="flex items-center overflow-hidden rounded-lg border border-dream-line bg-white focus-within:border-dream-purple focus-within:ring-2 focus-within:ring-dream-purple/25">
+            <button
+              type="button"
+              onClick={() => setQtyFromControl(qty - 1)}
+              disabled={qty <= QTY_MIN}
+              aria-label="Decrease quantity"
+              className="flex h-7 w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              &minus;
+            </button>
+            <input
+              type="number"
+              inputMode="numeric"
+              aria-label="Quantity"
+              min={QTY_MIN}
+              max={QTY_MAX}
+              value={qtyText}
+              onChange={(e) => onQtyTextChange(e.target.value)}
+              onBlur={commitQtyText}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              className="h-7 w-10 border-x border-dream-line bg-white text-center text-sm font-bold text-dream-ink tabular-nums focus:bg-dream-lavender-mist focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <button
+              type="button"
+              onClick={() => setQtyFromControl(qty + 1)}
+              disabled={qty >= QTY_MAX}
+              aria-label="Increase quantity"
+              className="flex h-7 w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              +
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setQtyFromControl(n)}
+              aria-pressed={qty === n}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                qty === n
+                  ? "border-dream-purple bg-dream-lavender-soft text-dream-purple-dark"
+                  : "border-dream-line bg-white text-dream-muted hover:border-dream-ink/30 hover:text-dream-ink",
+              )}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </Row>
+
+      {/* Grounded price summary — the hero of the panel */}
+      <div className="rounded-xl border border-dream-lavender-soft bg-dream-lavender-mist px-4 py-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+              Your price
+            </p>
+            <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
+              {formatCAD(result.perUnit)}
+              <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
+            </p>
+            {result.discountPct > 0 && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs">
+                <span className="text-dream-muted line-through">{formatCAD(result.anchorPerUnit)}</span>
+                <span className="rounded-full bg-dream-sun px-2 py-0.5 font-bold text-dream-ink">
+                  Save {result.discountPct}%
+                </span>
+              </p>
+            )}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+              {qty} unit{qty === 1 ? "" : "s"}
+            </p>
+            <p className="font-display text-xl font-bold leading-none text-dream-ink">
+              {formatCAD(result.total)}
+            </p>
+            <p className="mt-1.5 text-xs text-dream-muted">est. total</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Estimate note + secondary quick-quote link */}
+      <p className="text-center text-xs text-dream-muted">
+        Estimate only · free art proof before anything prints.{" "}
+        <Link href={quoteHref} className="font-semibold text-dream-purple hover:underline">
+          Quick quote
+        </Link>
+      </p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------- helpers ------------------------------- */
+
+/** A labelled control row: small caps label (with optional right-aligned action) above its control. */
+function Row({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex min-h-[1.75rem] items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">{label}</span>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Chips({
+  values,
+  selected,
+  onSelect,
+}: {
+  values: number[];
+  selected: number;
+  onSelect: (n: number) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {values.map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onSelect(n)}
+          aria-pressed={n === selected}
+          className={cn(
+            "h-9 flex-1 rounded-lg border text-sm font-semibold transition-colors",
+            n === selected
+              ? "border-dream-ink bg-dream-ink text-white"
+              : "border-dream-line bg-white text-dream-ink-soft hover:border-dream-ink/40 hover:text-dream-ink",
+          )}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+}

@@ -106,15 +106,18 @@ export function ProductionBoard({
                         return (
                           <div
                             key={job.id}
-                            className="rounded-lg border border-dream-line bg-dream-surface p-3 shadow-sm"
+                            className="group relative rounded-lg border border-dream-line bg-dream-surface p-3 shadow-sm transition-colors hover:border-dream-purple hover:bg-dream-bg/40"
                           >
+                            {/* Full-card click target. Sits below interactive controls (button uses z-10). */}
+                            <Link
+                              href={`/admin/orders/${job.id}`}
+                              aria-label={`Open ${job.orderNumber ?? "order"}`}
+                              className="absolute inset-0 z-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dream-purple"
+                            />
                             <div className="flex items-start justify-between gap-2">
-                              <Link
-                                href={`/admin/orders/${job.id}`}
-                                className="font-display text-sm font-bold text-dream-ink hover:text-dream-purple"
-                              >
+                              <span className="font-display text-sm font-bold text-dream-ink group-hover:text-dream-purple">
                                 {job.orderNumber ?? "Order"}
-                              </Link>
+                              </span>
                               <Badge variant={due.overdue ? "danger" : due.soon ? "warn" : "neutral"}>
                                 {due.label}
                               </Badge>
@@ -144,7 +147,7 @@ export function ProductionBoard({
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className={cn("mt-3 w-full")}
+                                className={cn("relative z-10 mt-3 w-full")}
                                 loading={isMoving}
                                 disabled={pending}
                                 onClick={() => move(job.id, col.next as OrderStatus)}

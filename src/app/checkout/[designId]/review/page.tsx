@@ -1,23 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { loadReviewContext } from "../context";
 import { ReviewClient } from "./ReviewClient";
+import { addBusinessDays, fmtDate } from "@/lib/turnaround";
 
-export const metadata = { title: "Order review — Dreamhouse Printing" };
-
-/** Skip weekends so projected dates land on business days. */
-function addBusinessDays(date: Date, n: number): Date {
-  const d = new Date(date);
-  let added = 0;
-  while (added < n) {
-    d.setDate(d.getDate() + 1);
-    const day = d.getDay();
-    if (day !== 0 && day !== 6) added++;
-  }
-  return d;
-}
-function fmtDate(d: Date): string {
-  return d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
-}
+export const metadata = { title: "Order review | Dreamhouse Printing" };
 
 export default async function ReviewStepPage({
   params,

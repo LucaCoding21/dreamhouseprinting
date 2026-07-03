@@ -647,25 +647,6 @@ function BlobMorphFilter() {
   );
 }
 
-function ScribbleUnderline({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 220 12"
-      preserveAspectRatio="none"
-      className={`absolute left-0 right-0 h-[12px] w-full ${className}`}
-    >
-      <path
-        d="M4 7 C 20 3, 40 9, 60 6 S 100 3, 120 7 S 160 4, 184 7 S 210 8, 216 6"
-        stroke="#ecbb25"
-        strokeWidth="4"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
-
 function SectionHeader({
   kicker,
   title,

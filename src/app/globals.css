@@ -3,9 +3,11 @@
 @theme {
   --color-dream-lavender: #afa6ff;
   --color-dream-lavender-soft: #e0dffe;
+  --color-dream-lavender-mist: #f0eefe;
   --color-dream-lavender-deep: #8a7bff;
   --color-dream-purple: #7664ff;
   --color-dream-purple-dark: #5a48d9;
+  --color-dream-purple-selected: #4334b3;
   --color-dream-ink: #1b1458;
   --color-dream-ink-soft: #4a3f9e;
   --color-dream-cream: #f4f2ff;
@@ -37,6 +39,14 @@
   --font-display: var(--font-archivo);
   --font-daruma: var(--font-darumadrop);
   --font-sans: var(--font-inter);
+
+  /* Box corner radii — dialed down from Tailwind's defaults for a tighter,
+     less-rounded look on cards/boxes. rounded-full (pills, avatars) is a
+     separate 9999px value and is unaffected. */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.875rem;
 }
 
 html,
@@ -205,6 +215,15 @@ textarea,
 button {
   -webkit-appearance: none;
   appearance: none;
+}
+
+/* Tailwind v4's reset sets clickable controls to cursor: default. Restore the
+   pointer for anything that's actually clickable (disabled controls excepted). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+label[for] {
+  cursor: pointer;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {

@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const OPTIONS = [
@@ -23,12 +24,12 @@ export function SortSelect({ value }: { value: string }) {
   }
 
   return (
-    <label className="inline-flex items-center gap-2 text-sm text-dream-muted">
-      <span className="hidden sm:inline">Sort</span>
+    <div className="relative shrink-0">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-full border border-dream-line bg-white px-3 py-1.5 text-sm font-medium text-dream-ink focus-visible:border-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+        aria-label="Sort products"
+        className="h-11 appearance-none rounded-full border border-dream-line bg-white pl-4 pr-9 text-sm font-medium text-dream-ink shadow-sm focus-visible:border-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
       >
         {OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -36,6 +37,15 @@ export function SortSelect({ value }: { value: string }) {
           </option>
         ))}
       </select>
-    </label>
+      <ChevronIcon className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-dream-faint" />
+    </div>
+  );
+}
+
+function ChevronIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

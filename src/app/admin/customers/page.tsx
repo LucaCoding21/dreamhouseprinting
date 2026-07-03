@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { CustomersClient } from "./CustomersClient";
 
-export const metadata = { title: "Customers — Admin" };
+export const metadata = { title: "Customers | Admin" };
 
 export default async function AdminCustomersPage() {
   await requirePermission("customers.view");

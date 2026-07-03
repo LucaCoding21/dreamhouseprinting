@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requirePermission, getProfile } from "@/lib/auth";
+import { requirePermission, getProfile, hasPermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendOrderStatusEmail } from "@/lib/notify";
 import type { Json, Database } from "@/lib/db/types";
@@ -105,6 +105,170 @@ export async function updateOrderPricingAction(
   const { error } = await service.from("orders").update({ pricing: asJson(pricing) }).eq("id", orderId);
   if (error) return { error: error.message };
   await logActivity(service, orderId, "price_edit", { total: pricing.total });
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+export interface OrderDetailsInput {
+  /** Written to the customer's profile when the order has one. */
+  contactName?: string;
+  contactPhone?: string;
+  /** Guest orders only — the notification email. */
+  guestEmail?: string;
+  shipping: {
+    name?: string;
+    company?: string;
+    phone?: string;
+    street?: string;
+    city?: string;
+    prov?: string;
+    postal?: string;
+  };
+  billing: { name?: string; email?: string; company?: string } | null;
+  shippingMethod: string;
+  fulfillmentMethod: string;
+}
+
+export async function updateOrderDetailsAction(
+  orderId: string,
+  input: OrderDetailsInput
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+
+  const { data: order } = await service
+    .from("orders")
+    .select("customer_id, shipping_address")
+    .eq("id", orderId)
+    .single();
+  if (!order) return { error: "Order not found." };
+
+  const existingShip = (order.shipping_address ?? {}) as Record<string, unknown>;
+  const patch: OrderUpdate = {
+    shipping_address: asJson({ ...existingShip, ...input.shipping }),
+    billing_address: input.billing ? asJson(input.billing) : null,
+    shipping_method: input.shippingMethod,
+    fulfillment_method: input.fulfillmentMethod,
+  };
+  if (!order.customer_id && input.guestEmail !== undefined) {
+    patch.guest_email = input.guestEmail.trim() || null;
+  }
+  const { error } = await service.from("orders").update(patch).eq("id", orderId);
+  if (error) return { error: error.message };
+
+  if (order.customer_id && (input.contactName !== undefined || input.contactPhone !== undefined)) {
+    const profilePatch: { name?: string; phone?: string } = {};
+    if (input.contactName?.trim()) profilePatch.name = input.contactName.trim();
+    if (input.contactPhone !== undefined) profilePatch.phone = input.contactPhone.trim();
+    if (Object.keys(profilePatch).length) {
+      await service.from("profiles").update(profilePatch).eq("id", order.customer_id);
+    }
+  }
+
+  await logActivity(service, orderId, "details_updated", {});
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/** One decoration placement ("spot") on a garment — stored in line_items.decorations. */
+export interface DecorationSpot {
+  location: string;
+  type: string;
+  widthIn: string;
+  heightIn: string;
+  colours: string;
+  pantones: string[];
+  puff: boolean;
+  spotProcess: boolean;
+}
+
+export interface LineItemDecorations {
+  spots: DecorationSpot[];
+  bagging: boolean;
+  sewnTags: boolean;
+  priceConfirmed: boolean;
+}
+
+export interface LineItemPatch {
+  id: string;
+  productName: string;
+  sizeQuantities: Record<string, number>;
+  unitPrice: number;
+  decorations: LineItemDecorations;
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const sumSizes = (sq: Record<string, number>) =>
+  Object.values(sq).reduce((a, b) => a + (Number(b) > 0 ? Number(b) : 0), 0);
+
+/** Recompute order pricing from its line items (subtotal excludes setup, which lives on the lines). */
+async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServiceClient>, orderId: string) {
+  const [{ data: items }, { data: order }] = await Promise.all([
+    service.from("line_items").select("unit_price, size_quantities").eq("order_id", orderId),
+    service.from("orders").select("pricing").eq("id", orderId).single(),
+  ]);
+  const pricing = (order?.pricing ?? {}) as { setupFees?: number; shipping?: number; tax?: number };
+  const subtotal = round2(
+    (items ?? []).reduce((sum, li) => sum + li.unit_price * sumSizes((li.size_quantities ?? {}) as Record<string, number>), 0)
+  );
+  const setupFees = pricing.setupFees ?? 0;
+  const shipping = pricing.shipping ?? 0;
+  const tax = pricing.tax ?? 0;
+  const next = { subtotal, setupFees, shipping, tax, total: round2(subtotal + setupFees + shipping + tax) };
+  await service.from("orders").update({ pricing: asJson(next) }).eq("id", orderId);
+  return next;
+}
+
+export async function updateLineItemsAction(
+  orderId: string,
+  items: LineItemPatch[]
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const profile = await getProfile();
+  const canPrice = hasPermission(profile, "orders.pricing");
+
+  const { data: existing } = await service
+    .from("line_items")
+    .select("id, unit_price, setup_fee")
+    .eq("order_id", orderId);
+  const byId = new Map((existing ?? []).map((li) => [li.id, li]));
+
+  for (const patch of items) {
+    const row = byId.get(patch.id);
+    if (!row) return { error: "Line item not found on this order." };
+    // Unit price changes require the pricing permission; others keep the stored price.
+    const unitPrice = canPrice ? patch.unitPrice : row.unit_price;
+    const qty = sumSizes(patch.sizeQuantities);
+    const { error } = await service
+      .from("line_items")
+      .update({
+        product_name: patch.productName.trim() || null,
+        size_quantities: asJson(patch.sizeQuantities),
+        unit_price: unitPrice,
+        decorations: asJson(patch.decorations),
+        line_total: round2(unitPrice * qty + row.setup_fee),
+      })
+      .eq("id", patch.id);
+    if (error) return { error: error.message };
+  }
+
+  const pricing = await syncOrderPricing(service, orderId);
+  await logActivity(service, orderId, "items_updated", { count: items.length, total: pricing.total });
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+export async function deleteLineItemAction(
+  orderId: string,
+  lineItemId: string
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const { error } = await service.from("line_items").delete().eq("id", lineItemId).eq("order_id", orderId);
+  if (error) return { error: error.message };
+  await syncOrderPricing(service, orderId);
+  await logActivity(service, orderId, "item_removed", {});
   revalidateOrder(orderId);
   return { ok: true };
 }

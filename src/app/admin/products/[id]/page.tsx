@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/auth";
 import { getAdminProduct, getAllCategories, getAllDecorationMethods } from "@/lib/admin/queries";
 import { ProductEditor } from "./ProductEditor";
 
-export const metadata = { title: "Edit product — Admin" };
+export const metadata = { title: "Edit product | Admin" };
 
 export default async function AdminProductEditPage({
   params,

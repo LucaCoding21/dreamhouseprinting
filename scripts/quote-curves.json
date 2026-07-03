@@ -1,0 +1,1028 @@
+{
+  "t-shirts": {
+    "decorations": [
+      "screen",
+      "embroidery"
+    ],
+    "breaks": {
+      "screen": [
+        {
+          "minQty": 1,
+          "price": 66.25
+        },
+        {
+          "minQty": 2,
+          "price": 40.5
+        },
+        {
+          "minQty": 3,
+          "price": 31.92
+        },
+        {
+          "minQty": 5,
+          "price": 25.04
+        },
+        {
+          "minQty": 10,
+          "price": 19.89
+        },
+        {
+          "minQty": 12,
+          "price": 19.04
+        },
+        {
+          "minQty": 15,
+          "price": 18.18
+        },
+        {
+          "minQty": 20,
+          "price": 16.31
+        },
+        {
+          "minQty": 25,
+          "price": 14.85
+        },
+        {
+          "minQty": 30,
+          "price": 13.86
+        },
+        {
+          "minQty": 40,
+          "price": 12.6
+        },
+        {
+          "minQty": 50,
+          "price": 11.82
+        },
+        {
+          "minQty": 72,
+          "price": 10.83
+        },
+        {
+          "minQty": 75,
+          "price": 10.74
+        },
+        {
+          "minQty": 100,
+          "price": 10.14
+        },
+        {
+          "minQty": 144,
+          "price": 9.72
+        },
+        {
+          "minQty": 150,
+          "price": 9.67
+        },
+        {
+          "minQty": 200,
+          "price": 9.45
+        },
+        {
+          "minQty": 250,
+          "price": 9.14
+        },
+        {
+          "minQty": 300,
+          "price": 8.89
+        },
+        {
+          "minQty": 350,
+          "price": 8.66
+        },
+        {
+          "minQty": 500,
+          "price": 8.09
+        },
+        {
+          "minQty": 750,
+          "price": 7.69
+        },
+        {
+          "minQty": 1000,
+          "price": 7.65
+        }
+      ],
+      "embroidery": [
+        {
+          "minQty": 1,
+          "price": 108.74
+        },
+        {
+          "minQty": 2,
+          "price": 61.37
+        },
+        {
+          "minQty": 3,
+          "price": 45.57
+        },
+        {
+          "minQty": 5,
+          "price": 32.94
+        },
+        {
+          "minQty": 10,
+          "price": 23.47
+        },
+        {
+          "minQty": 12,
+          "price": 21.88
+        },
+        {
+          "minQty": 15,
+          "price": 20.31
+        },
+        {
+          "minQty": 20,
+          "price": 18.72
+        },
+        {
+          "minQty": 25,
+          "price": 17.77
+        },
+        {
+          "minQty": 30,
+          "price": 17.1
+        },
+        {
+          "minQty": 40,
+          "price": 16.23
+        },
+        {
+          "minQty": 50,
+          "price": 15.68
+        },
+        {
+          "minQty": 72,
+          "price": 14.94
+        },
+        {
+          "minQty": 75,
+          "price": 14.86
+        },
+        {
+          "minQty": 100,
+          "price": 14.37
+        },
+        {
+          "minQty": 144,
+          "price": 14.09
+        },
+        {
+          "minQty": 150,
+          "price": 14.06
+        },
+        {
+          "minQty": 200,
+          "price": 13.91
+        },
+        {
+          "minQty": 250,
+          "price": 13.58
+        },
+        {
+          "minQty": 300,
+          "price": 13.27
+        },
+        {
+          "minQty": 350,
+          "price": 12.99
+        },
+        {
+          "minQty": 500,
+          "price": 12.19
+        },
+        {
+          "minQty": 750,
+          "price": 12.19
+        },
+        {
+          "minQty": 1000,
+          "price": 11.62
+        }
+      ]
+    }
+  },
+  "hoodies": {
+    "decorations": [
+      "screen",
+      "embroidery"
+    ],
+    "breaks": {
+      "screen": [
+        {
+          "minQty": 1,
+          "price": 81.87
+        },
+        {
+          "minQty": 2,
+          "price": 56.11
+        },
+        {
+          "minQty": 3,
+          "price": 47.52
+        },
+        {
+          "minQty": 5,
+          "price": 40.66
+        },
+        {
+          "minQty": 10,
+          "price": 35.51
+        },
+        {
+          "minQty": 12,
+          "price": 34.65
+        },
+        {
+          "minQty": 15,
+          "price": 33.79
+        },
+        {
+          "minQty": 20,
+          "price": 31.93
+        },
+        {
+          "minQty": 25,
+          "price": 30.46
+        },
+        {
+          "minQty": 30,
+          "price": 29.43
+        },
+        {
+          "minQty": 40,
+          "price": 28.08
+        },
+        {
+          "minQty": 50,
+          "price": 27.23
+        },
+        {
+          "minQty": 72,
+          "price": 26.06
+        },
+        {
+          "minQty": 75,
+          "price": 25.93
+        },
+        {
+          "minQty": 100,
+          "price": 25.13
+        },
+        {
+          "minQty": 144,
+          "price": 24.71
+        },
+        {
+          "minQty": 150,
+          "price": 24.67
+        },
+        {
+          "minQty": 200,
+          "price": 24.44
+        },
+        {
+          "minQty": 250,
+          "price": 23.86
+        },
+        {
+          "minQty": 300,
+          "price": 23.33
+        },
+        {
+          "minQty": 350,
+          "price": 22.84
+        },
+        {
+          "minQty": 500,
+          "price": 21.42
+        },
+        {
+          "minQty": 750,
+          "price": 20.48
+        },
+        {
+          "minQty": 1000,
+          "price": 20.43
+        }
+      ],
+      "embroidery": [
+        {
+          "minQty": 1,
+          "price": 124.36
+        },
+        {
+          "minQty": 2,
+          "price": 76.98
+        },
+        {
+          "minQty": 3,
+          "price": 61.19
+        },
+        {
+          "minQty": 5,
+          "price": 48.55
+        },
+        {
+          "minQty": 10,
+          "price": 39.08
+        },
+        {
+          "minQty": 12,
+          "price": 37.5
+        },
+        {
+          "minQty": 15,
+          "price": 35.92
+        },
+        {
+          "minQty": 20,
+          "price": 34.34
+        },
+        {
+          "minQty": 25,
+          "price": 33.38
+        },
+        {
+          "minQty": 30,
+          "price": 32.67
+        },
+        {
+          "minQty": 40,
+          "price": 31.71
+        },
+        {
+          "minQty": 50,
+          "price": 31.08
+        },
+        {
+          "minQty": 72,
+          "price": 30.16
+        },
+        {
+          "minQty": 75,
+          "price": 30.06
+        },
+        {
+          "minQty": 100,
+          "price": 29.36
+        },
+        {
+          "minQty": 144,
+          "price": 29.08
+        },
+        {
+          "minQty": 150,
+          "price": 29.06
+        },
+        {
+          "minQty": 200,
+          "price": 28.91
+        },
+        {
+          "minQty": 250,
+          "price": 28.3
+        },
+        {
+          "minQty": 300,
+          "price": 27.72
+        },
+        {
+          "minQty": 350,
+          "price": 27.16
+        },
+        {
+          "minQty": 500,
+          "price": 25.53
+        },
+        {
+          "minQty": 750,
+          "price": 24.44
+        },
+        {
+          "minQty": 1000,
+          "price": 24.41
+        }
+      ]
+    }
+  },
+  "crewnecks": {
+    "decorations": [
+      "screen",
+      "embroidery"
+    ],
+    "breaks": {
+      "screen": [
+        {
+          "minQty": 1,
+          "price": 75.17
+        },
+        {
+          "minQty": 2,
+          "price": 49.41
+        },
+        {
+          "minQty": 3,
+          "price": 40.84
+        },
+        {
+          "minQty": 5,
+          "price": 33.97
+        },
+        {
+          "minQty": 10,
+          "price": 28.81
+        },
+        {
+          "minQty": 12,
+          "price": 27.96
+        },
+        {
+          "minQty": 15,
+          "price": 27.09
+        },
+        {
+          "minQty": 20,
+          "price": 25.23
+        },
+        {
+          "minQty": 25,
+          "price": 23.77
+        },
+        {
+          "minQty": 30,
+          "price": 22.76
+        },
+        {
+          "minQty": 40,
+          "price": 21.44
+        },
+        {
+          "minQty": 50,
+          "price": 20.62
+        },
+        {
+          "minQty": 72,
+          "price": 19.53
+        },
+        {
+          "minQty": 75,
+          "price": 19.42
+        },
+        {
+          "minQty": 100,
+          "price": 18.71
+        },
+        {
+          "minQty": 144,
+          "price": 18.28
+        },
+        {
+          "minQty": 150,
+          "price": 18.24
+        },
+        {
+          "minQty": 200,
+          "price": 18
+        },
+        {
+          "minQty": 250,
+          "price": 17.55
+        },
+        {
+          "minQty": 300,
+          "price": 17.14
+        },
+        {
+          "minQty": 350,
+          "price": 16.76
+        },
+        {
+          "minQty": 500,
+          "price": 15.7
+        },
+        {
+          "minQty": 750,
+          "price": 15
+        },
+        {
+          "minQty": 1000,
+          "price": 14.95
+        }
+      ],
+      "embroidery": [
+        {
+          "minQty": 1,
+          "price": 117.66
+        },
+        {
+          "minQty": 2,
+          "price": 70.28
+        },
+        {
+          "minQty": 3,
+          "price": 54.5
+        },
+        {
+          "minQty": 5,
+          "price": 41.86
+        },
+        {
+          "minQty": 10,
+          "price": 32.39
+        },
+        {
+          "minQty": 12,
+          "price": 30.8
+        },
+        {
+          "minQty": 15,
+          "price": 29.23
+        },
+        {
+          "minQty": 20,
+          "price": 27.65
+        },
+        {
+          "minQty": 25,
+          "price": 26.69
+        },
+        {
+          "minQty": 30,
+          "price": 25.99
+        },
+        {
+          "minQty": 40,
+          "price": 25.08
+        },
+        {
+          "minQty": 50,
+          "price": 24.48
+        },
+        {
+          "minQty": 72,
+          "price": 23.64
+        },
+        {
+          "minQty": 75,
+          "price": 23.55
+        },
+        {
+          "minQty": 100,
+          "price": 22.94
+        },
+        {
+          "minQty": 144,
+          "price": 22.66
+        },
+        {
+          "minQty": 150,
+          "price": 22.63
+        },
+        {
+          "minQty": 200,
+          "price": 22.48
+        },
+        {
+          "minQty": 250,
+          "price": 21.98
+        },
+        {
+          "minQty": 300,
+          "price": 21.52
+        },
+        {
+          "minQty": 350,
+          "price": 21.08
+        },
+        {
+          "minQty": 500,
+          "price": 19.81
+        },
+        {
+          "minQty": 750,
+          "price": 18.96
+        },
+        {
+          "minQty": 1000,
+          "price": 18.93
+        }
+      ]
+    }
+  },
+  "tote-bags": {
+    "decorations": [
+      "screen",
+      "embroidery"
+    ],
+    "breaks": {
+      "screen": [
+        {
+          "minQty": 1,
+          "price": 63.4
+        },
+        {
+          "minQty": 2,
+          "price": 37.64
+        },
+        {
+          "minQty": 3,
+          "price": 29.06
+        },
+        {
+          "minQty": 5,
+          "price": 22.19
+        },
+        {
+          "minQty": 10,
+          "price": 17.04
+        },
+        {
+          "minQty": 12,
+          "price": 16.18
+        },
+        {
+          "minQty": 15,
+          "price": 15.32
+        },
+        {
+          "minQty": 20,
+          "price": 13.45
+        },
+        {
+          "minQty": 25,
+          "price": 12
+        },
+        {
+          "minQty": 30,
+          "price": 11.01
+        },
+        {
+          "minQty": 40,
+          "price": 9.77
+        },
+        {
+          "minQty": 50,
+          "price": 9
+        },
+        {
+          "minQty": 72,
+          "price": 8.05
+        },
+        {
+          "minQty": 75,
+          "price": 7.96
+        },
+        {
+          "minQty": 100,
+          "price": 7.39
+        },
+        {
+          "minQty": 144,
+          "price": 6.97
+        },
+        {
+          "minQty": 150,
+          "price": 6.93
+        },
+        {
+          "minQty": 200,
+          "price": 6.7
+        },
+        {
+          "minQty": 250,
+          "price": 6.45
+        },
+        {
+          "minQty": 300,
+          "price": 6.25
+        },
+        {
+          "minQty": 350,
+          "price": 6.07
+        },
+        {
+          "minQty": 500,
+          "price": 5.64
+        },
+        {
+          "minQty": 750,
+          "price": 5.35
+        },
+        {
+          "minQty": 1000,
+          "price": 5.31
+        }
+      ],
+      "embroidery": [
+        {
+          "minQty": 1,
+          "price": 105.89
+        },
+        {
+          "minQty": 2,
+          "price": 58.51
+        },
+        {
+          "minQty": 3,
+          "price": 42.72
+        },
+        {
+          "minQty": 5,
+          "price": 30.08
+        },
+        {
+          "minQty": 10,
+          "price": 20.61
+        },
+        {
+          "minQty": 12,
+          "price": 19.03
+        },
+        {
+          "minQty": 15,
+          "price": 17.46
+        },
+        {
+          "minQty": 20,
+          "price": 15.87
+        },
+        {
+          "minQty": 25,
+          "price": 14.92
+        },
+        {
+          "minQty": 30,
+          "price": 14.25
+        },
+        {
+          "minQty": 40,
+          "price": 13.4
+        },
+        {
+          "minQty": 50,
+          "price": 12.87
+        },
+        {
+          "minQty": 72,
+          "price": 12.15
+        },
+        {
+          "minQty": 75,
+          "price": 12.08
+        },
+        {
+          "minQty": 100,
+          "price": 11.63
+        },
+        {
+          "minQty": 144,
+          "price": 11.34
+        },
+        {
+          "minQty": 150,
+          "price": 11.33
+        },
+        {
+          "minQty": 200,
+          "price": 11.17
+        },
+        {
+          "minQty": 250,
+          "price": 10.89
+        },
+        {
+          "minQty": 300,
+          "price": 10.63
+        },
+        {
+          "minQty": 350,
+          "price": 10.4
+        },
+        {
+          "minQty": 500,
+          "price": 9.75
+        },
+        {
+          "minQty": 750,
+          "price": 9.31
+        },
+        {
+          "minQty": 1000,
+          "price": 9.28
+        }
+      ]
+    }
+  },
+  "toque": {
+    "decorations": [
+      "embroidery"
+    ],
+    "breaks": {
+      "embroidery": [
+        {
+          "minQty": 1,
+          "price": 109.55
+        },
+        {
+          "minQty": 2,
+          "price": 62.18
+        },
+        {
+          "minQty": 3,
+          "price": 46.38
+        },
+        {
+          "minQty": 5,
+          "price": 33.75
+        },
+        {
+          "minQty": 10,
+          "price": 24.27
+        },
+        {
+          "minQty": 12,
+          "price": 22.69
+        },
+        {
+          "minQty": 15,
+          "price": 21.12
+        },
+        {
+          "minQty": 20,
+          "price": 19.53
+        },
+        {
+          "minQty": 25,
+          "price": 18.58
+        },
+        {
+          "minQty": 30,
+          "price": 17.91
+        },
+        {
+          "minQty": 40,
+          "price": 17.03
+        },
+        {
+          "minQty": 50,
+          "price": 16.47
+        },
+        {
+          "minQty": 72,
+          "price": 15.73
+        },
+        {
+          "minQty": 75,
+          "price": 15.65
+        },
+        {
+          "minQty": 100,
+          "price": 15.14
+        },
+        {
+          "minQty": 144,
+          "price": 14.86
+        },
+        {
+          "minQty": 150,
+          "price": 14.84
+        },
+        {
+          "minQty": 200,
+          "price": 14.68
+        },
+        {
+          "minQty": 250,
+          "price": 14.34
+        },
+        {
+          "minQty": 300,
+          "price": 14.02
+        },
+        {
+          "minQty": 350,
+          "price": 13.72
+        },
+        {
+          "minQty": 500,
+          "price": 12.87
+        },
+        {
+          "minQty": 750,
+          "price": 12.31
+        },
+        {
+          "minQty": 1000,
+          "price": 12.28
+        }
+      ]
+    }
+  },
+  "dad-cap": {
+    "decorations": [
+      "embroidery"
+    ],
+    "breaks": {
+      "embroidery": [
+        {
+          "minQty": 1,
+          "price": 116.55
+        },
+        {
+          "minQty": 2,
+          "price": 69.17
+        },
+        {
+          "minQty": 3,
+          "price": 53.37
+        },
+        {
+          "minQty": 5,
+          "price": 40.74
+        },
+        {
+          "minQty": 10,
+          "price": 31.26
+        },
+        {
+          "minQty": 12,
+          "price": 29.69
+        },
+        {
+          "minQty": 15,
+          "price": 28.1
+        },
+        {
+          "minQty": 20,
+          "price": 26.53
+        },
+        {
+          "minQty": 25,
+          "price": 25.56
+        },
+        {
+          "minQty": 30,
+          "price": 24.87
+        },
+        {
+          "minQty": 40,
+          "price": 23.96
+        },
+        {
+          "minQty": 50,
+          "price": 23.38
+        },
+        {
+          "minQty": 72,
+          "price": 22.54
+        },
+        {
+          "minQty": 75,
+          "price": 22.46
+        },
+        {
+          "minQty": 100,
+          "price": 21.86
+        },
+        {
+          "minQty": 144,
+          "price": 21.58
+        },
+        {
+          "minQty": 150,
+          "price": 21.56
+        },
+        {
+          "minQty": 200,
+          "price": 21.41
+        },
+        {
+          "minQty": 250,
+          "price": 20.93
+        },
+        {
+          "minQty": 300,
+          "price": 20.49
+        },
+        {
+          "minQty": 350,
+          "price": 20.07
+        },
+        {
+          "minQty": 500,
+          "price": 18.85
+        },
+        {
+          "minQty": 750,
+          "price": 18.04
+        },
+        {
+          "minQty": 1000,
+          "price": 18.01
+        }
+      ]
+    }
+  }
+}

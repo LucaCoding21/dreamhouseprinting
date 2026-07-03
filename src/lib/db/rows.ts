@@ -45,6 +45,25 @@ export interface PrintAreaPositionJson {
   height: number;
 }
 
+/** Decoration types the storefront Detailed Quote can price (mirrors lib/pricing.ts). */
+export type QuoteDecoration = "screen" | "embroidery";
+/** One quantity break: `price` (CAD/unit) applies from `minQty` up to the next break. */
+export interface QuotePriceBreak {
+  minQty: number;
+  price: number;
+}
+/**
+ * Per-product pricing curve stored on `products.pricing_rules.quote`. Drives the
+ * product-page Detailed Quote only (the platform engine / designer use markup).
+ * Seeded from lib/pricing.ts and editable in the admin product editor.
+ */
+export interface ProductQuoteCurveJson {
+  /** Decorations this product offers; the first is the default. */
+  decorations: QuoteDecoration[];
+  /** Absolute $/unit by quantity, per decoration — the bulk tiers Julian edits. */
+  breaks: Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
+}
+
 /** The order status set (PRD §2.4) and payment status set (§2.5). */
 export const ORDER_STATUSES = [
   "draft", "submitted", "in_review", "proof_ready", "changes_requested",

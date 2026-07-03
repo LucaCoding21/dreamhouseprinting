@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { RegisterForm } from "./RegisterForm";
 
-export const metadata = { title: "Create account — Dreamhouse Printing" };
+export const metadata = { title: "Create account | Dreamhouse Printing" };
 
 export default async function RegisterPage({
   searchParams,

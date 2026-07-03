@@ -5,16 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import SiteNav from "@/components/SiteNav";
-import SiteFooter from "@/components/SiteFooter";
 import { DesignCanvas, type DesignCanvasHandle, type PrintBox } from "./DesignCanvas";
 import { saveDraftAction, type DesignSubmitInput } from "./actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
+import { useCart } from "@/lib/cart/CartContext";
 import { formatCAD, roundCents } from "@/lib/money";
 import { calcPrice } from "@/lib/pricing/platform";
+import { fmtDate, inHandsWindow } from "@/lib/turnaround";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { swatchStyle } from "@/lib/swatch";
 import type { ProductColourJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
 type View = "front" | "back" | "sleeve";
@@ -34,6 +36,19 @@ interface MethodLite {
   setup_fee: number;
   per_unit_cost: number;
   per_color_cost: number;
+}
+
+/** A saved design loaded for editing — rehydrates the canvas + review state. */
+export interface InitialDesign {
+  designId: string;
+  name: string | null;
+  leadEmail: string | null;
+  colourName: string | null;
+  methodId: string | null;
+  primarySizeQty: Record<string, number>;
+  extraColorways: { colourName: string; sizeQty: Record<string, number> }[];
+  /** Per-view Fabric canvas JSON, loaded into each canvas once its garment is ready. */
+  scenes: Record<string, object>;
 }
 
 interface Props {
@@ -57,6 +72,10 @@ interface Props {
   isLoggedIn: boolean;
   accountEmail: string | null;
   startAsQuote: boolean;
+  /** Colour the customer picked on the product page; defaults to the first. */
+  initialColourName?: string;
+  /** When set, the designer reopens this saved design for editing. */
+  initialDesign?: InitialDesign | null;
 }
 
 function normView(v: string): View {
@@ -137,6 +156,7 @@ function svgToDataUrl(svg: string) {
 
 export function DesignerClient(props: Props) {
   const router = useRouter();
+  const { addItem } = useCart();
   // One Fabric canvas per decorated view (front/back/...), all mounted at once
   // and editable side by side. Keyed by view.
   const canvasRefs = useRef<Record<string, DesignCanvasHandle | null>>({});
@@ -152,7 +172,10 @@ export function DesignerClient(props: Props) {
     return (["front", "back", "sleeve"] as View[]).filter((v) => set.has(v));
   }, [props.printAreas]);
 
-  const [colourName, setColourName] = useState(props.colours[0]?.name ?? "");
+  const edit = props.initialDesign ?? null;
+  const [colourName, setColourName] = useState(
+    edit?.colourName ?? props.initialColourName ?? props.colours[0]?.name ?? "",
+  );
   // The canvas that tool actions (upload/text/clip-art/undo) target. The user
   // switches it by clicking a canvas or the "Adding to" pills.
   const [activeView, setActiveView] = useState<View>(views[0] ?? "front");
@@ -161,16 +184,20 @@ export function DesignerClient(props: Props) {
   const [leftOpen, setLeftOpen] = useState(true);
   // Friendly heads-up when an uploaded raster is a bit low-res for large prints.
   const [lowResNote, setLowResNote] = useState<string | null>(null);
-  const [methodId, setMethodId] = useState(props.methods[0]?.id ?? null);
+  const [methodId, setMethodId] = useState(
+    (edit?.methodId && props.methods.some((m) => m.id === edit.methodId) ? edit.methodId : null) ??
+      props.methods[0]?.id ??
+      null,
+  );
   // Per-size quantity breakdown, collected on the review screen. Total quantity
   // is derived from the sum and drives pricing.
-  const [sizeQty, setSizeQty] = useState<Record<string, number>>({});
+  const [sizeQty, setSizeQty] = useState<Record<string, number>>(edit?.primarySizeQty ?? {});
   // Additional garment colourways for the same artwork — each with its own size
   // breakdown. The primary (canvas) colour + sizeQty is the first colourway;
   // these are the "Add another colour" rows on the review screen.
   const [extraColorways, setExtraColorways] = useState<
     { id: string; colourName: string; sizeQty: Record<string, number> }[]
-  >([]);
+  >(() => (edit?.extraColorways ?? []).map((c, i) => ({ id: `cw-${i}`, ...c })));
   // Ink-colour count is determined from the artwork at proofing, not chosen here.
   const inkColours = 1;
   // Rush delivery is disabled for now — the toggle was removed from the review
@@ -200,8 +227,8 @@ export function DesignerClient(props: Props) {
   // "Save your design" modal — gates the checkout funnel, captures a name + lead
   // email before we send the customer into checkout.
   const [showSave, setShowSave] = useState(false);
-  const [designName, setDesignName] = useState(props.productName);
-  const [leadEmail, setLeadEmail] = useState(props.accountEmail ?? "");
+  const [designName, setDesignName] = useState(edit?.name || props.productName);
+  const [leadEmail, setLeadEmail] = useState(edit?.leadEmail || props.accountEmail || "");
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const artworkFiles = useRef<{ id: string; file: File }[]>([]);
@@ -274,8 +301,30 @@ export function DesignerClient(props: Props) {
     setupTotal,
     total: roundCents(grandSubtotal + setupTotal),
   };
+  // Pre-discount unit price + bulk-tier savings for the headline estimate box
+  // (matches the instant-estimate box on the product page). Computed on the
+  // primary colourway's qty so it aligns with breakdown.unitPrice.
+  const priceMeta = useMemo(() => {
+    const primaryQty = pricedColorways[0]?.quantity ?? 0;
+    const p = calcPrice({ product: productInput, method, quantity: Math.max(primaryQty, 1), colourCount: inkColours, locationCount });
+    return { anchorPerUnit: roundCents(p.garmentRetail + p.decorationPerUnit), discountPct: p.bulkDiscountPct };
+  }, [pricedColorways, productInput, method, inkColours, locationCount]);
 
-  const colorwayId = useRef(0);
+  // Next bulk tier within reach — powers the "add N more to save X%" nudge.
+  // Reads the same product.pricing_rules.bulkTiers the pricing engine discounts
+  // on, so it stays silent (correctly) on products without tiers.
+  const nextTier = useMemo(() => {
+    const rules = (props.pricing.pricing_rules ?? {}) as { bulkTiers?: { minQty: number; discountPct: number }[] };
+    const tiers = (rules.bulkTiers ?? []).slice().sort((a, b) => a.minQty - b.minQty);
+    const next = tiers.find((t) => quantity < t.minQty && t.discountPct > priceMeta.discountPct);
+    return next ? { add: next.minQty - quantity, pct: next.discountPct } : null;
+  }, [props.pricing.pricing_rules, quantity, priceMeta.discountPct]);
+
+  // Estimated in-hands window for an order placed today (shared with checkout
+  // review so both screens project the same date).
+  const inHands = useMemo(() => inHandsWindow(new Date(), props.leadTimeDays), [props.leadTimeDays]);
+
+  const colorwayId = useRef(edit?.extraColorways.length ?? 0);
   const usedColours = new Set(colourwayList.map((c) => c.colourName));
   function addColorway() {
     const next = props.colours.find((c) => !usedColours.has(c.name)) ?? props.colours[0];
@@ -386,6 +435,20 @@ export function DesignerClient(props: Props) {
       else next.delete(v);
       return next;
     });
+  }
+
+  // Saved-design rehydration: each view's art is loaded into its canvas once,
+  // after the garment image is ready (so the print rect is in place). We pull
+  // from the ref and delete the entry so later colour swaps don't reload it.
+  const pendingScenes = useRef<Record<string, object>>(edit?.scenes ?? {});
+  async function loadInitialScene(v: View) {
+    const scene = pendingScenes.current[v];
+    if (!scene) return;
+    delete pendingScenes.current[v];
+    const c = canvasRefs.current[v];
+    if (!c) return;
+    await c.loadScene(scene);
+    onCanvasChange(v);
   }
 
   function onSelectionChange(v: View, has: boolean) {
@@ -503,29 +566,29 @@ export function DesignerClient(props: Props) {
   }
 
   /**
-   * Persist the current design as a draft, then route on. "checkout" sends the
-   * customer into the checkout funnel carrying the name + lead email collected in
-   * the save modal; "designs" parks the draft in My Designs. The actual Order is
-   * NOT created here — it's placed at the end of checkout.
+   * Persist the current design as a draft, then route on. "cart" adds the saved
+   * design to the lite cart (carrying the name + lead email from the save modal)
+   * and sends the customer to /cart; "designs" parks the draft in My Designs. The
+   * actual Order is NOT created here — it's placed from the cart at checkout.
    */
   async function saveDesign(
-    destination: "checkout" | "designs",
+    destination: "cart" | "designs",
     extras?: { name?: string; leadEmail?: string }
   ) {
     setError(null);
     setSaveError(null);
-    // Route errors to the modal when we're in the checkout flow, else inline.
+    // Route errors to the modal when we're in the add-to-cart flow, else inline.
     const reportErr = (msg: string) => {
-      if (destination === "checkout") setSaveError(msg);
+      if (destination === "cart") setSaveError(msg);
       else setError(msg);
     };
     // "Save & share" parks the draft in My Designs, which needs an account.
-    // "Begin checkout" allows guests (they save with just an email + cookie).
+    // "Add to cart" allows guests (they save with just an email + cookie).
     if (!props.isLoggedIn && destination === "designs") {
       router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
       return;
     }
-    if (destination === "checkout" && quantity < 1) {
+    if (destination === "cart" && quantity < 1) {
       setSaveError("Add at least one size & quantity first.");
       return;
     }
@@ -543,7 +606,7 @@ export function DesignerClient(props: Props) {
       return;
     }
 
-    setBusy(destination === "checkout" ? "submit" : "save");
+    setBusy(destination === "cart" ? "submit" : "save");
     try {
       // Export one mockup per decorated view (front + back proofs).
       const uploadItems: { id: string; bucket: string; name: string; kind: string; blob: Blob }[] = [];
@@ -567,6 +630,7 @@ export function DesignerClient(props: Props) {
 
       const input: DesignSubmitInput = {
         productId: props.productId,
+        designId: edit?.designId,
         name: extras?.name,
         leadEmail: extras?.leadEmail,
         colourName,
@@ -610,7 +674,28 @@ export function DesignerClient(props: Props) {
         return;
       }
       if (res.designId) {
-        router.push(destination === "checkout" ? `/checkout/${res.designId}` : "/account/designs");
+        if (destination === "cart") {
+          // Summarize colourways for the cart row, then drop it in and head to
+          // the cart. Same artwork, possibly several garment colours.
+          const activeColorways = pricedColorways.filter((c) => c.quantity > 0);
+          const colourSummary =
+            activeColorways.length > 1
+              ? `${activeColorways.length} colours · ${quantity} pcs`
+              : `${activeColorways[0]?.colourName ?? colourName} · ${quantity} pcs`;
+          addItem({
+            designId: res.designId,
+            productId: props.productId,
+            productName: extras?.name?.trim() || props.productName,
+            colourSummary,
+            quantity,
+            total: breakdown.total,
+            mockupUrl: previewUrl,
+            addedAt: Date.now(),
+          });
+          router.push("/cart");
+        } else {
+          router.push("/account/designs");
+        }
       }
     } catch (e) {
       reportErr(e instanceof Error ? e.message : "Something went wrong");
@@ -622,6 +707,10 @@ export function DesignerClient(props: Props) {
   const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
   // Sides that actually carry art — listed in the review spec table.
   const decoratedViews = views.filter((v) => viewsWithArt.has(v));
+  // Embroidery is decorated in thread; screen print / DTG in ink. Label the
+  // colour count accordingly so the spec reads in the customer's terms.
+  const isEmbroidery = (method?.name ?? "").toLowerCase().includes("embroid");
+  const colourKindLabel = isEmbroidery ? "Thread colours" : "Ink colours";
 
   return (
     <div className="bg-dream-lavender-soft text-dream-ink">
@@ -629,19 +718,10 @@ export function DesignerClient(props: Props) {
           The shirt-details section + footer below sit in normal page flow, so
           the whole page scrolls past the editor to reveal them. */}
       <div className="flex h-dvh flex-col overflow-hidden">
-        {/* Site nav + price-match banner — same chrome as the rest of the store */}
+        {/* Site nav — same chrome as the rest of the store */}
         <div className="shrink-0 bg-dream-lavender-soft">
           <SiteNav />
         </div>
-      <Link
-        href="/contact#coastal-reign"
-        className="block shrink-0 bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
-      >
-        <p className="mx-auto max-w-[1400px] px-4 py-1.5 text-center text-[12px] font-bold sm:px-6 sm:text-[13px]">
-          We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
-          <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
-        </p>
-      </Link>
 
       {/* Full-bleed work area. Stays mounted (hidden) during the review phase so
           the canvases keep their artwork for mockup export. */}
@@ -797,7 +877,7 @@ export function DesignerClient(props: Props) {
                   </button>
                   {lowResNote && (
                     <p className="mt-3 rounded-lg bg-dream-sun/25 px-3 py-2 text-xs leading-relaxed text-dream-ink">
-                      Heads up — that file is {lowResNote}, a bit low-res for large prints. No worries, we&apos;ll clean it up or vectorize it for you, free.
+                      Heads up, that file is {lowResNote}, a bit low-res for large prints. No worries, we&apos;ll clean it up or vectorize it for you, free.
                     </p>
                   )}
                   <p className="mt-3 text-xs leading-relaxed text-dream-faint">
@@ -990,7 +1070,10 @@ export function DesignerClient(props: Props) {
                         }}
                         onSelectionChange={(has) => onSelectionChange(v, has)}
                         onChange={() => onCanvasChange(v)}
-                        onGarmentLoaded={() => setLoadedViews((s) => new Set(s).add(v))}
+                        onGarmentLoaded={() => {
+                          setLoadedViews((s) => new Set(s).add(v));
+                          loadInitialScene(v);
+                        }}
                       />
                     </div>
 
@@ -1062,74 +1145,94 @@ export function DesignerClient(props: Props) {
         {/* Design footer — pricing & quantity live on the review screen; this advances to it */}
         {phase === "design" && (
           <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3">
-            <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4">
-              <p className={cn("truncate text-sm", error ? "text-dream-danger" : "text-dream-muted")}>
-                {error ?? "Looking good! Set your quantity and see pricing next."}
-              </p>
-              <button
-                onClick={goToReview}
-                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
-              >
-                Continue
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              </button>
+            <div className="mx-auto flex max-w-[1400px] items-center justify-end gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <p className={cn("hidden truncate text-sm sm:block", error ? "font-medium text-dream-danger" : "text-dream-muted")}>
+                  {error ?? "Looking good! Set your quantity and see pricing next."}
+                </p>
+                <button
+                  onClick={goToReview}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+                >
+                  Continue
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                </button>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Review screen — quantity, pricing & turnaround, then place the order */}
+        {/* Review screen — scrollable content above a sticky checkout bar */}
         {phase === "review" && (
-          <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-            {/* Item (left) + details (right) */}
-            <div className="mx-auto flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:px-8 lg:py-8">
-              {/* Preview — compact, not full-width; sits on the white page */}
-              <div className="relative flex min-h-[280px] shrink-0 items-center justify-center overflow-hidden p-3 lg:w-[440px]">
+          <div className="flex min-h-0 flex-1 flex-col bg-white">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* Progress — full-width above the two columns so the customer knows
+                where they are and that payment comes only after they approve. */}
+            <div className="border-b border-dream-line bg-dream-cream/60">
+              <ReviewStepper className="mx-auto max-w-6xl px-4 py-3.5 sm:px-6 lg:px-8" />
+            </div>
+            {/* Item (left) + details (right). The preview fills the left region
+                and is top-aligned + sticky so it stays put while the form on the
+                right grows/scrolls (typing a quantity no longer shifts it). */}
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 lg:flex-row lg:items-start lg:gap-12 lg:px-8 lg:pt-12 lg:pb-28">
+              {/* Preview — centered in the left region, pinned in place. The
+                  back button sits at its top-left corner. */}
+              <div className="relative flex min-h-[260px] items-center justify-center self-stretch p-3 lg:sticky lg:top-12 lg:min-h-[60vh] lg:flex-1 lg:self-start lg:pr-16">
+                <button
+                  onClick={() => setPhase("design")}
+                  className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 font-display text-sm font-bold text-dream-ink transition-colors hover:text-dream-purple lg:-left-2 lg:top-0"
+                >
+                  <svg className="shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+                  Back to designing
+                </button>
                 {previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={previewUrl} alt="Your design" className="max-h-[56vh] w-auto max-w-full object-contain" />
+                  <img src={previewUrl} alt="Your design" className="max-h-[60vh] w-auto max-w-full object-contain" />
                 ) : (
                   <span className="text-sm text-dream-muted">Preview unavailable</span>
                 )}
               </div>
 
-              {/* Details — fills the rest of the width out to the right */}
-              <div className="flex-1 p-6 sm:p-7 lg:border-l lg:border-dream-line lg:p-8">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPhase("design")}
-                    aria-label="Back to design"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-cream hover:text-dream-ink"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
-                  </button>
-                  <h2 className="font-display text-lg font-extrabold text-dream-ink">{props.productName}</h2>
-                </div>
-
-                <hr className="my-5 border-dream-line" />
-                {/* Decoration spec */}
-                <div className="overflow-hidden rounded-2xl border border-dream-line">
-                  <div className="grid grid-cols-[1fr_1fr_auto] gap-x-3 bg-dream-cream px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-dream-muted">
-                    <span>Location</span>
-                    <span>Type</span>
-                    <span>Colours</span>
+              {/* Details — a fixed-width form column on the right. */}
+              <div className="w-full lg:w-[34rem] lg:shrink-0">
+                {/* Decoration spec — what's printed, where, and in how many colours.
+                    "Colours" reads as thread (embroidery) or ink (print). */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">What we&apos;re printing</div>
+                    <span className="text-xs font-semibold text-dream-muted">
+                      {decoratedViews.length} {decoratedViews.length === 1 ? "location" : "locations"}
+                    </span>
                   </div>
-                  {decoratedViews.map((v) => (
-                    <div
-                      key={v}
-                      className="grid grid-cols-[1fr_1fr_auto] gap-x-3 border-t border-dream-line px-4 py-2.5 text-sm text-dream-ink first:border-t-0"
-                    >
-                      <span>{VIEW_LABEL[v]}</span>
-                      <span>{method?.name ?? "Print"}</span>
-                      <span>{inkColours}</span>
+                  <div className="overflow-hidden rounded-2xl border border-dream-line">
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-x-3 bg-dream-cream px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-dream-muted">
+                      <span>Location</span>
+                      <span>Method</span>
+                      <span className="text-right">{colourKindLabel}</span>
                     </div>
-                  ))}
+                    {decoratedViews.map((v) => (
+                      <div
+                        key={v}
+                        className="grid grid-cols-[1fr_1fr_auto] items-center gap-x-3 border-t border-dream-line px-4 py-3.5 text-sm text-dream-ink first:border-t-0"
+                      >
+                        <span className="font-semibold">{VIEW_LABEL[v]}</span>
+                        <span className="text-dream-ink-soft">{method?.name ?? "Print"}</span>
+                        <span className="justify-self-end rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-bold text-dream-purple">
+                          {inkColours} {isEmbroidery ? "thread" : "ink"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <hr className="my-5 border-dream-line" />
+                <hr className="my-8 border-dream-line" />
                 {/* Colours & sizes — one block per garment colourway. Same artwork,
                     different shirt colours; each colour is priced on its own qty. */}
-                <div className="space-y-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Colours &amp; sizes</div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">How many of each size? Need another shirt colour? Add one below.</p>
+                  </div>
 
                   <ColorwayBlock
                     hex={colour?.hex ?? null}
@@ -1165,48 +1268,103 @@ export function DesignerClient(props: Props) {
                   </button>
                 </div>
 
-                {/* Quantity + total */}
-                <div className="mt-5 flex items-end justify-between border-t border-dream-line pt-5">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Quantity</div>
-                    <div className="font-display text-2xl font-extrabold text-dream-ink">{quantity || 0}</div>
+                {/* Estimate — same grounded price box as the product page's
+                    instant estimate: per-unit (with bulk savings) + est. total. */}
+                <div className="mt-6 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Your price</p>
+                      <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
+                        {formatCAD(breakdown.unitPrice)}
+                        <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
+                      </p>
+                      {priceMeta.discountPct > 0 && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-xs">
+                          <span className="text-dream-muted line-through">{formatCAD(priceMeta.anchorPerUnit)}</span>
+                          <span className="rounded-full bg-dream-sun px-2 py-0.5 font-bold text-dream-ink">Save {priceMeta.discountPct}%</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+                        {quantity || 0} unit{quantity === 1 ? "" : "s"}
+                      </p>
+                      <p className="font-display text-xl font-bold leading-none text-dream-ink">{formatCAD(breakdown.total)}</p>
+                      <p className="mt-1.5 text-xs text-dream-muted">est. total</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Total</div>
-                    <div className="font-display text-2xl font-extrabold text-dream-purple">{formatCAD(breakdown.total)}</div>
-                    {breakdown.setupTotal > 0 && (
-                      <div className="text-xs text-dream-faint">incl. {formatCAD(breakdown.setupTotal)} setup</div>
-                    )}
+                  {breakdown.setupTotal > 0 && (
+                    <p className="mt-2.5 border-t border-dream-lavender-soft pt-2 text-[11px] font-semibold text-dream-muted">
+                      incl. {formatCAD(breakdown.setupTotal)} one-time setup
+                    </p>
+                  )}
+                  {nextTier && quantity > 0 && (
+                    <p className="mt-2.5 flex items-center gap-1.5 border-t border-dream-lavender-soft pt-2 text-xs font-bold text-dream-ink">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-dream-purple" aria-hidden><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+                      Add {nextTier.add} more to save {nextTier.pct}% per unit
+                    </p>
+                  )}
+                </div>
+
+                {/* Estimated delivery — one confident in-hands date (shared math
+                    with checkout so the two screens never disagree). */}
+                <div className="mt-6 flex items-start gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5">
+                  <span className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-dream-cream text-dream-purple">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19ZM17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">Estimated delivery</p>
+                    <p className="mt-1 font-display text-lg font-bold leading-tight text-dream-ink">In hands by {fmtDate(inHands.end)}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+                      Proof in ~1 business day, then ships once you approve. Dates firm up on your proof.
+                    </p>
                   </div>
                 </div>
 
-                <hr className="my-5 border-dream-line" />
-                {/* CTA */}
-                <div className="space-y-3">
-                  {error && <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
-                  {quantity < 1 && !error && (
-                    <p className="rounded-xl bg-dream-cream px-3 py-2 text-center text-sm text-dream-muted">Please enter more than 0 items.</p>
-                  )}
+                {/* Reassurance — the risk-reducers a first-time custom buyer
+                    weighs right at the decision point. "Pay after approval" is
+                    intentionally NOT repeated here (the stepper + CTA carry it). */}
+                <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+                  {["Printed right, guaranteed", "Free design proof", "Printed in Canada", "Expert design review"].map((b) => (
+                    <div key={b} className="flex items-center gap-2 text-sm font-semibold text-dream-ink">
+                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-dream-success-soft text-dream-success">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+                      </span>
+                      {b}
+                    </div>
+                  ))}
+                </div>
+
+              </div>
+            </div>
+            </div>
+
+            {/* Sticky checkout bar — pinned to the bottom of the viewport so the
+                CTA is always reachable while the form above scrolls. */}
+            <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3 sm:px-6">
+              <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+                <p className={cn("min-w-0 text-sm sm:text-right", error ? "font-medium text-dream-danger" : quantity < 1 ? "text-dream-muted" : "text-dream-faint")}>
+                  {error ?? (quantity < 1 ? "Please enter more than 0 items." : "No payment now. We send a proof to approve first.")}
+                </p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => saveDesign("designs")}
+                    disabled={busy !== null}
+                    className="inline-flex items-center justify-center rounded-full border border-dream-line bg-white px-5 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
+                  >
+                    {busy === "save" ? "Saving…" : "Save & share"}
+                  </button>
                   <button
                     onClick={() => {
                       setSaveError(null);
                       setShowSave(true);
                     }}
                     disabled={busy !== null || quantity < 1}
-                    className="inline-flex w-full items-center justify-center rounded-full bg-dream-purple px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Begin checkout
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5.4 8.2c4.4-.5 8.9-.5 13.3 0 .5 3.7.8 7.4.9 11.1-5.1.6-10.2.6-15.2 0 .1-3.7.4-7.4 1-11.1Z" /><path d="M8.6 8c-.2-2 .6-4.2 2.6-4.7 1.7-.4 3.4.6 4 2.2.3.8.3 1.7.2 2.5" /></svg>
+                    Add to cart
                   </button>
-                  <button
-                    onClick={() => saveDesign("designs")}
-                    disabled={busy !== null}
-                    className="inline-flex w-full items-center justify-center rounded-full border border-dream-line bg-white px-6 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
-                  >
-                    {busy === "save" ? "Saving…" : "Save & share"}
-                  </button>
-                  <p className="text-center text-xs leading-relaxed text-dream-faint">
-                    No payment now. Our team reviews &amp; cleans up your artwork, then sends a proof to approve.
-                  </p>
                 </div>
               </div>
             </div>
@@ -1214,30 +1372,17 @@ export function DesignerClient(props: Props) {
         )}
       </div>
 
-      {/* Shirt details — full width, below the editor (scroll down to reach it) */}
-      <ProductDetails
-        productName={props.productName}
-        brand={props.brand}
-        description={props.description}
-        sizeRange={sizeRange}
-        colourCount={props.colours.length}
-        areaNames={[...new Set(props.printAreas.map((p) => p.name))]}
-        methodNames={props.methods.map((m) => m.name)}
-        leadTimeDays={props.leadTimeDays}
-        stockStatus={props.stockStatus}
-      />
-
       {/* Save-your-design gate — names the design + captures a lead email, then
-          sends the customer into checkout. */}
+          adds it to the cart. */}
       <Dialog open={showSave} onOpenChange={(o) => { if (busy === null) setShowSave(o); }}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save your design</DialogTitle>
+          <DialogHeader className="px-6 pt-6 pb-1">
+            <DialogTitle>Name your design</DialogTitle>
             <DialogDescription>
-              Name it so you can find it later, and confirm your email. That’s where we’ll send your proof.
+              Give it a name so you can spot it in your cart, and confirm your email. That’s where we’ll send your proof.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 px-5 pb-1">
+          <div className="space-y-5 px-6 py-4">
             <Field label="Design name" htmlFor="design-name" required>
               <Input
                 id="design-name"
@@ -1260,7 +1405,7 @@ export function DesignerClient(props: Props) {
               <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{saveError}</p>
             )}
           </div>
-          <div className="flex items-center justify-end gap-2 p-5 pt-4">
+          <div className="flex items-center justify-end gap-2 px-6 pb-6 pt-2">
             <button
               onClick={() => setShowSave(false)}
               disabled={busy !== null}
@@ -1274,19 +1419,59 @@ export function DesignerClient(props: Props) {
                 const email = leadEmail.trim();
                 if (!name) { setSaveError("Give your design a name."); return; }
                 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setSaveError("Enter a valid email."); return; }
-                saveDesign("checkout", { name, leadEmail: email });
+                saveDesign("cart", { name, leadEmail: email });
               }}
               disabled={busy !== null}
               className="inline-flex items-center justify-center rounded-full bg-dream-purple px-6 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy === "submit" ? "Saving…" : "Save & continue"}
+              {busy === "submit" ? "Adding…" : "Add to cart"}
             </button>
           </div>
         </DialogContent>
       </Dialog>
-
-      <SiteFooter />
     </div>
+  );
+}
+
+/** Three-step progress for the review screen. Frames the journey and signals
+ *  up front that payment only comes after the proof is approved. */
+function ReviewStepper({ className }: { className?: string }) {
+  const steps = [
+    { label: "Design", state: "done" as const },
+    { label: "Quantity & sizes", state: "current" as const },
+    { label: "Approve & pay", state: "upcoming" as const },
+  ];
+  return (
+    <ol className={cn("flex items-center", className)}>
+      {steps.map((s, i) => (
+        <li key={s.label} className={cn("flex items-center gap-2.5", i < steps.length - 1 && "flex-1")}>
+          <span
+            className={cn(
+              "grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-sm font-bold",
+              s.state === "done" && "bg-dream-ink text-white",
+              s.state === "current" && "bg-dream-sun text-dream-ink ring-4 ring-dream-sun/25",
+              s.state === "upcoming" && "border border-dream-line-strong bg-white text-dream-muted"
+            )}
+          >
+            {s.state === "done" ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+            ) : (
+              i + 1
+            )}
+          </span>
+          <span
+            className={cn(
+              "whitespace-nowrap text-sm font-bold",
+              s.state === "upcoming" ? "text-dream-muted" : "text-dream-ink",
+              s.state === "upcoming" && "hidden sm:inline"
+            )}
+          >
+            {s.label}
+          </span>
+          {i < steps.length - 1 && <span className="mx-2 hidden h-px flex-1 bg-dream-line sm:block" />}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -1314,33 +1499,52 @@ function ColorwayBlock({
   pricing?: { quantity: number; unitPrice: number; lineTotal: number };
 }) {
   return (
-    <div className="rounded-2xl border border-dream-line p-3.5">
+    <div className="rounded-2xl border border-dream-line p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="h-6 w-6 shrink-0 rounded-full border border-dream-line" style={{ backgroundColor: hex ?? "#e5e7eb" }} />
           {onColour ? (
-            <select
-              value={name}
-              onChange={(e) => onColour(e.target.value)}
-              className="min-w-0 rounded-lg border border-dream-line bg-white px-2 py-1.5 text-sm font-semibold text-dream-ink outline-none focus:border-dream-purple"
-            >
-              {colours?.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            // One cohesive control: swatch + name + chevron read as a single
+            // select. The native <select> sits transparently on top for picking.
+            <div className="relative min-w-0">
+              <div className="flex items-center gap-2 rounded-lg border border-dream-line bg-white py-1.5 pl-2.5 pr-8 transition-colors hover:border-dream-line-strong">
+                <span className="h-5 w-5 shrink-0 rounded-full border border-dream-line" style={swatchStyle({ name, hex })} />
+                <span className="truncate text-sm font-semibold text-dream-ink">{name}</span>
+                <svg
+                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-dream-muted"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+              <select
+                value={name}
+                onChange={(e) => onColour(e.target.value)}
+                aria-label="Garment colour"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              >
+                {colours?.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           ) : (
-            <span className="truncate text-sm font-semibold text-dream-ink">{name}</span>
+            <>
+              <span className="h-6 w-6 shrink-0 rounded-full border border-dream-line" style={swatchStyle({ name, hex })} />
+              <span className="truncate text-sm font-semibold text-dream-ink">{name}</span>
+            </>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {pricing && pricing.quantity > 0 && (
-            <span className="text-right text-xs text-dream-faint">
-              {pricing.quantity} @ {formatCAD(pricing.unitPrice)} ={" "}
-              <span className="font-bold text-dream-ink">{formatCAD(pricing.lineTotal)}</span>
-            </span>
-          )}
           {onRemove && (
             <button
               type="button"
@@ -1353,19 +1557,16 @@ function ColorwayBlock({
           )}
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+      {/* Sizes laid out in a single row — label on top, number box below — so
+          the whole size run reads and fills at a glance. Scrolls sideways only
+          if there are too many sizes for the width. */}
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
         {sizes.map((s) => {
           const v = sizeQty[s.name] ?? 0;
           const active = v > 0;
           return (
-            <label
-              key={s.name}
-              className={cn(
-                "flex items-center gap-2 rounded-2xl border-2 bg-white px-3 py-2.5 transition",
-                active ? "border-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.9)]" : "border-dream-ink/60"
-              )}
-            >
-              <span className="font-display text-sm font-bold text-dream-ink">{s.name}</span>
+            <label key={s.name} className="flex min-w-[3rem] flex-1 flex-col items-center gap-1.5">
+              <span className="font-display text-xs font-bold text-dream-ink">{s.name}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -1373,72 +1574,27 @@ function ColorwayBlock({
                 value={v || ""}
                 placeholder="0"
                 onChange={(e) => onSize(s.name, Math.max(0, Number(e.target.value.replace(/[^0-9]/g, "")) || 0))}
-                className="w-full min-w-0 bg-transparent text-right text-base font-semibold text-dream-ink outline-none placeholder:text-dream-ink/30"
+                className={cn(
+                  "w-full min-w-0 rounded-lg border-2 bg-white px-1 py-2.5 text-center text-base font-semibold text-dream-ink outline-none transition placeholder:text-dream-ink/30",
+                  active ? "border-dream-purple" : "border-dream-ink/25 focus:border-dream-purple"
+                )}
               />
             </label>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function ProductDetails({
-  productName,
-  brand,
-  description,
-  sizeRange,
-  colourCount,
-  areaNames,
-  methodNames,
-  leadTimeDays,
-  stockStatus,
-}: {
-  productName: string;
-  brand: string | null;
-  description: string | null;
-  sizeRange: string | null;
-  colourCount: number;
-  areaNames: string[];
-  methodNames: string[];
-  leadTimeDays: number;
-  stockStatus: string;
-}) {
-  const stockLabel =
-    stockStatus === "in_stock" ? "In stock" : stockStatus === "out_of_stock" ? "Made to order" : stockStatus.replace(/_/g, " ");
-  return (
-    <section className="border-t border-dream-line bg-dream-cream/40">
-      {/* Extra bottom padding reserves a band for the SiteFooter dog (which pokes
-          up out of the footer, right-aligned) so it clears the spec card. */}
-      <div className="mx-auto max-w-[1400px] px-6 pt-12 pb-44 lg:px-10 lg:pt-16 lg:pb-60">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Product details</div>
-        <h2 className="mt-2 font-display text-2xl font-extrabold leading-tight text-dream-ink lg:text-3xl">{productName}</h2>
-        {brand && <p className="mt-1 text-sm font-semibold text-dream-purple">by {brand}</p>}
-
-        <div className="mt-6 grid gap-8 lg:grid-cols-[1.5fr_1fr] lg:gap-12">
-          <p className="max-w-2xl text-[15px] leading-relaxed text-dream-ink-soft">
-            {description ||
-              "A customer favourite, ready for your custom print. Pick your colour, drop on your artwork, and we'll handle the rest. Need a hand with sizing or placement? We're a message away."}
-          </p>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 self-start rounded-2xl bg-white p-6 ring-1 ring-dream-ink/5">
-            <Spec label="Sizes" value={sizeRange ?? "Standard"} />
-            <Spec label="Colours" value={`${colourCount} options`} />
-            <Spec label="Print areas" value={areaNames.length ? areaNames.join(", ") : "Front"} />
-            <Spec label="Decoration" value={methodNames.length ? methodNames.join(", ") : "Screen print"} />
-            <Spec label="Turnaround" value={`${leadTimeDays} business days`} />
-            <Spec label="Availability" value={stockLabel} />
-          </dl>
+      {/* Per-colour price math, spelled out: qty x unit = line total. */}
+      {pricing && pricing.quantity > 0 && (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-dream-cream px-4 py-3 text-sm">
+          <span className="text-dream-ink-soft">
+            <span className="font-bold text-dream-ink">{pricing.quantity}</span>
+            {" "}{pricing.quantity === 1 ? "piece" : "pieces"}
+            {" "}<span className="text-dream-faint">×</span>{" "}
+            <span className="font-semibold text-dream-ink">{formatCAD(pricing.unitPrice)}</span> each
+          </span>
+          <span className="font-display text-base font-extrabold text-dream-purple">{formatCAD(pricing.lineTotal)}</span>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function Spec({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-dream-faint">{label}</dt>
-      <dd className="mt-0.5 text-sm font-semibold capitalize text-dream-ink">{value}</dd>
+      )}
     </div>
   );
 }

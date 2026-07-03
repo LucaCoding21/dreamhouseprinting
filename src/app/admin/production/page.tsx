@@ -3,7 +3,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { OrderRow, LineItemRow, ProfileRow, DecorationMethodRow } from "@/lib/db/rows";
 import { ProductionBoard, type ProductionJob } from "./ProductionBoard";
 
-export const metadata = { title: "Production — Admin" };
+export const metadata = { title: "Production | Admin" };
 
 /** Statuses that represent active production work (PRD §7.5). */
 const PRODUCTION_STATUSES = [

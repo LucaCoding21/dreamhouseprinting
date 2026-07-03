@@ -2,7 +2,7 @@ import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 
-export const metadata = { title: "Order placed — Dreamhouse Printing" };
+export const metadata = { title: "Order placed | Dreamhouse Printing" };
 
 // Public guest confirmation. Guests have no account, so this only shows the
 // order number + reassurance (it loads no order data). Logged-in customers land
@@ -15,9 +15,9 @@ export default async function CheckoutDonePage({
   const { order } = await searchParams;
 
   return (
-    <div className="min-h-screen bg-dream-bg text-dream-ink">
+    <div className="flex min-h-screen flex-col bg-dream-bg text-dream-ink">
       <SiteNav />
-      <main className="mx-auto flex w-full max-w-xl flex-col items-center px-4 py-24 text-center">
+      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 py-24 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-dream-success-soft text-dream-success">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M20 6L9 17l-5-5" />
@@ -28,10 +28,9 @@ export default async function CheckoutDonePage({
           <p className="mt-2 font-display text-lg font-bold text-dream-purple">{order}</p>
         )}
         <p className="mt-4 max-w-md text-dream-muted">
-          Thanks! We’ve got your design. Our team reviews and cleans up your artwork, then emails you a proof to approve
-          before anything prints. No payment is taken until then.
+          Thanks! We’ll email you a proof to approve before anything prints. No payment until then.
         </p>
-        <p className="mt-2 text-sm text-dream-faint">Keep an eye on the inbox for the email you entered at checkout.</p>
+        <p className="mt-2 text-sm text-dream-faint">Watch the inbox for the email you entered at checkout.</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/shop"

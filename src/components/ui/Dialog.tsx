@@ -82,10 +82,7 @@ export function DialogContent({
         if (e.target === e.currentTarget) onOpenChange(false);
       }}
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-dream-ink/40 backdrop-blur-sm"
-      />
+      <div aria-hidden="true" className="absolute inset-0" />
       <div
         ref={panelRef}
         role="dialog"

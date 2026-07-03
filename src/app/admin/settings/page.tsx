@@ -4,7 +4,7 @@ import { mergeCheckoutSettings } from "@/lib/checkoutSettings";
 import type { DecorationMethodRow, ProfileRow, SettingRow } from "@/lib/db/rows";
 import { SettingsClient } from "./SettingsClient";
 
-export const metadata = { title: "Settings — Admin" };
+export const metadata = { title: "Settings | Admin" };
 
 /** Shape of an email template entry stored in the email_templates settings jsonb. */
 interface EmailTemplate {

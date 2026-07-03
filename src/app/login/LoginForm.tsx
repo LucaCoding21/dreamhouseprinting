@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { signInAction, type AuthState } from "./actions";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 
 export function LoginForm({ next }: { next: string }) {
@@ -16,7 +18,12 @@ export function LoginForm({ next }: { next: string }) {
         <Input name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
       </Field>
       <Field label="Password" required>
-        <Input name="password" type="password" autoComplete="current-password" placeholder="••••••••" required />
+        <PasswordInput name="password" autoComplete="current-password" placeholder="••••••••" required />
+        <div className="mt-1 text-right">
+          <Link href="/forgot-password" className="text-xs font-semibold text-dream-purple hover:underline">
+            Forgot password?
+          </Link>
+        </div>
       </Field>
       {state.error && (
         <p className="rounded-lg bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{state.error}</p>

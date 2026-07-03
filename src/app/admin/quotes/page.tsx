@@ -3,7 +3,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { ProfileRow } from "@/lib/db/rows";
 import { QuotesClient, type QuoteListItem } from "./QuotesClient";
 
-export const metadata = { title: "Quotes — Admin" };
+export const metadata = { title: "Quotes | Admin" };
 
 export default async function AdminQuotesPage() {
   await requirePermission("quotes.manage");

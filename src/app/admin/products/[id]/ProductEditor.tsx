@@ -17,7 +17,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { garmentRetailUnit } from "@/lib/pricing/platform";
-import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, ProductColourJson, ProductSizeJson } from "@/lib/db/rows";
+import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, ProductColourJson, ProductSizeJson, ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 import { updateProductAction, syncProductAction, setProductFlagsAction } from "../actions";
 import { PrintAreaEditor } from "./PrintAreaEditor";
 
@@ -62,6 +62,44 @@ export function ProductEditor({
   const [isActive, setIsActive] = useState(product.is_active);
   const [isFeatured, setIsFeatured] = useState(product.is_featured);
 
+  // Storefront Detailed Quote curve (pricing_rules.quote). Rows are edited as
+  // strings; parsed + sorted on save. decorations is fixed (set by the seed).
+  const initialCurve = (product.pricing_rules as { quote?: ProductQuoteCurveJson } | null)?.quote;
+  const [quoteDecorations] = useState<QuoteDecoration[]>(initialCurve?.decorations ?? []);
+  const [quoteBreaks, setQuoteBreaks] = useState<Record<string, { minQty: string; price: string }[]>>(() => {
+    const out: Record<string, { minQty: string; price: string }[]> = {};
+    for (const d of initialCurve?.decorations ?? []) {
+      out[d] = (initialCurve?.breaks[d] ?? []).map((b) => ({ minQty: String(b.minQty), price: String(b.price) }));
+    }
+    return out;
+  });
+
+  function setBreakRow(deco: string, idx: number, field: "minQty" | "price", val: string) {
+    setQuoteBreaks((prev) => ({
+      ...prev,
+      [deco]: prev[deco].map((r, i) => (i === idx ? { ...r, [field]: val } : r)),
+    }));
+  }
+  function addBreakRow(deco: string) {
+    setQuoteBreaks((prev) => ({ ...prev, [deco]: [...(prev[deco] ?? []), { minQty: "", price: "" }] }));
+  }
+  function removeBreakRow(deco: string, idx: number) {
+    setQuoteBreaks((prev) => ({ ...prev, [deco]: prev[deco].filter((_, i) => i !== idx) }));
+  }
+
+  /** Build the curve to persist, or undefined when the product has no curve. */
+  function buildQuoteCurve(): ProductQuoteCurveJson | undefined {
+    if (quoteDecorations.length === 0) return undefined;
+    const breaks: ProductQuoteCurveJson["breaks"] = {};
+    for (const d of quoteDecorations) {
+      breaks[d] = (quoteBreaks[d] ?? [])
+        .map((r) => ({ minQty: Math.max(1, Math.round(Number(r.minQty) || 0)), price: Number(r.price) || 0 }))
+        .filter((r) => r.price > 0)
+        .sort((a, b) => a.minQty - b.minQty);
+    }
+    return { decorations: quoteDecorations, breaks };
+  }
+
   const retailPreview = useMemo(
     () =>
       garmentRetailUnit({
@@ -98,6 +136,7 @@ export function ProductEditor({
         allowedDecorationMethodIds: [...allowed],
         enabledColours: [...enColours],
         enabledSizes: [...enSizes],
+        quoteCurve: buildQuoteCurve(),
       });
       if (res.error) toast({ title: "Save failed", description: res.error, variant: "error" });
       else {
@@ -308,6 +347,61 @@ export function ProductEditor({
               </Field>
             </CardContent>
           </Card>
+
+          {/* Storefront Detailed Quote price/tiers (pricing_rules.quote) */}
+          {quoteDecorations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Quote pricing</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <p className="text-xs text-dream-muted">
+                  Per-unit price by quantity, shown on the product page Detailed Quote. Lower price = higher
+                  quantity. Saved with Save changes.
+                </p>
+                {quoteDecorations.map((deco) => (
+                  <div key={deco}>
+                    <Label>{deco === "screen" ? "Screen print" : "Embroidery"}</Label>
+                    <div className="mt-2 space-y-1.5">
+                      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[11px] font-medium uppercase tracking-wide text-dream-muted">
+                        <span>Min qty</span>
+                        <span>$ / unit</span>
+                        <span className="w-7" />
+                      </div>
+                      {(quoteBreaks[deco] ?? []).map((row, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={row.minQty}
+                            onChange={(e) => setBreakRow(deco, i, "minQty", e.target.value)}
+                          />
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={row.price}
+                            onChange={(e) => setBreakRow(deco, i, "price", e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            aria-label="Remove tier"
+                            onClick={() => removeBreakRow(deco, i)}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-dream-muted hover:bg-dream-bg hover:text-dream-ink"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <Button variant="ghost" size="sm" onClick={() => addBreakRow(deco)}>
+                        + Add tier
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

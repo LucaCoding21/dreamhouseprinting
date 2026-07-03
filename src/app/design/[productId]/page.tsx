@@ -2,21 +2,74 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductForDesign } from "@/lib/db/catalog";
 import { getUser } from "@/lib/auth";
+import { getGuestToken } from "@/lib/guest";
+import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { enabledColours } from "@/lib/productImage";
-import { DesignerClient } from "./DesignerClient";
+import { DesignerClient, type InitialDesign } from "./DesignerClient";
 import type { ProductColourJson, ProductSizeJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
-export const metadata = { title: "Design — Dreamhouse Printing" };
+export const metadata = { title: "Design | Dreamhouse Printing" };
+
+interface DesignColourway {
+  colourName: string;
+  sizeQuantities?: Record<string, number>;
+}
+
+/**
+ * Load a saved design for editing, scoped to its owner (the logged-in customer
+ * or the guest browser by cookie). Returns null if it isn't found, isn't owned
+ * by this visitor, or belongs to a different product — in those cases the
+ * designer just opens fresh rather than leaking someone else's work.
+ */
+async function loadInitialDesign(
+  designId: string,
+  productId: string,
+  userId: string | null,
+): Promise<InitialDesign | null> {
+  const service = requireSupabaseServiceClient();
+  let q = service
+    .from("designs")
+    .select("id, product_id, name, lead_email, colour, size_quantities, colorways, decoration_method_id, scene_definition")
+    .eq("id", designId);
+
+  if (userId) {
+    q = q.eq("customer_id", userId);
+  } else {
+    const token = await getGuestToken();
+    if (!token) return null;
+    q = q.eq("guest_token", token);
+  }
+
+  const { data } = await q.maybeSingle();
+  if (!data || data.product_id !== productId) return null;
+
+  const colour = (data.colour ?? {}) as { name?: string };
+  const colorways = (data.colorways ?? []) as unknown as DesignColourway[];
+  return {
+    designId: data.id,
+    name: data.name ?? null,
+    leadEmail: data.lead_email ?? null,
+    colourName: colour.name ?? null,
+    methodId: data.decoration_method_id ?? null,
+    primarySizeQty: (data.size_quantities ?? {}) as Record<string, number>,
+    // The first colourway mirrors the primary colour/sizes; the rest are extras.
+    extraColorways: colorways.slice(1).map((c) => ({
+      colourName: c.colourName,
+      sizeQty: c.sizeQuantities ?? {},
+    })),
+    scenes: (data.scene_definition ?? {}) as Record<string, object>,
+  };
+}
 
 export default async function DesignPage({
   params,
   searchParams,
 }: {
   params: Promise<{ productId: string }>;
-  searchParams: Promise<{ quote?: string; design?: string }>;
+  searchParams: Promise<{ quote?: string; design?: string; colour?: string }>;
 }) {
   const { productId } = await params;
-  const { quote } = await searchParams;
+  const { quote, colour, design } = await searchParams;
   const loaded = await getProductForDesign(productId);
   if (!loaded) notFound();
 
@@ -41,6 +94,8 @@ export default async function DesignPage({
   const colours = enabledColours(product) as ProductColourJson[];
   const allSizes = (product.sizes ?? []) as unknown as (ProductSizeJson & { enabled?: boolean })[];
   const sizes = allSizes.filter((s) => s.enabled !== false);
+
+  const initialDesign = design ? await loadInitialDesign(design, product.id, user?.id ?? null) : null;
 
   return (
     <DesignerClient
@@ -77,6 +132,8 @@ export default async function DesignPage({
       isLoggedIn={!!user}
       accountEmail={user?.email ?? null}
       startAsQuote={quote === "1"}
+      initialColourName={colour && colours.some((c) => c.name === colour) ? colour : undefined}
+      initialDesign={initialDesign}
     />
   );
 }

@@ -7,7 +7,7 @@ import {
   getActiveProducts,
   getCategories,
 } from "@/lib/db/catalog";
-import type { ProductSizeJson, ProductPhotoJson } from "@/lib/db/rows";
+import type { ProductSizeJson, ProductPhotoJson, ProductQuoteCurveJson } from "@/lib/db/rows";
 import { enabledColours } from "@/lib/productImage";
 import { startingAtPrice } from "@/lib/pricing/platform";
 import { ProductGallery } from "./ProductGallery";
@@ -20,9 +20,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const product = await getProductById(id);
-  if (!product || !product.is_active) return { title: "Product — Dreamhouse Printing" };
+  if (!product || !product.is_active) return { title: "Product | Dreamhouse Printing" };
   return {
-    title: `${product.name} — Dreamhouse Printing`,
+    title: `${product.name} | Dreamhouse Printing`,
     description:
       product.description ??
       `Customize the ${product.name} — pick a colour, add your art, and we'll print it.`,
@@ -31,10 +31,13 @@ export async function generateMetadata({
 
 export default async function ProductDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const { from } = await searchParams;
   const product = await getProductById(id);
   if (!product || !product.is_active) notFound();
 
@@ -58,12 +61,25 @@ export default async function ProductDetailPage({
     .slice(0, 5);
 
   const starting = startingAtPrice(product);
+  const quoteCurve =
+    ((product.pricing_rules as { quote?: ProductQuoteCurveJson } | null)?.quote ??
+      null) as ProductQuoteCurveJson | null;
+
+  // "Back to shop" returns to the listing the user came from (carried via ?from=,
+  // so it preserves their category / search / sort). Only trust internal /shop
+  // URLs; otherwise fall back to the product's own category.
+  const backHref =
+    from && from.startsWith("/shop")
+      ? from
+      : cat
+        ? `/shop?category=${cat.slug}`
+        : "/shop";
 
   return (
-    <main className="mx-auto max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+    <main className="mx-auto max-w-[94rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
       {/* Back to shop */}
       <Link
-        href={cat ? `/shop?category=${cat.slug}` : "/shop"}
+        href={backHref}
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-dream-ink transition-colors hover:text-dream-purple"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
@@ -107,6 +123,7 @@ export default async function ProductDetailPage({
       {/* Interactive gallery + buy box */}
       <ProductGallery
         productId={product.id}
+        ssStyleId={product.ss_style_id}
         brand={product.brand}
         sku={product.ss_part_number}
         name={product.name}
@@ -114,6 +131,7 @@ export default async function ProductDetailPage({
         sizes={sizes}
         extraPhotos={extraPhotos}
         startingPrice={starting}
+        quoteCurve={quoteCurve}
         description={product.description}
         leadTimeDays={product.lead_time_days}
       />
@@ -125,7 +143,7 @@ export default async function ProductDetailPage({
       {related.length > 0 && (
         <section className="mt-24">
           <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-xl font-bold text-dream-ink">
+            <h2 className="font-display text-3xl font-bold text-dream-ink">
               You might also like
             </h2>
             <Link
@@ -153,21 +171,21 @@ function ValueProps() {
     {
       title: "Price-match guarantee",
       desc: "Find it cheaper in Vancouver and we'll match it.",
-      icon: <ShieldIcon className="h-5 w-5" />,
+      icon: <ShieldIcon className="h-7 w-7" />,
       badge: "bg-dream-purple text-white",
       tilt: "-rotate-3",
     },
     {
       title: "Free art proof",
       desc: "See a digital mockup before we print a thing.",
-      icon: <PencilIcon className="h-5 w-5" />,
+      icon: <PencilIcon className="h-7 w-7" />,
       badge: "bg-dream-sun text-dream-ink",
       tilt: "rotate-3",
     },
     {
       title: "Local Vancouver delivery",
       desc: "Free drop-off across the city, printed in-house.",
-      icon: <TruckIcon className="h-5 w-5" />,
+      icon: <TruckIcon className="h-7 w-7" />,
       badge: "bg-dream-peach text-dream-ink",
       tilt: "-rotate-2",
     },
@@ -180,15 +198,15 @@ function ValueProps() {
           className="rough-card group relative flex items-start gap-4 px-6 py-6 transition-transform duration-200 hover:-translate-y-1"
         >
           <span
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-[0_3px_0_0_rgba(27,20,88,0.22)] transition-transform duration-200 group-hover:rotate-0 ${p.badge} ${p.tilt}`}
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-[0_3px_0_0_rgba(27,20,88,0.22)] transition-transform duration-200 group-hover:rotate-0 ${p.badge} ${p.tilt}`}
           >
             {p.icon}
           </span>
           <div>
-            <h3 className="font-display text-[15px] font-bold text-dream-ink">
+            <h3 className="font-display text-lg font-bold text-dream-ink">
               {p.title}
             </h3>
-            <p className="mt-1 text-xs leading-relaxed text-dream-ink-soft">
+            <p className="mt-1 text-sm leading-relaxed text-dream-ink-soft">
               {p.desc}
             </p>
           </div>

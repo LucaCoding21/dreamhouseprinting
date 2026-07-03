@@ -15,7 +15,7 @@ export default function ShopLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-dream-cream">
+    <div className="min-h-screen bg-[#f8f7fd]">
       <div className="bg-dream-lavender-soft">
         <SiteNav />
       </div>

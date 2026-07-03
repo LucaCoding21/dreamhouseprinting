@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/auth";
 import { getAdminOrders } from "@/lib/admin/orders";
 import { OrdersListClient } from "./OrdersListClient";
 
-export const metadata = { title: "Orders — Admin" };
+export const metadata = { title: "Orders | Admin" };
 
 export default async function AdminOrdersPage() {
   await requirePermission("orders.view");

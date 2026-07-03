@@ -31,14 +31,17 @@ export function ShopSidebar({
   return (
     <nav
       aria-label="Catalog categories"
-      className={cn("text-sm", className)}
+      className={cn(
+        "rounded-2xl border border-dream-line bg-dream-lavender-mist p-3 text-sm",
+        className,
+      )}
     >
       <Link
         href="/shop"
         className={cn(
           "mb-1 block rounded-lg px-3 py-2 font-display font-semibold transition-colors",
           !activeSlug
-            ? "bg-dream-lavender-soft text-dream-purple"
+            ? "bg-dream-lavender-soft text-dream-purple-selected"
             : "text-dream-ink hover:bg-dream-lavender-soft",
         )}
       >
@@ -55,7 +58,7 @@ export function ShopSidebar({
                 className={cn(
                   "block rounded-lg px-3 py-2 font-display font-semibold transition-colors",
                   isActive(cat.slug)
-                    ? "bg-dream-lavender-soft text-dream-purple"
+                    ? "bg-dream-lavender-soft text-dream-purple-selected"
                     : "text-dream-ink hover:bg-dream-lavender-soft",
                 )}
               >
@@ -70,7 +73,7 @@ export function ShopSidebar({
                         className={cn(
                           "block rounded-lg px-3 py-1.5 text-[13px] transition-colors",
                           isActive(sub.slug)
-                            ? "font-medium text-dream-purple"
+                            ? "font-medium text-dream-purple-selected"
                             : "text-dream-muted hover:bg-dream-lavender-soft hover:text-dream-ink",
                         )}
                       >

@@ -8,6 +8,7 @@ import { buildProductDraft } from "@/lib/ss/transform";
 import type { SSStyle } from "@/lib/ss/types";
 import { ssImageUrl } from "@/lib/ss/client";
 import type { Json, Database } from "@/lib/db/types";
+import type { ProductQuoteCurveJson } from "@/lib/db/rows";
 
 type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
 
@@ -104,6 +105,7 @@ export interface ProductConfigInput {
   stockStatus?: "in_stock" | "out_of_stock" | "made_to_order";
   enabledColours?: string[]; // names of S&S colours the shop offers (subset)
   enabledSizes?: string[];   // names of S&S sizes offered (subset)
+  quoteCurve?: ProductQuoteCurveJson; // storefront Detailed Quote price/tiers
 }
 
 /** Update Admin-owned product configuration. S&S-owned fields are not touched here. */
@@ -126,6 +128,18 @@ export async function updateProductAction(
     patch.allowed_decoration_method_ids = input.allowedDecorationMethodIds;
   if (input.leadTimeDays !== undefined) patch.lead_time_days = input.leadTimeDays;
   if (input.stockStatus !== undefined) patch.stock_status = input.stockStatus;
+
+  // Storefront quote curve lives under pricing_rules.quote — merge so other
+  // pricing_rules keys (e.g. bulkTiers) are preserved.
+  if (input.quoteCurve !== undefined) {
+    const { data: prod } = await supabase
+      .from("products")
+      .select("pricing_rules")
+      .eq("id", id)
+      .single();
+    const existing = (prod?.pricing_rules ?? {}) as Record<string, unknown>;
+    patch.pricing_rules = asJson({ ...existing, quote: input.quoteCurve });
+  }
 
   // Colour/size enablement: mark each S&S colour/size with an `enabled` flag.
   if (input.enabledColours || input.enabledSizes) {

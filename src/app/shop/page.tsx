@@ -18,6 +18,7 @@ import { cn } from "@/lib/cn";
 interface ShopSearchParams {
   category?: string;
   search?: string;
+  brand?: string;
   sort?: string;
 }
 
@@ -26,8 +27,8 @@ export default async function ShopPage({
 }: {
   searchParams: Promise<ShopSearchParams>;
 }) {
-  const { category, search, sort } = await searchParams;
-  const filtered = Boolean(category || search);
+  const { category, search, brand, sort } = await searchParams;
+  const filtered = Boolean(category || search || brand);
 
   const [categories, majors] = await Promise.all([
     getCategories(),
@@ -35,22 +36,34 @@ export default async function ShopPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-[88rem] px-4 pb-6 pt-9 sm:px-6 sm:pb-8 sm:pt-12">
-      <header className="mb-11 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight text-dream-ink sm:text-4xl">
-            Shop Custom Apparel in Vancouver
-          </h1>
-          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-dream-ink-soft">
-            Pick a blank, customize it in our designer, and get a free proof before we print.
-          </p>
+    <main className="pb-6 sm:pb-8">
+      {/* ---- Hero band: playful lavender, doodles, wavy bottom edge ---- */}
+      <section className="relative overflow-hidden bg-dream-lavender-soft">
+        <div className="relative z-10 mx-auto max-w-[96rem] px-4 pb-24 pt-10 sm:px-6 sm:pb-28 sm:pt-14">
+          <header className="flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative">
+              <h1 className="font-display font-extrabold text-3xl leading-[0.95] tracking-tight text-dream-ink sm:text-4xl lg:text-5xl">
+                Shop Custom Apparel
+              </h1>
+              <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-dream-ink-soft">
+                Pick a blank, customize it in our designer, and get a free proof before we print.
+              </p>
+              <TitleUnderline className="mt-2 h-auto w-56 sm:w-72" />
+            </div>
+            <div className="flex w-full items-center gap-2.5 lg:w-auto lg:-translate-y-12">
+              <ShopSearch />
+              <SortSelect value={sort ?? "featured"} />
+            </div>
+          </header>
         </div>
-        <ShopSearch />
-      </header>
+        <HeroWave />
+      </section>
 
-      <div className="mt-2 flex flex-col gap-8 lg:flex-row lg:gap-10">
-        <aside className="lg:w-60 lg:shrink-0">
-          <div className="lg:sticky lg:top-20">
+      {/* ---- Body: category tiles + sidebar + grid, on cream ---- */}
+      <div className="relative mx-auto -mt-16 max-w-[96rem] px-4 sm:px-6">
+      <div className="flex flex-col gap-8 lg:flex-row lg:gap-16">
+        <aside className="lg:w-72 lg:shrink-0">
+          <div className="lg:sticky lg:top-32">
             <ShopSidebar categories={categories} activeSlug={category} />
           </div>
         </aside>
@@ -65,14 +78,46 @@ export default async function ShopPage({
 
           <div className="mt-8">
             {filtered ? (
-              <FilteredView category={category} search={search} sort={sort} />
+              <FilteredView category={category} search={search} brand={brand} sort={sort} />
             ) : (
               <DefaultView sort={sort} />
             )}
           </div>
         </section>
       </div>
+      </div>
     </main>
+  );
+}
+
+/* --------------------------- Hero decorations ---------------------------- */
+/* Hand-drawn title underline + wavy bottom edge, matching the playful        */
+/* home-page treatment. Purely decorative (aria-hidden).                      */
+
+function TitleUnderline({ className }: { className?: string }) {
+  // Hand-drawn underline asset (public/shop-underline.svg), colour baked in.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/shop-underline.svg" alt="" aria-hidden className={className} />;
+}
+
+function HeroWave() {
+  return (
+    <svg
+      aria-hidden
+      className="absolute inset-x-0 bottom-0 h-60 w-full text-[#f8f7fd] sm:h-[18rem]"
+      viewBox="0 0 1440 240"
+      fill="none"
+      preserveAspectRatio="none"
+    >
+      {/* Cream arcs up in a gentle curve over the title on the left (high enough
+          to keep the text on cream, no flat plateau), then rolls through a smooth,
+          shallow trough and a soft wide hump before settling low on the right
+          (clear of the search). Gentle slopes — no deep or sharp valleys. */}
+      <path
+        d="M0 36C220 14 380 8 480 10 600 13 680 24 760 50 830 76 870 108 940 108 1010 108 1040 84 1120 84 1200 84 1245 150 1330 162 1385 168 1418 185 1440 192V240H0Z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }
 
@@ -100,7 +145,6 @@ async function DefaultView({ sort }: { sort?: string }) {
             {allProducts.length} {allProducts.length === 1 ? "product" : "products"}
           </span>
         </div>
-        {allProducts.length > 0 && <SortSelect value={sort ?? "featured"} />}
       </div>
       {empty ? (
         <EmptyState
@@ -125,16 +169,18 @@ async function DefaultView({ sort }: { sort?: string }) {
 async function FilteredView({
   category,
   search,
+  brand,
   sort,
 }: {
   category?: string;
   search?: string;
+  brand?: string;
   sort?: string;
 }) {
   const dbSort = sort === "name" ? "name" : sort === "newest" ? "newest" : "featured";
   const [cat, fetched] = await Promise.all([
     category ? getCategoryBySlug(category) : Promise.resolve(null),
-    getActiveProducts({ categorySlug: category, search, sort: dbSort }),
+    getActiveProducts({ categorySlug: category, search, brand, sort: dbSort }),
   ]);
 
   // Price sorts run on the computed "from" price (not a stored column).
@@ -147,7 +193,9 @@ async function FilteredView({
 
   const heading = search
     ? `Results for “${search}”`
-    : cat?.name ?? "Products";
+    : brand
+      ? `${brand} products`
+      : cat?.name ?? "Products";
 
   return (
     <div>
@@ -158,7 +206,6 @@ async function FilteredView({
             {products.length} {products.length === 1 ? "product" : "products"}
           </span>
         </div>
-        {products.length > 0 && <SortSelect value={sort ?? "featured"} />}
       </div>
 
       {products.length > 0 ? (
@@ -228,32 +275,26 @@ function Tile({
   slug: string;
   active: boolean;
 }) {
-  const icon = CATEGORY_ICONS[slug] ?? CATEGORY_ICONS.all;
+  const iconBase = CATEGORY_ICON_FILES[slug] ?? CATEGORY_ICON_FILES.all;
   return (
     <Link
       href={href}
-      className="group flex flex-col items-center gap-2.5 focus-visible:outline-none"
+      className={cn(
+        // White card — icon centered, label tucked at the bottom.
+        "group flex aspect-[16/10] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 bg-white p-3 transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
+        active
+          ? "border-dream-purple bg-dream-purple/[0.06] shadow-[0_6px_0_0_rgba(118,100,255,0.18)]"
+          : "border-dream-line shadow-sm hover:border-dream-lavender hover:shadow-md",
+      )}
     >
-      <span
-        className={cn(
-          // Blobby squircle disc — the non-rectangular shape, brand lavender.
-          "flex aspect-square w-full max-w-[7.5rem] items-center justify-center rounded-[42%_58%_55%_45%/55%_45%_55%_45%] border-2 transition-all duration-200 group-hover:-translate-y-1",
-          "group-focus-visible:ring-2 group-focus-visible:ring-dream-purple/40",
-          active
-            ? "border-dream-purple bg-dream-purple/10 ring-1 ring-dream-purple/30"
-            : "border-transparent bg-dream-lavender-soft group-hover:shadow-[0_8px_0_0_rgba(27,20,88,0.9)]",
-        )}
-      >
-        <span
-          className={cn(
-            "h-[46%] w-[46%] transition-colors [&_svg]:transition-[fill]",
-            active
-              ? "text-dream-purple [&_svg]:fill-current"
-              : "text-dream-purple/70 group-hover:text-dream-purple",
-          )}
-        >
-          {icon}
-        </span>
+      <span className="flex h-10 w-10 items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/shop-icons/${iconBase}-${active ? "active" : "inactive"}.svg`}
+          alt=""
+          aria-hidden
+          className="h-full w-full object-contain"
+        />
       </span>
       <span
         className={cn(
@@ -267,40 +308,13 @@ function Tile({
   );
 }
 
-/* Inline apparel icons, keyed by category slug. Stroked, inherit currentColor. */
-const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  shirts: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
-      <path d="M8.4 3.5 5.6 5 2.8 7.4 5 10.2 7 9.1V20.5h10V9.1l2 1.1 2.2-2.8L18.4 5l-2.8-1.5c-.4 1.6-1.7 2.6-3.6 2.6s-3.2-1-3.6-2.6Z" />
-    </svg>
-  ),
-  hoodies: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
-      <path d="M8 4 5.4 5.4 2.7 8l2.2 2.8L7 9.6V20.5h10V9.6l2.1 1.2L21.3 8l-2.7-2.6L16 4" />
-      <path d="M8 4c.6 2.1 2 3.1 4 3.1S15.4 6.1 16 4" />
-      <path d="M11 7.2v2.6M13 7.2v2.6" />
-      <path d="M9.4 13.2h5.2l-.5 3.8H9.9Z" />
-    </svg>
-  ),
-  "hats-toques": (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
-      <path d="M4.5 14c0-4.7 3.4-8 7.5-8s7.5 3.3 7.5 7.6" />
-      <path d="M4 14h12.2c3.1 0 5.6.6 5.6 1.7s-1.4 1.6-3.3 1.6H4Z" />
-      <path d="M12 6V4.2" />
-    </svg>
-  ),
-  totes: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
-      <path d="M6.2 8h11.6l-1 12.5H7.2Z" />
-      <path d="M9 8V6.4a3 3 0 0 1 6 0V8" />
-    </svg>
-  ),
-  all: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
-      <rect x="3.5" y="3.5" width="7" height="7" rx="1.8" />
-      <rect x="13.5" y="3.5" width="7" height="7" rx="1.8" />
-      <rect x="3.5" y="13.5" width="7" height="7" rx="1.8" />
-      <rect x="13.5" y="13.5" width="7" height="7" rx="1.8" />
-    </svg>
-  ),
+/* Category icon assets in public/shop-icons, keyed by category slug. Each has
+   an `-active` (filled) and `-inactive` (outline) variant; the Tile picks one
+   by state. Colour is baked into the SVGs, so no currentColor tinting. */
+const CATEGORY_ICON_FILES: Record<string, string> = {
+  all: "all",
+  shirts: "shirts",
+  hoodies: "hoodie",
+  "hats-toques": "hat",
+  totes: "bag",
 };
