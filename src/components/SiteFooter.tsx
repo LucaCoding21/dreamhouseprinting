@@ -2,10 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 
 const PRODUCT_LINKS = [
-  { label: "Shirts", href: "/?product=shirt#quick-quote" },
-  { label: "Hoodies", href: "/?product=hoodie#quick-quote" },
-  { label: "Hats", href: "/?product=hat#quick-quote" },
-  { label: "Totes", href: "/?product=bag#quick-quote" },
+  { label: "Shirts", href: "/#quick-quote" },
+  { label: "Hoodies", href: "/#quick-quote" },
+  { label: "Hats", href: "/#quick-quote" },
+  { label: "Totes", href: "/#quick-quote" },
   { label: "All products", href: "/#quick-quote" },
 ];
 

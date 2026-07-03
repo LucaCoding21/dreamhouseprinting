@@ -88,7 +88,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-t-shirts-vancouver.jpg",
     imageAlt: "Custom screen-printed t-shirt",
     imageTitle: "Custom printed t-shirts for Vancouver brands and teams",
-    href: "/?product=shirt#quick-quote",
+    href: "/#quick-quote",
   },
   {
     name: "Hoodies",
@@ -99,7 +99,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-hoodies-vancouver.jpg",
     imageAlt: "Custom printed hoodie folded on a shelf",
     imageTitle: "Printed and embroidered hoodies for Vancouver crews",
-    href: "/?product=hoodie#quick-quote",
+    href: "/#quick-quote",
   },
   {
     name: "Hats & toques",
@@ -110,7 +110,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-hats-vancouver.jpg",
     imageAlt: "Custom embroidered cap",
     imageTitle: "Embroidered caps and toques from our Vancouver shop",
-    href: "/?product=hat#quick-quote",
+    href: "/#quick-quote",
   },
   {
     name: "Bags & totes",
@@ -121,7 +121,7 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     image: "/products/custom-tote-bags-vancouver.jpg",
     imageAlt: "Custom printed canvas tote bag",
     imageTitle: "Screen-printed canvas tote bags for Vancouver events",
-    href: "/?product=bag#quick-quote",
+    href: "/#quick-quote",
   },
 ];
 
