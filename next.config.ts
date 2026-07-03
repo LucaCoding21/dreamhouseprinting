@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
     // the default 60s — this is a marketing site whose images rarely change,
     // and per-host cache misses across .com/.ca were inflating data transfer.
     minimumCacheTTL: 2592000,
+    // S&S Activewear product imagery is served from their CDN; allow Next/Image
+    // to optimize it. Supabase Storage signed URLs are also remote.
+    remotePatterns: [
+      { protocol: "https", hostname: "cdn.ssactivewear.com" },
+      { protocol: "https", hostname: "*.supabase.co" },
+    ],
   },
   async redirects() {
     // The standalone /quote page was folded into the home page's quote card.

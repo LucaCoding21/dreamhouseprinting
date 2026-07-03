@@ -1,0 +1,152 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { Badge } from "@/components/ui/Badge";
+import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { cn } from "@/lib/cn";
+import { formatCAD } from "@/lib/money";
+import { STATUS_META } from "@/lib/orderStatus";
+import type { OrderStatus } from "@/lib/db/rows";
+
+interface Row {
+  id: string;
+  orderNumber: string | null;
+  status: string;
+  paymentStatus: string;
+  dueDate: string | null;
+  createdAt: string;
+  salesRep: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  pieces: number;
+  total: number;
+  mockups: string[];
+  latestNote: string | null;
+}
+
+const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
+  { key: "all", label: "All", match: () => true },
+  { key: "new", label: "New", match: (s) => s === "submitted" || s === "in_review" },
+  { key: "proofing", label: "Pending approval", match: (s) => s === "proof_ready" || s === "changes_requested" },
+  { key: "production", label: "In production", match: (s) => ["approved", "in_production", "quality_check"].includes(s) },
+  { key: "shipped", label: "Shipped", match: (s) => ["shipped", "ready_for_pickup", "completed"].includes(s) },
+  { key: "archived", label: "Archived", match: (s) => s === "cancelled" },
+];
+
+function inHands(due: string | null): { label: string; urgent: boolean } {
+  if (!due) return { label: "—", urgent: false };
+  const days = Math.ceil((new Date(due).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { label: `${-days}d overdue`, urgent: true };
+  if (days === 0) return { label: "Today", urgent: true };
+  return { label: `${days}d left`, urgent: days <= 3 };
+}
+
+export function OrdersListClient({ rows }: { rows: Row[] }) {
+  const router = useRouter();
+  const [tab, setTab] = useState("all");
+
+  const count = (m: (s: string) => boolean) => rows.filter((r) => m(r.status)).length;
+  const stats = [
+    { label: "Open orders", value: rows.filter((r) => !["completed", "cancelled"].includes(r.status)).length },
+    { label: "Awaiting approval", value: count((s) => s === "proof_ready" || s === "changes_requested") },
+    { label: "In production", value: count((s) => ["approved", "in_production", "quality_check"].includes(s)) },
+    { label: "Shipped", value: count((s) => ["shipped", "ready_for_pickup"].includes(s)) },
+  ];
+
+  const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r.status));
+
+  return (
+    <div>
+      <AdminHeader title="Orders" />
+      <div className="px-8 py-6">
+        {/* Stat cards */}
+        <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-xl border border-dream-line bg-dream-surface p-4">
+              <div className="font-display text-3xl font-bold text-dream-ink">{s.value}</div>
+              <div className="text-sm text-dream-muted">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-4 flex flex-wrap gap-1 border-b border-dream-line">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={cn(
+                "border-b-2 px-3 py-2 text-sm font-medium",
+                tab === t.key ? "border-dream-purple text-dream-purple" : "border-transparent text-dream-muted hover:text-dream-ink"
+              )}
+            >
+              {t.label} <span className="text-dream-faint">{count(t.match)}</span>
+            </button>
+          ))}
+        </div>
+
+        {visible.length === 0 ? (
+          <EmptyState title="No orders here" description="Orders placed in the designer land here automatically." />
+        ) : (
+          <div className="rounded-xl border border-dream-line bg-dream-surface">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>In hands</TH>
+                  <TH>Status</TH>
+                  <TH>Customer</TH>
+                  <TH>Sales rep</TH>
+                  <TH>Pieces / total</TH>
+                  <TH>Latest note</TH>
+                  <TH>Mockups</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {visible.map((r) => {
+                  const meta = STATUS_META[r.status as OrderStatus];
+                  const ih = inHands(r.dueDate);
+                  return (
+                    <TR key={r.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${r.id}`)}>
+                      <TD>
+                        <div className="font-medium text-dream-ink">{r.dueDate ?? "—"}</div>
+                        <div className={cn("text-xs", ih.urgent ? "text-dream-danger" : "text-dream-muted")}>{ih.label}</div>
+                      </TD>
+                      <TD>
+                        <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? r.status}</Badge>
+                      </TD>
+                      <TD>
+                        <div className="font-medium text-dream-ink">{r.customerName ?? r.customerEmail ?? "—"}</div>
+                        <div className="text-xs text-dream-muted">{r.orderNumber}</div>
+                      </TD>
+                      <TD>{r.salesRep ?? "—"}</TD>
+                      <TD>
+                        <div className="font-medium text-dream-ink">{r.pieces} pcs</div>
+                        <div className="text-xs text-dream-muted">{formatCAD(r.total)}</div>
+                      </TD>
+                      <TD className="max-w-[220px]">
+                        <span className="line-clamp-2 text-sm text-dream-muted">{r.latestNote ?? "—"}</span>
+                      </TD>
+                      <TD>
+                        <div className="flex -space-x-2">
+                          {r.mockups.map((m, i) => (
+                            <div key={i} className="h-8 w-8 overflow-hidden rounded border border-dream-line bg-dream-bg">
+                              <Image src={m} alt="" width={32} height={32} className="h-full w-full object-contain" />
+                            </div>
+                          ))}
+                        </div>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

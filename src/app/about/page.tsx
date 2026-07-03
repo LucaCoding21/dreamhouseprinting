@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ParallaxScroll from "@/components/ParallaxScroll";
@@ -400,59 +399,3 @@ function ScribbleUnderline({ className = "" }: { className?: string }) {
   );
 }
 
-function Squiggle({ direction }: { direction: "left" | "right" }) {
-  const flipped: CSSProperties = direction === "right" ? { transform: "scaleX(-1)" } : {};
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 80 14"
-      className="hidden h-3 w-[80px] text-dream-ink/40 sm:block"
-      style={flipped}
-    >
-      <path
-        d="M2 7 Q 12 1 22 7 T 42 7 T 62 7 T 78 7"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
-
-function Sparkle({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={`pointer-events-none absolute ${className}`}
-      fill="currentColor"
-    >
-      <path d="M12 2 L13.6 9.5 L21 11 L13.6 12.5 L12 20 L10.4 12.5 L3 11 L10.4 9.5 Z" />
-    </svg>
-  );
-}
-
-function SparkIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path d="M12 3v4" />
-      <path d="M12 17v4" />
-      <path d="M3 12h4" />
-      <path d="M17 12h4" />
-      <path d="M5.6 5.6 8.4 8.4" />
-      <path d="M15.6 15.6 18.4 18.4" />
-      <path d="M5.6 18.4 8.4 15.6" />
-      <path d="M15.6 8.4 18.4 5.6" />
-    </svg>
-  );
-}

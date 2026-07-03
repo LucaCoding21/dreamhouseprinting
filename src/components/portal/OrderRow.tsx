@@ -1,0 +1,181 @@
+import Link from "next/link";
+import { STATUS_META } from "@/lib/orderStatus";
+import { formatCAD } from "@/lib/money";
+import { StatusTag } from "@/components/portal/StatusTag";
+import {
+  IconClock,
+  IconPencil,
+  IconPrinter,
+  IconTruck,
+  IconCheck,
+  IconChevronRight,
+} from "@/components/portal/icons";
+import type { OrderRow, OrderStatus } from "@/lib/db/rows";
+
+// Pill-free status: a coloured dot + coloured label. Used in the table layout.
+const STATUS_TEXT: Record<string, string> = {
+  neutral: "text-dream-muted",
+  info: "text-dream-info",
+  purple: "text-dream-purple",
+  success: "text-dream-success",
+  warn: "text-dream-warn",
+  danger: "text-dream-danger",
+};
+function StatusLabel({ tone, label }: { tone: string; label: string }) {
+  return (
+    <span className={`text-xs font-medium ${STATUS_TEXT[tone] ?? "text-dream-muted"}`}>{label}</span>
+  );
+}
+
+// Payment status is a separate axis from the order status; unpaid stays muted
+// (not alarming) since most in-progress orders are unpaid until invoiced.
+const PAYMENT_META: Record<string, { label: string; tone: string }> = {
+  unpaid: { label: "Unpaid", tone: "neutral" },
+  deposit_paid: { label: "Deposit paid", tone: "info" },
+  paid_in_full: { label: "Paid", tone: "success" },
+  refunded: { label: "Refunded", tone: "neutral" },
+  partially_refunded: { label: "Part. refunded", tone: "neutral" },
+};
+
+function orderTotal(o: OrderRow): number {
+  return ((o.pricing ?? {}) as { total?: number }).total ?? 0;
+}
+
+/** Short human note about where the order is right now. */
+export function statusNote(o: OrderRow): string {
+  const tracking = (o.shipping_tracking ?? "").trim();
+  switch (o.status) {
+    case "submitted":
+    case "in_review":
+      return "We’re reviewing your artwork and prepping a proof.";
+    case "proof_ready":
+      return "Your proof is ready. Approve it before we print.";
+    case "changes_requested":
+      return "Change request sent. We’re on it.";
+    case "approved":
+      return o.payment_status === "unpaid"
+        ? "Approved. We’ll send your invoice to arrange payment."
+        : "Approved and queued for printing.";
+    case "in_production":
+      return "We’re printing your order.";
+    case "quality_check":
+      return "Final quality check before it ships.";
+    case "shipped":
+      return tracking ? `On its way. Tracking ${tracking}` : "Shipped and on its way.";
+    case "ready_for_pickup":
+      return "Ready for pickup.";
+    case "on_hold":
+      return "On hold. We’ll be in touch.";
+    case "completed":
+      return "Delivered. Thanks for printing with us!";
+    default:
+      return "";
+  }
+}
+
+/** Icon shape per state — a uniform, quiet lavender tint so the status tag is
+ *  the only colour signal (less visual noise, one thing to read per row). */
+function statusIcon(status: OrderStatus): typeof IconClock {
+  switch (status) {
+    case "changes_requested":
+      return IconPencil;
+    case "approved":
+    case "completed":
+      return IconCheck;
+    case "in_production":
+      return IconPrinter;
+    case "shipped":
+    case "ready_for_pickup":
+      return IconTruck;
+    default:
+      return IconClock;
+  }
+}
+
+/** Column header for the aligned My Orders list. Widths mirror OrderListRow
+ *  exactly (same gap-4 + column widths) so cells line up like a table. Hidden on
+ *  mobile, where rows stack. */
+export function OrderListHeader() {
+  return (
+    <div className="hidden items-center gap-4 pr-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-dream-faint sm:flex">
+      <span className="min-w-0 flex-1">Order</span>
+      <div className="flex items-center gap-8">
+        <span className="w-32 shrink-0">Date</span>
+        <span className="w-36 shrink-0">Status</span>
+        <span className="w-28 shrink-0">Payment</span>
+        <span className="w-24 shrink-0">Total</span>
+      </div>
+      <span className="w-5 shrink-0" aria-hidden />
+    </div>
+  );
+}
+
+/** The shared "order line" used on the dashboard and the My Orders list.
+ *
+ *  Default ("card"): status tag inline next to the order number, price + date
+ *  stacked on the right — the friendly dashboard look.
+ *
+ *  `columns` ("table"): on desktop it lays out as aligned columns
+ *  (Order / Status / Total / Date) so a list reads like a tidy table under
+ *  OrderListHeader; on mobile it falls back to the same stacked card. */
+export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: boolean }) {
+  const Icon = statusIcon(o.status as OrderStatus);
+  const meta = STATUS_META[o.status as OrderStatus];
+  const payment = PAYMENT_META[o.payment_status ?? "unpaid"];
+  const paid = o.payment_status === "paid_in_full";
+  return (
+    <Link
+      href={`/account/orders/${o.id}`}
+      className="group flex items-center gap-4 rounded-lg border border-dream-line bg-white px-4 py-5 transition-colors hover:border-dream-line-strong"
+    >
+      {/* Icon + order + note, grouped as one flex-1 cell so the "Order" header
+          lines up flush-left above the icon while the columns still align. */}
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5">
+            <span className="font-display text-sm font-semibold text-dream-ink">{o.order_number ?? "Order"}</span>
+            {meta &&
+              (columns ? (
+                <span className="sm:hidden">
+                  <StatusLabel tone={meta.badge} label={meta.label} />
+                </span>
+              ) : (
+                <StatusTag tone={meta.badge}>{meta.label}</StatusTag>
+              ))}
+          </div>
+          <p className="mt-0.5 truncate text-xs text-dream-muted">{statusNote(o)}</p>
+        </div>
+      </div>
+
+      {columns ? (
+        <div className="hidden items-center gap-8 sm:flex">
+          <div className="w-32 shrink-0 text-xs text-dream-faint">
+            {new Date(o.created_at).toLocaleDateString("en-CA")}
+          </div>
+          <div className="w-36 shrink-0">
+            {meta && <StatusLabel tone={meta.badge} label={meta.label} />}
+          </div>
+          <div className="w-28 shrink-0 text-xs text-dream-muted">
+            {payment?.label ?? ""}
+          </div>
+          <div className="w-24 shrink-0 font-display text-sm font-semibold text-dream-ink">
+            {formatCAD(orderTotal(o))}
+          </div>
+        </div>
+      ) : (
+        <div className="hidden shrink-0 text-right sm:block">
+          <div className="font-display font-bold text-dream-ink">{formatCAD(orderTotal(o))}</div>
+          <div className="text-xs text-dream-faint">
+            {paid ? "Paid · " : ""}
+            {new Date(o.created_at).toLocaleDateString("en-CA")}
+          </div>
+        </div>
+      )}
+
+      <IconChevronRight className="h-5 w-5 shrink-0 text-dream-faint transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  );
+}

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Archivo, Darumadrop_One, Inter } from "next/font/google";
+import { Archivo, Darumadrop_One, Inter, Lilita_One } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { CartProvider } from "@/lib/cart/CartContext";
 
 const GA_MEASUREMENT_ID = "G-1X4CV46YY4";
 
@@ -20,6 +21,12 @@ const darumadrop = Darumadrop_One({
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const lilitaOne = Lilita_One({
+  variable: "--font-lilita",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 const homeTitle = "Custom Screen Printing & Embroidery in Vancouver | Dreamhouse";
@@ -66,7 +73,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${darumadrop.variable} ${inter.variable} h-full antialiased`}
+      className={`${archivo.variable} ${darumadrop.variable} ${inter.variable} ${lilitaOne.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-dream-lavender text-dream-ink font-sans">
         <svg
@@ -141,7 +148,7 @@ export default function RootLayout({
             </filter>
           </defs>
         </svg>
-        {children}
+        <CartProvider>{children}</CartProvider>
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
