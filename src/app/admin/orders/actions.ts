@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission, getProfile, hasPermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
-import { sendOrderStatusEmail } from "@/lib/notify";
+import { sendOrderStatusEmail, sendOrderEmail } from "@/lib/notify";
+import { ensureCheckoutSession } from "@/lib/orders/payments";
 import type { Json, Database } from "@/lib/db/types";
-import type { OrderStatus, PaymentStatus } from "@/lib/db/rows";
+import type { OrderStatus, PaymentStatus, ProductionNotesJson } from "@/lib/db/rows";
 
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
 const asJson = (v: unknown) => v as unknown as Json;
@@ -276,7 +277,8 @@ export async function deleteLineItemAction(
 /** Upload an official mockup/proof (already staged in the proofs bucket) and move to proof_ready. */
 export async function uploadProofAction(
   orderId: string,
-  proofPath: string
+  proofPath: string,
+  lineItemId?: string
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("proofs.manage");
   const service = requireSupabaseServiceClient();
@@ -288,6 +290,7 @@ export async function uploadProofAction(
 
   const { error: pErr } = await service.from("proofs").insert({
     order_id: orderId,
+    line_item_id: lineItemId ?? null,
     image: url,
     status: "pending",
     created_by: profile?.id ?? null,
@@ -307,6 +310,75 @@ export async function uploadProofAction(
 
   await logActivity(service, orderId, "proof_uploaded", {});
   await sendOrderStatusEmail(orderId, "proof_ready");
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/**
+ * Send (or re-send) the invoice: mint/reuse a Stripe Checkout session for the
+ * current order total, stamp invoice fields, and email the customer their
+ * public order link with the Pay button. Requires the pricing permission —
+ * a human confirms the price before the customer can pay.
+ */
+export async function sendInvoiceAction(orderId: string): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.pricing");
+  const service = requireSupabaseServiceClient();
+
+  const { data: order } = await service
+    .from("orders")
+    .select("id, order_number, public_token, customer_id, guest_email, pricing, status, stripe_checkout_session_id")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return { error: "Order not found." };
+  if (order.status === "draft" || order.status === "cancelled") {
+    return { error: "Can't invoice a draft or cancelled order." };
+  }
+
+  const session = await ensureCheckoutSession(service, order);
+  if (session.error) return { error: session.error };
+
+  const pricing = (order.pricing ?? {}) as { total?: number };
+  const { error } = await service
+    .from("orders")
+    .update({ invoice_sent_at: new Date().toISOString(), invoice_amount: pricing.total ?? null })
+    .eq("id", orderId);
+  if (error) return { error: error.message };
+
+  await logActivity(service, orderId, "invoice_sent", { total: pricing.total ?? 0 });
+  await sendOrderEmail(orderId, "invoice_sent");
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/** Set the shipment tracking number (shows on the customer's order page + shipped email). */
+export async function setTrackingAction(
+  orderId: string,
+  tracking: string
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const value = tracking.trim() || null;
+  const { error } = await service.from("orders").update({ shipping_tracking: value }).eq("id", orderId);
+  if (error) return { error: error.message };
+  await logActivity(service, orderId, "tracking_updated", { tracking: value });
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/** The three static note fields at the bottom of the order page (customer / inventory / printer). */
+export async function updateProductionNotesAction(
+  orderId: string,
+  notes: ProductionNotesJson
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const clean: ProductionNotesJson = {
+    customer: notes.customer?.trim() || undefined,
+    inventory: notes.inventory?.trim() || undefined,
+    printer: notes.printer?.trim() || undefined,
+  };
+  const { error } = await service.from("orders").update({ production_notes: asJson(clean) }).eq("id", orderId);
+  if (error) return { error: error.message };
   revalidateOrder(orderId);
   return { ok: true };
 }

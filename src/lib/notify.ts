@@ -2,6 +2,8 @@ import "server-only";
 
 import { Resend } from "resend";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { publicOrderUrl } from "@/lib/orders/publicLink";
+import { formatCAD } from "@/lib/money";
 import type { OrderStatus } from "@/lib/db/rows";
 
 /**
@@ -10,6 +12,11 @@ import type { OrderStatus } from "@/lib/db/rows";
  * live in the `settings` row keyed 'email_templates' (editable in Admin →
  * Settings); the customer's notification_preferences gate delivery. Degrades to
  * a no-op when Resend isn't configured (local dev).
+ *
+ * Recipient resolution: the customer's profile email, or `orders.guest_email`
+ * for guest orders (customer_id null). Every customer email carries a link to
+ * the public order page (/o/{token}) — appended in code so it survives any
+ * template edits in the admin.
  */
 
 const STATUS_TEMPLATE: Partial<Record<OrderStatus, string>> = {
@@ -31,34 +38,53 @@ function interpolate(str: string, vars: Record<string, string>): string {
   return str.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? "");
 }
 
-export async function sendOrderStatusEmail(orderId: string, status: OrderStatus): Promise<void> {
+function resendClient(): { resend: Resend; from: string } | null {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) return; // not configured — skip silently
+  if (!apiKey || !from) return null;
+  return { resend: new Resend(apiKey), from };
+}
 
-  const templateKey = STATUS_TEMPLATE[status];
-  if (!templateKey) return; // no email for this status
+/**
+ * Send a templated email to the order's customer (profile email or guest
+ * email). `extraVars` overlays the standard variable map. Fire-and-forget: all
+ * failure modes log and return, never throw into the calling action.
+ */
+export async function sendOrderEmail(
+  orderId: string,
+  templateKey: string,
+  extraVars: Record<string, string> = {}
+): Promise<void> {
+  const mail = resendClient();
+  if (!mail) return; // not configured — skip silently
 
   const service = createSupabaseServiceClient();
   if (!service) return;
 
   const { data: order } = await service
     .from("orders")
-    .select("order_number, customer_id, shipping_tracking")
+    .select("order_number, customer_id, guest_email, shipping_tracking, public_token, pricing")
     .eq("id", orderId)
     .maybeSingle();
-  if (!order?.customer_id) return;
+  if (!order) return;
 
-  const { data: customer } = await service
-    .from("profiles")
-    .select("email, name, notification_preferences")
-    .eq("id", order.customer_id)
-    .maybeSingle();
-  if (!customer?.email) return;
-
-  // Respect an explicit opt-out; default is opted-in.
-  const prefs = (customer.notification_preferences ?? {}) as unknown as Record<string, boolean>;
-  if (prefs.email === false) return;
+  let email = order.guest_email ?? null;
+  let name: string | null = null;
+  if (order.customer_id) {
+    const { data: customer } = await service
+      .from("profiles")
+      .select("email, name, notification_preferences")
+      .eq("id", order.customer_id)
+      .maybeSingle();
+    if (!customer?.email) return;
+    // Respect an explicit opt-out; default is opted-in. Guests are always sent
+    // (transactional, and they have no preference record).
+    const prefs = (customer.notification_preferences ?? {}) as unknown as Record<string, boolean>;
+    if (prefs.email === false) return;
+    email = customer.email;
+    name = customer.name;
+  }
+  if (!email) return;
 
   const { data: setting } = await service
     .from("settings")
@@ -69,28 +95,66 @@ export async function sendOrderStatusEmail(orderId: string, status: OrderStatus)
   const tpl = templates[templateKey];
   if (!tpl) return;
 
-  const { data: shopSetting } = await service.from("settings").select("value").eq("key", "shop").maybeSingle();
   const { data: shipSetting } = await service.from("settings").select("value").eq("key", "shipping").maybeSingle();
-  const pickupLocation = ((shipSetting?.value ?? {}) as unknown as { pickupLocation?: string }).pickupLocation ?? "the shop";
+  const pickupLocation =
+    ((shipSetting?.value ?? {}) as unknown as { pickupLocation?: string }).pickupLocation ?? "the shop";
+
+  const orderLink = await publicOrderUrl(order.public_token);
+  const pricing = (order.pricing ?? {}) as { total?: number };
 
   const vars: Record<string, string> = {
     orderNumber: order.order_number ?? "",
-    customerName: customer.name ?? "there",
+    customerName: name ?? "there",
     trackingLine: order.shipping_tracking ? `Track it: ${order.shipping_tracking}` : "",
     pickupLocation,
+    orderLink,
+    totalDue: formatCAD(pricing.total ?? 0),
+    ...extraVars,
   };
-  void shopSetting;
 
-  const resend = new Resend(apiKey);
   try {
-    await resend.emails.send({
-      from,
-      to: customer.email,
+    await mail.resend.emails.send({
+      from: mail.from,
+      to: email,
       subject: interpolate(tpl.subject, vars),
-      text: interpolate(tpl.body, vars),
+      // The order link is appended in code so template edits can't lose it.
+      text: `${interpolate(tpl.body, vars)}\n\nView your order: ${orderLink}`,
     });
   } catch (e) {
     // Never let a notification failure break the order action.
-    console.error("[notify] order status email failed", e);
+    console.error("[notify] order email failed", e);
+  }
+}
+
+/** Status-change wrapper — maps the order status to its template (if any). */
+export async function sendOrderStatusEmail(orderId: string, status: OrderStatus): Promise<void> {
+  const templateKey = STATUS_TEMPLATE[status];
+  if (!templateKey) return; // no email for this status
+  await sendOrderEmail(orderId, templateKey);
+}
+
+/**
+ * Internal notification to Julian (+ CC list) — proof decisions, payments.
+ * Hardcoded copy on purpose: staff mail isn't customer-template territory.
+ */
+export async function notifyJulian(subject: string, text: string): Promise<void> {
+  const mail = resendClient();
+  const to = process.env.JULIAN_NOTIFY_EMAIL;
+  if (!mail || !to) return;
+
+  const cc = (process.env.NOTIFY_CC_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  try {
+    await mail.resend.emails.send({
+      from: mail.from,
+      to: [to, ...cc],
+      subject,
+      text,
+    });
+  } catch (e) {
+    console.error("[notify] staff email failed", e);
   }
 }

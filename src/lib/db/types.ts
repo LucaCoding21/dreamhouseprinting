@@ -350,16 +350,22 @@ export type Database = {
           hold_note: string | null
           id: string
           internal_notes: Json
+          invoice_amount: number | null
+          invoice_sent_at: string | null
           official_mockups: Json
           order_number: string | null
           organization_id: string | null
+          paid_at: string | null
           payment_status: string
           pricing: Json
+          production_notes: Json
+          public_token: string
           sales_rep: string | null
           shipping_address: Json | null
           shipping_method: string | null
           shipping_tracking: string | null
           status: string
+          stripe_checkout_session_id: string | null
           updated_at: string
         }
         Insert: {
@@ -373,16 +379,22 @@ export type Database = {
           hold_note?: string | null
           id?: string
           internal_notes?: Json
+          invoice_amount?: number | null
+          invoice_sent_at?: string | null
           official_mockups?: Json
           order_number?: string | null
           organization_id?: string | null
+          paid_at?: string | null
           payment_status?: string
           pricing?: Json
+          production_notes?: Json
+          public_token?: string
           sales_rep?: string | null
           shipping_address?: Json | null
           shipping_method?: string | null
           shipping_tracking?: string | null
           status?: string
+          stripe_checkout_session_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -396,16 +408,22 @@ export type Database = {
           hold_note?: string | null
           id?: string
           internal_notes?: Json
+          invoice_amount?: number | null
+          invoice_sent_at?: string | null
           official_mockups?: Json
           order_number?: string | null
           organization_id?: string | null
+          paid_at?: string | null
           payment_status?: string
           pricing?: Json
+          production_notes?: Json
+          public_token?: string
           sales_rep?: string | null
           shipping_address?: Json | null
           shipping_method?: string | null
           shipping_tracking?: string | null
           status?: string
+          stripe_checkout_session_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -665,6 +683,7 @@ export type Database = {
           decoration_files: Json
           id: string
           image: string
+          line_item_id: string | null
           order_id: string
           status: string
         }
@@ -675,6 +694,7 @@ export type Database = {
           decoration_files?: Json
           id?: string
           image: string
+          line_item_id?: string | null
           order_id: string
           status?: string
         }
@@ -685,10 +705,18 @@ export type Database = {
           decoration_files?: Json
           id?: string
           image?: string
+          line_item_id?: string | null
           order_id?: string
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "proofs_line_item_id_fkey"
+            columns: ["line_item_id"]
+            isOneToOne: false
+            referencedRelation: "line_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proofs_created_by_fkey"
             columns: ["created_by"]

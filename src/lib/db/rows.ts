@@ -64,6 +64,13 @@ export interface ProductQuoteCurveJson {
   breaks: Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
 }
 
+/** The three static note fields on the admin order detail (orders.production_notes). */
+export interface ProductionNotesJson {
+  customer?: string;
+  inventory?: string;
+  printer?: string;
+}
+
 /** The order status set (PRD §2.4) and payment status set (§2.5). */
 export const ORDER_STATUSES = [
   "draft", "submitted", "in_review", "proof_ready", "changes_requested",
