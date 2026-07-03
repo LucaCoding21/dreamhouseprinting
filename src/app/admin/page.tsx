@@ -1,25 +1,34 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
-import { requireStaff } from "@/lib/auth";
+import { requireStaff, hasPermission } from "@/lib/auth";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { getAdminOrders } from "@/lib/admin/orders";
+import { getAdminOrders, type AdminOrderListItem } from "@/lib/admin/orders";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { formatCAD } from "@/lib/money";
-import { STATUS_META } from "@/lib/orderStatus";
-import type { OrderStatus, OrderActivityRow } from "@/lib/db/rows";
+import type { OrderActivityRow, ProfileRow } from "@/lib/db/rows";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { QuoteRequests, type QuoteRequestItem } from "./QuoteRequests";
 
 export const metadata = { title: "Dashboard | Admin" };
 
-const NEW_STATUSES = ["submitted", "in_review"];
-const PROOF_STATUSES = ["proof_ready", "changes_requested"];
-const PRODUCTION_STATUSES = ["approved", "in_production", "quality_check"];
-const FULFILMENT_STATUSES = ["quality_check", "shipped"];
 const CLOSED_STATUSES = ["completed", "cancelled"];
+// Orders that are approved-or-beyond but not yet closed (invoice / production range).
+const ACTIVE_FULFILMENT = ["approved", "in_production", "quality_check", "shipped", "ready_for_pickup"];
+const PRODUCTION_STATUSES = ["approved", "in_production", "quality_check"];
 
-function daysOverdue(due: string): number {
-  return Math.ceil((Date.now() - new Date(due).getTime()) / 86400000);
+function daysFromNow(due: string): number {
+  return Math.ceil((new Date(due).getTime() - Date.now()) / 86400000);
+}
+
+function dueMeta(due: string | null): { label: string; tone: string } | null {
+  if (!due) return null;
+  const d = daysFromNow(due);
+  if (d < 0) return { label: `${-d}d overdue`, tone: "text-dream-danger" };
+  if (d === 0) return { label: "Due today", tone: "text-dream-danger" };
+  if (d <= 3) return { label: `${d}d left`, tone: "text-dream-warn" };
+  return { label: `${d}d left`, tone: "text-dream-muted" };
 }
 
 function relativeTime(iso: string): string {
@@ -79,17 +88,34 @@ const ICONS: Record<string, ReactNode> = {
       <circle cx="7.5" cy="7.5" r="1.5" />
     </>
   ),
+  send: (
+    <>
+      <path d="M22 2L11 13" />
+      <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+    </>
+  ),
+  truck: (
+    <>
+      <rect x="1" y="3" width="15" height="13" rx="1" />
+      <path d="M16 8h4l3 3v5h-7V8z" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
+    </>
+  ),
 };
 
 const ACTIVITY_META: Record<string, { label: string; tone: string; icon: string }> = {
   order_created: { label: "New order", tone: "bg-dream-lavender-soft text-dream-purple", icon: "plus" },
   reorder: { label: "Reorder placed", tone: "bg-dream-lavender-soft text-dream-purple", icon: "repeat" },
-  status_change: { label: "Status changed", tone: "bg-dream-info-soft text-dream-periwinkle", icon: "arrow" },
+  status_change: { label: "Status changed", tone: "bg-dream-info-soft text-dream-info", icon: "arrow" },
   proof_uploaded: { label: "Proof uploaded", tone: "bg-dream-sun-soft text-dream-warn", icon: "image" },
   proof_approved: { label: "Proof approved", tone: "bg-dream-success-soft text-dream-success", icon: "check" },
   changes_requested: { label: "Changes requested", tone: "bg-dream-danger-soft text-dream-danger", icon: "pencil" },
   note: { label: "Note added", tone: "bg-dream-line text-dream-muted", icon: "note" },
   payment_status: { label: "Payment updated", tone: "bg-dream-success-soft text-dream-success", icon: "dollar" },
+  payment_received: { label: "Payment received", tone: "bg-dream-success-soft text-dream-success", icon: "dollar" },
+  invoice_sent: { label: "Invoice sent", tone: "bg-dream-info-soft text-dream-info", icon: "send" },
+  tracking_updated: { label: "Tracking updated", tone: "bg-dream-info-soft text-dream-info", icon: "truck" },
   price_edit: { label: "Pricing updated", tone: "bg-dream-line text-dream-muted", icon: "tag" },
   details_updated: { label: "Details updated", tone: "bg-dream-line text-dream-muted", icon: "pencil" },
   items_updated: { label: "Items updated", tone: "bg-dream-line text-dream-muted", icon: "tag" },
@@ -113,6 +139,69 @@ function ActivityIcon({ name }: { name: string }) {
   );
 }
 
+interface Queue {
+  key: string;
+  title: string;
+  tab: string; // deep-links to /admin/orders?tab=<tab>
+  items: AdminOrderListItem[];
+}
+
+function QueueCard({ queue }: { queue: Queue }) {
+  const rows = queue.items.slice(0, 5);
+  return (
+    <section id={`q-${queue.key}`} className="rounded-xl border border-dream-line bg-dream-surface">
+      <div className="flex items-center justify-between gap-2 border-b border-dream-line px-4 py-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-display text-base font-bold text-dream-ink">{queue.title}</h2>
+          <Badge variant={queue.items.length ? "purple" : "neutral"}>{queue.items.length}</Badge>
+        </div>
+        <Link
+          href={`/admin/orders?tab=${queue.tab}`}
+          className="text-xs font-medium text-dream-purple hover:underline"
+        >
+          View all &rarr;
+        </Link>
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-4 py-6 text-sm text-dream-muted">Nothing here right now.</div>
+      ) : (
+        <ul className="divide-y divide-dream-line">
+          {rows.map((o) => {
+            const due = dueMeta(o.order.due_date);
+            const thumb = o.mockups[0];
+            return (
+              <li key={o.order.id}>
+                <Link
+                  href={`/admin/orders/${o.order.id}`}
+                  className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-dream-bg"
+                >
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded border border-dream-line bg-dream-bg">
+                    {thumb && (
+                      <Image src={thumb} alt="" width={36} height={36} className="h-full w-full object-contain" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-dream-ink">
+                      {o.order.order_number ?? o.customerName ?? o.customerEmail ?? "Order"}
+                    </div>
+                    <div className="truncate text-xs text-dream-muted">
+                      {o.customerName ?? o.customerEmail ?? "—"}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-sm font-medium text-dream-ink">{formatCAD(o.total)}</div>
+                    {due && <div className={`text-xs ${due.tone}`}>{due.label}</div>}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export default async function AdminDashboardPage({
   searchParams,
 }: {
@@ -123,52 +212,125 @@ export default async function AdminDashboardPage({
 
   const orders = await getAdminOrders();
 
-  // --- Operational counts (PRD §7.2) ---
-  const has = (statuses: string[], status: string) => statuses.includes(status);
-  const newOrders = orders.filter((o) => has(NEW_STATUSES, o.order.status)).length;
-  const awaitingProof = orders.filter((o) => has(PROOF_STATUSES, o.order.status)).length;
-  const inProduction = orders.filter((o) => has(PRODUCTION_STATUSES, o.order.status)).length;
-  const readyToShip = orders.filter((o) => has(FULFILMENT_STATUSES, o.order.status)).length;
+  const inStatus = (statuses: string[], o: AdminOrderListItem) => statuses.includes(o.order.status);
+
+  // --- Action queues (the morning to-do view) ---
+  const needsProof = orders.filter((o) => inStatus(["submitted", "in_review"], o));
+  const awaitingApproval = orders.filter((o) => o.order.status === "proof_ready");
+  const changesRequested = orders.filter((o) => o.order.status === "changes_requested");
+  const readyToInvoice = orders.filter(
+    (o) =>
+      inStatus(ACTIVE_FULFILMENT, o) &&
+      !o.order.invoice_sent_at &&
+      o.order.payment_status === "unpaid"
+  );
+  const invoicedUnpaid = orders.filter((o) => o.order.invoice_sent_at && !o.order.paid_at);
+  const inProduction = orders.filter((o) => inStatus(PRODUCTION_STATUSES, o));
+  const dueSoon = orders
+    .filter(
+      (o) =>
+        o.order.due_date &&
+        !inStatus(CLOSED_STATUSES, o) &&
+        daysFromNow(o.order.due_date) <= 3
+    )
+    .sort((a, b) => daysFromNow(a.order.due_date!) - daysFromNow(b.order.due_date!));
+
+  const queues: Queue[] = [
+    { key: "needs-proof", title: "Needs proof", tab: "new", items: needsProof },
+    { key: "awaiting-approval", title: "Awaiting customer approval", tab: "proofing", items: awaitingApproval },
+    { key: "changes-requested", title: "Changes requested", tab: "proofing", items: changesRequested },
+    { key: "ready-to-invoice", title: "Ready to invoice", tab: "production", items: readyToInvoice },
+    { key: "invoiced-unpaid", title: "Invoice sent — unpaid", tab: "production", items: invoicedUnpaid },
+    { key: "in-production", title: "In production", tab: "production", items: inProduction },
+    { key: "due-soon", title: "Due soon / overdue", tab: "all", items: dueSoon },
+  ];
 
   // Outstanding balance: orders not paid in full and not cancelled.
   const outstanding = orders
     .filter((o) => o.order.payment_status !== "paid_in_full" && o.order.status !== "cancelled")
-    .reduce((sum, o) => {
-      const total = (o.order.pricing ?? {}) as { total?: number };
-      return sum + (total.total ?? 0);
-    }, 0);
+    .reduce((sum, o) => sum + o.total, 0);
 
-  const stats = [
-    { label: "New orders", value: newOrders, tab: "new" },
-    { label: "Awaiting approval", value: awaitingProof, tab: "proofing" },
-    { label: "In production", value: inProduction, tab: "production" },
-    { label: "Ready to ship", value: readyToShip, tab: "production" },
-  ];
+  // --- Quote requests (open only) — mirrors the old quotes loader, thumbnail via designs ---
+  const supabase = requireSupabaseServiceClient();
+  const canManageQuotes = hasPermission(profile, "quotes.manage");
+  let quoteItems: QuoteRequestItem[] = [];
+  if (canManageQuotes) {
+    const { data: quoteRows } = await supabase
+      .from("quotes")
+      .select("*")
+      .in("status", ["requested", "sent"])
+      .order("created_at", { ascending: false });
+    const rowsRaw = quoteRows ?? [];
 
-  // --- Alerts: overdue jobs (due in the past, not completed/cancelled) ---
-  const overdue = orders
-    .filter(
-      (o) =>
-        o.order.due_date &&
-        !has(CLOSED_STATUSES, o.order.status) &&
-        daysOverdue(o.order.due_date) > 0
-    )
-    .sort((a, b) => daysOverdue(b.order.due_date!) - daysOverdue(a.order.due_date!));
+    const customerIds = [...new Set(rowsRaw.map((q) => q.customer_id).filter(Boolean))] as string[];
+    const designIds = [...new Set(rowsRaw.flatMap((q) => q.design_ids ?? []))] as string[];
+
+    const [{ data: profiles }, designMockups] = await Promise.all([
+      customerIds.length
+        ? supabase.from("profiles").select("id, name, email").in("id", customerIds)
+        : Promise.resolve({ data: [] as Pick<ProfileRow, "id" | "name" | "email">[] }),
+      (async () => {
+        const map = new Map<string, string | null>();
+        if (designIds.length) {
+          const { data: designs } = await supabase
+            .from("designs")
+            .select("id, mockup_images")
+            .in("id", designIds);
+          for (const d of designs ?? []) {
+            const m = ((d.mockup_images ?? []) as unknown as { url: string | null }[]).find((x) => x.url)?.url ?? null;
+            map.set(d.id, m);
+          }
+        }
+        return map;
+      })(),
+    ]);
+    const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+    quoteItems = rowsRaw.map((q) => {
+      const p = q.customer_id ? profileById.get(q.customer_id) : undefined;
+      const contact = (q.contact ?? {}) as unknown as { name?: string; email?: string };
+      const pricing = (q.pricing ?? {}) as unknown as { total?: number };
+      const thumbnail = (q.design_ids ?? []).map((id) => designMockups.get(id)).find(Boolean) ?? null;
+      return {
+        id: q.id,
+        quoteNumber: q.quote_number,
+        customerName: p?.name ?? contact.name ?? null,
+        customerEmail: p?.email ?? contact.email ?? null,
+        message: q.message,
+        total: pricing.total ?? 0,
+        thumbnail: thumbnail ?? null,
+      };
+    });
+  }
 
   // --- Recent activity (latest 10), with order_number resolved by id ---
-  const supabase = requireSupabaseServiceClient();
   const { data: activityRows } = await supabase
     .from("order_activity")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(10);
   const activity = (activityRows ?? []) as OrderActivityRow[];
-
   const orderNumberById = new Map(orders.map((o) => [o.order.id, o.order.order_number]));
+
+  const canViewReports = hasPermission(profile, "reports.view");
+
+  // Top strip: one clickable chip per queue, anchoring to its card.
+  const chips = queues.filter((q) => q.items.length > 0);
 
   return (
     <div>
-      <AdminHeader title="Dashboard" />
+      <AdminHeader title="Dashboard">
+        {canViewReports && (
+          <a
+            href="/api/admin/reports/orders.csv"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-dream-line bg-white px-4 text-sm font-display font-medium text-dream-ink transition-colors hover:bg-dream-bg"
+            download
+          >
+            Download CSV
+          </a>
+        )}
+      </AdminHeader>
+
       <div className="space-y-8 px-8 py-6">
         {denied && (
           <div className="rounded-lg bg-dream-warn-soft px-4 py-3 text-sm text-dream-warn">
@@ -177,123 +339,95 @@ export default async function AdminDashboardPage({
         )}
 
         <p className="text-dream-muted">
-          Welcome back, {profile.name || "team"}. Here&apos;s where the shop stands right now.
+          Welcome back, {profile.name || "team"}. Here&apos;s what needs your attention today.
         </p>
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          {stats.map((s) => (
-            <Link
-              key={s.label}
-              href={`/admin/orders?tab=${s.tab}`}
-              className="rounded-xl border border-dream-line bg-dream-surface p-4 transition-colors hover:border-dream-purple"
-            >
-              <div className="font-display text-3xl font-bold text-dream-ink">{s.value}</div>
-              <div className="text-sm text-dream-muted">{s.label}</div>
-            </Link>
-          ))}
-          <div className="rounded-xl border border-dream-line bg-dream-surface p-4">
-            <div className="font-display text-3xl font-bold text-dream-ink">{formatCAD(outstanding)}</div>
-            <div className="text-sm text-dream-muted">Outstanding balance</div>
+        {/* Top strip: clickable count chips */}
+        {chips.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {chips.map((q) => (
+              <a
+                key={q.key}
+                href={`#q-${q.key}`}
+                className="inline-flex items-center gap-2 rounded-full border border-dream-line bg-dream-surface px-3 py-1.5 text-sm font-medium text-dream-ink transition-colors hover:border-dream-purple"
+              >
+                {q.title}
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-dream-lavender-soft px-1.5 text-xs font-bold text-dream-purple">
+                  {q.items.length}
+                </span>
+              </a>
+            ))}
+            <div className="inline-flex items-center gap-2 rounded-full border border-dream-line bg-dream-surface px-3 py-1.5 text-sm">
+              <span className="text-dream-muted">Outstanding</span>
+              <span className="font-display font-bold text-dream-ink">{formatCAD(outstanding)}</span>
+            </div>
           </div>
+        )}
+
+        {/* Queue cards */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {queues.map((q) => (
+            <QueueCard key={q.key} queue={q} />
+          ))}
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Alerts: overdue jobs */}
-          <section>
-            <h2 className="mb-3 font-display text-lg font-bold text-dream-ink">Alerts</h2>
-            {overdue.length === 0 ? (
-              <div className="rounded-xl border border-dream-line bg-dream-surface">
-                <EmptyState title="Nothing overdue" description="Every job with a due date is on schedule." />
-              </div>
-            ) : (
-              <ul className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface">
-                {overdue.map((o) => {
-                  const meta = STATUS_META[o.order.status as OrderStatus];
-                  const late = daysOverdue(o.order.due_date!);
-                  return (
-                    <li key={o.order.id}>
-                      <Link
-                        href={`/admin/orders/${o.order.id}`}
-                        className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-dream-bg"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate font-medium text-dream-ink">
-                            {o.order.order_number ?? o.customerName ?? o.customerEmail ?? "Order"}
-                          </div>
-                          <div className="text-xs text-dream-muted">
-                            {o.customerName ?? o.customerEmail ?? "—"} · due {o.order.due_date}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <Badge variant="danger">{late}d overdue</Badge>
-                          <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? o.order.status}</Badge>
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
+        {/* Quote requests (gated by quotes.manage) */}
+        {canManageQuotes && <QuoteRequests quotes={quoteItems} />}
 
-          {/* Recent activity feed */}
-          <section>
-            <h2 className="mb-3 font-display text-lg font-bold text-dream-ink">Recent activity</h2>
-            {activity.length === 0 ? (
-              <div className="rounded-xl border border-dream-line bg-dream-surface">
-                <EmptyState title="No activity yet" description="Status changes, new orders and approvals show up here." />
-              </div>
-            ) : (
-              <ul className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface">
-                {activity.map((a) => {
-                  const orderNumber = orderNumberById.get(a.order_id);
-                  const meta =
-                    ACTIVITY_META[a.type] ?? {
-                      label: a.type.replace(/_/g, " "),
-                      tone: "bg-dream-line text-dream-muted",
-                      icon: "note",
-                    };
-                  return (
-                    <li key={a.id}>
-                      <Link
-                        href={`/admin/orders/${a.order_id}`}
-                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-dream-bg"
+        {/* Recent activity feed */}
+        <section>
+          <h2 className="mb-3 font-display text-lg font-bold text-dream-ink">Recent activity</h2>
+          {activity.length === 0 ? (
+            <div className="rounded-xl border border-dream-line bg-dream-surface">
+              <EmptyState title="No activity yet" description="Status changes, new orders and approvals show up here." />
+            </div>
+          ) : (
+            <ul className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface">
+              {activity.map((a) => {
+                const orderNumber = orderNumberById.get(a.order_id);
+                const meta =
+                  ACTIVITY_META[a.type] ?? {
+                    label: a.type.replace(/_/g, " "),
+                    tone: "bg-dream-line text-dream-muted",
+                    icon: "note",
+                  };
+                return (
+                  <li key={a.id}>
+                    <Link
+                      href={`/admin/orders/${a.order_id}`}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-dream-bg"
+                    >
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${meta.tone}`}
                       >
-                        <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${meta.tone}`}
-                        >
-                          <ActivityIcon name={meta.icon} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm text-dream-ink">
-                            <span className="font-semibold">{meta.label}</span>
-                            {orderNumber && (
-                              <>
-                                <span className="text-dream-faint"> · </span>
-                                <span className="font-medium text-dream-purple">{orderNumber}</span>
-                              </>
-                            )}
-                          </div>
-                          <div className="truncate text-xs text-dream-muted">
-                            {a.actor_name ?? "Staff"}
-                          </div>
+                        <ActivityIcon name={meta.icon} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm text-dream-ink">
+                          <span className="font-semibold">{meta.label}</span>
+                          {orderNumber && (
+                            <>
+                              <span className="text-dream-faint"> · </span>
+                              <span className="font-medium text-dream-purple">{orderNumber}</span>
+                            </>
+                          )}
                         </div>
-                        <time
-                          dateTime={a.created_at}
-                          title={new Date(a.created_at).toLocaleString("en-CA")}
-                          className="shrink-0 whitespace-nowrap text-xs text-dream-faint"
-                        >
-                          {relativeTime(a.created_at)}
-                        </time>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-        </div>
+                        <div className="truncate text-xs text-dream-muted">{a.actor_name ?? "Staff"}</div>
+                      </div>
+                      <time
+                        dateTime={a.created_at}
+                        title={new Date(a.created_at).toLocaleString("en-CA")}
+                        className="shrink-0 whitespace-nowrap text-xs text-dream-faint"
+                      >
+                        {relativeTime(a.created_at)}
+                      </time>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );

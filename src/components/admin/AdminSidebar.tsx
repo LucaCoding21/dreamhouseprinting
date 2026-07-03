@@ -15,12 +15,8 @@ interface NavItem {
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/admin" },
   { label: "Orders", href: "/admin/orders", perm: "orders.view" },
-  { label: "Proofs & Artwork", href: "/admin/proofs", perm: "proofs.manage" },
-  { label: "Production", href: "/admin/production", perm: "production.manage" },
   { label: "Products", href: "/admin/products", perm: "products.manage" },
-  { label: "Quotes", href: "/admin/quotes", perm: "quotes.manage" },
   { label: "Customers", href: "/admin/customers", perm: "customers.view" },
-  { label: "Reports", href: "/admin/reports", perm: "reports.view" },
   { label: "Settings", href: "/admin/settings", perm: "settings.manage" },
 ];
 
@@ -33,7 +29,7 @@ export function AdminSidebar({
   name: string;
   role: string;
   permissions: string[];
-  /** Notification counts keyed by nav href, e.g. { "/admin/proofs": 3 }. */
+  /** Notification counts keyed by nav href, e.g. { "/admin/orders": 3 }. */
   badges?: Record<string, number>;
 }) {
   const pathname = usePathname();

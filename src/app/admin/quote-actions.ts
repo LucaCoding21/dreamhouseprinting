@@ -6,7 +6,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Json, Database } from "@/lib/db/types";
 
 // "use server" files may only export async functions, so the status union lives
-// as a local (non-exported) type here; QuotesClient owns the shared list + labels.
+// as a local (non-exported) type here.
 type QuoteStatus = "requested" | "sent" | "accepted" | "declined" | "converted";
 
 type QuoteUpdate = Database["public"]["Tables"]["quotes"]["Update"];

@@ -17,6 +17,8 @@ interface Row {
   orderNumber: string | null;
   status: string;
   paymentStatus: string;
+  invoiceSentAt: string | null;
+  paidAt: string | null;
   dueDate: string | null;
   createdAt: string;
   salesRep: string | null;
@@ -26,6 +28,16 @@ interface Row {
   total: number;
   mockups: string[];
   latestNote: string | null;
+}
+
+/** Payment badge: paid > invoiced (amber) > unpaid (neutral). */
+function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "neutral" } {
+  if (r.paidAt || r.paymentStatus === "paid_in_full") return { label: "Paid", variant: "success" };
+  if (r.invoiceSentAt) {
+    const short = new Date(r.invoiceSentAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    return { label: `Invoiced ${short}`, variant: "warn" };
+  }
+  return { label: "Unpaid", variant: "neutral" };
 }
 
 const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
@@ -45,9 +57,11 @@ function inHands(due: string | null): { label: string; urgent: boolean } {
   return { label: `${days}d left`, urgent: days <= 3 };
 }
 
-export function OrdersListClient({ rows }: { rows: Row[] }) {
+export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab?: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState("all");
+  const [tab, setTab] = useState(
+    initialTab && TABS.some((t) => t.key === initialTab) ? initialTab : "all"
+  );
 
   const count = (m: (s: string) => boolean) => rows.filter((r) => m(r.status)).length;
   const stats = [
@@ -98,6 +112,7 @@ export function OrdersListClient({ rows }: { rows: Row[] }) {
                 <TR>
                   <TH>In hands</TH>
                   <TH>Status</TH>
+                  <TH>Payment</TH>
                   <TH>Customer</TH>
                   <TH>Sales rep</TH>
                   <TH>Pieces / total</TH>
@@ -109,6 +124,7 @@ export function OrdersListClient({ rows }: { rows: Row[] }) {
                 {visible.map((r) => {
                   const meta = STATUS_META[r.status as OrderStatus];
                   const ih = inHands(r.dueDate);
+                  const pay = paymentMeta(r);
                   return (
                     <TR key={r.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${r.id}`)}>
                       <TD>
@@ -117,6 +133,9 @@ export function OrdersListClient({ rows }: { rows: Row[] }) {
                       </TD>
                       <TD>
                         <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? r.status}</Badge>
+                      </TD>
+                      <TD>
+                        <Badge variant={pay.variant}>{pay.label}</Badge>
                       </TD>
                       <TD>
                         <div className="font-medium text-dream-ink">{r.customerName ?? r.customerEmail ?? "—"}</div>

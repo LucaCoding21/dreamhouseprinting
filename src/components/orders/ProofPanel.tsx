@@ -8,16 +8,23 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { StatusTag } from "@/components/portal/StatusTag";
 import { IconZoom, IconClose } from "@/components/portal/icons";
-import { approveProofAction, requestProofChangesAction } from "./actions";
+import type { OrderViewProof, OrderViewActions } from "./types";
 
-interface ProofLite {
-  id: string;
-  image: string;
-  status: string;
-  change_request_comment: string | null;
-}
-
-export function ProofApproval({ proof }: { proof: ProofLite }) {
+/**
+ * Customer proof review + approve / request-changes. Shared by the logged-in
+ * portal and the public tokenized order page — it takes the decision server
+ * actions as props (already bound to the order/token by the route) rather than
+ * importing them, so the same UI drives both auth modes.
+ */
+export function ProofPanel({
+  proof,
+  onApprove,
+  onRequestChanges,
+}: {
+  proof: OrderViewProof;
+  onApprove: OrderViewActions["approveProof"];
+  onRequestChanges: OrderViewActions["requestChanges"];
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [requesting, setRequesting] = useState(false);
@@ -67,7 +74,7 @@ export function ProofApproval({ proof }: { proof: ProofLite }) {
                       loading={pending}
                       onClick={() =>
                         start(async () => {
-                          const r = await approveProofAction(proof.id);
+                          const r = await onApprove(proof.id);
                           if (r.error) setError(r.error);
                           else router.refresh();
                         })
@@ -90,7 +97,7 @@ export function ProofApproval({ proof }: { proof: ProofLite }) {
                         loading={pending}
                         onClick={() =>
                           start(async () => {
-                            const r = await requestProofChangesAction(proof.id, comment);
+                            const r = await onRequestChanges(proof.id, comment);
                             if (r.error) setError(r.error);
                             else router.refresh();
                           })
