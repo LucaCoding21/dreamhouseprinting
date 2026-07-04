@@ -112,6 +112,37 @@ export function ProductEditor({
     [product.wholesale_cost, markupType, markupValue, product.pricing_rules]
   );
 
+  // Setup checklist — computed from the saved product (plus the live Active
+  // switch, which persists immediately). Drives the "not visible yet" banner.
+  const setupSteps = [
+    {
+      done: Boolean(product.category_id),
+      label: "Choose a category",
+      hint: "So it lands in the right Shop All aisle.",
+      href: "#pe-details",
+    },
+    {
+      done: product.markup_value != null || product.base_price != null,
+      label: "Review pricing",
+      hint: "100% markup is applied by default — adjust if needed.",
+      href: "#pe-pricing",
+    },
+    {
+      done: printAreas.length > 0,
+      label: "Draw a print area",
+      hint: "Required so it opens in the designer.",
+      href: "#pe-print-areas",
+    },
+    {
+      done: isActive,
+      label: "Turn on Active",
+      hint: "Makes it visible in the shop.",
+      href: "#pe-visibility",
+    },
+  ];
+  const doneCount = setupSteps.filter((s) => s.done).length;
+  const fullyLive = doneCount === setupSteps.length;
+
   const majors = categories.filter((c) => c.is_major && !c.parent_id);
   const niche = categories.filter((c) => !c.is_major && !c.parent_id);
   const subsOf = (id: string) => categories.filter((c) => c.parent_id === id);
@@ -171,7 +202,13 @@ export function ProductEditor({
     <div>
       <AdminHeader
         title={product.name}
-        badge={<Badge variant={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</Badge>}
+        badge={
+          fullyLive ? (
+            <Badge variant="success">Live in shop</Badge>
+          ) : (
+            <Badge variant={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</Badge>
+          )
+        }
       >
         <Button variant="ghost" onClick={() => router.push("/admin/products")}>
           ← All products
@@ -184,10 +221,79 @@ export function ProductEditor({
         </Button>
       </AdminHeader>
 
+      {!fullyLive && (
+        <div className="px-8 pt-6">
+          <Card className="border-dream-warn/40 bg-dream-warn-soft/40">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-display text-base font-semibold text-dream-ink">
+                    This product isn&apos;t visible in the shop yet
+                  </h3>
+                  <p className="mt-0.5 text-sm text-dream-muted">
+                    Finish these steps, then it goes live for customers.
+                  </p>
+                </div>
+                <Badge variant="warn" className="shrink-0">
+                  {doneCount}/{setupSteps.length} done
+                </Badge>
+              </div>
+              <ul className="mt-4 space-y-1">
+                {setupSteps.map((s) => (
+                  <li key={s.label}>
+                    <a
+                      href={s.href}
+                      className="-mx-2 flex items-start gap-3 rounded-lg px-2 py-1.5 hover:bg-dream-surface/70"
+                    >
+                      {s.done ? (
+                        <svg
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-dream-success"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.71-9.29a1 1 0 00-1.42-1.42L9 10.59 7.71 9.3a1 1 0 00-1.42 1.4l2 2a1 1 0 001.42 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          className="mt-0.5 h-4 w-4 shrink-0 text-dream-line-strong"
+                          aria-hidden="true"
+                        >
+                          <circle cx="10" cy="10" r="7" />
+                        </svg>
+                      )}
+                      <span>
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            s.done ? "text-dream-muted line-through" : "text-dream-ink"
+                          )}
+                        >
+                          {s.label}
+                        </span>
+                        {!s.done && <span className="block text-xs text-dream-muted">{s.hint}</span>}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid gap-6 px-8 py-6 lg:grid-cols-3">
         {/* Main config */}
         <div className="space-y-6 lg:col-span-2">
-          <Card>
+          <Card id="pe-details" className="scroll-mt-24">
             <CardHeader>
               <CardTitle>Details</CardTitle>
             </CardHeader>
@@ -284,12 +390,14 @@ export function ProductEditor({
             </CardContent>
           </Card>
 
-          <PrintAreaEditor productId={product.id} initialAreas={printAreas} colours={colours} />
+          <div id="pe-print-areas" className="scroll-mt-24">
+            <PrintAreaEditor productId={product.id} initialAreas={printAreas} colours={colours} />
+          </div>
         </div>
 
         {/* Sidebar: pricing, decoration, flags */}
         <div className="space-y-6">
-          <Card>
+          <Card id="pe-visibility" className="scroll-mt-24">
             <CardHeader>
               <CardTitle>Visibility</CardTitle>
             </CardHeader>
@@ -311,7 +419,7 @@ export function ProductEditor({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="pe-pricing" className="scroll-mt-24">
             <CardHeader>
               <CardTitle>Pricing</CardTitle>
             </CardHeader>

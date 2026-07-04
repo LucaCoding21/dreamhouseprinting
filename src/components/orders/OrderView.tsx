@@ -13,7 +13,7 @@ import type { OrderViewProps } from "./types";
  * spacing — the portal keeps its exact `space-y-6` rhythm. Actions are passed
  * in already bound to the order/token by the route.
  */
-export function OrderView({ order, lineItems, proofs, firstMockup, activity, actions }: OrderViewProps) {
+export function OrderView({ order, lineItems, proofs, activity, actions }: OrderViewProps) {
   const latestProof = proofs[0];
   const pricing = order.pricing;
   const amountDue = order.invoice_amount ?? pricing.total ?? 0;
@@ -47,11 +47,22 @@ export function OrderView({ order, lineItems, proofs, firstMockup, activity, act
           <CardContent className="space-y-4">
             {lineItems.map((li) => (
               <div key={li.id} className="flex gap-4">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
-                  {firstMockup && (
-                    <Image src={firstMockup} alt="" width={80} height={80} className="h-full w-full object-contain" />
-                  )}
-                </div>
+                {li.mockup ? (
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
+                    <Image src={li.mockup} alt="" width={80} height={80} className="h-full w-full object-contain" />
+                  </div>
+                ) : (
+                  <div
+                    className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border border-dream-line p-1 text-center"
+                    style={{ backgroundColor: li.colourHex ?? "var(--color-dream-bg)" }}
+                  >
+                    {li.colourName && (
+                      <span className="rounded bg-white/85 px-1 text-[10px] font-medium leading-tight text-dream-ink">
+                        {li.colourName}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="font-medium text-dream-ink">{li.product_name}</div>
                   <div className="text-sm text-dream-muted">{li.colourName}</div>
@@ -81,6 +92,12 @@ export function OrderView({ order, lineItems, proofs, firstMockup, activity, act
               <div className="flex justify-between text-dream-muted">
                 <span>Setup</span>
                 <span>{formatCAD(pricing.setupFees)}</span>
+              </div>
+            )}
+            {!!pricing.rush && (
+              <div className="flex justify-between text-dream-muted">
+                <span>Rush (+50%)</span>
+                <span>{formatCAD(pricing.rush)}</span>
               </div>
             )}
             <div className="mt-2 flex justify-between border-t border-dream-line pt-2 font-semibold text-dream-ink">

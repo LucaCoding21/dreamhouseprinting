@@ -9,6 +9,7 @@ import SiteFooter from "@/components/SiteFooter";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { calcTax, provinceName, isProvinceCode } from "@/lib/pricing/tax";
+import { rushFee } from "@/lib/pricing/rush";
 import { CheckoutHeader } from "../CheckoutClient";
 import { placeOrderAction } from "../actions";
 import type { ReviewContext } from "../context";
@@ -35,9 +36,10 @@ export function ReviewClient({
   const provLabel = isProvinceCode(contact.province) ? provinceName(contact.province) : contact.province;
   const addressLines = [contact.street, `${contact.city}, ${contact.province} ${contact.postal}`.trim(), "Canada"];
 
-  const tax = calcTax(summary.subtotal + summary.setup, province);
+  const rush = rushFee(summary.subtotal, summary.setup, turnaround === "rush");
+  const tax = calcTax(summary.subtotal + summary.setup + rush, province);
   const shipping = 0;
-  const total = summary.subtotal + summary.setup + shipping + tax.total;
+  const total = summary.subtotal + summary.setup + rush + shipping + tax.total;
 
   async function submit() {
     setError(null);
@@ -110,6 +112,7 @@ export function ReviewClient({
             <dl className="mt-4 space-y-3 text-sm">
               <MoneyRow label="Cart subtotal" value={formatCAD(summary.subtotal)} />
               {summary.setup > 0 && <MoneyRow label="Setup fees" value={formatCAD(summary.setup)} />}
+              {rush > 0 && <MoneyRow label="Rush (+50%)" value={formatCAD(rush)} />}
               <MoneyRow label="Shipping" value={formatCAD(shipping)} />
               {tax.lines.map((l) => (
                 <MoneyRow key={l.label} label={l.label} value={formatCAD(l.amount)} />

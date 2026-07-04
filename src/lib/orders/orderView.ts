@@ -82,17 +82,47 @@ export interface OrderViewSerialized {
   order: OrderViewOrder;
   lineItems: OrderViewLineItem[];
   proofs: OrderViewProof[];
-  firstMockup: string | null;
   activity: OrderViewActivityEntry[];
 }
+
+/** The design's first mockup URL — front view preferred when the view is identifiable. */
+function designMockup(design: DesignRow): string | null {
+  const mockups = (design.mockup_images ?? []) as { view?: string; url?: string | null }[];
+  const front = mockups.find((m) => m.url && /front/i.test(m.view ?? ""));
+  return front?.url ?? mockups.find((m) => m.url)?.url ?? null;
+}
+
+const normColour = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
 export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
   const { order, lineItems, designs, proofs, activity } = input;
 
-  const firstMockup =
-    designs
-      .flatMap((d) => (d.mockup_images ?? []) as { view: string; url: string | null }[])
-      .find((m) => m.url)?.url ?? null;
+  const designsById = new Map(designs.map((d) => [d.id, d]));
+  // Tracks which design_ids have already had their designed line item resolved,
+  // so the fallback (design.colour missing) can pin the mockup to the FIRST line
+  // item for that design — placeOrderAction inserts colourways in order, the
+  // designed colour first.
+  const fallbackClaimed = new Set<string>();
+
+  function lineMockup(designId: string | null, colourName: string | null): string | null {
+    if (!designId) return null;
+    const design = designsById.get(designId);
+    if (!design) return null;
+    const mockup = designMockup(design);
+    if (!mockup) return null;
+
+    const designedColour = ((design.colour ?? {}) as { name?: string }).name;
+    if (designedColour) {
+      // Robust: only the colourway the design was actually mocked up on gets the art.
+      return normColour(designedColour) === normColour(colourName) ? mockup : null;
+    }
+
+    // Fallback: no designed colour recorded — treat the first line item for this
+    // design as the designed one.
+    if (fallbackClaimed.has(designId)) return null;
+    fallbackClaimed.add(designId);
+    return mockup;
+  }
 
   return {
     order: {
@@ -100,25 +130,29 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       order_number: order.order_number,
       status: order.status as OrderStatus,
       due_date: order.due_date,
-      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number },
+      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number; rush?: number },
       invoice_sent_at: order.invoice_sent_at,
       invoice_amount: order.invoice_amount,
       paid_at: order.paid_at,
     },
-    lineItems: lineItems.map((li) => ({
-      id: li.id,
-      product_name: li.product_name,
-      colourName: ((li.colour ?? {}) as { name?: string }).name ?? null,
-      sizeQuantities: (li.size_quantities ?? {}) as Record<string, number>,
-      line_total: li.line_total,
-    })),
+    lineItems: lineItems.map((li) => {
+      const colour = (li.colour ?? {}) as { name?: string; hex?: string };
+      return {
+        id: li.id,
+        product_name: li.product_name,
+        colourName: colour.name ?? null,
+        colourHex: colour.hex ?? null,
+        sizeQuantities: (li.size_quantities ?? {}) as Record<string, number>,
+        line_total: li.line_total,
+        mockup: lineMockup(li.design_id, colour.name ?? null),
+      };
+    }),
     proofs: proofs.map((p) => ({
       id: p.id,
       image: p.image,
       status: p.status,
       change_request_comment: p.change_request_comment,
     })),
-    firstMockup,
     activity: buildActivity(order, activity),
   };
 }

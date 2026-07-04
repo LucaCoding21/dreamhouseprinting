@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getProfile } from "@/lib/auth";
+import { getProfile, getUser } from "@/lib/auth";
+import { claimGuestRecords } from "@/lib/claim";
 import { PortalSidebar } from "@/components/portal/PortalSidebar";
 import { PortalTopbar } from "@/components/portal/PortalTopbar";
 import { ToastProvider } from "@/components/ui/Toaster";
@@ -9,6 +10,12 @@ export const metadata = { title: "My Account | Dreamhouse Printing" };
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
   if (!profile) redirect("/login?next=/account");
+
+  // Self-heal: attach any guest orders/designs missed by the auth-time claim.
+  // Cheap idempotent UPDATEs scoped to still-unclaimed rows. Email is taken from
+  // the authenticated user object, never client input.
+  const user = await getUser();
+  if (user?.email) await claimGuestRecords(user.id, user.email);
 
   const name = profile.name ?? profile.email ?? "My account";
 

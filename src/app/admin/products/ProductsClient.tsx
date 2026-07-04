@@ -100,8 +100,8 @@ export function ProductsClient({
                       <TD>{formatCAD(startingAtPrice(p))}</TD>
                       <TD>
                         <div className="flex items-center gap-1.5">
-                          <Badge variant={p.is_active ? "success" : "neutral"}>
-                            {p.is_active ? "Active" : "Inactive"}
+                          <Badge variant={p.is_active ? "success" : "warn"}>
+                            {p.is_active ? "Live" : "Hidden"}
                           </Badge>
                           {p.is_featured && <Badge variant="purple">Featured</Badge>}
                         </div>
@@ -122,7 +122,11 @@ export function ProductsClient({
         open={importing}
         onClose={() => setImporting(false)}
         onImported={(productId) => {
-          toast({ title: "Imported", description: "Configure the product to publish it.", variant: "success" });
+          toast({
+            title: "Imported as a draft",
+            description: "Set the category, pricing, and print area, then switch it on to go live.",
+            variant: "success",
+          });
           router.push(`/admin/products/${productId}`);
         }}
       />
@@ -144,15 +148,24 @@ function ImportDialog({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, startSearch] = useTransition();
   const [importingId, setImportingId] = useState<number | null>(null);
+  const [searched, setSearched] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
 
   function search() {
+    const q = query.trim();
+    if (q.length < 2) {
+      setHint("Type at least 2 characters — a style number (like 3001) or a brand name.");
+      return;
+    }
+    setHint(null);
     startSearch(async () => {
-      const res = await ssSearchAction(query);
+      const res = await ssSearchAction(q);
       if (res.error) {
         toast({ title: "Search failed", description: res.error, variant: "error" });
         return;
       }
       setResults(res.results ?? []);
+      setSearched(true);
     });
   }
 
@@ -192,6 +205,12 @@ function ImportDialog({
           </Button>
         </form>
 
+        <p className="mt-2 text-xs text-dream-muted">
+          Products import as hidden drafts — you&apos;ll set the category, pricing, and print area next, then turn
+          them on.
+        </p>
+        {hint && <p className="mt-1.5 text-xs font-medium text-dream-warn">{hint}</p>}
+
         <div className="mt-4 max-h-[55vh] overflow-y-auto">
           {searching ? (
             <div className="flex justify-center py-10">
@@ -199,7 +218,9 @@ function ImportDialog({
             </div>
           ) : results.length === 0 ? (
             <p className="py-10 text-center text-sm text-dream-muted">
-              Search the catalog to import a blank garment.
+              {searched
+                ? "No styles matched. Try a style number (like 3001) or a brand name. Note: we search the S&S Canada catalog — US-only styles won't appear."
+                : "Search the catalog to import a blank garment."}
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

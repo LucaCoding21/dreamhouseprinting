@@ -120,7 +120,6 @@ export default async function PublicOrderPage({
           order={view.order}
           lineItems={view.lineItems}
           proofs={view.proofs}
-          firstMockup={view.firstMockup}
           activity={view.activity}
           actions={{
             approveProof: approveProofPublicAction.bind(null, token),

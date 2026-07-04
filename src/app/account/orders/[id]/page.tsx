@@ -97,7 +97,6 @@ export default async function OrderDetailPage({
         order={view.order}
         lineItems={view.lineItems}
         proofs={view.proofs}
-        firstMockup={view.firstMockup}
         activity={view.activity}
         actions={{
           approveProof: approveProofAction,

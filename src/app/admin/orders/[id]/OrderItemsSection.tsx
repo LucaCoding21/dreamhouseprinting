@@ -113,18 +113,19 @@ export function OrderItemsSection({
   }
 
   // --- Pricing summary ---
-  const pricingCol = (order.pricing ?? {}) as { subtotal?: number; setupFees?: number; shipping?: number; tax?: number };
+  const pricingCol = (order.pricing ?? {}) as { subtotal?: number; setupFees?: number; rush?: number; shipping?: number; tax?: number };
   const [price, setPrice] = useState({
     subtotal: pricingCol.subtotal ?? 0,
     setupFees: pricingCol.setupFees ?? 0,
+    rush: pricingCol.rush ?? 0,
     shipping: pricingCol.shipping ?? 0,
     tax: pricingCol.tax ?? 0,
   });
-  const priceTotal = roundCents(price.subtotal + price.setupFees + price.shipping + price.tax);
+  const priceTotal = roundCents(price.subtotal + price.setupFees + price.rush + price.shipping + price.tax);
   const shipProv = (order.shipping_address as StoredAddress | null)?.prov;
 
   function calcTaxNow() {
-    const base = price.subtotal + price.setupFees + price.shipping;
+    const base = price.subtotal + price.setupFees + price.rush + price.shipping;
     const prov = isProvinceCode(shipProv) ? shipProv : null;
     const tax = calcTax(base, prov).total;
     setPrice((p) => ({ ...p, tax }));
@@ -260,9 +261,11 @@ export function OrderItemsSection({
             <CardTitle className="text-base">Pricing</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {(["subtotal", "setupFees", "shipping", "tax"] as const).map((k) => (
+            {(["subtotal", "setupFees", "rush", "shipping", "tax"] as const).map((k) => (
               <label key={k} className="flex items-center justify-between gap-2 text-sm">
-                <span className="capitalize text-dream-muted">{k === "setupFees" ? "Setup fees" : k}</span>
+                <span className="capitalize text-dream-muted">
+                  {k === "setupFees" ? "Setup fees" : k === "rush" ? "Rush (+50%)" : k}
+                </span>
                 <div className="flex items-center gap-2">
                   {k === "tax" && can.pricing && (
                     <Button variant="ghost" size="sm" className="h-8 px-2" onClick={calcTaxNow} title="Fill tax from the shipping province">

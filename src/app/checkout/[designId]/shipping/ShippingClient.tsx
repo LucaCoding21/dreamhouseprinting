@@ -86,6 +86,8 @@ export function ShippingClient({
                     onSelect={() => setTurnaround("rush")}
                     title="ASAP / rush"
                     subtitle={checkout.rushNote}
+                    badge="+50%"
+                    badgeTone="fee"
                   />
                 </div>
               </section>
@@ -103,7 +105,7 @@ export function ShippingClient({
 
           {/* Right — order summary */}
           <aside className="w-full lg:w-[360px] lg:shrink-0">
-            <OrderSummary summary={summary} province={province} shippingLabel="Free" />
+            <OrderSummary summary={summary} province={province} shippingLabel="Free" rush={turnaround === "rush"} />
           </aside>
         </div>
       </main>
@@ -119,12 +121,15 @@ function OptionCard({
   title,
   subtitle,
   badge,
+  badgeTone = "free",
 }: {
   selected: boolean;
   onSelect: () => void;
   title: string;
   subtitle: string;
   badge?: string;
+  /** "free" = green (no charge), "fee" = purple (surcharge). */
+  badgeTone?: "free" | "fee";
 }) {
   return (
     <button
@@ -147,7 +152,16 @@ function OptionCard({
       <span className="min-w-0 flex-1">
         <span className="flex items-center justify-between gap-2">
           <span className="font-display text-sm font-bold text-dream-ink">{title}</span>
-          {badge && <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-dream-success">{badge}</span>}
+          {badge && (
+            <span
+              className={cn(
+                "shrink-0 text-xs font-bold uppercase tracking-wide",
+                badgeTone === "fee" ? "text-dream-purple" : "text-dream-success"
+              )}
+            >
+              {badge}
+            </span>
+          )}
         </span>
         <span className="mt-0.5 block text-xs text-dream-muted">{subtitle}</span>
       </span>

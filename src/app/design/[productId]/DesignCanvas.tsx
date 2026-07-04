@@ -287,6 +287,10 @@ export const DesignCanvas = forwardRef<
         bh = box.height * h;
       return canvas.getObjects().some((o) => {
         if (o === printRectRef.current) return false;
+        // After a programmatic load (loadFromJSON on undo/redo/scene restore)
+        // an object's cached corner coords can be stale; refresh them so the
+        // rotation-aware bounding box is measured against the real placement.
+        o.setCoords();
         const r = o.getBoundingRect();
         return r.left < bx - 1 || r.top < by - 1 || r.left + r.width > bx + bw + 1 || r.top + r.height > by + bh + 1;
       });

@@ -15,6 +15,19 @@ type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
 /** S&S draft structs are typed interfaces; cast to Json at the jsonb column boundary. */
 const asJson = (v: unknown) => v as unknown as Json;
 
+/**
+ * Turn a raw S&S/HTTP error into copy a non-technical admin can act on.
+ * Keeps the raw message in the server log for debugging.
+ */
+function friendlySsError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  console.error("[S&S]", raw);
+  if (/not configured|SS_ACCOUNT|SS_API_KEY/i.test(raw)) {
+    return "S&S Activewear isn't connected yet — add SS_ACCOUNT and SS_API_KEY to the environment.";
+  }
+  return "Couldn't reach S&S Activewear. Try again in a minute.";
+}
+
 /** Search the S&S catalog (staff, products.manage). Returns a trimmed result set. */
 export async function ssSearchAction(query: string): Promise<{
   results?: { styleID: number; brand: string; styleName: string; title: string; image: string | null }[];
@@ -33,7 +46,7 @@ export async function ssSearchAction(query: string): Promise<{
     }));
     return { results };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "S&S search failed" };
+    return { error: friendlySsError(e) };
   }
 }
 
@@ -88,7 +101,7 @@ export async function importStyleAction(styleId: number): Promise<{ productId?: 
     revalidatePath("/admin/products");
     return { productId: data.id };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Import failed" };
+    return { error: friendlySsError(e) };
   }
 }
 

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { formatCAD } from "@/lib/money";
 import { calcTax, type ProvinceCode } from "@/lib/pricing/tax";
+import { rushFee } from "@/lib/pricing/rush";
 
 export interface SummaryColorway {
   colourName: string | null;
@@ -37,12 +38,16 @@ export function OrderSummary({
   summary,
   province,
   shippingLabel,
+  rush = false,
 }: {
   summary: CheckoutSummary;
   province: ProvinceCode | null;
   shippingLabel?: React.ReactNode;
+  /** Reflect the rush turnaround surcharge (50% of goods + setup) live. */
+  rush?: boolean;
 }) {
-  const taxableBase = summary.subtotal + summary.setup;
+  const rushAmount = rushFee(summary.subtotal, summary.setup, rush);
+  const taxableBase = summary.subtotal + summary.setup + rushAmount;
   const tax = calcTax(taxableBase, province);
   const total = taxableBase + tax.total;
 
@@ -96,6 +101,7 @@ export function OrderSummary({
       <dl className="space-y-2 text-sm">
         <Row label="Subtotal" value={formatCAD(summary.subtotal)} />
         {summary.setup > 0 && <Row label="Setup fees" value={formatCAD(summary.setup)} />}
+        {rushAmount > 0 && <Row label="Rush (+50%)" value={formatCAD(rushAmount)} />}
 
         {province ? (
           tax.lines.map((l) => <Row key={l.label} label={`${l.label} (${ratePct(l.rate)})`} value={formatCAD(l.amount)} />)

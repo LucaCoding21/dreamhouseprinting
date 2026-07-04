@@ -99,7 +99,7 @@ export async function addOrderNoteAction(
 
 export async function updateOrderPricingAction(
   orderId: string,
-  pricing: { subtotal: number; setupFees: number; shipping: number; tax: number; total: number }
+  pricing: { subtotal: number; setupFees: number; rush: number; shipping: number; tax: number; total: number }
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.pricing");
   const service = requireSupabaseServiceClient();
@@ -208,14 +208,15 @@ async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServic
     service.from("line_items").select("unit_price, size_quantities").eq("order_id", orderId),
     service.from("orders").select("pricing").eq("id", orderId).single(),
   ]);
-  const pricing = (order?.pricing ?? {}) as { setupFees?: number; shipping?: number; tax?: number };
+  const pricing = (order?.pricing ?? {}) as { setupFees?: number; rush?: number; shipping?: number; tax?: number };
   const subtotal = round2(
     (items ?? []).reduce((sum, li) => sum + li.unit_price * sumSizes((li.size_quantities ?? {}) as Record<string, number>), 0)
   );
   const setupFees = pricing.setupFees ?? 0;
+  const rush = pricing.rush ?? 0;
   const shipping = pricing.shipping ?? 0;
   const tax = pricing.tax ?? 0;
-  const next = { subtotal, setupFees, shipping, tax, total: round2(subtotal + setupFees + shipping + tax) };
+  const next = { subtotal, setupFees, rush, shipping, tax, total: round2(subtotal + setupFees + rush + shipping + tax) };
   await service.from("orders").update({ pricing: asJson(next) }).eq("id", orderId);
   return next;
 }

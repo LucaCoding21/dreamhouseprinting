@@ -204,6 +204,9 @@ export function DesignerClient(props: Props) {
   // screen. Kept as a const so the pricing/snapshot plumbing stays intact.
   const rush = false;
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
+  // Views where some artwork spills past the dashed print box. Purely a friendly
+  // heads-up — never blocks ordering (a human rechecks every design at proofing).
+  const [outOfBounds, setOutOfBounds] = useState<Set<View>>(new Set());
   // Which canvas currently has a selected object (drives the selection toolbar).
   const [selection, setSelection] = useState<{ view: View } | null>(null);
   // Views whose garment image has finished loading (for the per-canvas shimmer).
@@ -424,7 +427,7 @@ export function DesignerClient(props: Props) {
     refreshUndo(v);
   }
 
-  /** Recompute whether a given view has artwork. */
+  /** Recompute whether a given view has artwork (and whether any spills out). */
   function onCanvasChange(v: View) {
     const c = canvasRefs.current[v];
     if (!c) return;
@@ -432,6 +435,15 @@ export function DesignerClient(props: Props) {
     setViewsWithArt((prev) => {
       const next = new Set(prev);
       if (has) next.add(v);
+      else next.delete(v);
+      return next;
+    });
+    // An empty view can't be out of bounds; otherwise ask the canvas.
+    const outside = has && c.artOutsidePrintArea();
+    setOutOfBounds((prev) => {
+      if (outside === prev.has(v)) return prev;
+      const next = new Set(prev);
+      if (outside) next.add(v);
       else next.delete(v);
       return next;
     });
@@ -707,6 +719,9 @@ export function DesignerClient(props: Props) {
   const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
   // Sides that actually carry art — listed in the review spec table.
   const decoratedViews = views.filter((v) => viewsWithArt.has(v));
+  // Any decorated side with art spilling past the print box (drives the review
+  // heads-up). Informational only — never gates checkout.
+  const anyOutOfBounds = decoratedViews.some((v) => outOfBounds.has(v));
   // Embroidery is decorated in thread; screen print / DTG in ink. Label the
   // colour count accordingly so the spec reads in the customer's terms.
   const isEmbroidery = (method?.name ?? "").toLowerCase().includes("embroid");
@@ -1072,7 +1087,12 @@ export function DesignerClient(props: Props) {
                         onChange={() => onCanvasChange(v)}
                         onGarmentLoaded={() => {
                           setLoadedViews((s) => new Set(s).add(v));
+                          // Recompute art-vs-box now that the print rect is
+                          // redrawn against the (possibly new-aspect) garment.
+                          // loadInitialScene re-checks again once a saved scene
+                          // finishes loading; both paths are idempotent.
                           loadInitialScene(v);
+                          onCanvasChange(v);
                         }}
                       />
                     </div>
@@ -1081,6 +1101,21 @@ export function DesignerClient(props: Props) {
                     {loading && (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60">
                         <span className="h-8 w-8 animate-spin rounded-full border-2 border-dream-line border-t-dream-purple" />
+                      </div>
+                    )}
+
+                    {/* Out-of-bounds heads-up — subtle, non-blocking. Never
+                        intercepts canvas clicks (pointer-events-none). */}
+                    {!loading && outOfBounds.has(v) && (
+                      <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 w-[min(20rem,90%)] -translate-x-1/2">
+                        <div className="flex items-start gap-2 rounded-2xl bg-dream-sun/90 px-3 py-2 text-left ring-1 ring-dream-ink/10 backdrop-blur-sm">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-dream-ink" aria-hidden>
+                            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                          </svg>
+                          <p className="text-[11px] font-semibold leading-snug text-dream-ink">
+                            Part of your design sits outside the dashed print lines. You can still order — a real person double-checks every design before we print.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1213,13 +1248,23 @@ export function DesignerClient(props: Props) {
                     {decoratedViews.map((v) => (
                       <div
                         key={v}
-                        className="grid grid-cols-[1fr_1fr_auto] items-center gap-x-3 border-t border-dream-line px-4 py-3.5 text-sm text-dream-ink first:border-t-0"
+                        className="border-t border-dream-line px-4 py-3.5 text-sm text-dream-ink first:border-t-0"
                       >
-                        <span className="font-semibold">{VIEW_LABEL[v]}</span>
-                        <span className="text-dream-ink-soft">{method?.name ?? "Print"}</span>
-                        <span className="justify-self-end rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-bold text-dream-purple">
-                          {inkColours} {isEmbroidery ? "thread" : "ink"}
-                        </span>
+                        <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-x-3">
+                          <span className="font-semibold">{VIEW_LABEL[v]}</span>
+                          <span className="text-dream-ink-soft">{method?.name ?? "Print"}</span>
+                          <span className="justify-self-end rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-bold text-dream-purple">
+                            {inkColours} {isEmbroidery ? "thread" : "ink"}
+                          </span>
+                        </div>
+                        {outOfBounds.has(v) && (
+                          <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-dream-warn-soft px-2.5 py-1.5 text-xs font-medium leading-snug text-dream-warn">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0" aria-hidden>
+                              <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                            </svg>
+                            Art extends past the print area — we&apos;ll double-check it with you.
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1343,6 +1388,14 @@ export function DesignerClient(props: Props) {
                 CTA is always reachable while the form above scrolls. */}
             <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3 sm:px-6">
               <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+                {anyOutOfBounds && !error && (
+                  <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-dream-warn sm:mr-auto">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+                      <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                    </svg>
+                    Some art sits outside the print lines — we&apos;ll double-check it before printing.
+                  </p>
+                )}
                 <p className={cn("min-w-0 text-sm sm:text-right", error ? "font-medium text-dream-danger" : quantity < 1 ? "text-dream-muted" : "text-dream-faint")}>
                   {error ?? (quantity < 1 ? "Please enter more than 0 items." : "No payment now. We send a proof to approve first.")}
                 </p>
@@ -1379,7 +1432,7 @@ export function DesignerClient(props: Props) {
           <DialogHeader className="px-6 pt-6 pb-1">
             <DialogTitle>Name your design</DialogTitle>
             <DialogDescription>
-              Give it a name so you can spot it in your cart, and confirm your email. That’s where we’ll send your proof.
+              Give it a name so you can spot it in your cart, and add your email — we’ll send you a link to pick this design back up, and that’s where your proof will land.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 px-6 py-4">

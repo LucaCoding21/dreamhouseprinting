@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { claimGuestRecords } from "@/lib/claim";
 
 export interface AuthState {
   error?: string;
@@ -35,8 +36,11 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   if (!email || !password) return { error: "Enter your email and password." };
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
+
+  // Attach any guest orders/designs left under this now-verified email.
+  if (data.user?.email) await claimGuestRecords(data.user.id, data.user.email);
 
   redirect(next);
 }
@@ -53,14 +57,22 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { data: { name, phone } },
   });
   if (error) return { error: error.message };
 
-  // Project is set to auto-confirm, so a session exists immediately.
+  // Attach any guest orders/designs left under this email — but only once the
+  // email is confirmed (auto-confirm sets it immediately; with confirmation
+  // required, /auth/confirm runs the claim instead). Claiming an unconfirmed
+  // email would let anyone hijack a stranger's guest records by signing up
+  // with their address.
+  if (data.user?.email && data.user.email_confirmed_at) {
+    await claimGuestRecords(data.user.id, data.user.email);
+  }
+
   redirect(next);
 }
 

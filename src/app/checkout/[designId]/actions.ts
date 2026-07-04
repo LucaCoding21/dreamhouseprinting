@@ -2,7 +2,9 @@
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
-import { roundCents } from "@/lib/money";
+import { rushFee } from "@/lib/pricing/rush";
+import { roundCents, formatCAD } from "@/lib/money";
+import { sendOrderStatusEmail, notifyJulian } from "@/lib/notify";
 import { resolveCheckoutAuth } from "./context";
 import type { Json } from "@/lib/db/types";
 
@@ -182,10 +184,12 @@ export async function placeOrderAction(
   const snap = (design.price_snapshot ?? {}) as StoredSnapshot;
   const subtotal = Number(snap.subtotal ?? 0);
   const setup = Number(snap.setupTotal ?? 0);
+  // Rush is a real fee now (50% of goods + setup), part of the taxable job price.
+  const rush = rushFee(subtotal, setup, input.turnaround === "rush");
   const province = isProvinceCode(address.prov) ? address.prov : null;
-  const tax = calcTax(subtotal + setup, province).total;
+  const tax = calcTax(subtotal + setup + rush, province).total;
   const shipping = 0;
-  const total = subtotal + setup + shipping + tax;
+  const total = roundCents(subtotal + setup + rush + shipping + tax);
 
   const { data: product } = design.product_id
     ? await service.from("products").select("name, lead_time_days").eq("id", design.product_id).single()
@@ -199,7 +203,7 @@ export async function placeOrderAction(
     notes.push({
       at: new Date().toISOString(),
       actor: "customer",
-      text: "Requested rush / ASAP turnaround — please confirm timing and any rush fee.",
+      text: "Rush turnaround requested — 50% rush fee applied.",
     });
   }
 
@@ -210,7 +214,7 @@ export async function placeOrderAction(
       guest_email: guestEmail,
       status: "submitted",
       payment_status: "unpaid",
-      pricing: asJson({ subtotal, setupFees: setup, shipping, tax, total }),
+      pricing: asJson({ subtotal, setupFees: setup, rush, shipping, tax, total }),
       due_date: due.toISOString().slice(0, 10),
       fulfillment_method: input.fulfillment,
       shipping_method: input.turnaround,
@@ -265,6 +269,25 @@ export async function placeOrderAction(
     type: "order_created",
     detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround, guest: auth.isGuest }),
   });
+
+  // Confirmation emails — the done page tells the customer to watch their
+  // inbox, and Julian needs to hear about new orders without polling /admin.
+  // Never fail the placed order over mail.
+  try {
+    await sendOrderStatusEmail(order.id, "submitted");
+    await notifyJulian(
+      `New order ${order.order_number ?? order.id} — ${formatCAD(total)}`,
+      [
+        `${address?.name || "A customer"} placed ${order.order_number ?? "an order"} for ${formatCAD(total)}.`,
+        input.turnaround === "rush" ? "RUSH turnaround requested (50% fee applied)." : null,
+        `Review it: ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/orders/${order.id}`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+  } catch (e) {
+    console.error("[checkout] order confirmation emails failed", e);
+  }
 
   return { orderId: order.id, orderNumber: order.order_number ?? undefined, isGuest: auth.isGuest };
 }

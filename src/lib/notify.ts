@@ -2,7 +2,7 @@ import "server-only";
 
 import { Resend } from "resend";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { publicOrderUrl } from "@/lib/orders/publicLink";
+import { publicOrderUrl, appOrigin } from "@/lib/orders/publicLink";
 import { formatCAD } from "@/lib/money";
 import type { OrderStatus } from "@/lib/db/rows";
 
@@ -131,6 +131,84 @@ export async function sendOrderStatusEmail(orderId: string, status: OrderStatus)
   const templateKey = STATUS_TEMPLATE[status];
   if (!templateKey) return; // no email for this status
   await sendOrderEmail(orderId, templateKey);
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Confirmation email for a guest who saved a design in the designer. Fired once,
+ * when the design row is first created (the "Name your design" modal promises
+ * "That's where we'll send your proof"). The Resume link restores their guest
+ * cookie on any device, so the design opens even from a fresh browser. Degrades
+ * to a no-op when Resend isn't configured. Never throws into the caller.
+ */
+export async function sendDesignSavedEmail(opts: {
+  to: string;
+  designName: string;
+  productName: string;
+  designId: string;
+  guestToken: string;
+  mockupUrl?: string | null;
+}): Promise<void> {
+  const mail = resendClient();
+  if (!mail) {
+    console.log("[notify] design-saved email skipped (Resend unconfigured):", opts.to);
+    return;
+  }
+
+  const origin = await appOrigin();
+  const resumeUrl = `${origin}/design/resume/${opts.designId}?t=${encodeURIComponent(opts.guestToken)}`;
+  const name = escapeHtml(opts.designName);
+  const product = escapeHtml(opts.productName);
+
+  const mockupBlock = opts.mockupUrl
+    ? `<tr><td style="padding:0 0 24px;"><img src="${escapeHtml(opts.mockupUrl)}" alt="${name}" width="240" style="display:block;max-width:100%;height:auto;border-radius:12px;border:1px solid #eae7f7;" /></td></tr>`
+    : "";
+
+  const html = `
+<div style="margin:0;padding:24px;background:#f4f1fb;font-family:Inter,Helvetica,Arial,sans-serif;color:#1b1458;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;">
+    <tr><td style="font-family:Archivo,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;padding:0 0 12px;">Your design is saved${name ? ` — “${name}”` : ""}</td></tr>
+    <tr><td style="font-size:15px;line-height:1.6;padding:0 0 20px;color:#3a3468;">
+      Nice work! We saved your <strong>${product}</strong> design so you can pick up right where you left off. When you're ready, come back and finish — that's where we'll send your proof to approve before anything prints.
+    </td></tr>
+    ${mockupBlock}
+    <tr><td style="padding:0 0 24px;">
+      <a href="${resumeUrl}" style="display:inline-block;background:#7664ff;color:#ffffff;font-family:Archivo,Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;text-decoration:none;padding:13px 26px;border-radius:10px;">Resume your design</a>
+    </td></tr>
+    <tr><td style="font-size:13px;line-height:1.6;color:#8a84ad;">
+      Or paste this link into your browser:<br />
+      <a href="${resumeUrl}" style="color:#7664ff;word-break:break-all;">${resumeUrl}</a>
+    </td></tr>
+    <tr><td style="font-size:13px;line-height:1.6;color:#8a84ad;padding:20px 0 0;">— Dreamhouse Printing</td></tr>
+  </table>
+</div>`.trim();
+
+  const text = `Your design is saved${opts.designName ? ` — "${opts.designName}"` : ""}!
+
+We saved your ${opts.productName} design so you can pick up right where you left off. Finish when you're ready — that's where we'll send your proof to approve before anything prints.
+
+Resume your design: ${resumeUrl}
+
+— Dreamhouse Printing`;
+
+  try {
+    await mail.resend.emails.send({
+      from: mail.from,
+      to: opts.to,
+      subject: `Your ${opts.productName} design is saved`,
+      html,
+      text,
+    });
+  } catch (e) {
+    console.error("[notify] design-saved email failed", e);
+  }
 }
 
 /**

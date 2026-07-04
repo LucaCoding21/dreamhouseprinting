@@ -1,6 +1,13 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { claimGuestRecords } from "@/lib/claim";
+
+/** Attach any guest orders/designs to the freshly-verified account. */
+async function claimForSession(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user?.email) await claimGuestRecords(user.id, user.email);
+}
 
 /**
  * Auth email-link landing route. Supabase can deliver either shape depending on
@@ -23,10 +30,16 @@ export async function GET(request: NextRequest) {
 
   if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return NextResponse.redirect(new URL(next, origin));
+    if (!error) {
+      await claimForSession(supabase);
+      return NextResponse.redirect(new URL(next, origin));
+    }
   } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, origin));
+    if (!error) {
+      await claimForSession(supabase);
+      return NextResponse.redirect(new URL(next, origin));
+    }
   }
 
   return NextResponse.redirect(new URL("/login?error=link", origin));

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart/CartContext";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
+import { rushFee } from "@/lib/pricing/rush";
 import { PROVINCES } from "@/lib/pricing/tax";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
@@ -34,7 +35,11 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  // Each item.total is that design's pre-tax price (goods + setup); the rush fee
+  // is a flat 50% of that base, mirroring the per-order fee placed server-side.
+  const baseTotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  const rushAmount = rushFee(baseTotal, 0, rush);
+  const total = baseTotal + rushAmount;
   const set = (k: keyof CartPrefill, v: string) => setContact((c) => ({ ...c, [k]: v }));
 
   async function request() {
@@ -302,10 +307,19 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 <input type="checkbox" checked={rush} onChange={(e) => setRush(e.target.checked)} className="h-4 w-4 accent-dream-purple" />
                 <span className="flex-1 text-sm text-dream-ink">
                   I need this ASAP / rush
+                  <span className="ml-1 font-semibold text-dream-purple">+50%</span>
                   <span className="ml-1 text-dream-faint">we&rsquo;ll confirm timing</span>
                 </span>
                 <span aria-hidden className="text-base">⚡</span>
               </label>
+
+              {/* Rush line — shown only when the surcharge applies */}
+              {rushAmount > 0 && (
+                <div className="mt-4 flex items-center justify-between text-sm">
+                  <span className="text-dream-muted">Rush (+50%)</span>
+                  <span className="font-semibold text-dream-ink">{formatCAD(rushAmount)}</span>
+                </div>
+              )}
 
               {/* Estimate */}
               <div className="mt-5 flex items-start justify-between gap-3 border-t border-dream-line pt-4">

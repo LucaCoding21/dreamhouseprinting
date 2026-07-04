@@ -3,6 +3,7 @@
 import { getUser } from "@/lib/auth";
 import { getOrCreateGuestToken } from "@/lib/guest";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { sendDesignSavedEmail } from "@/lib/notify";
 import type { Json } from "@/lib/db/types";
 
 const asJson = (v: unknown) => v as unknown as Json;
@@ -68,10 +69,11 @@ async function persistDesign(
   owner: DesignOwner,
   input: DesignSubmitInput,
   status: "draft" | "submitted"
-) {
+): Promise<{ id: string; created: boolean; mockupUrl: string | null }> {
   const signed = await signAll(service, [...input.mockups, ...input.artwork]);
   const mockupImages = input.mockups.map((m) => ({ view: m.view, path: m.path, url: signed[m.path] ?? null }));
   const sourceArtwork = input.artwork.map((a) => ({ name: a.name, path: a.path, url: signed[a.path] ?? null }));
+  const mockupUrl = mockupImages.find((m) => m.url)?.url ?? null;
 
   const isUser = "userId" in owner;
   const row = {
@@ -97,11 +99,11 @@ async function persistDesign(
     const scoped = isUser ? q.eq("customer_id", owner.userId) : q.eq("guest_token", owner.guestToken);
     const { data, error } = await scoped.select("id").single();
     if (error) throw new Error(error.message);
-    return data.id;
+    return { id: data.id, created: false, mockupUrl };
   }
   const { data, error } = await service.from("designs").insert(row).select("id").single();
   if (error) throw new Error(error.message);
-  return data.id;
+  return { id: data.id, created: true, mockupUrl };
 }
 
 export async function saveDraftAction(
@@ -111,13 +113,36 @@ export async function saveDraftAction(
   const service = requireSupabaseServiceClient();
   try {
     if (user) {
-      const designId = await persistDesign(service, { userId: user.id }, input, "draft");
+      const { id: designId } = await persistDesign(service, { userId: user.id }, input, "draft");
       return { designId };
     }
     // Guest path — proceed with just an email, identified by a cookie token.
-    if (!input.leadEmail?.trim()) return { error: "Enter your email to continue." };
+    const leadEmail = input.leadEmail?.trim();
+    if (!leadEmail) return { error: "Enter your email to continue." };
     const guestToken = await getOrCreateGuestToken();
-    const designId = await persistDesign(service, { guestToken }, input, "draft");
+    const { id: designId, created, mockupUrl } = await persistDesign(service, { guestToken }, input, "draft");
+
+    // Send the "your design is saved" email — only on first save (a new row),
+    // and never let an email failure fail the save the customer just made.
+    if (created) {
+      try {
+        const { data: product } = await service
+          .from("products")
+          .select("name")
+          .eq("id", input.productId)
+          .maybeSingle();
+        await sendDesignSavedEmail({
+          to: leadEmail,
+          designName: input.name?.trim() ?? "",
+          productName: product?.name ?? "custom",
+          designId,
+          guestToken,
+          mockupUrl,
+        });
+      } catch (e) {
+        console.error("[design] saved-email failed", e);
+      }
+    }
     return { designId };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save draft" };
@@ -132,7 +157,7 @@ export async function submitDesignAction(
   const service = requireSupabaseServiceClient();
 
   try {
-    const designId = await persistDesign(service, { userId: user.id }, input, "submitted");
+    const { id: designId } = await persistDesign(service, { userId: user.id }, input, "submitted");
 
     // Quote path — staff price it later.
     if (input.asQuote) {
