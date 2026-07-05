@@ -47,10 +47,13 @@ export function ProofPanel({
           <button
             type="button"
             onClick={() => setZoomed(true)}
-            className="group relative h-48 w-48 shrink-0 overflow-hidden rounded-xl border border-dream-line bg-dream-bg"
+            className="group relative block w-48 shrink-0 self-start overflow-hidden rounded-xl border border-dream-line bg-dream-bg"
             aria-label="View proof full size"
           >
-            <Image src={proof.image} alt="Proof" width={192} height={192} className="h-full w-full object-contain" />
+            {/* Proofs arrive at any aspect ratio — fix the width and let the box
+                grow to the image's natural height so there's never a grey band. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={proof.image} alt="Proof" className="block h-auto w-full" />
             <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-dream-ink/70 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-dream-purple/85">
               <IconZoom className="h-3.5 w-3.5" />
               View full size
