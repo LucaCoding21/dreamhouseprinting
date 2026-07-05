@@ -36,6 +36,23 @@ function revalidateOrder(id: string) {
   revalidatePath("/account");
 }
 
+/** Apply a status transition: update, clear stale hold note, log, email. Returns an error string or null. */
+async function applyStatus(
+  service: ReturnType<typeof requireSupabaseServiceClient>,
+  orderId: string,
+  status: OrderStatus,
+  prevStatus: string | null | undefined
+): Promise<string | null> {
+  const patch: OrderUpdate = { status };
+  // Leaving a hold clears its note.
+  if (status !== "on_hold" && prevStatus === "on_hold") patch.hold_note = null;
+  const { error } = await service.from("orders").update(patch).eq("id", orderId);
+  if (error) return error.message;
+  await logActivity(service, orderId, "status_change", { from: prevStatus, to: status });
+  await sendOrderStatusEmail(orderId, status);
+  return null;
+}
+
 export async function setOrderStatusAction(
   orderId: string,
   status: OrderStatus
@@ -44,18 +61,16 @@ export async function setOrderStatusAction(
   const service = requireSupabaseServiceClient();
 
   const { data: prev } = await service.from("orders").select("status").eq("id", orderId).single();
-  const patch: OrderUpdate = { status };
-  // Leaving a hold clears its note.
-  if (status !== "on_hold" && prev?.status === "on_hold") patch.hold_note = null;
-
-  const { error } = await service.from("orders").update(patch).eq("id", orderId);
-  if (error) return { error: error.message };
-
-  await logActivity(service, orderId, "status_change", { from: prev?.status, to: status });
-  await sendOrderStatusEmail(orderId, status);
+  const err = await applyStatus(service, orderId, status, prev?.status);
+  if (err) return { error: err };
   revalidateOrder(orderId);
   return { ok: true };
 }
+
+/** Statuses from which saving a tracking number auto-advances a ship order to "shipped". */
+const SHIP_ON_TRACKING = new Set<string>([
+  "submitted", "in_review", "proof_ready", "changes_requested", "approved", "in_production", "quality_check",
+]);
 
 export async function setPaymentStatusAction(
   orderId: string,
@@ -355,15 +370,26 @@ export async function sendInvoiceAction(orderId: string): Promise<{ ok?: boolean
 export async function setTrackingAction(
   orderId: string,
   tracking: string
-): Promise<{ ok?: boolean; error?: string }> {
+): Promise<{ ok?: boolean; error?: string; shipped?: boolean }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
   const value = tracking.trim() || null;
+
+  const { data: prev } = await service.from("orders").select("status, fulfillment_method").eq("id", orderId).single();
   const { error } = await service.from("orders").update({ shipping_tracking: value }).eq("id", orderId);
   if (error) return { error: error.message };
   await logActivity(service, orderId, "tracking_updated", { tracking: value });
+
+  // Saving a real tracking number on a ship order that hasn't shipped yet marks it shipped.
+  let shipped = false;
+  if (value && prev?.fulfillment_method === "ship" && SHIP_ON_TRACKING.has(prev.status)) {
+    const err = await applyStatus(service, orderId, "shipped", prev.status);
+    if (err) return { error: err };
+    shipped = true;
+  }
+
   revalidateOrder(orderId);
-  return { ok: true };
+  return { ok: true, shipped };
 }
 
 /** The three static note fields at the bottom of the order page (customer / inventory / printer). */

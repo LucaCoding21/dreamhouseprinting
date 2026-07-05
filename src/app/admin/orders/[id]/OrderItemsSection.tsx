@@ -3,14 +3,11 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
-import { formatCAD, roundCents } from "@/lib/money";
-import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
+import { formatCAD } from "@/lib/money";
 import { OrderItemCard } from "./OrderItemCard";
 import {
-  LBL,
   capitalize,
   itemQty,
   sizeRank,
@@ -19,9 +16,8 @@ import {
   type Can,
   type Detail,
   type ItemState,
-  type StoredAddress,
 } from "./shared";
-import { updateLineItemsAction, deleteLineItemAction, updateOrderPricingAction } from "../actions";
+import { updateLineItemsAction, deleteLineItemAction } from "../actions";
 import type { DecorationSpot, LineItemDecorations } from "../actions";
 
 export function OrderItemsSection({
@@ -112,26 +108,6 @@ export function OrderItemsSection({
     );
   }
 
-  // --- Pricing summary ---
-  const pricingCol = (order.pricing ?? {}) as { subtotal?: number; setupFees?: number; rush?: number; shipping?: number; tax?: number };
-  const [price, setPrice] = useState({
-    subtotal: pricingCol.subtotal ?? 0,
-    setupFees: pricingCol.setupFees ?? 0,
-    rush: pricingCol.rush ?? 0,
-    shipping: pricingCol.shipping ?? 0,
-    tax: pricingCol.tax ?? 0,
-  });
-  const priceTotal = roundCents(price.subtotal + price.setupFees + price.rush + price.shipping + price.tax);
-  const shipProv = (order.shipping_address as StoredAddress | null)?.prov;
-
-  function calcTaxNow() {
-    const base = price.subtotal + price.setupFees + price.rush + price.shipping;
-    const prov = isProvinceCode(shipProv) ? shipProv : null;
-    const tax = calcTax(base, prov).total;
-    setPrice((p) => ({ ...p, tax }));
-  }
-
-  const sourceArt = detail.designs.flatMap((d) => (d.source_artwork_files ?? []) as { name: string; url: string | null }[]);
   const proofsByItem = useMemo(() => {
     const m = new Map<string, typeof detail.proofs>();
     for (const p of detail.proofs) {
@@ -238,67 +214,6 @@ export function OrderItemsSection({
             </CardContent>
           </Card>
         )}
-
-      {sourceArt.length > 0 && (
-        <div>
-          <div className={cn(LBL, "mb-1.5")}>Source artwork</div>
-          <div className="flex flex-wrap gap-3">
-            {sourceArt.map((a, i) =>
-              a.url ? (
-                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="text-sm text-dream-purple underline">
-                  {a.name}
-                </a>
-              ) : null,
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Pricing summary — invoice style */}
-      <div className="flex justify-end">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Pricing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(["subtotal", "setupFees", "rush", "shipping", "tax"] as const).map((k) => (
-              <label key={k} className="flex items-center justify-between gap-2 text-sm">
-                <span className="capitalize text-dream-muted">
-                  {k === "setupFees" ? "Setup fees" : k === "rush" ? "Rush (+50%)" : k}
-                </span>
-                <div className="flex items-center gap-2">
-                  {k === "tax" && can.pricing && (
-                    <Button variant="ghost" size="sm" className="h-8 px-2" onClick={calcTaxNow} title="Fill tax from the shipping province">
-                      Calc tax
-                    </Button>
-                  )}
-                  <Input
-                    type="number"
-                    value={price[k]}
-                    disabled={!can.pricing}
-                    onChange={(e) => setPrice((p) => ({ ...p, [k]: Number(e.target.value) || 0 }))}
-                    className="h-8 w-28 text-right"
-                  />
-                </div>
-              </label>
-            ))}
-            <div className="flex justify-between border-t border-dream-line pt-2 font-semibold text-dream-ink">
-              <span>Total</span>
-              <span>{formatCAD(priceTotal)}</span>
-            </div>
-            {can.pricing && (
-              <Button
-                variant="secondary"
-                className="mt-2 w-full"
-                loading={pending}
-                onClick={() => run(() => updateOrderPricingAction(order.id, { ...price, total: priceTotal }), "Pricing saved")}
-              >
-                Save pricing
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { Card, CardContent } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 import { addOrderNoteAction } from "../actions";
 import { fmtWhen, useOrderAction, type Note } from "./shared";
@@ -31,7 +31,10 @@ export function OrderTimeline({
 
   return (
     <Card>
-      <CardContent className="space-y-3 p-5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Comments</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
         {feed.length === 0 && (
           <p className="text-sm text-dream-muted">No comments yet. Notes about this job show up here, newest first.</p>
         )}

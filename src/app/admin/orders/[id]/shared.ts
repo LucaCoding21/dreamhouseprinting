@@ -13,6 +13,7 @@ import type {
   ProofRow,
   OrderActivityRow,
   ProfileRow,
+  OrderStatus,
 } from "@/lib/db/rows";
 
 export interface Detail {
@@ -93,6 +94,60 @@ export function relativeTime(iso: string): string {
 }
 
 export const itemQty = (it: ItemState) => it.sizes.reduce((a, [, q]) => a + (q > 0 ? q : 0), 0);
+
+/**
+ * What does this order need from Julian right now? Drives the command header's
+ * one big hero action. The component maps each kind to buttons/dialogs.
+ */
+export type NextActionKind =
+  | "mark-received" // draft
+  | "upload-proof" // submitted | in_review
+  | "awaiting-approval" // proof_ready
+  | "upload-new-proof" // changes_requested
+  | "approved-invoice" // approved, not yet invoiced/paid
+  | "start-production" // approved (already invoiced/paid)
+  | "mark-shipped" // in_production | quality_check, ship
+  | "ready-for-pickup" // in_production | quality_check, pickup
+  | "complete" // shipped | ready_for_pickup
+  | "completed" // completed
+  | "on-hold" // on_hold
+  | "cancelled" // cancelled
+  | "none";
+
+export function nextAction(order: OrderRow): NextActionKind {
+  switch (order.status as OrderStatus) {
+    case "draft":
+      return "mark-received";
+    case "submitted":
+    case "in_review":
+      return "upload-proof";
+    case "proof_ready":
+      return "awaiting-approval";
+    case "changes_requested":
+      return "upload-new-proof";
+    case "approved":
+      return !order.invoice_sent_at && order.payment_status === "unpaid" ? "approved-invoice" : "start-production";
+    case "in_production":
+    case "quality_check":
+      return order.fulfillment_method === "pickup" ? "ready-for-pickup" : "mark-shipped";
+    case "shipped":
+    case "ready_for_pickup":
+      return "complete";
+    case "completed":
+      return "completed";
+    case "on_hold":
+      return "on-hold";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return "none";
+  }
+}
+
+/** Statuses where saving a tracking number auto-ships (mirrors setTrackingAction server-side). */
+export const SHIP_ON_TRACKING = new Set<string>([
+  "submitted", "in_review", "proof_ready", "changes_requested", "approved", "in_production", "quality_check",
+]);
 
 /** Shared "run a server action → toast → refresh" helper with its own pending state. */
 export function useOrderAction() {

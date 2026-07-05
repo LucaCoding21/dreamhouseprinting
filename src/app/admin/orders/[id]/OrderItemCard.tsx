@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
@@ -86,9 +87,9 @@ export function OrderItemCard({
                 </div>
               ) : (
                 mockups.map((m) => (
-                  <figure key={m.view} className="w-32 rounded-lg border border-dream-line p-2">
+                  <figure key={m.view} className="w-32 rounded-xl border border-dream-line p-2">
                     <figcaption className="mb-1 text-xs font-medium capitalize text-dream-ink">{m.view}</figcaption>
-                    <div className="h-28 w-full overflow-hidden bg-dream-bg">
+                    <div className="h-28 w-full overflow-hidden rounded-lg bg-dream-bg">
                       <Image src={m.url!} alt={`${m.view} mockup`} width={112} height={112} className="h-full w-full object-contain" />
                     </div>
                     {m.url && (
@@ -111,26 +112,37 @@ export function OrderItemCard({
             </div>
 
             {can.proofs && (
-              <div className="flex flex-wrap items-center gap-3">
-                <Button variant="secondary" size="sm" loading={uploading} onClick={() => fileInput.current?.click()}>
-                  Upload proof
-                </Button>
-                <input
-                  ref={fileInput}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  hidden
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = "";
-                    if (f) onUploadProof(f);
-                  }}
-                />
-                {latestProof?.image && (
-                  <a href={latestProof.image} target="_blank" rel="noreferrer" className="text-sm text-dream-purple hover:underline">
-                    View proof
-                  </a>
+              <div className="space-y-2">
+                {latestProof && (
+                  <Badge
+                    variant={
+                      latestProof.status === "approved" ? "success" : latestProof.status === "changes_requested" ? "warn" : "info"
+                    }
+                  >
+                    Proof: {latestProof.status.replace(/_/g, " ")}
+                  </Badge>
                 )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button variant="secondary" size="sm" loading={uploading} onClick={() => fileInput.current?.click()}>
+                    Upload proof
+                  </Button>
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) onUploadProof(f);
+                    }}
+                  />
+                  {latestProof?.image && (
+                    <a href={latestProof.image} target="_blank" rel="noreferrer" className="text-sm text-dream-purple hover:underline">
+                      View proof
+                    </a>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -143,7 +155,7 @@ export function OrderItemCard({
                 value={item.productName}
                 disabled={!can.edit}
                 onChange={(e) => onPatch((p) => ({ ...p, productName: e.target.value }))}
-                className="flex-1 font-medium"
+                className="flex-1 font-semibold text-dream-ink"
               />
               {can.edit && (
                 <button

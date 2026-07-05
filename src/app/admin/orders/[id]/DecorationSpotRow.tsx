@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -22,6 +23,9 @@ export function DecorationSpotRow({
   onPatch: (patch: Partial<DecorationSpot>) => void;
   onRemove: () => void;
 }) {
+  const hasAdvanced = spot.pantones.length > 0 || spot.puff || spot.spotProcess;
+  const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
+
   return (
     <div className="space-y-3 rounded-lg border border-dream-line p-3">
       <div className="flex flex-wrap items-end gap-3">
@@ -59,16 +63,6 @@ export function DecorationSpotRow({
           <div className={cn(LBL, "mb-1")}># Colours</div>
           <Input value={spot.colours} disabled={!canEdit} onChange={(e) => onPatch({ colours: e.target.value })} />
         </div>
-        <div className="flex flex-col gap-1.5 pb-1">
-          <div className={LBL}>Spec</div>
-          <Checkbox label="Puff" checked={spot.puff} disabled={!canEdit} onChange={(e) => onPatch({ puff: e.target.checked })} />
-          <Checkbox
-            label="Spot process"
-            checked={spot.spotProcess}
-            disabled={!canEdit}
-            onChange={(e) => onPatch({ spotProcess: e.target.checked })}
-          />
-        </div>
         {canEdit && (
           <button
             type="button"
@@ -84,40 +78,74 @@ export function DecorationSpotRow({
       </div>
 
       <div>
-        <div className={cn(LBL, "mb-1.5")}>Pantone colours</div>
-        {spot.pantones.length === 0 && <p className="text-xs italic text-dream-faint">No colours yet</p>}
-        <div className="flex flex-col items-start gap-2">
-          {spot.pantones.map((code, pi) => (
-            <span key={pi} className="flex items-center gap-1">
-              <Input
-                value={code}
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((s) => !s)}
+          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-dream-muted transition-colors hover:text-dream-ink"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            className={cn("h-3.5 w-3.5 transition-transform", showAdvanced && "rotate-90")}
+            aria-hidden
+          >
+            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Advanced spec
+          {!showAdvanced && hasAdvanced && <span className="h-1.5 w-1.5 rounded-full bg-dream-purple" aria-hidden />}
+        </button>
+
+        {showAdvanced && (
+          <div className="mt-3 space-y-4 border-t border-dream-line pt-3">
+            <div className="flex flex-col gap-1.5">
+              <div className={LBL}>Spec</div>
+              <Checkbox label="Puff" checked={spot.puff} disabled={!canEdit} onChange={(e) => onPatch({ puff: e.target.checked })} />
+              <Checkbox
+                label="Spot process"
+                checked={spot.spotProcess}
                 disabled={!canEdit}
-                placeholder="Pantone code"
-                onChange={(e) => onPatch({ pantones: spot.pantones.map((c, i) => (i === pi ? e.target.value : c)) })}
-                className="h-8 w-40 text-sm"
+                onChange={(e) => onPatch({ spotProcess: e.target.checked })}
               />
-              {canEdit && (
-                <button
-                  type="button"
-                  aria-label="Remove colour"
-                  className="text-dream-faint hover:text-dream-danger"
-                  onClick={() => onPatch({ pantones: spot.pantones.filter((_, i) => i !== pi) })}
-                >
-                  ×
-                </button>
-              )}
-            </span>
-          ))}
-          {canEdit && (
-            <button
-              type="button"
-              className="text-sm text-dream-purple hover:underline"
-              onClick={() => onPatch({ pantones: [...spot.pantones, ""] })}
-            >
-              + Add colour
-            </button>
-          )}
-        </div>
+            </div>
+
+            <div>
+              <div className={cn(LBL, "mb-1.5")}>Pantone colours</div>
+              {spot.pantones.length === 0 && <p className="text-xs italic text-dream-faint">No colours yet</p>}
+              <div className="flex flex-col items-start gap-2">
+                {spot.pantones.map((code, pi) => (
+                  <span key={pi} className="flex items-center gap-1">
+                    <Input
+                      value={code}
+                      disabled={!canEdit}
+                      placeholder="Pantone code"
+                      onChange={(e) => onPatch({ pantones: spot.pantones.map((c, i) => (i === pi ? e.target.value : c)) })}
+                      className="h-8 w-40 text-sm"
+                    />
+                    {canEdit && (
+                      <button
+                        type="button"
+                        aria-label="Remove colour"
+                        className="text-dream-faint hover:text-dream-danger"
+                        onClick={() => onPatch({ pantones: spot.pantones.filter((_, i) => i !== pi) })}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="text-sm text-dream-purple hover:underline"
+                    onClick={() => onPatch({ pantones: [...spot.pantones, ""] })}
+                  >
+                    + Add colour
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
