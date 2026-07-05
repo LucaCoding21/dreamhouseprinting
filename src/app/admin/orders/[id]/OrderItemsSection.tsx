@@ -12,10 +12,10 @@ import {
   itemQty,
   sizeRank,
   useOrderAction,
-  useProofUpload,
   type Can,
   type Detail,
   type ItemState,
+  type StoredAddress,
 } from "./shared";
 import { updateLineItemsAction, deleteLineItemAction } from "../actions";
 import type { DecorationSpot, LineItemDecorations } from "../actions";
@@ -31,8 +31,9 @@ export function OrderItemsSection({
 }) {
   const { order } = detail;
   const { pending, run } = useOrderAction();
-  const { uploading, uploadProof } = useProofUpload(order.id);
   const [view, setView] = useState<"detailed" | "compact">("detailed");
+  const shipName = (order.shipping_address as StoredAddress | null)?.name;
+  const customerName = detail.customer?.name ?? shipName ?? order.guest_email ?? "the customer";
 
   const designById = useMemo(() => new Map(detail.designs.map((d) => [d.id, d])), [detail.designs]);
   const setupById = useMemo(() => new Map(detail.lineItems.map((li) => [li.id, li.setup_fee])), [detail.lineItems]);
@@ -171,15 +172,15 @@ export function OrderItemsSection({
                 const li = detail.lineItems.find((l) => l.id === it.id);
                 return li?.product_id ? productById.get(li.product_id) : undefined;
               })()}
+              customerName={customerName}
+              orderNumber={order.order_number}
               methodOptions={methodOptions}
               embroideryMethod={embroideryMethod}
               can={can}
               setupFee={setupById.get(it.id) ?? 0}
               proofsForItem={proofsByItem.get(it.id) ?? []}
-              uploading={uploading}
               onPatch={(fn) => patchItem(it.id, fn)}
               onRemove={() => removeItem(it.id)}
-              onUploadProof={(file) => uploadProof(file, it.id)}
             />
           ))
         : (

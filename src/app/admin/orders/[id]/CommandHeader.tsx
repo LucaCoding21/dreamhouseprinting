@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -13,7 +13,8 @@ import { formatCAD } from "@/lib/money";
 import { STATUS_META, TRACKER_STAGES, statusStageIndex } from "@/lib/orderStatus";
 import { ORDER_STATUSES, type OrderStatus, type PaymentStatus } from "@/lib/db/rows";
 import { setOrderStatusAction, addOrderNoteAction, sendInvoiceAction, setTrackingAction } from "../actions";
-import { fmtDay, nextAction, useOrderAction, useProofUpload, type Can, type Detail } from "./shared";
+import { ProofReviewDialog } from "./ProofReviewDialog";
+import { fmtDay, nextAction, useOrderAction, type Can, type Detail } from "./shared";
 
 const PRE_APPROVAL = new Set<string>(["draft", "submitted", "in_review", "proof_ready", "changes_requested"]);
 
@@ -21,8 +22,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
   const { order } = detail;
   const { toast } = useToast();
   const { pending, run } = useOrderAction();
-  const { uploading, uploadProof } = useProofUpload(order.id);
-  const proofInput = useRef<HTMLInputElement>(null);
+  const [proofOpen, setProofOpen] = useState(false);
 
   const status = order.status as OrderStatus;
   const kind = nextAction(order);
@@ -90,7 +90,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
     }
   }
 
-  const pickProof = () => proofInput.current?.click();
+  const pickProof = () => setProofOpen(true);
 
   return (
     <div className="space-y-5 rounded-xl border border-dream-line bg-dream-surface p-5 shadow-sm sm:p-6">
@@ -212,16 +212,13 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         <div className="border-t border-dream-line pt-5">{renderHero()}</div>
       )}
 
-      <input
-        ref={proofInput}
-        type="file"
-        accept="image/*,application/pdf"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) uploadProof(f);
-        }}
+      <ProofReviewDialog
+        orderId={order.id}
+        open={proofOpen}
+        onOpenChange={setProofOpen}
+        orderNumber={order.order_number}
+        customerName={who}
+        isReplacement={status === "changes_requested" || status === "proof_ready"}
       />
 
       {/* Jump-to-status dialog */}
@@ -353,7 +350,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "upload-proof":
         return (
           <div className="flex flex-wrap items-center gap-4">
-            <Button variant="primary" size="lg" loading={uploading} disabled={!can.proofs} onClick={pickProof} className="min-w-48">
+            <Button variant="primary" size="lg" disabled={!can.proofs} onClick={pickProof} className="min-w-48">
               Upload proof
             </Button>
             <p className="text-sm text-dream-muted">Sends the customer an approval email</p>
@@ -369,7 +366,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               Waiting on customer approval
             </Badge>
             <div className="ml-auto flex flex-wrap gap-2">
-              <Button variant="secondary" loading={uploading} disabled={!can.proofs} onClick={pickProof}>
+              <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
                 Upload new proof
               </Button>
               <Button variant="secondary" onClick={() => setApproveConfirm(true)}>
@@ -386,7 +383,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                 Customer asked: “{latestChange.change_request_comment}”
               </div>
             )}
-            <HeroButton label="Upload new proof" loading={uploading} disabled={!can.proofs} onClick={pickProof} />
+            <HeroButton label="Upload new proof" disabled={!can.proofs} onClick={pickProof} />
           </div>
         );
       case "approved-invoice":

@@ -198,7 +198,7 @@ export function useProofUpload(orderId: string) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
 
-  async function uploadProof(file: File, lineItemId?: string) {
+  async function uploadProof(file: File, lineItemId?: string): Promise<{ ok?: boolean; error?: string }> {
     setUploading(true);
     try {
       const res = await fetch("/api/design/upload", {
@@ -218,8 +218,11 @@ export function useProofUpload(orderId: string) {
       if (result.error) throw new Error(result.error);
       toast({ title: "Proof sent to customer", variant: "success" });
       router.refresh();
+      return { ok: true };
     } catch (err) {
-      toast({ title: "Proof upload failed", description: err instanceof Error ? err.message : "", variant: "error" });
+      const message = err instanceof Error ? err.message : "";
+      toast({ title: "Proof upload failed", description: message, variant: "error" });
+      return { error: message || "Upload failed" };
     } finally {
       setUploading(false);
     }

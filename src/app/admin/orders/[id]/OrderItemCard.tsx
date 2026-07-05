@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { DecorationSpotRow } from "./DecorationSpotRow";
+import { ProofReviewDialog } from "./ProofReviewDialog";
+import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { LBL, itemQty, sizeRank, ssSourceUrl, type Can, type ItemState, type OrderProduct } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
@@ -20,33 +22,34 @@ export function OrderItemCard({
   lineItem,
   design,
   product,
+  customerName,
+  orderNumber,
   methodOptions,
   embroideryMethod,
   can,
   setupFee,
   proofsForItem,
-  uploading,
   onPatch,
   onRemove,
-  onUploadProof,
 }: {
   item: ItemState;
   index: number;
   lineItem: LineItemRow | undefined;
   design: DesignRow | undefined;
   product: OrderProduct | undefined;
+  customerName: string;
+  orderNumber: string | null;
   methodOptions: string[];
   embroideryMethod: string | undefined;
   can: Can;
   setupFee: number;
   proofsForItem: ProofRow[];
-  uploading: boolean;
   onPatch: (fn: (it: ItemState) => ItemState) => void;
   onRemove: () => void;
-  onUploadProof: (file: File) => void;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [newSize, setNewSize] = useState("");
+  const [proofOpen, setProofOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const mockups = ((design?.mockup_images ?? []) as { view: string; url: string | null }[]).filter((m) => m.url);
   const colour = (lineItem?.colour ?? {}) as { name?: string; hex?: string | null };
   const qty = itemQty(item);
@@ -77,6 +80,7 @@ export function OrderItemCard({
   }
 
   return (
+    <>
     <Card>
       <CardContent className="p-5">
         <div className="flex flex-col gap-5 lg:flex-row">
@@ -125,24 +129,17 @@ export function OrderItemCard({
                   </Badge>
                 )}
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="secondary" size="sm" loading={uploading} onClick={() => fileInput.current?.click()}>
-                    Upload proof
+                  <Button variant="secondary" size="sm" onClick={() => setProofOpen(true)}>
+                    {latestProof ? "Send new proof" : "Upload proof"}
                   </Button>
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    hidden
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = "";
-                      if (f) onUploadProof(f);
-                    }}
-                  />
                   {latestProof?.image && (
-                    <a href={latestProof.image} target="_blank" rel="noreferrer" className="text-sm text-dream-purple hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(true)}
+                      className="text-sm text-dream-purple hover:underline"
+                    >
                       View proof
-                    </a>
+                    </button>
                   )}
                 </div>
               </div>
@@ -317,6 +314,29 @@ export function OrderItemCard({
         </div>
       </CardContent>
     </Card>
+
+    {can.proofs && lineItem && (
+      <ProofReviewDialog
+        orderId={lineItem.order_id}
+        lineItemId={lineItem.id}
+        open={proofOpen}
+        onOpenChange={setProofOpen}
+        orderNumber={orderNumber}
+        customerName={customerName}
+        contextLabel={item.productName || undefined}
+        isReplacement={!!latestProof}
+      />
+    )}
+    {latestProof?.image && (
+      <ProofLightbox
+        src={latestProof.image}
+        kind={fileKind(latestProof.image)}
+        title={`Proof — ${item.productName || "item"}`}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+      />
+    )}
+    </>
   );
 }
 
