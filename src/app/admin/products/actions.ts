@@ -78,6 +78,7 @@ export async function importStyleAction(styleId: number): Promise<{ productId?: 
       .insert({
         ss_style_id: draft.ssStyleId,
         ss_part_number: draft.ssPartNumber,
+        ss_style_name: draft.ssStyleName,
         ss_last_synced_at: new Date().toISOString(),
         brand: draft.brand,
         name: draft.name,
@@ -217,6 +218,7 @@ export async function syncProductAction(id: string): Promise<{ ok?: boolean; err
         sizes: asJson(sizes),
         wholesale_cost: draft.wholesaleCost,
         stock_status: draft.stockStatus,
+        ss_style_name: draft.ssStyleName,
         ss_last_synced_at: new Date().toISOString(),
       })
       .eq("id", id);

@@ -36,6 +36,7 @@ export function OrderItemsSection({
 
   const designById = useMemo(() => new Map(detail.designs.map((d) => [d.id, d])), [detail.designs]);
   const setupById = useMemo(() => new Map(detail.lineItems.map((li) => [li.id, li.setup_fee])), [detail.lineItems]);
+  const productById = useMemo(() => new Map(detail.products.map((p) => [p.id, p])), [detail.products]);
   const methodOptions = Object.values(methodNames);
   const embroideryMethod = methodOptions.find((m) => /embroider/i.test(m));
 
@@ -166,6 +167,10 @@ export function OrderItemsSection({
                 const li = detail.lineItems.find((l) => l.id === it.id);
                 return li?.design_id ? designById.get(li.design_id) : undefined;
               })()}
+              product={(() => {
+                const li = detail.lineItems.find((l) => l.id === it.id);
+                return li?.product_id ? productById.get(li.product_id) : undefined;
+              })()}
               methodOptions={methodOptions}
               embroideryMethod={embroideryMethod}
               can={can}
@@ -183,6 +188,7 @@ export function OrderItemsSection({
               {items.map((it, idx) => {
                 const li = detail.lineItems.find((l) => l.id === it.id);
                 const design = li?.design_id ? designById.get(li.design_id) : undefined;
+                const product = li?.product_id ? productById.get(li.product_id) : undefined;
                 const thumb = ((design?.mockup_images ?? []) as { url: string | null }[]).find((m) => m.url)?.url ?? null;
                 const qty = itemQty(it);
                 const unit = Number(it.unitPrice) || 0;
@@ -196,7 +202,15 @@ export function OrderItemsSection({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium text-dream-ink">{it.productName || "Untitled item"}</div>
-                      <div className="truncate text-xs text-dream-muted">{sizeSummary}</div>
+                      <div className="truncate text-xs text-dream-muted">
+                        {product?.ss_style_name && (
+                          <span className="font-semibold text-dream-ink">
+                            {product.brand ? `${product.brand} ${product.ss_style_name}` : product.ss_style_name}
+                            <span className="mx-1.5 text-dream-faint">·</span>
+                          </span>
+                        )}
+                        {sizeSummary}
+                      </div>
                     </div>
                     <div className="shrink-0 text-right text-sm">
                       <div className="text-dream-muted">

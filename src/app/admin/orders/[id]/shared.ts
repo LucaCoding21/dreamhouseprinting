@@ -16,13 +16,31 @@ import type {
   OrderStatus,
 } from "@/lib/db/rows";
 
+export interface OrderProduct {
+  id: string;
+  name: string;
+  brand: string | null;
+  ss_style_name: string | null;
+  ss_style_id: string | null;
+}
+
 export interface Detail {
   order: OrderRow;
   customer: Pick<ProfileRow, "id" | "name" | "email" | "phone"> | null;
   lineItems: LineItemRow[];
   designs: DesignRow[];
+  products: OrderProduct[];
   proofs: ProofRow[];
   activity: OrderActivityRow[];
+}
+
+/** Build the S&S retail search URL for a garment so Julian can pull the blank.
+ *  Deep PDP slugs aren't verifiable (S&S bot-blocks), so a search by
+ *  "{brand} {style}" is the robust target — it always lands on the right result. */
+export function ssSourceUrl(brand: string | null, styleName: string | null): string | null {
+  if (!styleName) return null;
+  const term = [brand, styleName].filter(Boolean).join(" ");
+  return `https://www.ssactivewear.com/Products?SearchTerm=${encodeURIComponent(term)}`;
 }
 
 export interface Can {

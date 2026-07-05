@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
-import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow, ProfileRow } from "@/lib/db/rows";
+import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow, ProfileRow, ProductRow } from "@/lib/db/rows";
 
 /** Admin order reads (service client — staff see everything). Callers are permission-gated. */
 
@@ -90,11 +90,15 @@ export async function getAdminOrders(): Promise<AdminOrderListItem[]> {
   });
 }
 
+/** The S&S source fields a line item's garment resolves to (for reordering blanks). */
+export type OrderProduct = Pick<ProductRow, "id" | "name" | "brand" | "ss_style_name" | "ss_style_id">;
+
 export interface AdminOrderDetail {
   order: OrderRow;
   customer: Pick<ProfileRow, "id" | "name" | "email" | "phone"> | null;
   lineItems: LineItemRow[];
   designs: DesignRow[];
+  products: OrderProduct[];
   proofs: ProofRow[];
   activity: OrderActivityRow[];
 }
@@ -115,6 +119,16 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
   if (designIds.length) {
     const { data } = await supabase.from("designs").select("*").in("id", designIds);
     designs = (data ?? []) as DesignRow[];
+  }
+
+  const productIds = [...new Set((lineItems ?? []).map((l) => l.product_id).filter(Boolean))] as string[];
+  let products: AdminOrderDetail["products"] = [];
+  if (productIds.length) {
+    const { data } = await supabase
+      .from("products")
+      .select("id, name, brand, ss_style_name, ss_style_id")
+      .in("id", productIds);
+    products = (data ?? []) as AdminOrderDetail["products"];
   }
 
   let customer: AdminOrderDetail["customer"] = null;
@@ -138,6 +152,7 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
     customer,
     lineItems: (lineItems ?? []) as LineItemRow[],
     designs,
+    products,
     proofs: (proofs ?? []) as ProofRow[],
     activity: (activity ?? []) as OrderActivityRow[],
   };

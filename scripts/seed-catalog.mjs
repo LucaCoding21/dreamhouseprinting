@@ -161,6 +161,7 @@ async function buildProductDraft(styleId) {
   return {
     ssStyleId: String(style.styleID),
     ssPartNumber: style.partNumber,
+    ssStyleName: style.styleName,
     brand: style.brandName,
     name: style.title || style.styleName,
     description: cleanDescription(style.description),
@@ -270,6 +271,7 @@ async function main() {
       const row = {
         ss_style_id: draft.ssStyleId,
         ss_part_number: draft.ssPartNumber,
+        ss_style_name: draft.ssStyleName,
         ss_last_synced_at: new Date().toISOString(),
         brand: draft.brand,
         name: draft.name,

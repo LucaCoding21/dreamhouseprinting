@@ -100,6 +100,7 @@ export async function buildProductDraft(styleId: string | number): Promise<SSPro
   return {
     ssStyleId: String(style.styleID),
     ssPartNumber: style.partNumber,
+    ssStyleName: style.styleName,
     brand: style.brandName,
     name: style.title || style.styleName,
     description: cleanDescription(style.description),

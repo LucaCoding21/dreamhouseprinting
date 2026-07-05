@@ -101,6 +101,7 @@ export interface ProductSize {
 export interface SSProductDraft {
   ssStyleId: string;
   ssPartNumber: string;
+  ssStyleName: string;      // human style number, e.g. "5000" — what a printer orders by
   brand: string;
   name: string;
   description: string;

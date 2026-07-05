@@ -28,6 +28,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         customer: detail.customer,
         lineItems: detail.lineItems,
         designs: detail.designs,
+        products: detail.products,
         proofs: detail.proofs,
         activity: detail.activity,
       }}

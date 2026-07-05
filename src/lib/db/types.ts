@@ -539,6 +539,7 @@ export type Database = {
           ss_last_synced_at: string | null
           ss_part_number: string | null
           ss_style_id: string | null
+          ss_style_name: string | null
           stock_status: string
           subcategory_id: string | null
           updated_at: string
@@ -565,6 +566,7 @@ export type Database = {
           ss_last_synced_at?: string | null
           ss_part_number?: string | null
           ss_style_id?: string | null
+          ss_style_name?: string | null
           stock_status?: string
           subcategory_id?: string | null
           updated_at?: string
@@ -591,6 +593,7 @@ export type Database = {
           ss_last_synced_at?: string | null
           ss_part_number?: string | null
           ss_style_id?: string | null
+          ss_style_name?: string | null
           stock_status?: string
           subcategory_id?: string | null
           updated_at?: string
