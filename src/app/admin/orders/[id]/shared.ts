@@ -34,17 +34,6 @@ export interface Detail {
   activity: OrderActivityRow[];
 }
 
-/** Direct S&S Canada product page for a garment, e.g.
- *  https://en-ca.ssactivewear.com/p/comfort_colors/1717 . The brand slug is the
- *  lowercased brand with runs of non-alphanumerics collapsed to underscores; the
- *  en-ca host lands straight on the product instead of the .com country picker. */
-export function ssSourceUrl(brand: string | null, styleName: string | null): string | null {
-  if (!styleName || !brand) return null;
-  const brandSlug = brand.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  if (!brandSlug) return null;
-  return `https://en-ca.ssactivewear.com/p/${brandSlug}/${encodeURIComponent(styleName.trim())}`;
-}
-
 export interface Can {
   edit: boolean;
   pricing: boolean;

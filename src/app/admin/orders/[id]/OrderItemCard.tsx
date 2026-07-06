@@ -12,7 +12,7 @@ import { formatCAD } from "@/lib/money";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { ProofLightbox, fileKind } from "./ProofLightbox";
-import { LBL, itemQty, sizeRank, ssSourceUrl, type Can, type ItemState, type OrderProduct } from "./shared";
+import { LBL, itemQty, sizeRank, type Can, type ItemState, type OrderProduct } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
 
@@ -340,29 +340,14 @@ export function OrderItemCard({
   );
 }
 
-/** The S&S blank this garment came from — the style number Julian reorders by, with a search link. */
+/** The S&S blank this garment came from — the brand + style number Julian reorders by. */
 function SsSource({ product }: { product: OrderProduct }) {
-  const url = ssSourceUrl(product.brand, product.ss_style_name);
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
       <span className={LBL}>S&amp;S blank</span>
       <span className="font-semibold text-dream-ink">
         {product.brand ? `${product.brand} ${product.ss_style_name}` : product.ss_style_name}
       </span>
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-dream-purple hover:underline"
-          title="Find this blank on S&amp;S Activewear"
-        >
-          View on S&amp;S
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
-            <path d="M7 17L17 7M9 7h8v8" />
-          </svg>
-        </a>
-      )}
     </div>
   );
 }
