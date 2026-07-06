@@ -34,13 +34,15 @@ export interface Detail {
   activity: OrderActivityRow[];
 }
 
-/** Build the S&S retail search URL for a garment so Julian can pull the blank.
- *  Deep PDP slugs aren't verifiable (S&S bot-blocks), so a search by
- *  "{brand} {style}" is the robust target — it always lands on the right result. */
+/** Direct S&S Canada product page for a garment, e.g.
+ *  https://en-ca.ssactivewear.com/p/comfort_colors/1717 . The brand slug is the
+ *  lowercased brand with runs of non-alphanumerics collapsed to underscores; the
+ *  en-ca host lands straight on the product instead of the .com country picker. */
 export function ssSourceUrl(brand: string | null, styleName: string | null): string | null {
-  if (!styleName) return null;
-  const term = [brand, styleName].filter(Boolean).join(" ");
-  return `https://www.ssactivewear.com/Products?SearchTerm=${encodeURIComponent(term)}`;
+  if (!styleName || !brand) return null;
+  const brandSlug = brand.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!brandSlug) return null;
+  return `https://en-ca.ssactivewear.com/p/${brandSlug}/${encodeURIComponent(styleName.trim())}`;
 }
 
 export interface Can {
