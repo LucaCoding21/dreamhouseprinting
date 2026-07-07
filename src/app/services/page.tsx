@@ -42,10 +42,10 @@ const METHODS: Method[] = [
     name: "Embroidery",
     description:
       "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
-    image: "/custom-embroidery-vancouver.webp",
+    image: "/custom-embroidery-vancouver.png",
     imageAlt: "Embroidered logo thread close-up on apparel",
     imageTitle: "Custom logo embroidery on caps and jackets in Vancouver",
-    imageClassName: "w-[150px] -rotate-12 sm:w-[175px]",
+    imageClassName: "w-[165px] -rotate-12 sm:w-[188px] -mt-8",
     bg: "bg-white",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
@@ -58,7 +58,7 @@ const METHODS: Method[] = [
     image: "/dtg-printing-vancouver.webp",
     imageAlt: "DTG printer laying ink onto a custom t-shirt",
     imageTitle: "Full-colour DTG and DTF printing for small runs in Vancouver",
-    imageClassName: "w-[200px] sm:w-[230px]",
+    imageClassName: "w-[175px] sm:w-[200px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
@@ -76,6 +76,9 @@ type ProductCategory = {
   imageAlt: string;
   imageTitle: string;
   href: string;
+  // Optional per-card framing for the card thumbnail (object-cover crop).
+  imagePosition?: string; // CSS object-position, e.g. "center 40%"
+  imageScale?: number; // base zoom multiplier; hover adds ~5% on top
 };
 
 const PRODUCT_CATEGORIES: ProductCategory[] = [
@@ -100,6 +103,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     imageAlt: "Custom printed hoodie folded on a shelf",
     imageTitle: "Printed and embroidered hoodies for Vancouver crews",
     href: "/#quick-quote",
+    imagePosition: "center 42%",
+    imageScale: 1.35,
   },
   {
     name: "Hats & toques",
@@ -111,6 +116,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     imageAlt: "Custom embroidered cap",
     imageTitle: "Embroidered caps and toques from our Vancouver shop",
     href: "/#quick-quote",
+    imagePosition: "center 45%",
+    imageScale: 1.0,
   },
   {
     name: "Bags & totes",
@@ -122,6 +129,8 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     imageAlt: "Custom printed canvas tote bag",
     imageTitle: "Screen-printed canvas tote bags for Vancouver events",
     href: "/#quick-quote",
+    imagePosition: "center 45%",
+    imageScale: 1.2,
   },
 ];
 
@@ -428,7 +437,11 @@ function Products() {
                   title={cat.imageTitle}
                   width={520}
                   height={680}
-                  className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+                  style={{
+                    objectPosition: cat.imagePosition,
+                    "--img-scale": cat.imageScale ?? 1,
+                  } as CSSProperties}
+                  className="h-full w-full object-cover transition-transform duration-500 ease-out scale-[var(--img-scale)] group-hover:scale-[calc(var(--img-scale)*1.05)]"
                 />
               </div>
 
@@ -630,25 +643,6 @@ function BlobMorphFilter() {
           <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" />
         </filter>
       </defs>
-    </svg>
-  );
-}
-
-function ScribbleUnderline({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 220 12"
-      preserveAspectRatio="none"
-      className={`absolute left-0 right-0 h-[12px] w-full ${className}`}
-    >
-      <path
-        d="M4 7 C 20 3, 40 9, 60 6 S 100 3, 120 7 S 160 4, 184 7 S 210 8, 216 6"
-        stroke="#ecbb25"
-        strokeWidth="4"
-        strokeLinecap="round"
-        fill="none"
-      />
     </svg>
   );
 }

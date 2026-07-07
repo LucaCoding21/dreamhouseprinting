@@ -30,8 +30,8 @@ const CATEGORIES: Category[] = [
   {
     label: "Hoodies",
     href: "/#quick-quote",
-    image: "/shopbycategories/custom-printed-hoodies-vancouver.webp",
-    imageAlt: "Three folded pullover hoodies in black, tan, and navy with printed front graphics",
+    image: "/shopbycategories/custom-printed-hoodies-vancouver.jpeg",
+    imageAlt: "Three custom-printed pullover hoodies in charcoal, olive green, and navy with screen-printed front graphics",
     imageTitle: "Custom hoodies",
     imageWidth: "100%",
     startingAt: "$32",
