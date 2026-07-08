@@ -4,13 +4,16 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HEARD_ABOUT_OPTIONS,
-  PRINT_COLOR_OPTIONS,
   PRINT_LOCATIONS,
+  PRINT_LOCATION_LABEL,
   SIZE_KEYS,
+  colorLabel,
+  derivePrint,
   emptyFormData,
   sumSizes,
   type PrintLocation,
   type PrintMethod,
+  type PrintPlacement,
   type ProductType,
   type QuoteFormData,
   type SizeBreakdown,
@@ -18,9 +21,8 @@ import {
 } from "@/lib/formTypes";
 import {
   AVAILABLE_DECORATIONS,
-  calculateQuote,
+  calculateQuoteByLocation,
   DECORATION,
-  MAX_LOCATIONS,
   roundDisplayPrice,
   type Decoration,
   type PricedProduct,
@@ -199,9 +201,12 @@ export default function QuoteCard() {
   const [calcProduct, setCalcProduct] = useState<CalcProduct>("t-shirts");
   const [quantity, setQuantity] = useState("50");
   const [useCustomQty, setUseCustomQty] = useState(false);
-  const [printColors, setPrintColors] = useState("1");
   const [decoration, setDecoration] = useState<Decoration>("screen");
-  const [locations, setLocations] = useState(1);
+  // Per-location print detail (Coastal-Reign style): each spot has its own
+  // colour count. Starts with one 1-colour front print.
+  const [placements, setPlacements] = useState<PrintPlacement[]>([
+    { location: "front-center", colors: 1 },
+  ]);
 
   // Form state.
   const [step, setStep] = useState<StepIndex>(0);
@@ -279,10 +284,18 @@ export default function QuoteCard() {
   }, [priced, decoration]);
 
   const isScreen = priced !== null && effDecoration === "screen";
-  const colorCount = isScreen ? parseColorCount(printColors) : 0;
+  // For the diagram + summary: the busiest location's colour count.
+  const colorCount = isScreen
+    ? placements.reduce((m, p) => Math.max(m, p.colors), 0)
+    : 0;
   const qtyNum = Math.max(0, parseInt(quantity, 10) || 0);
   const quote = priced
-    ? calculateQuote(priced, qtyNum, colorCount, effDecoration, locations)
+    ? calculateQuoteByLocation(
+        priced,
+        qtyNum,
+        effDecoration,
+        placements.map((p) => p.colors),
+      )
     : null;
   const perUnit = quote?.available ? quote.perUnit : 0;
 
@@ -297,53 +310,54 @@ export default function QuoteCard() {
     ? Math.max(0, parseInt(data.quantity, 10) || 0)
     : sumSizes(data.sizes);
   const effectiveQty = formQty > 0 ? formQty : qtyNum;
-  // In the form, the user can change print locations directly, so the live
-  // price follows how many they've picked (at least 1).
-  const formLocations = Math.max(1, data.printLocations.length);
+  // In the form, the user can edit the placements directly, so the live price
+  // follows their per-location colour picks (at least one location).
+  const formLocations = Math.max(1, data.placements.length);
   const formQuote = priced
-    ? calculateQuote(priced, effectiveQty, colorCount, effDecoration, formLocations)
+    ? calculateQuoteByLocation(
+        priced,
+        effectiveQty,
+        effDecoration,
+        data.placements.map((p) => p.colors),
+      )
     : null;
   const formPerUnit = formQuote?.available ? formQuote.perUnit : 0;
+  // Busiest location's colour count, for the sticky-bar summary.
+  const formColorCount = isScreen
+    ? data.placements.reduce((m, p) => Math.max(m, p.colors), 0)
+    : 0;
 
   const update = <K extends keyof QuoteFormData>(key: K, value: QuoteFormData[K]) =>
     setData((d) => ({ ...d, [key]: value }));
 
-  const toggleLocation = (loc: PrintLocation) => {
-    setData((d) => ({
-      ...d,
-      printLocations: d.printLocations.includes(loc)
-        ? d.printLocations.filter((l) => l !== loc)
-        : [...d.printLocations, loc],
-    }));
-  };
+  // Update placements + keep the derived legacy fields (printColors /
+  // printLocations) in sync so the existing DB columns stay populated.
+  const setFormPlacements = (next: PrintPlacement[]) =>
+    setData((d) => ({ ...d, placements: next, ...derivePrint(next) }));
 
   const lockIn = () => {
     const mapped = TO_FORM[calcProduct];
-    const colorStr = isScreen
-      ? colorCount >= 4
-        ? "4+"
-        : String(Math.max(1, colorCount))
-      : "1";
     // Carry the chosen decoration into the form's print method (priced products
     // only; "other" keeps the form's "not-sure" default).
     const printMethod: PrintMethod = priced ? effDecoration : mapped.printMethod;
-    // Pre-fill the form's print-location checkboxes to match the count the
-    // calculator priced (first N locations), unless the user already has some.
-    const prefillLocations = PRINT_LOCATIONS.slice(0, Math.max(1, locations)).map(
-      (l) => l.value,
-    );
-    setData((d) => ({
-      ...d,
-      productType: mapped.productType,
-      printMethod,
-      printColors: productLocked ? colorStr : d.printColors,
-      printLocations:
-        productLocked && d.printLocations.length === 0
-          ? prefillLocations
-          : d.printLocations,
-      quantity: String(qtyNum),
-      sizesLater: true,
-    }));
+    setData((d) => {
+      // Priced products carry the calculator's placements into the form; "other"
+      // keeps whatever the customer already built, seeding one row if empty.
+      const nextPlacements = productLocked
+        ? placements
+        : d.placements.length > 0
+          ? d.placements
+          : [{ location: "front-center" as PrintLocation, colors: 1 }];
+      return {
+        ...d,
+        productType: mapped.productType,
+        printMethod,
+        placements: nextPlacements,
+        ...derivePrint(nextPlacements),
+        quantity: String(qtyNum),
+        sizesLater: true,
+      };
+    });
     setStep(0);
     setTouchedNext(false);
     setSubmitError(null);
@@ -367,8 +381,8 @@ export default function QuoteCard() {
         const total = sumSizes(data.sizes);
         if (total <= 0) errs.sizes = "Enter at least one size count.";
       }
-      if (!data.printColors) errs.printColors = "How many print colors?";
-      if (data.printLocations.length === 0) errs.printLocations = "Pick at least one print location.";
+      if (data.placements.length === 0)
+        errs.placements = "Add at least one print location.";
     }
     if (step === 2) {
       if (!data.name.trim()) errs.name = "We need a name to put on your quote.";
@@ -441,13 +455,23 @@ export default function QuoteCard() {
       // customer was shown, plus the inputs behind it ("why").
       const displayPerUnit = roundDisplayPrice(formPerUnit);
       const submitQty = Number(effectiveQuantity) || effectiveQty;
+      const screenPricing = priced !== null && effDecoration === "screen";
+      const submitColorCount = screenPricing
+        ? data.placements.reduce((m, p) => Math.max(m, p.colors), 0)
+        : 0;
       const estimate = {
         available: Boolean(priced) && formPerUnit > 0,
         product: CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Custom",
         sku: priced ?? null,
         decoration: priced ? effDecoration : null,
-        colors: isScreen ? colorCount : null,
+        colors: screenPricing ? submitColorCount : null,
         locations: priced ? formLocations : null,
+        // Per-location breakdown so Julian can quote each spot accurately.
+        placements: data.placements.map((p) => ({
+          location: p.location,
+          label: PRINT_LOCATION_LABEL[p.location],
+          colors: screenPricing ? p.colors : null,
+        })),
         quantity: submitQty,
         perUnit: displayPerUnit,
         total: displayPerUnit * submitQty,
@@ -508,13 +532,11 @@ export default function QuoteCard() {
               setQuantity={setQuantity}
               useCustomQty={useCustomQty}
               setUseCustomQty={setUseCustomQty}
-              printColors={printColors}
-              setPrintColors={setPrintColors}
+              placements={placements}
+              setPlacements={setPlacements}
               decoration={effDecoration}
               setDecoration={setDecoration}
               availableDecos={availableDecos}
-              locations={locations}
-              setLocations={setLocations}
               isScreen={isScreen}
               colorCount={colorCount}
               perUnit={perUnit}
@@ -544,10 +566,8 @@ export default function QuoteCard() {
                     />
                     <StepPrint
                       data={data}
-                      update={update}
-                      toggleLocation={toggleLocation}
+                      setPlacements={setFormPlacements}
                       errors={touchedNext ? stepErrors : {}}
-                      showColors={!productLocked}
                     />
                   </div>
                 )}
@@ -625,10 +645,12 @@ export default function QuoteCard() {
                         : ""}
                       {effectiveQty} {CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "items"}
                       {priced ? ` · ${effDecoration === "embroidery" ? "embroidery" : "screen print"}` : ""}
-                      {isScreen && colorCount > 0
-                        ? ` · ${colorCount} ${colorCount === 1 ? "color" : "colors"}`
+                      {priced && formLocations > 0
+                        ? ` · ${formLocations} location${formLocations === 1 ? "" : "s"}`
                         : ""}
-                      {priced && formLocations > 1 ? ` · ${formLocations} locations` : ""}
+                      {isScreen && formColorCount > 0
+                        ? ` · up to ${formColorCount} ${formColorCount === 1 ? "color" : "colors"}`
+                        : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -678,13 +700,11 @@ function Calculator({
   setQuantity,
   useCustomQty,
   setUseCustomQty,
-  printColors,
-  setPrintColors,
+  placements,
+  setPlacements,
   decoration,
   setDecoration,
   availableDecos,
-  locations,
-  setLocations,
   isScreen,
   colorCount,
   perUnit,
@@ -698,13 +718,11 @@ function Calculator({
   setQuantity: (q: string) => void;
   useCustomQty: boolean;
   setUseCustomQty: (b: boolean) => void;
-  printColors: string;
-  setPrintColors: (c: string) => void;
+  placements: PrintPlacement[];
+  setPlacements: (next: PrintPlacement[]) => void;
   decoration: Decoration;
   setDecoration: (d: Decoration) => void;
   availableDecos: Decoration[];
-  locations: number;
-  setLocations: (n: number) => void;
   isScreen: boolean;
   colorCount: number;
   perUnit: number;
@@ -756,35 +774,13 @@ function Calculator({
             </PillField>
           )}
 
-          {isScreen && (
-            <PillField label="Print colors">
-              {["1", "2", "3", "4", "5+"].map((n) => {
-                const value = n === "5+" ? "5" : n;
-                return (
-                  <PillButton
-                    key={n}
-                    active={printColors === value}
-                    onClick={() => setPrintColors(value)}
-                  >
-                    {n}
-                  </PillButton>
-                );
-              })}
-            </PillField>
-          )}
-
           {!isContact && (
-            <PillField label={`${locationWord} locations`}>
-              {Array.from({ length: MAX_LOCATIONS }, (_, i) => i + 1).map((n) => (
-                <PillButton
-                  key={n}
-                  active={locations === n}
-                  onClick={() => setLocations(n)}
-                >
-                  {n}
-                </PillButton>
-              ))}
-            </PillField>
+            <PlacementsEditor
+              placements={placements}
+              onChange={setPlacements}
+              isScreen={isScreen}
+              locationWord={locationWord}
+            />
           )}
 
           <div>
@@ -844,11 +840,124 @@ function PillField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function parseColorCount(value: string): number {
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return 0;
-  return Math.max(0, Math.min(DREAM_LETTERS.length, n));
+// Per-location print detail editor, shared by the calculator and the form step.
+// Each row is one decorated spot: a location + (screen print only) its own
+// colour count. Locations can be added/removed; a location can't be picked
+// twice. This is the "input details for every print location separately" model.
+const COLOR_CHOICES = [1, 2, 3, 4, 5] as const;
+
+function PlacementsEditor({
+  placements,
+  onChange,
+  isScreen,
+  locationWord,
+}: {
+  placements: PrintPlacement[];
+  onChange: (next: PrintPlacement[]) => void;
+  isScreen: boolean;
+  locationWord: string;
+}) {
+  const setLocation = (idx: number, location: PrintLocation) =>
+    onChange(placements.map((p, i) => (i === idx ? { ...p, location } : p)));
+  const setColors = (idx: number, colors: number) =>
+    onChange(placements.map((p, i) => (i === idx ? { ...p, colors } : p)));
+  const removeAt = (idx: number) =>
+    onChange(placements.filter((_, i) => i !== idx));
+  const add = () => {
+    const used = new Set(placements.map((p) => p.location));
+    const next = PRINT_LOCATIONS.find((l) => !used.has(l.value));
+    if (!next) return;
+    onChange([...placements, { location: next.value, colors: 1 }]);
+  };
+
+  const canAdd = placements.length < PRINT_LOCATIONS.length;
+
+  return (
+    <div>
+      <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">
+        {locationWord} locations
+      </div>
+      <div className="space-y-2">
+        {placements.map((p, idx) => {
+          // Locations chosen by OTHER rows are disabled in this row's dropdown.
+          const usedElsewhere = new Set(
+            placements.filter((_, i) => i !== idx).map((q) => q.location),
+          );
+          return (
+            <div
+              key={idx}
+              className="rounded-2xl border-2 border-dream-ink/15 bg-white px-3 py-2.5"
+            >
+              <div className="flex items-center gap-2">
+                <select
+                  value={p.location}
+                  onChange={(e) => setLocation(idx, e.target.value as PrintLocation)}
+                  className="min-w-0 flex-1 rounded-lg border border-dream-ink/15 bg-white px-2.5 py-2 font-display text-[13px] font-semibold text-dream-ink outline-none focus:border-dream-purple"
+                >
+                  {PRINT_LOCATIONS.map((l) => (
+                    <option
+                      key={l.value}
+                      value={l.value}
+                      disabled={usedElsewhere.has(l.value)}
+                    >
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+                {placements.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeAt(idx)}
+                    aria-label="Remove location"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dream-ink/20 text-dream-ink/60 transition hover:border-dream-ink/50 hover:text-dream-ink"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                      <path d="M5 5l10 10M15 5L5 15" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {isScreen && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-dream-ink/50">
+                    Colors
+                  </span>
+                  {COLOR_CHOICES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColors(idx, c)}
+                      className={`min-w-[36px] rounded-full px-3 py-1.5 font-display text-[13px] font-semibold transition ${
+                        p.colors === c
+                          ? "bg-dream-purple text-white"
+                          : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"
+                      }`}
+                    >
+                      {colorLabel(c)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {canAdd && (
+        <button
+          type="button"
+          onClick={add}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 border-dashed border-dream-ink/30 px-4 py-2 font-display text-[13px] font-semibold text-dream-ink/70 transition hover:border-dream-ink/60 hover:text-dream-ink"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+            <path d="M10 4v12M4 10h12" />
+          </svg>
+          Add {locationWord.toLowerCase()} location
+        </button>
+      )}
+    </div>
+  );
 }
+
 
 function HoodieDiagram({ colorCount }: { colorCount: number }) {
   return (
@@ -1166,77 +1275,38 @@ const PRODUCT_GRID: { value: ProductType; label: string }[] = [
 
 function StepPrint({
   data,
-  update,
-  toggleLocation,
+  setPlacements,
   errors,
-  showColors,
 }: {
   data: QuoteFormData;
-  update: <K extends keyof QuoteFormData>(k: K, v: QuoteFormData[K]) => void;
-  toggleLocation: (loc: PrintLocation) => void;
+  setPlacements: (next: PrintPlacement[]) => void;
   errors: Record<string, string>;
-  showColors: boolean;
 }) {
+  const isScreen = data.printMethod !== "embroidery";
+  const locationWord = data.printMethod === "embroidery" ? "Embroidery" : "Print";
   return (
     <div className="space-y-5">
-      {showColors && (
-        <Field label="Number of print colors" error={errors.printColors}>
-          <div className="flex gap-2">
-            {PRINT_COLOR_OPTIONS.map((opt) => {
-              const selected = data.printColors === opt;
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => update("printColors", opt)}
-                  className={`flex-1 rounded-2xl border-2 py-3 font-display text-lg font-bold transition ${
-                    selected
-                      ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
-                      : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-      )}
-
-      <Field label="Print locations" error={errors.printLocations}>
-        <div className="grid grid-cols-2 gap-2">
-          {PRINT_LOCATIONS.map((loc) => {
-            const selected = data.printLocations.includes(loc.value);
-            return (
-              <button
-                key={loc.value}
-                type="button"
-                onClick={() => toggleLocation(loc.value)}
-                className={`flex items-center gap-2 rounded-2xl border-2 px-3 py-3 text-left font-medium transition ${
-                  selected
-                    ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
-                    : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded border-2 ${
-                    selected
-                      ? "border-white bg-white text-dream-purple"
-                      : "border-dream-ink/70 bg-transparent"
-                  }`}
-                >
-                  {selected && (
-                    <svg viewBox="0 0 20 20" className="h-3 w-3" fill="currentColor">
-                      <path d="M7.7 13.3 4.4 10l-1.4 1.4 4.7 4.7 10-10-1.4-1.4z" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-sm">{loc.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Field>
+      <div>
+        <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
+          Print detail
+        </span>
+        <p className="mb-3 text-xs text-dream-ink-soft">
+          Add each spot you want decorated
+          {isScreen ? " and how many colors it uses" : ""}. This lets Julian
+          price every location accurately.
+        </p>
+        <PlacementsEditor
+          placements={data.placements}
+          onChange={setPlacements}
+          isScreen={isScreen}
+          locationWord={locationWord}
+        />
+        {errors.placements && (
+          <span className="mt-1 block text-xs font-medium text-red-700">
+            {errors.placements}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

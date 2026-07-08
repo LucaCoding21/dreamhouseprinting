@@ -6,8 +6,11 @@ import {
   getSupabaseAdmin,
 } from "@/lib/supabase";
 import {
+  PRINT_LOCATION_LABEL,
   SIZE_KEYS,
   type GarmentBrand,
+  type PrintLocation,
+  type PrintPlacement,
   type QuoteFormData,
   type SizeBreakdown,
   type SizeKey,
@@ -27,6 +30,7 @@ type QuoteEstimate = {
   decoration: "screen" | "embroidery" | null;
   colors: number | null;
   locations: number | null;
+  placements: { location: string; label: string; colors: number | null }[];
   quantity: number;
   perUnit: number;
   total: number;
@@ -46,6 +50,21 @@ function parseEstimate(raw: unknown): QuoteEstimate | null {
         : null,
     colors: typeof o.colors === "number" ? o.colors : null,
     locations: typeof o.locations === "number" ? o.locations : null,
+    placements: Array.isArray(o.placements)
+      ? o.placements.flatMap((p) => {
+          if (!p || typeof p !== "object") return [];
+          const q = p as Record<string, unknown>;
+          const location = typeof q.location === "string" ? q.location : "";
+          if (!location) return [];
+          return [
+            {
+              location,
+              label: typeof q.label === "string" ? q.label : location,
+              colors: typeof q.colors === "number" ? q.colors : null,
+            },
+          ];
+        })
+      : [],
     quantity: num(o.quantity),
     perUnit: num(o.perUnit),
     total: num(o.total),
@@ -138,6 +157,26 @@ function renderEmailHtml(
       ? "Will provide later"
       : "—";
 
+  // Per-location print breakdown — each spot and its own colour count, so
+  // Julian can quote every location instead of guessing from one global number.
+  const isEmbroidery = data.printMethod === "embroidery";
+  const placementsHtml = data.placements.length
+    ? data.placements
+        .map((p) => {
+          const label = PRINT_LOCATION_LABEL[p.location] ?? p.location;
+          const detail = isEmbroidery
+            ? "Embroidery"
+            : `${p.colors >= 5 ? "5+" : p.colors} colour${p.colors === 1 ? "" : "s"}`;
+          return `<div style="padding:2px 0;color:#1b1458;font-size:15px;"><strong>${esc(label)}</strong> — ${esc(detail)}</div>`;
+        })
+        .join("")
+    : // Fallback to the legacy flat fields if an old client somehow omits placements.
+      `<div style="color:#1b1458;font-size:15px;">${esc(
+        [data.printColors && `${data.printColors} colours`, data.printLocations.join(", ")]
+          .filter(Boolean)
+          .join(" · ") || "—",
+      )}</div>`;
+
   const priceMatchLinkHtml = data.priceMatchLink
     ? `<div><a href="${esc(data.priceMatchLink)}" style="color:#7664ff;font-weight:600;word-break:break-all;">${esc(data.priceMatchLink)}</a></div>`
     : "";
@@ -199,8 +238,7 @@ function renderEmailHtml(
         ${row("Quantity", data.quantity)}
         ${row("Sizes", sizesLine)}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
-        ${row("Print colors", data.printColors)}
-        ${row("Print locations", data.printLocations.join(", "))}
+        <tr><td style="padding:6px 12px;color:#4a3f9e;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;" valign="top">Print detail</td><td style="padding:6px 12px;">${placementsHtml}</td></tr>
         ${row("Print method", data.printMethod)}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
         ${row("Needed by", data.neededBy || "—")}
@@ -270,6 +308,22 @@ function validatePayload(raw: unknown): QuoteFormData | null {
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const arr = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
   const bool = (v: unknown) => v === true;
+  const placementsIn = (v: unknown): PrintPlacement[] => {
+    if (!Array.isArray(v)) return [];
+    const out: PrintPlacement[] = [];
+    for (const item of v) {
+      if (!item || typeof item !== "object") continue;
+      const o = item as Record<string, unknown>;
+      const location = str(o.location).trim();
+      if (!location) continue;
+      const c = typeof o.colors === "number" && Number.isFinite(o.colors) ? o.colors : 1;
+      out.push({
+        location: location as PrintLocation,
+        colors: Math.max(1, Math.min(5, Math.floor(c))),
+      });
+    }
+    return out;
+  };
   const sizesIn = (v: unknown): SizeBreakdown => {
     if (!v || typeof v !== "object") return {};
     const src = v as Record<string, unknown>;
@@ -296,6 +350,7 @@ function validatePayload(raw: unknown): QuoteFormData | null {
     sizes: sizesIn(o.sizes),
     sizesLater: bool(o.sizesLater),
     quantity: str(o.quantity).trim(),
+    placements: placementsIn(o.placements),
     printColors: str(o.printColors),
     printLocations: arr(o.printLocations) as QuoteFormData["printLocations"],
     printMethod: (str(o.printMethod) || "not-sure") as QuoteFormData["printMethod"],

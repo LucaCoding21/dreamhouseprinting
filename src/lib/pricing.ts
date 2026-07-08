@@ -228,6 +228,58 @@ export function calculateQuote(
   return { available: true, perUnit, total: perUnit * qty };
 }
 
+// Screen-print surcharge for a single location's colour count — the TOTAL extra
+// over the 1 colour a location already includes (0 for a 1-colour print). Used
+// per-location so a 4-colour back is costed on its own screens, not the front's.
+export function colourSurcharge(colors: number): number {
+  return EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colors, 1), 5)] ?? 0;
+}
+
+// Per-location pricing entry point (Coastal-Reign style). Instead of one global
+// colour count, callers pass the colour count for EACH print location. This
+// prices multi-location jobs accurately: every location carries its own colour
+// screens plus the per-extra-location fee, so "2 colours on 3 locations" costs
+// more than "1 colour on 3 locations" (the old flat-per-location math missed
+// this).
+//
+//   perUnit = base garment (incl. 1 location, 1 colour)
+//           + Σ colourSurcharge(location colours)   [screen print only]
+//           + (locations − 1) × extra-location fee
+//
+// The base already bakes in one 1-colour location; the extra-location fee stands
+// in for adding a 1-colour print at a new spot, and colourSurcharge tops up each
+// spot's additional colours. Embroidery is priced by location only — colours
+// don't change the stitch cost, so coloursPerLocation is used only for its
+// LENGTH (the number of locations).
+export function calculateQuoteByLocation(
+  product: PricedProduct,
+  qty: number,
+  decoration: Decoration,
+  coloursPerLocation: number[],
+): PriceQuote {
+  if (qty <= 0) return { available: false };
+
+  const breaks = BASE_PRICE[product][decoration];
+  if (!breaks) return { available: false };
+
+  const base = priceAtQty(breaks, qty);
+  const locations = Math.max(1, coloursPerLocation.length);
+
+  const colourSurchargeTotal =
+    decoration === "screen"
+      ? coloursPerLocation.reduce((sum, c) => sum + colourSurcharge(c), 0)
+      : 0;
+
+  const extraLocations = locations - 1;
+  const locationSurcharge =
+    extraLocations > 0
+      ? extraLocations * priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], qty)
+      : 0;
+
+  const perUnit = base + colourSurchargeTotal + locationSurcharge;
+  return { available: true, perUnit, total: perUnit * qty };
+}
+
 // Maps the form's coarser ProductType onto a priced SKU. Everything maps 1:1
 // except "hats" (the form can't tell toque from dad-cap) and "other" (no data),
 // which return null (no estimate).

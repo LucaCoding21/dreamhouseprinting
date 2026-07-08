@@ -27,6 +27,11 @@ export type PrintLocation =
   | "sleeve-left"
   | "sleeve-right";
 
+// One decorated spot: where it goes + how many print colours it uses. Colours
+// are only meaningful for screen print (embroidery is priced by location), so
+// for embroidery `colors` is carried but ignored by pricing.
+export type PrintPlacement = { location: PrintLocation; colors: number };
+
 export type QuoteFormData = {
   // Step 1 — Contact
   name: string;
@@ -43,6 +48,10 @@ export type QuoteFormData = {
   quantity: string;
 
   // Step 3 — Print
+  // `placements` is the source of truth: per-location colour detail. The flat
+  // `printColors` / `printLocations` are kept as derived legacy fields (existing
+  // DB columns + back-compat) — see derivePrint().
+  placements: PrintPlacement[];
   printColors: string;
   printLocations: PrintLocation[];
   printMethod: PrintMethod;
@@ -113,6 +122,16 @@ export const PRINT_LOCATIONS: { value: PrintLocation; label: string }[] = [
   { value: "sleeve-right", label: "Right sleeve" },
 ];
 
+export const PRINT_LOCATION_LABEL: Record<PrintLocation, string> =
+  Object.fromEntries(
+    PRINT_LOCATIONS.map((l) => [l.value, l.label]),
+  ) as Record<PrintLocation, string>;
+
+// Colour count shown to the customer (screen caps at "5+").
+export function colorLabel(colors: number): string {
+  return colors >= 5 ? "5+" : String(Math.max(1, colors));
+}
+
 export const PRINT_METHOD_OPTIONS: { value: PrintMethod; label: string }[] = [
   { value: "not-sure", label: "Not sure — Julian figures it out" },
   { value: "screen", label: "Screen print" },
@@ -131,6 +150,7 @@ export const emptyFormData: QuoteFormData = {
   sizes: {},
   sizesLater: false,
   quantity: "",
+  placements: [],
   printColors: "",
   printLocations: [],
   printMethod: "not-sure",
@@ -147,4 +167,20 @@ export function sumSizes(sizes: SizeBreakdown): number {
     const n = Number(sizes[k] ?? "");
     return total + (Number.isFinite(n) && n > 0 ? n : 0);
   }, 0);
+}
+
+// Derive the legacy flat fields from the per-location placements so the existing
+// DB columns and any old readers keep working. `printColors` becomes the max
+// colour count across locations (the screen-heavy spot), which matches how the
+// single-value field was interpreted before.
+export function derivePrint(placements: PrintPlacement[]): {
+  printColors: string;
+  printLocations: PrintLocation[];
+} {
+  if (placements.length === 0) return { printColors: "", printLocations: [] };
+  const maxColors = placements.reduce((m, p) => Math.max(m, p.colors), 1);
+  return {
+    printColors: maxColors >= 4 ? "4+" : String(maxColors),
+    printLocations: placements.map((p) => p.location),
+  };
 }
