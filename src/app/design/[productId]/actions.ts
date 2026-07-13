@@ -35,7 +35,12 @@ export interface DesignSubmitInput {
   colorways: DesignColorway[];
   decorationMethodId: string | null;
   printAreaIds: string[];
+  /** Fabric scene JSON per view. Image srcs must NOT be data URLs — the client
+   *  stages those to Storage and sends `dh-staged:<path>` markers instead (big
+   *  photos/PDF pages as data URLs blew the server-action body limit). */
   scenes: Record<string, unknown>;
+  /** Storage objects backing the `dh-staged:` markers inside `scenes`. */
+  sceneImages?: { bucket: string; path: string }[];
   mockups: { view: string; bucket: string; path: string }[];
   artwork: { name: string; bucket: string; path: string }[];
   priceSnapshot: {
@@ -45,6 +50,18 @@ export interface DesignSubmitInput {
     total: number;
     quantity: number;
     rush?: boolean;
+    /** Colour count the estimate was priced with (artist confirms at proofing). */
+    inkColours?: number;
+    /** Per-side print spec derived in the designer (real measurement + colour
+     *  count) — pre-fills the admin decoration sheet on order placement. */
+    decorationSpots?: {
+      view: string;
+      location: string;
+      type: string;
+      widthIn: string;
+      heightIn: string;
+      colours: string;
+    }[];
   };
   notes?: string;
   asQuote?: boolean;
@@ -63,6 +80,23 @@ async function signAll(
   return out;
 }
 
+/** Replace `dh-staged:<path>` image markers in Fabric scene JSON with signed
+ *  URLs (recursing into groups). Mutates the scene objects in place. */
+function rewriteStagedSrcs(node: unknown, urlOfPath: (path: string) => string | null): void {
+  if (Array.isArray(node)) {
+    node.forEach((n) => rewriteStagedSrcs(n, urlOfPath));
+    return;
+  }
+  if (node && typeof node === "object") {
+    const rec = node as Record<string, unknown>;
+    if (typeof rec.src === "string" && rec.src.startsWith("dh-staged:")) {
+      const url = urlOfPath(rec.src.slice("dh-staged:".length));
+      if (url) rec.src = url;
+    }
+    if (Array.isArray(rec.objects)) rewriteStagedSrcs(rec.objects, urlOfPath);
+  }
+}
+
 /** Persist a Design (draft or submitted) with its mockups + artwork. Shared by save + submit. */
 async function persistDesign(
   service: ReturnType<typeof requireSupabaseServiceClient>,
@@ -70,10 +104,14 @@ async function persistDesign(
   input: DesignSubmitInput,
   status: "draft" | "submitted"
 ): Promise<{ id: string; created: boolean; mockupUrl: string | null }> {
-  const signed = await signAll(service, [...input.mockups, ...input.artwork]);
+  const sceneImages = input.sceneImages ?? [];
+  const signed = await signAll(service, [...input.mockups, ...input.artwork, ...sceneImages]);
   const mockupImages = input.mockups.map((m) => ({ view: m.view, path: m.path, url: signed[m.path] ?? null }));
   const sourceArtwork = input.artwork.map((a) => ({ name: a.name, path: a.path, url: signed[a.path] ?? null }));
   const mockupUrl = mockupImages.find((m) => m.url)?.url ?? null;
+  // Point staged scene images at their (year-long) signed URLs so the canvas
+  // can rehydrate the design later.
+  Object.values(input.scenes ?? {}).forEach((scene) => rewriteStagedSrcs(scene, (p) => signed[p] ?? null));
 
   const isUser = "userId" in owner;
   const row = {
@@ -207,6 +245,17 @@ export async function submitDesignAction(
       .single();
     if (orderErr) throw new Error(orderErr.message);
 
+    // Pre-fill the admin decoration sheet from the designer-derived spec.
+    const spots = (input.priceSnapshot.decorationSpots ?? []).map((s) => ({
+      location: s.location || s.view,
+      type: s.type,
+      widthIn: s.widthIn,
+      heightIn: s.heightIn,
+      colours: s.colours,
+      pantones: [] as string[],
+      puff: false,
+      spotProcess: false,
+    }));
     const { error: liErr } = await service.from("line_items").insert({
       order_id: order.id,
       product_id: input.productId,
@@ -218,6 +267,9 @@ export async function submitDesignAction(
       unit_price: input.priceSnapshot.unitPrice,
       setup_fee: input.priceSnapshot.setupTotal,
       line_total: input.priceSnapshot.total,
+      ...(spots.length
+        ? { decorations: asJson({ spots, bagging: false, sewnTags: false, priceConfirmed: false }) }
+        : {}),
     });
     if (liErr) throw new Error(liErr.message);
 

@@ -218,13 +218,16 @@ export default async function AdminDashboardPage({
   const needsProof = orders.filter((o) => inStatus(["submitted", "in_review"], o));
   const awaitingApproval = orders.filter((o) => o.order.status === "proof_ready");
   const changesRequested = orders.filter((o) => o.order.status === "changes_requested");
-  const readyToInvoice = orders.filter(
+  // Approve-and-pay: approved-or-beyond unpaid orders are payable self-serve
+  // from the customer's order page — one queue, whether or not a payment-link
+  // email (invoice) also went out.
+  const awaitingPayment = orders.filter(
     (o) =>
-      inStatus(ACTIVE_FULFILMENT, o) &&
-      !o.order.invoice_sent_at &&
-      o.order.payment_status === "unpaid"
+      (inStatus(ACTIVE_FULFILMENT, o) || o.order.invoice_sent_at) &&
+      !o.order.paid_at &&
+      o.order.payment_status === "unpaid" &&
+      o.order.status !== "cancelled"
   );
-  const invoicedUnpaid = orders.filter((o) => o.order.invoice_sent_at && !o.order.paid_at);
   const inProduction = orders.filter((o) => inStatus(PRODUCTION_STATUSES, o));
   const dueSoon = orders
     .filter(
@@ -238,9 +241,8 @@ export default async function AdminDashboardPage({
   const queues: Queue[] = [
     { key: "needs-proof", title: "Needs proof", tab: "new", items: needsProof },
     { key: "awaiting-approval", title: "Awaiting customer approval", tab: "proofing", items: awaitingApproval },
-    { key: "changes-requested", title: "Changes requested", tab: "proofing", items: changesRequested },
-    { key: "ready-to-invoice", title: "Ready to invoice", tab: "production", items: readyToInvoice },
-    { key: "invoiced-unpaid", title: "Invoice sent — unpaid", tab: "production", items: invoicedUnpaid },
+    { key: "changes-requested", title: "Changes requested", tab: "declined", items: changesRequested },
+    { key: "awaiting-payment", title: "Awaiting payment", tab: "production", items: awaitingPayment },
     { key: "in-production", title: "In production", tab: "production", items: inProduction },
     { key: "due-soon", title: "Due soon / overdue", tab: "all", items: dueSoon },
   ];

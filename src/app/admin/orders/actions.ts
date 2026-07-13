@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission, getProfile, hasPermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
-import { sendOrderStatusEmail, sendOrderEmail } from "@/lib/notify";
+import { sendOrderStatusEmail, sendOrderEmail, sendOrderCommentEmail } from "@/lib/notify";
 import { ensureCheckoutSession } from "@/lib/orders/payments";
 import type { Json, Database } from "@/lib/db/types";
 import type { OrderStatus, PaymentStatus, ProductionNotesJson } from "@/lib/db/rows";
+import type { LineProductionStatus } from "@/lib/lineProduction";
+import { mergeAddonSettings, lineAddonTotal } from "@/lib/addonSettings";
+import { resolveDiscount, type DiscountType } from "@/lib/pricing/discount";
 
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
 const asJson = (v: unknown) => v as unknown as Json;
@@ -108,13 +111,30 @@ export async function addOrderNoteAction(
   const { error } = await service.from("orders").update(patch).eq("id", orderId);
   if (error) return { error: error.message };
   await logActivity(service, orderId, "note", { visibility });
+  // A customer-visible comment reaches the customer's inbox too, with a link
+  // back to their order page. Internal notes stay internal.
+  if (visibility === "customer") {
+    await sendOrderCommentEmail(orderId, text);
+  }
   revalidateOrder(orderId);
   return { ok: true };
 }
 
 export async function updateOrderPricingAction(
   orderId: string,
-  pricing: { subtotal: number; setupFees: number; rush: number; shipping: number; tax: number; total: number }
+  pricing: {
+    subtotal: number;
+    setupFees: number;
+    rush: number;
+    addons: number;
+    shipping: number;
+    tax: number;
+    total: number;
+    discountType?: DiscountType;
+    discountValue?: number;
+    discountLabel?: string;
+    discount?: number;
+  }
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.pricing");
   const service = requireSupabaseServiceClient();
@@ -203,6 +223,16 @@ export interface LineItemDecorations {
   bagging: boolean;
   sewnTags: boolean;
   priceConfirmed: boolean;
+  /** Per-line production tracking (independent of the order status). */
+  productionStatus?: LineProductionStatus;
+  /** Manufacturing instructions for this line (e.g. white underbase on darks). */
+  productionNotes?: string;
+  /** Private team notes — never shown to the customer. */
+  internalNotes?: string;
+  /** Info for the shipping label (e.g. gate code, delivery instructions). */
+  shippingNotes?: string;
+  /** Manual queue order within the order (lower = higher up). */
+  position?: number;
 }
 
 export interface LineItemPatch {
@@ -219,19 +249,53 @@ const sumSizes = (sq: Record<string, number>) =>
 
 /** Recompute order pricing from its line items (subtotal excludes setup, which lives on the lines). */
 async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServiceClient>, orderId: string) {
-  const [{ data: items }, { data: order }] = await Promise.all([
-    service.from("line_items").select("unit_price, size_quantities").eq("order_id", orderId),
+  const [{ data: items }, { data: order }, { data: addonRow }] = await Promise.all([
+    service.from("line_items").select("unit_price, size_quantities, decorations").eq("order_id", orderId),
     service.from("orders").select("pricing").eq("id", orderId).single(),
+    service.from("settings").select("value").eq("key", "addons").maybeSingle(),
   ]);
-  const pricing = (order?.pricing ?? {}) as { setupFees?: number; rush?: number; shipping?: number; tax?: number };
+  const pricing = (order?.pricing ?? {}) as {
+    setupFees?: number;
+    rush?: number;
+    shipping?: number;
+    tax?: number;
+    discountType?: DiscountType;
+    discountValue?: number;
+    discountLabel?: string;
+  };
+  const addonSettings = mergeAddonSettings(addonRow?.value);
   const subtotal = round2(
     (items ?? []).reduce((sum, li) => sum + li.unit_price * sumSizes((li.size_quantities ?? {}) as Record<string, number>), 0)
+  );
+  // Per-unit add-on charges (bagging / sewn tags / spot process) driven by the line checkboxes.
+  const addons = round2(
+    (items ?? []).reduce((sum, li) => {
+      const dec = (li.decorations ?? {}) as Partial<LineItemDecorations>;
+      return sum + lineAddonTotal(dec, sumSizes((li.size_quantities ?? {}) as Record<string, number>), addonSettings);
+    }, 0)
   );
   const setupFees = pricing.setupFees ?? 0;
   const rush = pricing.rush ?? 0;
   const shipping = pricing.shipping ?? 0;
   const tax = pricing.tax ?? 0;
-  const next = { subtotal, setupFees, rush, shipping, tax, total: round2(subtotal + setupFees + rush + shipping + tax) };
+  // Preserve the admin's manual discount across auto-recompute (re-resolve against the new goods).
+  const discountType = pricing.discountType;
+  const discountValue = pricing.discountValue;
+  const discountLabel = pricing.discountLabel;
+  const discount = resolveDiscount(subtotal + setupFees + rush + addons, { discountType, discountValue });
+  const next = {
+    subtotal,
+    setupFees,
+    rush,
+    addons,
+    shipping,
+    tax,
+    discountType,
+    discountValue,
+    discountLabel,
+    discount,
+    total: round2(subtotal + setupFees + rush + addons - discount + shipping + tax),
+  };
   await service.from("orders").update({ pricing: asJson(next) }).eq("id", orderId);
   return next;
 }
@@ -291,50 +355,63 @@ export async function deleteLineItemAction(
 }
 
 /** Upload an official mockup/proof (already staged in the proofs bucket) and move to proof_ready. */
-export async function uploadProofAction(
+export async function uploadProofsAction(
   orderId: string,
-  proofPath: string,
+  proofPaths: string[],
   lineItemId?: string
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("proofs.manage");
   const service = requireSupabaseServiceClient();
   const profile = await getProfile();
 
-  const { data: signed } = await service.storage.from("proofs").createSignedUrl(proofPath, YEAR);
-  const url = signed?.signedUrl ?? null;
-  if (!url) return { error: "Could not sign the uploaded proof." };
+  const paths = proofPaths.filter(Boolean);
+  if (paths.length === 0) return { error: "No proof files to send." };
 
-  const { error: pErr } = await service.from("proofs").insert({
-    order_id: orderId,
-    line_item_id: lineItemId ?? null,
-    image: url,
-    status: "pending",
-    created_by: profile?.id ?? null,
-  });
+  // Sign every uploaded file (front / back / …); a single unsignable file
+  // fails the whole batch so the customer never gets a partial proof set.
+  const signed: { url: string; path: string }[] = [];
+  for (const path of paths) {
+    const { data } = await service.storage.from("proofs").createSignedUrl(path, YEAR);
+    if (!data?.signedUrl) return { error: "Could not sign one of the uploaded proofs." };
+    signed.push({ url: data.signedUrl, path });
+  }
+
+  const { error: pErr } = await service.from("proofs").insert(
+    signed.map((s) => ({
+      order_id: orderId,
+      line_item_id: lineItemId ?? null,
+      image: s.url,
+      status: "pending" as const,
+      created_by: profile?.id ?? null,
+    }))
+  );
   if (pErr) return { error: pErr.message };
 
-  // Append to official mockups and advance status.
+  // Append all to official mockups and advance status once.
   const { data: order } = await service.from("orders").select("official_mockups").eq("id", orderId).single();
   const mockups = (order?.official_mockups ?? []) as { url: string; path: string }[];
   await service
     .from("orders")
     .update({
-      official_mockups: asJson([...mockups, { url, path: proofPath }]),
+      official_mockups: asJson([...mockups, ...signed]),
       status: "proof_ready",
     })
     .eq("id", orderId);
 
-  await logActivity(service, orderId, "proof_uploaded", {});
+  await logActivity(service, orderId, "proof_uploaded", { count: signed.length });
+  // One email for the whole set — the proof page shows every image.
   await sendOrderStatusEmail(orderId, "proof_ready");
   revalidateOrder(orderId);
   return { ok: true };
 }
 
 /**
- * Send (or re-send) the invoice: mint/reuse a Stripe Checkout session for the
- * current order total, stamp invoice fields, and email the customer their
- * public order link with the Pay button. Requires the pricing permission —
- * a human confirms the price before the customer can pay.
+ * Email (or re-email) the payment link: mint/reuse a Stripe Checkout session
+ * for the current order total, stamp invoice fields, and send the customer
+ * their public order link with the Pay button. OPTIONAL in the approve-and-pay
+ * flow (an approved order is payable self-serve) — this is the nudge/reminder,
+ * and the only way to open payment BEFORE proof approval. Requires the pricing
+ * permission.
  */
 export async function sendInvoiceAction(orderId: string): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.pricing");

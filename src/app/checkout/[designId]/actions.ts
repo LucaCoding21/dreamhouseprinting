@@ -2,7 +2,6 @@
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
-import { rushFee } from "@/lib/pricing/rush";
 import { roundCents, formatCAD } from "@/lib/money";
 import { sendOrderStatusEmail, notifyJulian } from "@/lib/notify";
 import { resolveCheckoutAuth } from "./context";
@@ -47,6 +46,37 @@ interface StoredSnapshot {
   setupTotal?: number;
   total?: number;
   quantity?: number;
+  decorationSpots?: {
+    view?: string;
+    location?: string;
+    type?: string;
+    widthIn?: string;
+    heightIn?: string;
+    colours?: string;
+  }[];
+}
+
+/**
+ * Pre-fill the admin decoration sheet (line_items.decorations) from the spec
+ * the designer derived — real measured print size + colour count — so the
+ * artist starts from real values instead of blanks. Returns null when the
+ * design predates the spec (the sheet then starts empty, as before).
+ */
+function decorationsFromSnapshot(snap: StoredSnapshot) {
+  const spots = (snap.decorationSpots ?? [])
+    .filter((s) => s.location || s.view)
+    .map((s) => ({
+      location: s.location || s.view || "",
+      type: s.type ?? "",
+      widthIn: s.widthIn ?? "",
+      heightIn: s.heightIn ?? "",
+      colours: s.colours ?? "",
+      pantones: [] as string[],
+      puff: false,
+      spotProcess: false,
+    }));
+  if (spots.length === 0) return null;
+  return { spots, bagging: false, sewnTags: false, priceConfirmed: false };
 }
 
 export interface CheckoutContactInput {
@@ -136,8 +166,8 @@ export interface PlaceOrderInput {
 
 /**
  * The end of the checkout funnel: turns the saved design + the profile's
- * contact/address into a real Order (this is where the DH-2026-xxxx number is
- * finally assigned). Tax is computed from the saved province; shipping is free
+ * contact/address into a real Order (this is where the order number, a plain
+ * 1000+ integer, is finally assigned by a DB trigger). Tax is computed from the saved province; shipping is free
  * for now. No payment is taken — the order lands as submitted/unpaid for Julian
  * to review and proof.
  */
@@ -184,12 +214,13 @@ export async function placeOrderAction(
   const snap = (design.price_snapshot ?? {}) as StoredSnapshot;
   const subtotal = Number(snap.subtotal ?? 0);
   const setup = Number(snap.setupTotal ?? 0);
-  // Rush is a real fee now (50% of goods + setup), part of the taxable job price.
-  const rush = rushFee(subtotal, setup, input.turnaround === "rush");
+  // Rush is a request, not a fixed surcharge — the shop quotes the real fee when
+  // they confirm the order, so nothing is added to the customer's total here.
+  const rush = 0;
   const province = isProvinceCode(address.prov) ? address.prov : null;
-  const tax = calcTax(subtotal + setup + rush, province).total;
+  const tax = calcTax(subtotal + setup, province).total;
   const shipping = 0;
-  const total = roundCents(subtotal + setup + rush + shipping + tax);
+  const total = roundCents(subtotal + setup + shipping + tax);
 
   const { data: product } = design.product_id
     ? await service.from("products").select("name, lead_time_days").eq("id", design.product_id).single()
@@ -203,7 +234,7 @@ export async function placeOrderAction(
     notes.push({
       at: new Date().toISOString(),
       actor: "customer",
-      text: "Rush turnaround requested — 50% rush fee applied.",
+      text: "Rush turnaround requested — confirm timeline and quote the rush fee.",
     });
   }
 
@@ -243,6 +274,9 @@ export async function placeOrderAction(
         },
       ];
 
+  // Same artwork on every colourway, so every line gets the same pre-filled
+  // decoration spec (measured size + colour count from the designer).
+  const decorations = decorationsFromSnapshot(snap);
   const lineRows = colorways.map((cw, i) => ({
     order_id: order.id,
     product_id: design.product_id,
@@ -254,6 +288,7 @@ export async function placeOrderAction(
     unit_price: Number(cw.unitPrice ?? 0),
     setup_fee: i === 0 ? setup : 0,
     line_total: roundCents(Number(cw.lineTotal ?? 0) + (i === 0 ? setup : 0)),
+    ...(decorations ? { decorations: asJson(decorations) } : {}),
   }));
   const { error: liErr } = await service.from("line_items").insert(lineRows);
   if (liErr) return { error: liErr.message };
@@ -279,7 +314,7 @@ export async function placeOrderAction(
       `New order ${order.order_number ?? order.id} — ${formatCAD(total)}`,
       [
         `${address?.name || "A customer"} placed ${order.order_number ?? "an order"} for ${formatCAD(total)}.`,
-        input.turnaround === "rush" ? "RUSH turnaround requested (50% fee applied)." : null,
+        input.turnaround === "rush" ? "RUSH turnaround requested — confirm timeline and quote the fee." : null,
         `Review it: ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/orders/${order.id}`,
       ]
         .filter(Boolean)

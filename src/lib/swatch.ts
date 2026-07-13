@@ -97,6 +97,33 @@ export function sortColours<T extends { name: string; hex: string }>(colours: T[
 }
 
 /**
+ * A colour that reads as "blank" on the white product card — pure whites and the
+ * palest naturals. Used so cards don't all default to their white colorway (a
+ * white shirt on a white card looks like an empty tile).
+ */
+export function isNearWhite(c: { name: string; hex: string | null }): boolean {
+  if (/\b(white|natural|ivory|cream)\b/i.test(c.name)) return true;
+  const rgb = hexToRgb(c.hex ?? "") ?? hexToRgb(nameToHex(c.name) ?? "");
+  return rgb ? luminance(rgb) >= 0.85 : false;
+}
+
+/**
+ * The colour whose front image best represents a product on a card: the owner's
+ * pinned pick (`primary`), else the most-popular non-near-white colour, else any
+ * colour with a front image. Returns undefined if none have a front image.
+ */
+export function heroColour<
+  T extends { name: string; hex: string; images?: { front: string | null } | null; primary?: boolean }
+>(colours: T[]): T | undefined {
+  const withFront = colours.filter((c) => c.images?.front);
+  if (withFront.length === 0) return undefined;
+  const pinned = withFront.find((c) => c.primary);
+  if (pinned) return pinned;
+  const sorted = sortColours(withFront);
+  return sorted.find((c) => !isNearWhite(c)) ?? sorted[0];
+}
+
+/**
  * Build the swatch background. Two-tone colours ("Natural/Black") render as a
  * diagonal split — body colour on one half, trim colour on the other.
  */

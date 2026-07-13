@@ -90,7 +90,7 @@ export default function Home() {
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
               {/* Mobile/tablet: single primary CTA pointing at the instant
                   quote calculator on this page. Desktop keeps the original
-                  two buttons (Start your order + outline Get a quick quote). */}
+                  two buttons (Start designing → /shop + outline Get a quick quote). */}
               <a
                 href="#quick-quote"
                 className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-12 py-5 font-display text-xl font-bold text-white transition-transform hover:-translate-y-0.5 lg:hidden"
@@ -98,10 +98,10 @@ export default function Home() {
                 Get a quick quote
               </a>
               <a
-                href="#quick-quote"
+                href="/shop"
                 className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 lg:inline-flex min-[1273px]:px-12 min-[1273px]:py-6 min-[1273px]:text-xl"
               >
-                Start your order
+                Start designing
               </a>
               <a
                 href="#quick-quote"

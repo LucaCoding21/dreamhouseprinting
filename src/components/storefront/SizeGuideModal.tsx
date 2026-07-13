@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Dialog, DialogContent } from "@/components/ui/Dialog";
 import { Spinner } from "@/components/ui/Spinner";
 import { loadSizeGuide } from "@/app/shop/[id]/size-guide-action";
@@ -79,8 +80,11 @@ export function SizeGuideModal({
 
             {state.status === "loaded" && !state.guide && (
               <p className="py-12 text-center text-sm text-dream-muted">
-                No measurements are published for this product. Reach out and we&rsquo;ll help you
-                find the right fit.
+                No measurements are published for this product.{" "}
+                <Link href="/contact" className="font-semibold text-dream-purple hover:underline">
+                  Contact us
+                </Link>{" "}
+                and we&rsquo;ll help you find the right fit.
               </p>
             )}
 

@@ -6,12 +6,20 @@ import {
   getProductById,
   getActiveProducts,
   getCategories,
+  getActiveDecorationMethods,
 } from "@/lib/db/catalog";
 import type { ProductSizeJson, ProductPhotoJson, ProductQuoteCurveJson } from "@/lib/db/rows";
 import { enabledColours } from "@/lib/productImage";
-import { startingAtPrice } from "@/lib/pricing/platform";
+import {
+  shopPrice,
+  curveForProduct,
+  startingFromCurve,
+  allowedCurveDecorations,
+  decorationForMethodSlug,
+} from "@/lib/pricing/quote";
 import { ProductGallery } from "./ProductGallery";
 import { ProductCard } from "@/components/storefront/ProductCard";
+import { HelpPrompt } from "@/components/support/HelpPrompt";
 
 export async function generateMetadata({
   params,
@@ -60,10 +68,31 @@ export default async function ProductDetailPage({
     .filter((p) => p.id !== product.id)
     .slice(0, 5);
 
-  const starting = startingAtPrice(product);
   const quoteCurve =
     ((product.pricing_rules as { quote?: ProductQuoteCurveJson } | null)?.quote ??
       null) as ProductQuoteCurveJson | null;
+
+  // Decoration methods this product actually offers customers: the admin's
+  // per-product toggles (allowed_decoration_method_ids), and, when the product
+  // is curve-priced, only methods the curve can price (mirrors the designer).
+  const methods = await getActiveDecorationMethods();
+  const allowedIds = new Set((product.allowed_decoration_method_ids ?? []) as string[]);
+  const allowedSlugs = methods.filter((m) => allowedIds.has(m.id)).map((m) => m.slug);
+  const curve = curveForProduct(product);
+  const offeredDecorations = curve ? allowedCurveDecorations(curve, allowedSlugs) : null;
+  const offeredMethodNames = methods
+    .filter((m) => allowedIds.has(m.id))
+    .filter((m) => {
+      if (!curve) return true;
+      const d = decorationForMethodSlug(m.slug);
+      return d !== null && (curve.breaks[d] ?? []).length > 0;
+    })
+    .map((m) => m.name);
+
+  const starting =
+    curve && offeredDecorations
+      ? { amount: startingFromCurve(curve, offeredDecorations), label: "as low as" as const }
+      : shopPrice(product);
 
   // "Back to shop" returns to the listing the user came from (carried via ?from=,
   // so it preserves their category / search / sort). Only trust internal /shop
@@ -130,14 +159,23 @@ export default async function ProductDetailPage({
         colours={colours}
         sizes={sizes}
         extraPhotos={extraPhotos}
-        startingPrice={starting}
+        startingPrice={starting.amount}
         quoteCurve={quoteCurve}
+        allowedDecorations={offeredDecorations ?? undefined}
+        decorationNames={offeredMethodNames}
         description={product.description}
         leadTimeDays={product.lead_time_days}
       />
 
       {/* Value props */}
       <ValueProps />
+
+      {/* Help nudge — a person to ask before committing to a custom job */}
+      <HelpPrompt
+        title="Have a question about this product?"
+        body="Not sure on sizing, colours, or artwork? Ask us before you order. A real person will help."
+        className="mt-6"
+      />
 
       {/* You might also like */}
       {related.length > 0 && (

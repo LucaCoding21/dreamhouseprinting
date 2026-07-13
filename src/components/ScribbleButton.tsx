@@ -29,8 +29,13 @@ function Inner({
   rotate: number;
   size?: "sm" | "md";
 }) {
+  // "md" compresses on laptop widths (xl) and relaxes back to the full
+  // desktop proportions at 2xl — the nav row doesn't fit six full-size
+  // pills plus logo/search/CTA until ~1536px.
   const sizeClass =
-    size === "sm" ? "px-6 py-2.5 text-[15px]" : "px-8 py-3.5 text-[17px]";
+    size === "sm"
+      ? "px-6 py-2.5 text-[15px]"
+      : "px-4 py-2.5 text-[15px] 2xl:px-8 2xl:py-3.5 2xl:text-[17px]";
   return (
     <span
       className={`relative inline-flex items-center justify-center font-display font-medium text-dream-ink ${sizeClass}`}

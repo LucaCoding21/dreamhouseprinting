@@ -25,6 +25,11 @@ export interface ProductColourJson {
   ssColorCode: string;
   inStock: boolean;
   images: { front: string | null; back: string | null; side: string | null; model: string | null };
+  /** Admin flags (only present when set). `primary` pins this colour as the card
+   *  thumbnail; `primaryView` picks which of its shots to show (default: model). */
+  enabled?: boolean;
+  primary?: boolean;
+  primaryView?: "model" | "flat";
 }
 export interface ProductSizeJson {
   name: string;

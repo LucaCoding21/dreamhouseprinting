@@ -22,6 +22,8 @@ export type { LabelProps } from "./Label";
 export { Field } from "./Field";
 export type { FieldProps } from "./Field";
 
+export { InfoTip } from "./InfoTip";
+
 export { Checkbox } from "./Checkbox";
 export type { CheckboxProps } from "./Checkbox";
 

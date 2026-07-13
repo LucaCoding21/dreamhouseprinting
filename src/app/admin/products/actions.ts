@@ -119,6 +119,8 @@ export interface ProductConfigInput {
   stockStatus?: "in_stock" | "out_of_stock" | "made_to_order";
   enabledColours?: string[]; // names of S&S colours the shop offers (subset)
   enabledSizes?: string[];   // names of S&S sizes offered (subset)
+  thumbnailColour?: string | null; // colour pinned as the card thumbnail (null = auto)
+  thumbnailView?: "model" | "flat"; // which of the pinned colour's shots to show (default: model)
   quoteCurve?: ProductQuoteCurveJson; // storefront Detailed Quote price/tiers
 }
 
@@ -155,18 +157,31 @@ export async function updateProductAction(
     patch.pricing_rules = asJson({ ...existing, quote: input.quoteCurve });
   }
 
-  // Colour/size enablement: mark each S&S colour/size with an `enabled` flag.
-  if (input.enabledColours || input.enabledSizes) {
+  // Colour/size enablement: mark each S&S colour/size with an `enabled` flag, and
+  // pin the thumbnail colour with a `primary` flag (only one colour carries it).
+  if (input.enabledColours || input.enabledSizes || input.thumbnailColour !== undefined) {
     const { data: prod } = await supabase
       .from("products")
       .select("colours, sizes")
       .eq("id", id)
       .single();
     if (prod) {
-      if (input.enabledColours) {
-        const set = new Set(input.enabledColours);
+      if (input.enabledColours || input.thumbnailColour !== undefined) {
+        const enabledSet = input.enabledColours ? new Set(input.enabledColours) : null;
         patch.colours = asJson(
-          (prod.colours as unknown as { name: string }[]).map((c) => ({ ...c, enabled: set.has(c.name) }))
+          (prod.colours as unknown as Record<string, unknown>[]).map((c) => {
+            const name = c.name as string;
+            const out: Record<string, unknown> = { ...c };
+            if (enabledSet) out.enabled = enabledSet.has(name);
+            if (input.thumbnailColour !== undefined) {
+              const isPrimary = name === input.thumbnailColour;
+              out.primary = isPrimary;
+              // primaryView only rides the pinned colour; clear it elsewhere.
+              if (isPrimary && input.thumbnailView === "flat") out.primaryView = "flat";
+              else delete out.primaryView;
+            }
+            return out;
+          })
         );
       }
       if (input.enabledSizes) {
@@ -202,10 +217,20 @@ export async function syncProductAction(id: string): Promise<{ ok?: boolean; err
   try {
     const draft = await buildProductDraft(prod.ss_style_id);
 
-    // Preserve the admin `enabled` flags on colours/sizes across the sync.
-    const prevColours = new Map((prod.colours as unknown as { name: string; enabled?: boolean }[]).map((c) => [c.name, c.enabled]));
+    // Preserve the admin `enabled` flags and the pinned thumbnail (`primary` + `primaryView`) across the sync.
+    const prevColours = new Map(
+      (prod.colours as unknown as { name: string; enabled?: boolean; primary?: boolean; primaryView?: "model" | "flat" }[]).map((c) => [c.name, c])
+    );
     const prevSizes = new Map((prod.sizes as unknown as { name: string; enabled?: boolean }[]).map((s) => [s.name, s.enabled]));
-    const colours = draft.colours.map((c) => ({ ...c, enabled: prevColours.get(c.name) ?? true }));
+    const colours = draft.colours.map((c) => {
+      const prev = prevColours.get(c.name);
+      return {
+        ...c,
+        enabled: prev?.enabled ?? true,
+        ...(prev?.primary ? { primary: true } : {}),
+        ...(prev?.primary && prev.primaryView ? { primaryView: prev.primaryView } : {}),
+      };
+    });
     const sizes = draft.sizes.map((s) => ({ ...s, enabled: prevSizes.get(s.name) ?? true }));
 
     // Note: name & description are deliberately NOT updated — they may be

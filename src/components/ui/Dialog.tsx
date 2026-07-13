@@ -40,11 +40,16 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
   );
 }
 
-export type DialogContentProps = React.HTMLAttributes<HTMLDivElement>;
+export type DialogContentProps = React.HTMLAttributes<HTMLDivElement> & {
+  /** Optional classes for the backdrop. Global default is transparent (per
+   *  Julian); pass e.g. "bg-dream-overlay/50 backdrop-blur-sm" to dim behind. */
+  backdropClassName?: string;
+};
 
 export function DialogContent({
   className,
   children,
+  backdropClassName,
   ...props
 }: DialogContentProps) {
   const { open, onOpenChange, titleId, descId } = useDialog("DialogContent");
@@ -75,14 +80,14 @@ export function DialogContent({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onMouseDown={(e) => {
-        // Backdrop click (not a click that bubbled from the panel) closes.
-        if (e.target === e.currentTarget) onOpenChange(false);
-      }}
-    >
-      <div aria-hidden="true" className="absolute inset-0" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop sits behind the panel and covers the whole overlay, so a
+          click anywhere outside the panel lands here and closes the dialog. */}
+      <div
+        aria-hidden="true"
+        onMouseDown={() => onOpenChange(false)}
+        className={cn("absolute inset-0", backdropClassName)}
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -101,6 +106,34 @@ export function DialogContent({
       </div>
     </div>,
     document.body,
+  );
+}
+
+export function DialogClose({ className }: { className?: string }) {
+  const { onOpenChange } = useDialog("DialogClose");
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenChange(false)}
+      aria-label="Close"
+      className={cn(
+        "absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-lg text-dream-muted transition-colors hover:bg-dream-bg hover:text-dream-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple",
+        className,
+      )}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <path d="M4 4l8 8M12 4l-8 8" />
+      </svg>
+    </button>
   );
 }
 

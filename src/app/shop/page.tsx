@@ -12,7 +12,7 @@ import { ProductCard } from "@/components/storefront/ProductCard";
 import { SortSelect } from "@/components/storefront/SortSelect";
 import { ShopSearch } from "@/components/storefront/ShopSearch";
 import { EmptyState } from "@/components/ui";
-import { startingAtPrice } from "@/lib/pricing/platform";
+import { shopPrice } from "@/lib/pricing/quote";
 import { cn } from "@/lib/cn";
 
 interface ShopSearchParams {
@@ -130,9 +130,9 @@ async function DefaultView({ sort }: { sort?: string }) {
   const fetched = await getActiveProducts({ sort: dbSort, limit: 48 });
   const allProducts =
     sort === "price-asc"
-      ? [...fetched].sort((a, b) => startingAtPrice(a) - startingAtPrice(b))
+      ? [...fetched].sort((a, b) => shopPrice(a).amount - shopPrice(b).amount)
       : sort === "price-desc"
-        ? [...fetched].sort((a, b) => startingAtPrice(b) - startingAtPrice(a))
+        ? [...fetched].sort((a, b) => shopPrice(b).amount - shopPrice(a).amount)
         : fetched;
   const empty = allProducts.length === 0;
 
@@ -186,9 +186,9 @@ async function FilteredView({
   // Price sorts run on the computed "from" price (not a stored column).
   const products =
     sort === "price-asc"
-      ? [...fetched].sort((a, b) => startingAtPrice(a) - startingAtPrice(b))
+      ? [...fetched].sort((a, b) => shopPrice(a).amount - shopPrice(b).amount)
       : sort === "price-desc"
-        ? [...fetched].sort((a, b) => startingAtPrice(b) - startingAtPrice(a))
+        ? [...fetched].sort((a, b) => shopPrice(b).amount - shopPrice(a).amount)
         : fetched;
 
   const heading = search

@@ -9,7 +9,6 @@ import SiteFooter from "@/components/SiteFooter";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { calcTax, provinceName, isProvinceCode } from "@/lib/pricing/tax";
-import { rushFee } from "@/lib/pricing/rush";
 import { CheckoutHeader } from "../CheckoutClient";
 import { placeOrderAction } from "../actions";
 import type { ReviewContext } from "../context";
@@ -36,10 +35,12 @@ export function ReviewClient({
   const provLabel = isProvinceCode(contact.province) ? provinceName(contact.province) : contact.province;
   const addressLines = [contact.street, `${contact.city}, ${contact.province} ${contact.postal}`.trim(), "Canada"];
 
-  const rush = rushFee(summary.subtotal, summary.setup, turnaround === "rush");
-  const tax = calcTax(summary.subtotal + summary.setup + rush, province);
+  // Rush is a request, not a fixed surcharge — the shop quotes the fee when they
+  // confirm the order, so it never lands in this estimate.
+  const isRush = turnaround === "rush";
+  const tax = calcTax(summary.subtotal + summary.setup, province);
   const shipping = 0;
-  const total = summary.subtotal + summary.setup + rush + shipping + tax.total;
+  const total = summary.subtotal + summary.setup + shipping + tax.total;
 
   async function submit() {
     setError(null);
@@ -112,7 +113,7 @@ export function ReviewClient({
             <dl className="mt-4 space-y-3 text-sm">
               <MoneyRow label="Cart subtotal" value={formatCAD(summary.subtotal)} />
               {summary.setup > 0 && <MoneyRow label="Setup fees" value={formatCAD(summary.setup)} />}
-              {rush > 0 && <MoneyRow label="Rush (+50%)" value={formatCAD(rush)} />}
+              {isRush && <MoneyRow label="Rush requested" value="Fee quoted on your proof" muted />}
               <MoneyRow label="Shipping" value={formatCAD(shipping)} />
               {tax.lines.map((l) => (
                 <MoneyRow key={l.label} label={l.label} value={formatCAD(l.amount)} />
@@ -348,12 +349,13 @@ function InfoCard({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
-function MoneyRow({ label, value }: { label: string; value: string }) {
+function MoneyRow({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
   return (
     <div className="flex items-center justify-between">
       <dt className="text-dream-muted">{label}</dt>
-      <dd className="font-medium text-dream-ink">
-        {value} <span className="text-xs text-dream-faint">CAD</span>
+      <dd className={muted ? "text-dream-faint" : "font-medium text-dream-ink"}>
+        {value}
+        {!muted && <span className="text-xs text-dream-faint"> CAD</span>}
       </dd>
     </div>
   );

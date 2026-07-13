@@ -60,3 +60,17 @@ export const STATUS_META: Record<OrderStatus, StatusMeta> = {
 export function orderStatusLabel(status: OrderStatus): string {
   return STATUS_META[status]?.label ?? status;
 }
+
+/**
+ * Statuses where the customer may pay self-serve (approve-and-pay flow):
+ * once the proof is approved, the order is payable without Julian sending an
+ * invoice first. Pre-approval statuses still require an explicit invoice email.
+ */
+export const PAYABLE_ORDER_STATUSES = new Set<OrderStatus>([
+  "approved",
+  "in_production",
+  "quality_check",
+  "shipped",
+  "ready_for_pickup",
+  "completed",
+]);

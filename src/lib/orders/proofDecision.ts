@@ -33,7 +33,14 @@ export async function approveProofCore(
   proofId: string,
   actorName: string
 ): Promise<{ ok?: boolean; error?: string }> {
-  const { error } = await service.from("proofs").update({ status: "approved" }).eq("id", proofId);
+  // A proof set (front / back / …) is sent together and reviewed as one — the
+  // decision covers every still-pending proof on the order, not just the tile
+  // the customer clicked, so no sibling lingers pending after approval.
+  const { error } = await service
+    .from("proofs")
+    .update({ status: "approved" })
+    .eq("order_id", orderId)
+    .eq("status", "pending");
   if (error) return { error: error.message };
 
   await service.from("orders").update({ status: "approved" }).eq("id", orderId);
@@ -47,7 +54,7 @@ export async function approveProofCore(
   const label = await orderLabel(service, orderId);
   await notifyJulian(
     `Proof approved — ${label}`,
-    `The customer approved the proof on order ${label}. Review the final pricing and send the invoice from the order page.`
+    `The customer approved the proof on order ${label} and was taken straight to payment — you'll get another email once it's paid. If pricing changed since the proof went out, update it on the order page; the payment amount always follows the current total.`
   );
 
   revalidateOrderViews(orderId);
@@ -63,10 +70,12 @@ export async function requestProofChangesCore(
 ): Promise<{ ok?: boolean; error?: string }> {
   if (!comment.trim()) return { error: "Tell us what to change." };
 
+  // Applies to the whole current proof set (see approveProofCore).
   const { error } = await service
     .from("proofs")
     .update({ status: "changes_requested", change_request_comment: comment })
-    .eq("id", proofId);
+    .eq("order_id", orderId)
+    .eq("status", "pending");
   if (error) return { error: error.message };
 
   await service.from("orders").update({ status: "changes_requested" }).eq("id", orderId);

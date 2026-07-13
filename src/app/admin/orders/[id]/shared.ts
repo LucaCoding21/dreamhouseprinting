@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { uploadProofAction } from "../actions";
+import { uploadProofsAction } from "../actions";
 import type { DecorationSpot } from "../actions";
+import type { LineProductionStatus } from "@/lib/lineProduction";
 import type {
   OrderRow,
   LineItemRow,
@@ -14,6 +15,7 @@ import type {
   OrderActivityRow,
   ProfileRow,
   OrderStatus,
+  ProductColourJson,
 } from "@/lib/db/rows";
 
 export interface OrderProduct {
@@ -22,6 +24,8 @@ export interface OrderProduct {
   brand: string | null;
   ss_style_name: string | null;
   ss_style_id: string | null;
+  /** Per-colour S&S blank images, for pulling the exact blank garment per line. */
+  colours: ProductColourJson[] | null;
 }
 
 export interface Detail {
@@ -65,6 +69,10 @@ export interface ItemState {
   bagging: boolean;
   sewnTags: boolean;
   priceConfirmed: boolean;
+  productionStatus: LineProductionStatus;
+  productionNotes: string;
+  internalNotes: string;
+  shippingNotes: string;
 }
 
 export const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
@@ -113,7 +121,7 @@ export type NextActionKind =
   | "upload-proof" // submitted | in_review
   | "awaiting-approval" // proof_ready
   | "upload-new-proof" // changes_requested
-  | "approved-invoice" // approved, not yet invoiced/paid
+  | "approved-invoice" // approved, unpaid — customer self-serves payment; link email is optional
   | "start-production" // approved (already invoiced/paid)
   | "mark-shipped" // in_production | quality_check, ship
   | "ready-for-pickup" // in_production | quality_check, pickup
@@ -189,25 +197,39 @@ export function useProofUpload(orderId: string) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
 
-  async function uploadProof(file: File, lineItemId?: string): Promise<{ ok?: boolean; error?: string }> {
+  async function uploadProofs(files: File[], lineItemId?: string): Promise<{ ok?: boolean; error?: string }> {
+    if (files.length === 0) return { error: "No files selected" };
     setUploading(true);
     try {
+      // Mint a signed upload URL per file (front / back / …) in one request.
       const res = await fetch("/api/design/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: [{ id: "p", bucket: "proofs", name: file.name, kind: "proof", size: file.size }] }),
+        body: JSON.stringify({
+          files: files.map((f, i) => ({ id: `p${i}`, bucket: "proofs", name: f.name, kind: "proof", size: f.size })),
+        }),
       });
       if (!res.ok) throw new Error("Could not prepare upload");
       const { uploads } = (await res.json()) as { uploads: { id: string; bucket: string; path: string; token: string }[] };
-      const u = uploads[0];
       const supabase = createSupabaseBrowserClient();
-      const { error: upErr } = await supabase.storage
-        .from(u.bucket)
-        .uploadToSignedUrl(u.path, u.token, file, { contentType: file.type || "image/png" });
-      if (upErr) throw new Error(upErr.message);
-      const result = await uploadProofAction(orderId, u.path, lineItemId);
+
+      // Upload each file to its signed URL (parallel), then persist all paths together.
+      const byId = new Map(uploads.map((u) => [u.id, u]));
+      await Promise.all(
+        files.map(async (f, i) => {
+          const u = byId.get(`p${i}`);
+          if (!u) throw new Error("Upload URL missing for a file");
+          const { error: upErr } = await supabase.storage
+            .from(u.bucket)
+            .uploadToSignedUrl(u.path, u.token, f, { contentType: f.type || "image/png" });
+          if (upErr) throw new Error(upErr.message);
+        })
+      );
+
+      const paths = files.map((_, i) => byId.get(`p${i}`)!.path);
+      const result = await uploadProofsAction(orderId, paths, lineItemId);
       if (result.error) throw new Error(result.error);
-      toast({ title: "Proof sent to customer", variant: "success" });
+      toast({ title: files.length > 1 ? "Proofs sent to customer" : "Proof sent to customer", variant: "success" });
       router.refresh();
       return { ok: true };
     } catch (err) {
@@ -219,5 +241,5 @@ export function useProofUpload(orderId: string) {
     }
   }
 
-  return { uploading, uploadProof };
+  return { uploading, uploadProofs };
 }

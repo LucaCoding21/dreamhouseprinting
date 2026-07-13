@@ -16,10 +16,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
 import type { DecorationMethodRow } from "@/lib/db/rows";
 import type { CheckoutSettings } from "@/lib/checkoutSettings";
+import type { AddonSettings } from "@/lib/addonSettings";
 import {
   updateDecorationMethodAction,
   updateEmailTemplatesAction,
   updateCheckoutSettingsAction,
+  updateAddonSettingsAction,
   type EmailTemplateMap,
 } from "./actions";
 
@@ -41,9 +43,10 @@ interface SettingsClientProps {
   staff: StaffRow[];
   emailTemplates: Record<string, EmailTemplate>;
   checkout: CheckoutSettings;
+  addons: AddonSettings;
 }
 
-export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout }: SettingsClientProps) {
+export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout, addons }: SettingsClientProps) {
   return (
     <div>
       <AdminHeader title="Settings" />
@@ -51,6 +54,7 @@ export function SettingsClient({ decorationMethods, staff, emailTemplates, check
         <Tabs defaultValue="decoration">
           <TabsList>
             <TabsTrigger value="decoration">Decoration methods</TabsTrigger>
+            <TabsTrigger value="addons">Add-ons</TabsTrigger>
             <TabsTrigger value="checkout">Checkout</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="email">Email templates</TabsTrigger>
@@ -58,6 +62,10 @@ export function SettingsClient({ decorationMethods, staff, emailTemplates, check
 
           <TabsContent value="decoration" className="mt-4">
             <DecorationMethodsTab methods={decorationMethods} />
+          </TabsContent>
+
+          <TabsContent value="addons" className="mt-4">
+            <AddonsTab settings={addons} />
           </TabsContent>
 
           <TabsContent value="checkout" className="mt-4">
@@ -179,6 +187,80 @@ function DecorationMethodCard({ method }: { method: DecorationMethodRow }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Add-on charges                                                     */
+/* ------------------------------------------------------------------ */
+
+function AddonsTab({ settings }: { settings: AddonSettings }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [pending, start] = useTransition();
+  const [bagging, setBagging] = useState(String(settings.baggingPerUnit));
+  const [sewnTags, setSewnTags] = useState(String(settings.sewnTagsPerUnit));
+  const [spotProcess, setSpotProcess] = useState(String(settings.spotProcessPerUnit));
+
+  function save() {
+    start(async () => {
+      const res = await updateAddonSettingsAction({
+        baggingPerUnit: Number(bagging) || 0,
+        sewnTagsPerUnit: Number(sewnTags) || 0,
+        spotProcessPerUnit: Number(spotProcess) || 0,
+      });
+      if (res.error) toast({ title: "Failed", description: res.error, variant: "error" });
+      else {
+        toast({ title: "Add-on charges saved", variant: "success" });
+        router.refresh();
+      }
+    });
+  }
+
+  const fields: { label: string; hint: string; value: string; onChange: (v: string) => void; id: string }[] = [
+    { id: "addon-bagging", label: "Individual bagging", hint: "Per garment, when the line is bagged individually.", value: bagging, onChange: setBagging },
+    { id: "addon-tags", label: "Sewn-on size tags", hint: "Per garment, when the line has sewn-on tags.", value: sewnTags, onChange: setSewnTags },
+    { id: "addon-spot", label: "Spot process", hint: "Per garment, for each print spot marked spot process.", value: spotProcess, onChange: setSpotProcess },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-dream-muted">
+        Per-garment charges added to an order when you tick the matching option on a line (bagging, sewn tags, spot
+        process). They fold into the order total and the customer&apos;s invoice. The customer&apos;s self-serve quote is
+        not affected.
+      </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Add-on charges</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {fields.map((f) => (
+              <Field key={f.id} label={f.label} htmlFor={f.id}>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-dream-muted">$</span>
+                  <Input
+                    id={f.id}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={f.value}
+                    onChange={(e) => f.onChange(e.target.value)}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-dream-muted">{f.hint}</p>
+              </Field>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="primary" loading={pending} onClick={save}>
+              Save add-on charges
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

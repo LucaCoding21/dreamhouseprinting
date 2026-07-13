@@ -1,6 +1,7 @@
 import Link from "next/link";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
+import { HelpPrompt } from "@/components/support/HelpPrompt";
 
 export const metadata = { title: "Order placed | Dreamhouse Printing" };
 
@@ -45,6 +46,12 @@ export default async function CheckoutDonePage({
             Create an account to track it
           </Link>
         </div>
+
+        <HelpPrompt
+          title="Need to change something?"
+          body="Reply to your confirmation email or reach out any time. A real person will help."
+          className="mt-10 w-full text-left"
+        />
       </main>
       <SiteFooter />
     </div>

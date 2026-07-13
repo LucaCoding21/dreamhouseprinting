@@ -9,7 +9,7 @@ import { Collapsible } from "@/components/storefront/Collapsible";
 import { DetailedQuote } from "@/components/storefront/DetailedQuote";
 import { SizeGuideModal } from "@/components/storefront/SizeGuideModal";
 import { swatchStyle, sortColours } from "@/lib/swatch";
-import type { ProductColourJson, ProductSizeJson, ProductQuoteCurveJson } from "@/lib/db/rows";
+import type { ProductColourJson, ProductSizeJson, ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
 interface GalleryImage {
   src: string;
@@ -35,6 +35,8 @@ export function ProductGallery({
   extraPhotos,
   startingPrice,
   quoteCurve,
+  allowedDecorations,
+  decorationNames,
   description,
   leadTimeDays,
 }: {
@@ -51,6 +53,10 @@ export function ProductGallery({
   startingPrice: number;
   /** Per-product quote curve (pricing_rules.quote); null falls back to the static card. */
   quoteCurve: ProductQuoteCurveJson | null;
+  /** Curve decorations the admin enabled for this product (filters the quote picker). */
+  allowedDecorations?: QuoteDecoration[];
+  /** Names of the decoration methods this product offers, for the buy-box chips. */
+  decorationNames?: string[];
   description: string | null;
   leadTimeDays: number;
 }) {
@@ -289,6 +295,25 @@ export function ProductGallery({
             </div>
           </div>
         )}
+
+        {/* Decoration techniques this product offers (admin-toggled per product) */}
+        {decorationNames && decorationNames.length > 0 && (
+          <div className="pb-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">
+              Decoration
+            </span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {decorationNames.map((n) => (
+                <span
+                  key={n}
+                  className="inline-flex items-center rounded-full border border-dream-line bg-white px-3 py-1 text-xs font-semibold text-dream-ink-soft"
+                >
+                  {n}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         </div>
 
         {/* Interactive detailed quote (or the static estimate card as a fallback) */}
@@ -297,6 +322,7 @@ export function ProductGallery({
             curve={quoteCurve}
             productId={productId}
             colourName={colours[selectedColour]?.name}
+            allowedDecorations={allowedDecorations}
           />
         ) : (
           <div className="-mt-3 flex flex-col gap-4 rounded-lg border border-dream-line bg-dream-surface p-5 sm:flex-row sm:items-center sm:justify-between">

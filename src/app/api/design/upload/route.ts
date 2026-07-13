@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   const files = (body as { files?: unknown })?.files;
-  if (!Array.isArray(files) || files.length === 0 || files.length > 20) {
+  if (!Array.isArray(files) || files.length === 0 || files.length > 30) {
     return NextResponse.json({ error: "Bad file list" }, { status: 400 });
   }
 

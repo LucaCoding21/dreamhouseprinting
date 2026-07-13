@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
 import { serializeOrderView } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
+import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import SiteFooter from "@/components/SiteFooter";
 import { StatusTag } from "@/components/portal/StatusTag";
 import { STATUS_META } from "@/lib/orderStatus";
@@ -109,6 +110,8 @@ export default async function PublicOrderPage({
       </header>
 
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-5 py-8 lg:px-8">
+        {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
+
         <div className="flex flex-wrap items-center gap-2.5">
           <h1 className="font-display text-2xl font-bold text-dream-ink">
             {order.order_number ?? "Order"}

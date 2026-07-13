@@ -174,21 +174,23 @@ export default function SiteNav() {
       <div className="relative z-50 mx-auto max-w-[1600px]">
         {/* Row 1: logo · nav links · search · sign-in · CTA */}
         <div className="flex items-center justify-between gap-4 pt-6 pb-6 xl:pt-6 xl:pb-6">
-          <Link href="/" className="flex items-center pr-8">
+          {/* shrink-0: the logo must never be the flex item that gives way
+              when the row runs tight — it was getting crushed on laptops. */}
+          <Link href="/" className="flex shrink-0 items-center pr-4 2xl:pr-8">
             <Image
               src="/dreamhouse-logo-nav.svg"
               alt="Dreamhouse Printing"
               width={457}
               height={298}
               priority
-              className="h-14 w-auto lg:h-[80px] xl:h-[72px]"
+              className="h-14 w-auto lg:h-[80px] xl:h-[60px] 2xl:h-[72px]"
             />
           </Link>
 
           {/* Nav links — desktop only */}
           <nav
             aria-label="Main"
-            className="hidden items-center justify-center gap-3 xl:flex"
+            className="hidden items-center justify-center gap-1.5 xl:flex 2xl:gap-3"
           >
             {NAV_LINKS.map((link) =>
               link.label === "Brands" ? (
@@ -240,15 +242,17 @@ export default function SiteNav() {
             )}
           </nav>
 
-          <div className="flex items-center gap-3 lg:gap-4">
-            {/* Search slot — reserves the open width at xl so toggling never
-                shifts the centered nav links. Closed: right-aligned icon. */}
-            <div className="flex w-auto justify-end xl:w-72">
+          <div className="relative flex items-center gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
+            {/* Search slot — reserves the open width at 2xl so toggling never
+                shifts the centered nav links. Below 2xl there's no room to
+                reserve: the open form overlays the icon cluster instead
+                (absolute, anchored to this cluster's right edge). */}
+            <div className="flex w-auto justify-end 2xl:w-72">
             {searchOpen ? (
               <form
                 onSubmit={handleSearch}
                 role="search"
-                className="flex h-11 w-64 items-center gap-2.5 rounded-full border-2 border-dream-purple/25 bg-white pl-4 pr-1.5 shadow-sm focus-within:border-dream-purple focus-within:ring-2 focus-within:ring-dream-purple/25 sm:w-72 xl:w-full"
+                className="flex h-11 w-64 items-center gap-2.5 rounded-full border-2 border-dream-purple/25 bg-white pl-4 pr-1.5 shadow-sm focus-within:border-dream-purple focus-within:ring-2 focus-within:ring-dream-purple/25 max-2xl:absolute max-2xl:right-0 max-2xl:top-1/2 max-2xl:z-20 max-2xl:-translate-y-1/2 max-2xl:shadow-md sm:w-72 2xl:w-full"
               >
                 <SketchSearchIcon className="h-[22px] w-[22px] shrink-0 text-dream-purple/55" />
                 <input

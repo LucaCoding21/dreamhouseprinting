@@ -7,11 +7,11 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart/CartContext";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { rushFee } from "@/lib/pricing/rush";
 import { PROVINCES } from "@/lib/pricing/tax";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { HelpPrompt } from "@/components/support/HelpPrompt";
 import { placeCartOrdersAction } from "./actions";
 
 export interface CartPrefill {
@@ -35,11 +35,10 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Each item.total is that design's pre-tax price (goods + setup); the rush fee
-  // is a flat 50% of that base, mirroring the per-order fee placed server-side.
-  const baseTotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
-  const rushAmount = rushFee(baseTotal, 0, rush);
-  const total = baseTotal + rushAmount;
+  // Each item.total is that design's pre-tax price (goods + setup). Rush is a
+  // request only — the shop quotes the fee when they confirm the order, so it
+  // never changes this estimate.
+  const total = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
   const set = (k: keyof CartPrefill, v: string) => setContact((c) => ({ ...c, [k]: v }));
 
   async function request() {
@@ -184,8 +183,9 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
       </ul>
 
       <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
-        {/* Left — carted designs */}
-        <section className="flex-1">
+        {/* Left — carted designs. Sticky on desktop so the designs stay in view
+            while the taller "Send the proof" form scrolls alongside them. */}
+        <section className="flex-1 lg:sticky lg:top-6 lg:self-start">
           <SectionHeading n={1}>Your designs</SectionHeading>
 
           <div className="mt-4 space-y-3.5">
@@ -302,24 +302,42 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 </p>
               )}
 
-              {/* Rush toggle */}
-              <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-dream-purple bg-white px-3.5 py-3 transition-colors hover:bg-dream-lavender-mist">
-                <input type="checkbox" checked={rush} onChange={(e) => setRush(e.target.checked)} className="h-4 w-4 accent-dream-purple" />
-                <span className="flex-1 text-sm text-dream-ink">
-                  I need this ASAP / rush
-                  <span className="ml-1 font-semibold text-dream-purple">+50%</span>
-                  <span className="ml-1 text-dream-faint">we&rsquo;ll confirm timing</span>
+              {/* Rush toggle — a clear selectable card so the on/off state reads at a glance */}
+              <label
+                className={cn(
+                  "mt-5 flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-colors",
+                  rush
+                    ? "border-dream-purple bg-dream-lavender-mist"
+                    : "border-dream-line bg-white hover:border-dream-purple/50 hover:bg-dream-lavender-mist/40",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={rush}
+                  onChange={(e) => setRush(e.target.checked)}
+                  className="sr-only"
+                />
+                {/* Custom check indicator — fills in when selected */}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                    rush ? "border-dream-purple bg-dream-purple text-white" : "border-dream-line-strong bg-white",
+                  )}
+                >
+                  {rush && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  )}
                 </span>
-                <span aria-hidden className="text-base">⚡</span>
+                <span className="flex-1">
+                  <span className="font-display text-sm font-bold text-dream-ink">Request a rush</span>
+                  <span className="mt-0.5 block text-xs text-dream-muted">
+                    Bump to the front of the queue. We&rsquo;ll discuss any additional fee when we confirm your order.
+                  </span>
+                </span>
               </label>
-
-              {/* Rush line — shown only when the surcharge applies */}
-              {rushAmount > 0 && (
-                <div className="mt-4 flex items-center justify-between text-sm">
-                  <span className="text-dream-muted">Rush (+50%)</span>
-                  <span className="font-semibold text-dream-ink">{formatCAD(rushAmount)}</span>
-                </div>
-              )}
 
               {/* Estimate */}
               <div className="mt-5 flex items-start justify-between gap-3 border-t border-dream-line pt-4">
@@ -346,6 +364,8 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
               </p>
             </div>
           </div>
+
+          <HelpPrompt variant="inline" title="Questions before you send?" className="mt-5" />
         </aside>
       </div>
     </main>

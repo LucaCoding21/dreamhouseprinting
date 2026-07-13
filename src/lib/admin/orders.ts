@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
-import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow, ProfileRow, ProductRow } from "@/lib/db/rows";
+import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow, ProfileRow, ProductRow, ProductColourJson } from "@/lib/db/rows";
 
 /** Admin order reads (service client — staff see everything). Callers are permission-gated. */
 
@@ -91,7 +91,10 @@ export async function getAdminOrders(): Promise<AdminOrderListItem[]> {
 }
 
 /** The S&S source fields a line item's garment resolves to (for reordering blanks). */
-export type OrderProduct = Pick<ProductRow, "id" | "name" | "brand" | "ss_style_name" | "ss_style_id">;
+export type OrderProduct = Pick<ProductRow, "id" | "name" | "brand" | "ss_style_name" | "ss_style_id"> & {
+  /** Per-colour S&S CDN blank images, so admin can pull the exact blank garment for a line. */
+  colours: ProductColourJson[] | null;
+};
 
 export interface AdminOrderDetail {
   order: OrderRow;
@@ -126,7 +129,7 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
   if (productIds.length) {
     const { data } = await supabase
       .from("products")
-      .select("id, name, brand, ss_style_name, ss_style_id")
+      .select("id, name, brand, ss_style_name, ss_style_id, colours")
       .in("id", productIds);
     products = (data ?? []) as AdminOrderDetail["products"];
   }

@@ -1,15 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
-import { formatCAD } from "@/lib/money";
 import { OrderItemCard } from "./OrderItemCard";
+import { CompactItemRow } from "./CompactItemRow";
 import {
   capitalize,
-  itemQty,
   sizeRank,
   useOrderAction,
   type Can,
@@ -17,6 +15,7 @@ import {
   type ItemState,
   type StoredAddress,
 } from "./shared";
+import { DEFAULT_LINE_PRODUCTION_STATUS } from "@/lib/lineProduction";
 import { updateLineItemsAction, deleteLineItemAction } from "../actions";
 import type { DecorationSpot, LineItemDecorations } from "../actions";
 
@@ -32,6 +31,15 @@ export function OrderItemsSection({
   const { order } = detail;
   const { pending, run } = useOrderAction();
   const [view, setView] = useState<"detailed" | "compact">("detailed");
+  // Per-line collapse (detailed view) — fold individual lines when an order has many.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapsed = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const shipName = (order.shipping_address as StoredAddress | null)?.name;
   const customerName = detail.customer?.name ?? shipName ?? order.guest_email ?? "the customer";
 
@@ -41,8 +49,16 @@ export function OrderItemsSection({
   const methodOptions = Object.values(methodNames);
   const embroideryMethod = methodOptions.find((m) => /embroider/i.test(m));
 
-  const initItems = (): ItemState[] =>
-    detail.lineItems.map((li) => {
+  const initItems = (): ItemState[] => {
+    // Honour the saved manual queue order; legacy lines fall back to insertion order.
+    const ordered = detail.lineItems
+      .map((li, i) => {
+        const dec = (li.decorations ?? {}) as Partial<LineItemDecorations>;
+        return { li, pos: typeof dec.position === "number" ? dec.position : i };
+      })
+      .sort((a, b) => a.pos - b.pos)
+      .map((x) => x.li);
+    return ordered.map((li) => {
       const dec = (li.decorations ?? {}) as Partial<LineItemDecorations>;
       const design = li.design_id ? designById.get(li.design_id) : undefined;
       const views = ((design?.mockup_images ?? []) as { view: string; url: string | null }[]).map((m) => m.view);
@@ -71,8 +87,13 @@ export function OrderItemsSection({
         bagging: !!dec.bagging,
         sewnTags: !!dec.sewnTags,
         priceConfirmed: !!dec.priceConfirmed,
+        productionStatus: dec.productionStatus ?? DEFAULT_LINE_PRODUCTION_STATUS,
+        productionNotes: dec.productionNotes ?? "",
+        internalNotes: dec.internalNotes ?? "",
+        shippingNotes: dec.shippingNotes ?? "",
       };
     });
+  };
 
   const [items, setItems] = useState<ItemState[]>(initItems);
   const [itemsSnap, setItemsSnap] = useState(() => JSON.stringify(items));
@@ -81,17 +102,37 @@ export function OrderItemsSection({
   const patchItem = (id: string, fn: (it: ItemState) => ItemState) =>
     setItems((arr) => arr.map((it) => (it.id === id ? fn(it) : it)));
 
+  // Move a line up/down the queue. Persists on "Save changes" as decorations.position.
+  const moveItem = (index: number, dir: -1 | 1) =>
+    setItems((arr) => {
+      const j = index + dir;
+      if (j < 0 || j >= arr.length) return arr;
+      const next = arr.slice();
+      [next[index], next[j]] = [next[j], next[index]];
+      return next;
+    });
+
   function saveItems() {
     run(
       () =>
         updateLineItemsAction(
           order.id,
-          items.map((it) => ({
+          items.map((it, idx) => ({
             id: it.id,
             productName: it.productName,
-            sizeQuantities: Object.fromEntries(it.sizes),
+            sizeQuantities: Object.fromEntries(it.sizes.filter(([, q]) => q > 0)),
             unitPrice: Number(it.unitPrice) || 0,
-            decorations: { spots: it.spots, bagging: it.bagging, sewnTags: it.sewnTags, priceConfirmed: it.priceConfirmed },
+            decorations: {
+              spots: it.spots,
+              bagging: it.bagging,
+              sewnTags: it.sewnTags,
+              priceConfirmed: it.priceConfirmed,
+              productionStatus: it.productionStatus,
+              productionNotes: it.productionNotes,
+              internalNotes: it.internalNotes,
+              shippingNotes: it.shippingNotes,
+              position: idx,
+            },
           })),
         ),
       "Items saved",
@@ -111,7 +152,7 @@ export function OrderItemsSection({
   }
 
   const proofsByItem = useMemo(() => {
-    const m = new Map<string, typeof detail.proofs>();
+    const m = new Map<string, Detail["proofs"]>();
     for (const p of detail.proofs) {
       if (!p.line_item_id) continue;
       const arr = m.get(p.line_item_id) ?? [];
@@ -140,6 +181,17 @@ export function OrderItemsSection({
             </button>
           ))}
         </div>
+        {view === "detailed" && items.length > 1 && (
+          <button
+            type="button"
+            onClick={() =>
+              setCollapsed(collapsed.size >= items.length ? new Set() : new Set(items.map((i) => i.id)))
+            }
+            className="text-sm font-medium text-dream-purple hover:underline"
+          >
+            {collapsed.size >= items.length ? "Expand all" : "Collapse all"}
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-3">
           {itemsDirty && (
             <>
@@ -158,31 +210,55 @@ export function OrderItemsSection({
       {items.length === 0 && <p className="text-sm text-dream-muted">This order has no line items.</p>}
 
       {view === "detailed"
-        ? items.map((it, idx) => (
-            <OrderItemCard
-              key={it.id}
-              item={it}
-              index={idx}
-              lineItem={detail.lineItems.find((l) => l.id === it.id)}
-              design={(() => {
-                const li = detail.lineItems.find((l) => l.id === it.id);
-                return li?.design_id ? designById.get(li.design_id) : undefined;
-              })()}
-              product={(() => {
-                const li = detail.lineItems.find((l) => l.id === it.id);
-                return li?.product_id ? productById.get(li.product_id) : undefined;
-              })()}
-              customerName={customerName}
-              orderNumber={order.order_number}
-              methodOptions={methodOptions}
-              embroideryMethod={embroideryMethod}
-              can={can}
-              setupFee={setupById.get(it.id) ?? 0}
-              proofsForItem={proofsByItem.get(it.id) ?? []}
-              onPatch={(fn) => patchItem(it.id, fn)}
-              onRemove={() => removeItem(it.id)}
-            />
-          ))
+        ? items.map((it, idx) => {
+            const li = detail.lineItems.find((l) => l.id === it.id);
+            const design = li?.design_id ? designById.get(li.design_id) : undefined;
+            const product = li?.product_id ? productById.get(li.product_id) : undefined;
+            if (collapsed.has(it.id)) {
+              return (
+                <Card key={it.id}>
+                  <CardContent className="p-0">
+                    <CompactItemRow
+                      it={it}
+                      index={idx}
+                      product={product}
+                      design={design}
+                      setupFee={setupById.get(it.id) ?? 0}
+                      onExpand={() => toggleCollapsed(it.id)}
+                      onMoveUp={() => moveItem(idx, -1)}
+                      onMoveDown={() => moveItem(idx, 1)}
+                      isFirst={idx === 0}
+                      isLast={idx === items.length - 1}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            }
+            return (
+              <OrderItemCard
+                key={it.id}
+                item={it}
+                index={idx}
+                lineItem={li}
+                design={design}
+                product={product}
+                customerName={customerName}
+                orderNumber={order.order_number}
+                methodOptions={methodOptions}
+                embroideryMethod={embroideryMethod}
+                can={can}
+                setupFee={setupById.get(it.id) ?? 0}
+                proofsForItem={proofsByItem.get(it.id) ?? []}
+                onPatch={(fn) => patchItem(it.id, fn)}
+                onRemove={() => removeItem(it.id)}
+                onCollapse={() => toggleCollapsed(it.id)}
+                onMoveUp={() => moveItem(idx, -1)}
+                onMoveDown={() => moveItem(idx, 1)}
+                isFirst={idx === 0}
+                isLast={idx === items.length - 1}
+              />
+            );
+          })
         : (
           <Card>
             <CardContent className="divide-y divide-dream-line p-0">
@@ -190,40 +266,19 @@ export function OrderItemsSection({
                 const li = detail.lineItems.find((l) => l.id === it.id);
                 const design = li?.design_id ? designById.get(li.design_id) : undefined;
                 const product = li?.product_id ? productById.get(li.product_id) : undefined;
-                const thumb = ((design?.mockup_images ?? []) as { url: string | null }[]).find((m) => m.url)?.url ?? null;
-                const qty = itemQty(it);
-                const unit = Number(it.unitPrice) || 0;
-                const setup = setupById.get(it.id) ?? 0;
-                const sizeSummary = it.sizes.filter(([, q]) => q > 0).map(([s, q]) => `${s}×${q}`).join("  ") || "—";
                 return (
-                  <div key={it.id} className="flex items-center gap-4 px-4 py-3">
-                    <span className="w-5 text-sm text-dream-faint">{idx + 1}.</span>
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-dream-bg">
-                      {thumb && <Image src={thumb} alt="" width={40} height={40} className="h-full w-full object-contain" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium text-dream-ink">{it.productName || "Untitled item"}</div>
-                      <div className="truncate text-xs text-dream-muted">
-                        {product?.ss_style_name && (
-                          <span className="font-semibold text-dream-ink">
-                            {product.brand ? `${product.brand} ${product.ss_style_name}` : product.ss_style_name}
-                            <span className="mx-1.5 text-dream-faint">·</span>
-                          </span>
-                        )}
-                        {sizeSummary}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right text-sm">
-                      <div className="text-dream-muted">
-                        {qty} × {formatCAD(unit)}
-                      </div>
-                      <div className="font-semibold text-dream-ink">{formatCAD(unit * qty + setup)}</div>
-                    </div>
-                    <span
-                      title={it.priceConfirmed ? "Price confirmed" : "Price not confirmed"}
-                      className={cn("h-2.5 w-2.5 shrink-0 rounded-full", it.priceConfirmed ? "bg-dream-success" : "bg-dream-line-strong")}
-                    />
-                  </div>
+                  <CompactItemRow
+                    key={it.id}
+                    it={it}
+                    index={idx}
+                    product={product}
+                    design={design}
+                    setupFee={setupById.get(it.id) ?? 0}
+                    onMoveUp={() => moveItem(idx, -1)}
+                    onMoveDown={() => moveItem(idx, 1)}
+                    isFirst={idx === 0}
+                    isLast={idx === items.length - 1}
+                  />
                 );
               })}
             </CardContent>

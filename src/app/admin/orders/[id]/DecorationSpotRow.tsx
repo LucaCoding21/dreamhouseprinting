@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -15,6 +15,8 @@ export function DecorationSpotRow({
   canEdit,
   onPatch,
   onRemove,
+  extraSpec,
+  extraSpecActive,
 }: {
   spot: DecorationSpot;
   index: number;
@@ -22,8 +24,12 @@ export function DecorationSpotRow({
   canEdit: boolean;
   onPatch: (patch: Partial<DecorationSpot>) => void;
   onRemove: () => void;
+  /** Extra line-level finishing controls rendered inside the Advanced spec area (first spot only). */
+  extraSpec?: ReactNode;
+  /** Whether any extraSpec option is set — factors into auto-open + the "has advanced" dot. */
+  extraSpecActive?: boolean;
 }) {
-  const hasAdvanced = spot.pantones.length > 0 || spot.puff || spot.spotProcess;
+  const hasAdvanced = spot.pantones.length > 0 || spot.puff || spot.spotProcess || !!extraSpecActive;
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
 
   return (
@@ -107,6 +113,8 @@ export function DecorationSpotRow({
                 onChange={(e) => onPatch({ spotProcess: e.target.checked })}
               />
             </div>
+
+            {extraSpec}
 
             <div>
               <div className={cn(LBL, "mb-1.5")}>Pantone colours</div>

@@ -125,6 +125,7 @@ export default async function DesignPage({
       methods={decorationMethods.map((m) => ({
         id: m.id,
         name: m.name,
+        slug: m.slug,
         setup_fee: m.setup_fee,
         per_unit_cost: m.per_unit_cost,
         per_color_cost: m.per_color_cost,

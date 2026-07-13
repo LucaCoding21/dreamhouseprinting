@@ -84,10 +84,8 @@ export function ShippingClient({
                   <OptionCard
                     selected={turnaround === "rush"}
                     onSelect={() => setTurnaround("rush")}
-                    title="ASAP / rush"
-                    subtitle={checkout.rushNote}
-                    badge="+50%"
-                    badgeTone="fee"
+                    title="Request a rush"
+                    subtitle="Bump to the front of the queue. We'll discuss any additional fee when we confirm your order."
                   />
                 </div>
               </section>

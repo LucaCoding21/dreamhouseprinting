@@ -2,6 +2,7 @@ import Image from "next/image";
 import { OrderTracker } from "@/components/portal/OrderTracker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { formatCAD } from "@/lib/money";
+import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
 import { ProofPanel } from "./ProofPanel";
 import { InvoicePanel } from "./InvoicePanel";
 import type { OrderViewProps } from "./types";
@@ -14,23 +15,38 @@ import type { OrderViewProps } from "./types";
  * in already bound to the order/token by the route.
  */
 export function OrderView({ order, lineItems, proofs, activity, actions }: OrderViewProps) {
-  const latestProof = proofs[0];
   const pricing = order.pricing;
-  const amountDue = order.invoice_amount ?? pricing.total ?? 0;
+  // Always the LIVE total — admin pricing edits show (and charge) immediately;
+  // the stamped invoice_amount is only a fallback for legacy rows.
+  const amountDue = pricing.total ?? order.invoice_amount ?? 0;
+
+  // Approve-and-pay: once the proof is approved the order is payable without an
+  // invoice email. Pre-approval, an explicit invoice still unlocks payment.
+  const payable =
+    !order.paid_at &&
+    amountDue > 0 &&
+    (PAYABLE_ORDER_STATUSES.has(order.status) || !!order.invoice_sent_at);
+
+  // The current proof set = the newest run of same-status proofs (a front/back
+  // batch is sent together, so it sits contiguous at the top, newest-first).
+  const proofSet = proofs.filter((p) => p.status === proofs[0]?.status);
 
   return (
     <>
       <OrderTracker status={order.status} />
 
-      {latestProof && (
+      {proofSet.length > 0 && (
         <ProofPanel
-          proof={latestProof}
+          proofs={proofSet}
           onApprove={actions.approveProof}
           onRequestChanges={actions.requestChanges}
+          onPayNow={actions.payNow}
+          payOnApprove={!order.paid_at && amountDue > 0}
+          amountDue={amountDue}
         />
       )}
 
-      {order.invoice_sent_at && (
+      {(payable || order.paid_at) && (
         <InvoicePanel
           invoiceSentAt={order.invoice_sent_at}
           amountDue={amountDue}
@@ -96,8 +112,20 @@ export function OrderView({ order, lineItems, proofs, activity, actions }: Order
             )}
             {!!pricing.rush && (
               <div className="flex justify-between text-dream-muted">
-                <span>Rush (+50%)</span>
+                <span>Rush fee</span>
                 <span>{formatCAD(pricing.rush)}</span>
+              </div>
+            )}
+            {!!pricing.addons && (
+              <div className="flex justify-between text-dream-muted">
+                <span>Add-ons</span>
+                <span>{formatCAD(pricing.addons)}</span>
+              </div>
+            )}
+            {!!pricing.discount && (
+              <div className="flex justify-between text-dream-ink">
+                <span>{pricing.discountLabel?.trim() || "Discount"}</span>
+                <span>−{formatCAD(pricing.discount)}</span>
               </div>
             )}
             <div className="mt-2 flex justify-between border-t border-dream-line pt-2 font-semibold text-dream-ink">

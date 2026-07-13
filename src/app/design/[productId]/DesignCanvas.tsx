@@ -2,29 +2,52 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as fabric from "fabric";
+import { effectivePrintBox, boxPxPerInch, formatInches, type NormalizedBox } from "@/lib/design/printArea";
 
-export interface PrintBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} // normalized 0..1
+export type PrintBox = NormalizedBox; // normalized 0..1
+
+/** Everything the canvas needs to draw + label + measure one print area. */
+export interface PrintAreaSpec {
+  box: PrintBox; // admin-drawn placement envelope
+  name: string;
+  maxWidthIn: number | null;
+  maxHeightIn: number | null;
+}
+
+/** Physical size of the art as placed, in inches (uniform px-per-inch inside
+ *  the effective print box). Null when the area has no inch dims configured. */
+export interface ArtMetrics {
+  widthIn: number;
+  heightIn: number;
+}
+
+/** What's on the canvas, for colour analysis: text fills are known exactly,
+ *  images are analyzed from their source. */
+export type ArtDescriptor = { type: "text"; fill: string } | { type: "image"; src: string };
 
 export interface DesignCanvasHandle {
   setGarment: (url: string | null) => void;
-  setPrintArea: (box: PrintBox | null) => void;
+  setPrintArea: (area: PrintAreaSpec | null) => void;
   addImageFromUrl: (url: string) => Promise<void>;
-  addText: (text: string) => void;
+  addText: (text: string, opts?: { fontFamily?: string; fontWeight?: number | string; fill?: string }) => void;
   clearArt: () => void;
   deleteActive: () => void;
+  isEditingText: () => boolean;
+  duplicateActive: () => Promise<void>;
+  flipActive: (axis: "h" | "v") => void;
+  centerActiveInPrintArea: () => void;
   bringForward: () => void;
   sendBackward: () => void;
   setActiveColor: (hex: string) => void;
+  setActiveFont: (fontFamily: string, fontWeight?: number | string) => void;
+  renderAll: () => void;
   exportScene: () => object;
   loadScene: (json: object | null) => Promise<void>;
   exportMockup: () => string | null;
   hasObjects: () => boolean;
   artOutsidePrintArea: () => boolean;
+  artMetrics: () => ArtMetrics | null;
+  getArtDescriptors: () => ArtDescriptor[];
   recalcOffset: () => void;
 }
 
@@ -49,22 +72,101 @@ function fitDims(imgW: number, imgH: number) {
   return { w, h };
 }
 
+/**
+ * Ensure a web font is downloaded before Fabric measures/renders text with it —
+ * canvas draws with whatever's loaded at paint time, so an un-loaded font
+ * silently falls back. `fontFamily` may be a comma list; we load the first face.
+ */
+async function ensureFont(fontFamily: string, fontWeight: number | string = 400) {
+  try {
+    if (typeof document === "undefined" || !document.fonts?.load) return;
+    const first = fontFamily.split(",")[0].trim();
+    const quoted = /^['"]/.test(first) ? first : JSON.stringify(first);
+    await document.fonts.load(`${fontWeight} 40px ${quoted}`);
+  } catch {
+    /* fall back to the default face */
+  }
+}
+
 export const DesignCanvas = forwardRef<
   DesignCanvasHandle,
   {
-    onSelectionChange?: (hasSelection: boolean) => void;
+    onSelectionChange?: (hasSelection: boolean, isText?: boolean) => void;
     onChange?: () => void;
     onGarmentLoaded?: () => void;
+    /** Invoked when the on-canvas delete badge is clicked. The parent removes
+     *  the active object (so the delete goes through the undo history). */
+    onRequestDelete?: () => void;
   }
->(function DesignCanvas({ onSelectionChange, onChange, onGarmentLoaded }, ref) {
+>(function DesignCanvas({ onSelectionChange, onChange, onGarmentLoaded, onRequestDelete }, ref) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const printRectRef = useRef<fabric.Rect | null>(null);
-  const printBoxRef = useRef<PrintBox | null>(null);
+  const printLabelRef = useRef<fabric.FabricText | null>(null);
+  const printAreaRef = useRef<PrintAreaSpec | null>(null);
+  // The inch-true box actually drawn/measured against (see lib/design/printArea).
+  const effBoxRef = useRef<PrintBox | null>(null);
   const dimsRef = useRef({ ...DEFAULT_DIMS });
+  // A round X badge pinned to each object's top-right corner. Created once the
+  // canvas mounts and attached to every art object so delete is always in reach.
+  const deleteControlRef = useRef<fabric.Control | null>(null);
+  // Latest delete callback, read by the (stable) control handler.
+  const onDeleteRef = useRef(onRequestDelete);
+  onDeleteRef.current = onRequestDelete;
 
   useEffect(() => {
     if (!elRef.current) return;
+    // Brand the selection controls: a purple outline with white, purple-ringed
+    // round handles, instead of Fabric's default light-blue square boxes. Set
+    // on the shared object defaults so every text/image object picks it up.
+    fabric.InteractiveFabricObject.ownDefaults = {
+      ...fabric.InteractiveFabricObject.ownDefaults,
+      borderColor: "#7664ff",
+      borderScaleFactor: 1.5,
+      cornerColor: "#ffffff",
+      cornerStrokeColor: "#7664ff",
+      cornerStyle: "circle",
+      cornerSize: 11,
+      transparentCorners: false,
+      padding: 4,
+    };
+    // The delete badge: a white circle ringed in purple with an X, sitting just
+    // off the top-right handle. Clicking it asks the parent to delete (so the
+    // removal is snapshotted for undo).
+    deleteControlRef.current = new fabric.Control({
+      x: 0.5,
+      y: -0.5,
+      offsetX: 14,
+      offsetY: -14,
+      cursorStyle: "pointer",
+      mouseUpHandler: () => {
+        onDeleteRef.current?.();
+        return true;
+      },
+      render: (ctx, left, top) => {
+        const r = 11;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(left, top, r, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#7664ff";
+        ctx.stroke();
+        const a = 4;
+        ctx.strokeStyle = "#7664ff";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(left - a, top - a);
+        ctx.lineTo(left + a, top + a);
+        ctx.moveTo(left + a, top - a);
+        ctx.lineTo(left - a, top + a);
+        ctx.stroke();
+        ctx.restore();
+      },
+    });
+
     const canvas = new fabric.Canvas(elRef.current, {
       width: dimsRef.current.w,
       height: dimsRef.current.h,
@@ -73,12 +175,20 @@ export const DesignCanvas = forwardRef<
     });
     canvasRef.current = canvas;
 
-    const emitSel = () => onSelectionChange?.(!!canvas.getActiveObject());
+    const emitSel = () => {
+      const o = canvas.getActiveObject();
+      onSelectionChange?.(!!o, o?.type === "i-text");
+    };
     canvas.on("selection:created", emitSel);
     canvas.on("selection:updated", emitSel);
     canvas.on("selection:cleared", () => onSelectionChange?.(false));
     canvas.on("object:modified", () => onChange?.());
-    canvas.on("object:added", () => onChange?.());
+    canvas.on("object:added", (e) => {
+      // Keep the print-area label readable above newly added art.
+      const label = printLabelRef.current;
+      if (label && e.target !== label) canvas.bringObjectToFront(label);
+      onChange?.();
+    });
     canvas.on("object:removed", () => onChange?.());
 
     return () => {
@@ -88,6 +198,14 @@ export const DesignCanvas = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Give an art object the top-right delete badge (in addition to its resize
+   *  handles). Not applied to the print guide, which is non-interactive. */
+  function attachControls(obj: fabric.FabricObject) {
+    if (deleteControlRef.current) {
+      obj.controls = { ...obj.controls, deleteControl: deleteControlRef.current };
+    }
+  }
+
   function redrawPrintRect() {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -95,12 +213,22 @@ export const DesignCanvas = forwardRef<
       canvas.remove(printRectRef.current);
       printRectRef.current = null;
     }
-    const box = printBoxRef.current;
-    if (!box) {
+    if (printLabelRef.current) {
+      canvas.remove(printLabelRef.current);
+      printLabelRef.current = null;
+    }
+    const area = printAreaRef.current;
+    if (!area) {
+      effBoxRef.current = null;
       canvas.requestRenderAll();
       return;
     }
     const { w, h } = dimsRef.current;
+    // Reconcile the drawn envelope with the physical inch dims: the box we
+    // render (and measure inside) is the largest inch-aspect-true rect that
+    // fits the envelope, so px-per-inch is uniform on both axes.
+    const box = effectivePrintBox(area.box, area.maxWidthIn, area.maxHeightIn, w / h);
+    effBoxRef.current = box;
     const rect = new fabric.Rect({
       left: box.x * w,
       top: box.y * h,
@@ -121,8 +249,35 @@ export const DesignCanvas = forwardRef<
     printRectRef.current = rect;
     canvas.add(rect);
     canvas.sendObjectToBack(rect);
+    // The area's admin-given name + real print dimensions, pinned above the
+    // box's top-left corner (or just inside it when the box touches the top).
+    const text =
+      area.maxWidthIn && area.maxHeightIn
+        ? `${area.name} · ${formatInches(area.maxWidthIn, area.maxHeightIn)}`
+        : area.name;
+    const labelTop = box.y * h - 18;
+    const label = new fabric.FabricText(text, {
+      left: box.x * w,
+      top: labelTop < 2 ? box.y * h + 4 : labelTop,
+      originX: "left",
+      originY: "top",
+      fontFamily: "Archivo, sans-serif",
+      fontSize: 11,
+      fontWeight: "700",
+      fill: "#7664ff",
+      backgroundColor: "rgba(255,255,255,0.85)",
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+    });
+    printLabelRef.current = label;
+    canvas.add(label);
+    canvas.bringObjectToFront(label);
     canvas.requestRenderAll();
   }
+
+  /** The print guide (rect + label) — everything that isn't customer art. */
+  const isGuide = (o: fabric.FabricObject) => o === printRectRef.current || o === printLabelRef.current;
 
   useImperativeHandle(ref, () => ({
     setGarment(url) {
@@ -159,15 +314,15 @@ export const DesignCanvas = forwardRef<
         onGarmentLoaded?.();
       });
     },
-    setPrintArea(box) {
-      printBoxRef.current = box;
+    setPrintArea(area) {
+      printAreaRef.current = area;
       redrawPrintRect();
     },
     async addImageFromUrl(url) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
-      const box = printBoxRef.current;
+      const box = effBoxRef.current;
       const { w, h } = dimsRef.current;
       const targetW = (box ? box.width : 0.5) * w * 0.85;
       const scale = targetW / (img.width ?? targetW);
@@ -175,36 +330,44 @@ export const DesignCanvas = forwardRef<
       const cx = (box ? box.x + box.width / 2 : 0.5) * w;
       const cy = (box ? box.y + box.height / 2 : 0.5) * h;
       img.set({ left: cx, top: cy, originX: "center", originY: "center" });
+      attachControls(img);
       canvas.add(img);
       canvas.setActiveObject(img);
       canvas.requestRenderAll();
     },
-    addText(text) {
+    async addText(text, opts) {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const box = printBoxRef.current;
+      const box = effBoxRef.current;
       const { w, h } = dimsRef.current;
       const cx = (box ? box.x + box.width / 2 : 0.5) * w;
       const cy = (box ? box.y + box.height / 2 : 0.5) * h;
+      const fontFamily = opts?.fontFamily ?? "Archivo, sans-serif";
+      const fontWeight = opts?.fontWeight ?? "700";
       const t = new fabric.IText(text, {
         left: cx,
         top: cy,
         originX: "center",
         originY: "center",
-        fontFamily: "Archivo, sans-serif",
+        fontFamily,
         fontSize: 40,
-        fill: "#1b1458",
-        fontWeight: "700",
+        fill: opts?.fill ?? "#1b1458",
+        fontWeight,
       });
+      attachControls(t);
       canvas.add(t);
       canvas.setActiveObject(t);
+      canvas.requestRenderAll();
+      // Re-render once the face is loaded so the text isn't drawn in the fallback.
+      await ensureFont(fontFamily, fontWeight);
+      t.setCoords();
       canvas.requestRenderAll();
     },
     clearArt() {
       const canvas = canvasRef.current;
       if (!canvas) return;
       canvas.getObjects().forEach((o) => {
-        if (o !== printRectRef.current) canvas.remove(o);
+        if (!isGuide(o)) canvas.remove(o);
       });
       canvas.discardActiveObject();
       canvas.requestRenderAll();
@@ -216,6 +379,47 @@ export const DesignCanvas = forwardRef<
       objs.forEach((o) => canvas.remove(o));
       canvas.discardActiveObject();
       canvas.requestRenderAll();
+    },
+    isEditingText() {
+      const o = canvasRef.current?.getActiveObject();
+      return !!(o && o.type === "i-text" && (o as fabric.IText).isEditing);
+    },
+    async duplicateActive() {
+      const canvas = canvasRef.current;
+      const o = canvas?.getActiveObject();
+      if (!canvas || !o || isGuide(o)) return;
+      const clone = await o.clone();
+      // Nudge the copy down-right so it doesn't sit exactly on the original.
+      clone.set({ left: (o.left ?? 0) + 24, top: (o.top ?? 0) + 24 });
+      attachControls(clone);
+      canvas.add(clone);
+      canvas.setActiveObject(clone);
+      canvas.requestRenderAll();
+      onChange?.();
+    },
+    flipActive(axis) {
+      const canvas = canvasRef.current;
+      const o = canvas?.getActiveObject();
+      if (!canvas || !o) return;
+      if (axis === "h") o.set("flipX", !o.flipX);
+      else o.set("flipY", !o.flipY);
+      o.setCoords();
+      canvas.requestRenderAll();
+      onChange?.();
+    },
+    centerActiveInPrintArea() {
+      const canvas = canvasRef.current;
+      const o = canvas?.getActiveObject();
+      if (!canvas || !o) return;
+      const box = effBoxRef.current;
+      const { w, h } = dimsRef.current;
+      const cx = (box ? box.x + box.width / 2 : 0.5) * w;
+      const cy = (box ? box.y + box.height / 2 : 0.5) * h;
+      // Position by the object's center regardless of its own origin.
+      o.setXY(new fabric.Point(cx, cy), "center", "center");
+      o.setCoords();
+      canvas.requestRenderAll();
+      onChange?.();
     },
     bringForward() {
       const canvas = canvasRef.current;
@@ -243,6 +447,20 @@ export const DesignCanvas = forwardRef<
         onChange?.();
       }
     },
+    async setActiveFont(fontFamily, fontWeight = 400) {
+      const canvas = canvasRef.current;
+      const o = canvas?.getActiveObject();
+      if (canvas && o && o.type === "i-text") {
+        await ensureFont(fontFamily, fontWeight);
+        (o as fabric.IText).set({ fontFamily, fontWeight });
+        o.setCoords();
+        canvas.requestRenderAll();
+        onChange?.();
+      }
+    },
+    renderAll() {
+      canvasRef.current?.requestRenderAll();
+    },
     exportScene() {
       const canvas = canvasRef.current;
       if (!canvas) return {};
@@ -253,32 +471,38 @@ export const DesignCanvas = forwardRef<
       const canvas = canvasRef.current;
       if (!canvas || !json) return;
       await canvas.loadFromJSON(json);
-      // Strip any persisted print rect; it's redrawn from current box.
+      // Strip any persisted print guide; it's redrawn from the current area.
       printRectRef.current = null;
+      printLabelRef.current = null;
+      // Re-attach the delete badge to the freshly deserialized objects.
+      canvas.getObjects().forEach((o) => attachControls(o));
       redrawPrintRect();
       canvas.requestRenderAll();
     },
     exportMockup() {
       const canvas = canvasRef.current;
       if (!canvas) return null;
-      // Temporarily hide the dashed guide for a clean mockup.
+      // Temporarily hide the dashed guide + label for a clean mockup.
       const rect = printRectRef.current;
+      const label = printLabelRef.current;
       if (rect) rect.visible = false;
+      if (label) label.visible = false;
       canvas.discardActiveObject();
       canvas.requestRenderAll();
       const data = canvas.toDataURL({ format: "png", multiplier: 2 });
       if (rect) rect.visible = true;
+      if (label) label.visible = true;
       canvas.requestRenderAll();
       return data;
     },
     hasObjects() {
       const canvas = canvasRef.current;
       if (!canvas) return false;
-      return canvas.getObjects().some((o) => o !== printRectRef.current);
+      return canvas.getObjects().some((o) => !isGuide(o));
     },
     artOutsidePrintArea() {
       const canvas = canvasRef.current;
-      const box = printBoxRef.current;
+      const box = effBoxRef.current;
       if (!canvas || !box) return false;
       const { w, h } = dimsRef.current;
       const bx = box.x * w,
@@ -286,7 +510,7 @@ export const DesignCanvas = forwardRef<
         bw = box.width * w,
         bh = box.height * h;
       return canvas.getObjects().some((o) => {
-        if (o === printRectRef.current) return false;
+        if (isGuide(o)) return false;
         // After a programmatic load (loadFromJSON on undo/redo/scene restore)
         // an object's cached corner coords can be stale; refresh them so the
         // rotation-aware bounding box is measured against the real placement.
@@ -294,6 +518,48 @@ export const DesignCanvas = forwardRef<
         const r = o.getBoundingRect();
         return r.left < bx - 1 || r.top < by - 1 || r.left + r.width > bx + bw + 1 || r.top + r.height > by + bh + 1;
       });
+    },
+    artMetrics() {
+      const canvas = canvasRef.current;
+      const box = effBoxRef.current;
+      const area = printAreaRef.current;
+      if (!canvas || !box || !area) return null;
+      const ppi = boxPxPerInch(box, area.maxWidthIn, dimsRef.current.w);
+      if (!ppi) return null;
+      // Union bounding box of every art object — the printed footprint of the
+      // whole composition on this side (rotation-aware via getBoundingRect).
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      let any = false;
+      for (const o of canvas.getObjects()) {
+        if (isGuide(o)) continue;
+        any = true;
+        o.setCoords();
+        const r = o.getBoundingRect();
+        minX = Math.min(minX, r.left);
+        minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.left + r.width);
+        maxY = Math.max(maxY, r.top + r.height);
+      }
+      if (!any) return null;
+      const round1 = (n: number) => Math.round(n * 10) / 10;
+      return { widthIn: round1((maxX - minX) / ppi), heightIn: round1((maxY - minY) / ppi) };
+    },
+    getArtDescriptors() {
+      const canvas = canvasRef.current;
+      if (!canvas) return [];
+      const out: ArtDescriptor[] = [];
+      for (const o of canvas.getObjects()) {
+        if (isGuide(o)) continue;
+        if (o.type === "i-text" || o.type === "text" || o.type === "textbox") {
+          out.push({ type: "text", fill: String((o as fabric.IText).fill ?? "#000000") });
+        } else if (o.type === "image") {
+          out.push({ type: "image", src: (o as fabric.FabricImage).getSrc() });
+        }
+      }
+      return out;
     },
     recalcOffset() {
       // The canvas is CSS-scaled for zoom; refresh Fabric's cached element

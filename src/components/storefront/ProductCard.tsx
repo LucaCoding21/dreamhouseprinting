@@ -6,9 +6,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { startingAtPrice } from "@/lib/pricing/platform";
-import { productPrimaryImage, enabledColours } from "@/lib/productImage";
-import { swatchStyle, sortColours } from "@/lib/swatch";
+import { shopPrice } from "@/lib/pricing/quote";
+import { productPrimaryImage, colourCardImage, enabledColours } from "@/lib/productImage";
+import { swatchStyle, sortColours, heroColour } from "@/lib/swatch";
 import type { ProductRow } from "@/lib/db/rows";
 
 /**
@@ -29,14 +29,20 @@ export function ProductCard({
   const fallbackImage = productPrimaryImage(product);
   // Show the most-popular colours first (staples + primaries, then light -> dark),
   // so the 6 dots on the card surface the colours people actually order.
-  const colours = sortColours(enabledColours(product));
+  const enabled = enabledColours(product);
+  const colours = sortColours(enabled);
   const swatches = colours.slice(0, 6);
   const extra = colours.length - swatches.length;
 
-  // Default to the first colour that actually has a front image.
-  const firstWithImage = swatches.findIndex((c) => c.images?.front);
-  const [selected, setSelected] = useState(firstWithImage >= 0 ? firstWithImage : 0);
-  const activeImage = swatches[selected]?.images?.front ?? fallbackImage;
+  // Default the card image to the hero colour (owner's pinned pick, else the
+  // first bold colour) — otherwise every card opens on its blank-looking white
+  // colorway. selected can be -1 when the hero isn't among the 6 visible dots.
+  // Prefer the on-model shot (falls back to flat), honouring the hero's pinned view.
+  const hero = heroColour(enabled);
+  const heroIdx = hero ? swatches.findIndex((c) => c.name === hero.name) : -1;
+  const [selected, setSelected] = useState(heroIdx);
+  const activeImage =
+    (selected >= 0 ? colourCardImage(swatches[selected]) : colourCardImage(hero)) ?? fallbackImage;
 
   // Remember the exact shop listing this card was clicked from (incl. category /
   // search / sort) so the product page's "Back to shop" returns here, not to the
@@ -127,10 +133,18 @@ export function ProductCard({
         )}
 
         <div className="mt-auto border-t border-dream-line pt-3">
-          <span className="inline-flex items-baseline gap-1.5 self-start font-display text-lg font-bold text-dream-ink">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">from</span>
-            {formatCAD(startingAtPrice(product))}
-          </span>
+          {(() => {
+            const price = shopPrice(product);
+            return (
+              <span className="inline-flex items-baseline gap-1.5 self-start font-display text-lg font-bold text-dream-ink">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">
+                  {price.label}
+                </span>
+                {formatCAD(price.amount)}
+                <span className="text-[10px] font-semibold text-dream-ink/55">/unit</span>
+              </span>
+            );
+          })()}
         </div>
       </div>
     </div>

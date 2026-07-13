@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
 import { serializeOrderView } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
+import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import { ReorderButton } from "./ReorderButton";
 import { StatusTag } from "@/components/portal/StatusTag";
 import { IconArrowLeft } from "@/components/portal/icons";
@@ -68,6 +69,8 @@ export default async function OrderDetailPage({
 
   return (
     <div className="space-y-6">
+      {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
+
       {placed && (
         <div className="rounded-xl bg-dream-success-soft px-4 py-3 text-sm text-dream-success">
           🎉 Your order is in! We’ll review your artwork and send a proof shortly.

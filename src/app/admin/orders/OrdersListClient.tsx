@@ -16,6 +16,7 @@ interface Row {
   id: string;
   orderNumber: string | null;
   status: string;
+  isRush: boolean;
   paymentStatus: string;
   invoiceSentAt: string | null;
   paidAt: string | null;
@@ -40,13 +41,19 @@ function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "ne
   return { label: "Unpaid", variant: "neutral" };
 }
 
-const TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
+// Rush orders that are out the door (shipped/picked up/done) or cancelled are no
+// longer "active" — the Rush tab surfaces only the ones still needing attention.
+const CLOSED_STATUSES = ["shipped", "ready_for_pickup", "completed", "cancelled"];
+
+const TABS: { key: string; label: string; match: (r: Row) => boolean }[] = [
   { key: "all", label: "All", match: () => true },
-  { key: "new", label: "New", match: (s) => s === "submitted" || s === "in_review" },
-  { key: "proofing", label: "Pending approval", match: (s) => s === "proof_ready" || s === "changes_requested" },
-  { key: "production", label: "In production", match: (s) => ["approved", "in_production", "quality_check"].includes(s) },
-  { key: "shipped", label: "Shipped", match: (s) => ["shipped", "ready_for_pickup", "completed"].includes(s) },
-  { key: "archived", label: "Archived", match: (s) => s === "cancelled" },
+  { key: "new", label: "New", match: (r) => r.status === "submitted" || r.status === "in_review" },
+  { key: "proofing", label: "Pending approval", match: (r) => r.status === "proof_ready" },
+  { key: "declined", label: "Mockup declined", match: (r) => r.status === "changes_requested" },
+  { key: "rush", label: "Rush orders", match: (r) => r.isRush && !CLOSED_STATUSES.includes(r.status) },
+  { key: "production", label: "In production", match: (r) => ["approved", "in_production", "quality_check"].includes(r.status) },
+  { key: "shipped", label: "Shipped", match: (r) => ["shipped", "ready_for_pickup", "completed"].includes(r.status) },
+  { key: "archived", label: "Archived", match: (r) => r.status === "cancelled" },
 ];
 
 function inHands(due: string | null): { label: string; urgent: boolean } {
@@ -63,15 +70,15 @@ export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab
     initialTab && TABS.some((t) => t.key === initialTab) ? initialTab : "all"
   );
 
-  const count = (m: (s: string) => boolean) => rows.filter((r) => m(r.status)).length;
+  const count = (m: (r: Row) => boolean) => rows.filter(m).length;
   const stats = [
     { label: "Open orders", value: rows.filter((r) => !["completed", "cancelled"].includes(r.status)).length },
-    { label: "Awaiting approval", value: count((s) => s === "proof_ready" || s === "changes_requested") },
-    { label: "In production", value: count((s) => ["approved", "in_production", "quality_check"].includes(s)) },
-    { label: "Shipped", value: count((s) => ["shipped", "ready_for_pickup"].includes(s)) },
+    { label: "Awaiting approval", value: count((r) => r.status === "proof_ready" || r.status === "changes_requested") },
+    { label: "In production", value: count((r) => ["approved", "in_production", "quality_check"].includes(r.status)) },
+    { label: "Shipped", value: count((r) => ["shipped", "ready_for_pickup"].includes(r.status)) },
   ];
 
-  const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r.status));
+  const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r));
 
   return (
     <div>

@@ -12,7 +12,7 @@ export interface OrderViewOrder {
   order_number: string | null;
   status: OrderStatus;
   due_date: string | null;
-  pricing: { total?: number; subtotal?: number; setupFees?: number; rush?: number };
+  pricing: { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; discount?: number; discountLabel?: string };
   invoice_sent_at: string | null;
   invoice_amount: number | null;
   paid_at: string | null;
@@ -45,6 +45,15 @@ export interface OrderViewActivityEntry {
   /** ISO timestamp. */
   at: string;
   text: string;
+}
+
+/** A direct message Julian sent the customer (newest customer note). */
+export interface OrderViewMessage {
+  /** ISO timestamp. */
+  at: string;
+  text: string;
+  /** Who sent it (staff name), if recorded. */
+  actor: string | null;
 }
 
 /**

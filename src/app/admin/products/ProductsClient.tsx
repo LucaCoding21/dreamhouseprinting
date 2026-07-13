@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/Dialog";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCAD } from "@/lib/money";
-import { startingAtPrice } from "@/lib/pricing/platform";
+import { curveForProduct, shopPrice } from "@/lib/pricing/quote";
 import { productPrimaryImage } from "@/lib/productImage";
 import type { ProductRow, CategoryRow } from "@/lib/db/rows";
 import { ssSearchAction, importStyleAction } from "./actions";
@@ -97,13 +97,14 @@ export function ProductsClient({
                       </TD>
                       <TD>{catName(p.category_id)}</TD>
                       <TD>{colourCount}</TD>
-                      <TD>{formatCAD(startingAtPrice(p))}</TD>
+                      <TD>{formatCAD(shopPrice(p).amount)}</TD>
                       <TD>
                         <div className="flex items-center gap-1.5">
                           <Badge variant={p.is_active ? "success" : "warn"}>
                             {p.is_active ? "Live" : "Hidden"}
                           </Badge>
                           {p.is_featured && <Badge variant="purple">Featured</Badge>}
+                          {!curveForProduct(p) && <Badge variant="warn">No pricing</Badge>}
                         </div>
                       </TD>
                       <TD>
@@ -182,7 +183,8 @@ function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
+        <DialogClose />
         <DialogHeader>
           <DialogTitle>Import from S&amp;S Activewear</DialogTitle>
         </DialogHeader>
@@ -206,7 +208,7 @@ function ImportDialog({
         </form>
 
         <p className="mt-2 text-xs text-dream-muted">
-          Products import as hidden drafts — you&apos;ll set the category, pricing, and print area next, then turn
+          Products import as hidden drafts. You&apos;ll set the category, pricing, and print area next, then turn
           them on.
         </p>
         {hint && <p className="mt-1.5 text-xs font-medium text-dream-warn">{hint}</p>}

@@ -8,6 +8,7 @@ import type {
   OrderViewLineItem,
   OrderViewProof,
   OrderViewActivityEntry,
+  OrderViewMessage,
 } from "@/components/orders/types";
 
 /**
@@ -70,6 +71,18 @@ function buildActivity(order: OrderRow, activity: OrderActivityRow[]): OrderView
   return entries.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 }
 
+/** The most recent message Julian sent the customer (from customer_notes). */
+function latestMessage(order: OrderRow): OrderViewMessage | null {
+  const notes = (order.customer_notes ?? []) as { at?: string; actor?: string; text?: string }[];
+  let latest: OrderViewMessage | null = null;
+  for (const n of notes) {
+    if (!n.text) continue;
+    const at = n.at ?? order.created_at;
+    if (!latest || at > latest.at) latest = { at, text: n.text, actor: n.actor ?? null };
+  }
+  return latest;
+}
+
 export interface OrderViewInput {
   order: OrderRow;
   lineItems: LineItemRow[];
@@ -83,6 +96,8 @@ export interface OrderViewSerialized {
   lineItems: OrderViewLineItem[];
   proofs: OrderViewProof[];
   activity: OrderViewActivityEntry[];
+  /** Newest direct message from Julian, surfaced as a banner. */
+  latestMessage: OrderViewMessage | null;
 }
 
 /** The design's first mockup URL — front view preferred when the view is identifiable. */
@@ -130,7 +145,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       order_number: order.order_number,
       status: order.status as OrderStatus,
       due_date: order.due_date,
-      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number; rush?: number },
+      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; discount?: number; discountLabel?: string },
       invoice_sent_at: order.invoice_sent_at,
       invoice_amount: order.invoice_amount,
       paid_at: order.paid_at,
@@ -154,5 +169,6 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       change_request_comment: p.change_request_comment,
     })),
     activity: buildActivity(order, activity),
+    latestMessage: latestMessage(order),
   };
 }

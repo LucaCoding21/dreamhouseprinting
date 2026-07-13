@@ -38,7 +38,7 @@ export function ProofLightbox({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex flex-col bg-dream-ink/90 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex flex-col bg-dream-overlay/90 backdrop-blur-sm"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onOpenChange(false);
       }}

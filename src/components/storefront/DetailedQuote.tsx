@@ -28,11 +28,14 @@ export function DetailedQuote({
   curve,
   productId,
   colourName,
+  allowedDecorations,
 }: {
   curve: ProductQuoteCurveJson;
   productId: string;
   /** Currently selected colour name, carried into the designer link. */
   colourName?: string;
+  /** Decorations the admin enabled for this product; omit to offer the full curve. */
+  allowedDecorations?: QuoteDecoration[];
 }) {
   const designHref = colourName
     ? `/design/${productId}?colour=${encodeURIComponent(colourName)}`
@@ -40,7 +43,14 @@ export function DetailedQuote({
   const quoteHref = colourName
     ? `/design/${productId}?quote=1&colour=${encodeURIComponent(colourName)}`
     : `/design/${productId}?quote=1`;
-  const decorations = curve.decorations.length ? curve.decorations : (["screen"] as QuoteDecoration[]);
+  // Offer the curve's decorations, narrowed to the admin-enabled ones. An empty
+  // intersection falls back to the full curve so the widget can always quote.
+  const decorations = useMemo(() => {
+    const base = curve.decorations.length ? curve.decorations : (["screen"] as QuoteDecoration[]);
+    if (!allowedDecorations?.length) return base;
+    const offered = base.filter((d) => allowedDecorations.includes(d));
+    return offered.length ? offered : base;
+  }, [curve.decorations, allowedDecorations]);
   const [decoration, setDecoration] = useState<QuoteDecoration>(decorations[0]);
   const [colours, setColours] = useState(1);
   const [locations, setLocations] = useState(1);
@@ -48,6 +58,9 @@ export function DetailedQuote({
   // Raw text of the number field, so partial edits (clearing, typing "2" then
   // "50") don't get clamped mid-keystroke. qty stays the source of truth.
   const [qtyText, setQtyText] = useState(String(DEFAULT_QTY));
+  // The estimate starts collapsed: "Design Now" is the primary path, and the
+  // estimate is an opt-in secondary so the two CTAs don't compete for attention.
+  const [estimateOpen, setEstimateOpen] = useState(false);
 
   const isScreen = decoration === "screen";
 
@@ -91,17 +104,82 @@ export function DetailedQuote({
         Design Now
       </Link>
 
-      <div className="flex flex-col gap-5 rounded-2xl border border-dream-line bg-dream-surface p-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
-          Instant estimate
-        </p>
-        <h2 className="mt-0.5 font-display text-lg font-bold text-dream-ink">Build your quote</h2>
+      {/* OR divider between the primary CTA and the opt-in estimate */}
+      <div className="flex items-center gap-4 py-1.5" aria-hidden="true">
+        <span className="h-px flex-1 rounded-full bg-dream-line" />
+        <span className="font-display text-sm font-semibold lowercase italic text-dream-muted">
+          or
+        </span>
+        <span className="h-px flex-1 rounded-full bg-dream-line" />
       </div>
 
-      {/* Decoration — only when the product offers a choice */}
-      {decorations.length > 1 && (
-        <Row label="Decoration">
+      <div className="overflow-hidden rounded-2xl border border-dream-line bg-dream-surface">
+      {/* Toggle: expands the estimate builder below. Collapsed by default. */}
+      <button
+        type="button"
+        aria-expanded={estimateOpen}
+        aria-controls="instant-estimate-panel"
+        onClick={() => setEstimateOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-dream-lavender-mist focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dream-purple/40"
+      >
+        <span className="flex items-center gap-3">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="h-6 w-6 shrink-0 text-dream-purple"
+          >
+            <rect x="4" y="2" width="16" height="20" rx="2" />
+            <line x1="8" y1="6" x2="16" y2="6" />
+            <line x1="8" y1="10" x2="8" y2="10" />
+            <line x1="12" y1="10" x2="12" y2="10" />
+            <line x1="16" y1="10" x2="16" y2="10" />
+            <line x1="8" y1="14" x2="8" y2="14" />
+            <line x1="12" y1="14" x2="12" y2="14" />
+            <line x1="16" y1="14" x2="16" y2="18" />
+            <line x1="8" y1="18" x2="12" y2="18" />
+          </svg>
+          <span>
+            <span className="block font-display text-xl font-bold text-dream-ink">
+              Build an instant estimate
+            </span>
+            <span className="mt-0.5 block text-xs text-dream-muted">Takes 5 seconds · no signup</span>
+          </span>
+        </span>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={cn(
+            "h-5 w-5 shrink-0 text-dream-purple transition-transform duration-300",
+            estimateOpen && "rotate-180",
+          )}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+
+      <div
+        id="instant-estimate-panel"
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out",
+          estimateOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+      <div className="overflow-hidden">
+      <div className="flex flex-col gap-5 border-t border-dream-line p-5">
+      {/* Decoration — a picker when the product offers a choice, otherwise a
+          static label so customers still see the technique this product gets */}
+      <Row label="Decoration">
+        {decorations.length > 1 ? (
           <div className="flex gap-1.5 rounded-full bg-dream-bg p-1">
             {decorations.map((d) => (
               <button
@@ -120,8 +198,12 @@ export function DetailedQuote({
               </button>
             ))}
           </div>
-        </Row>
-      )}
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-dream-bg px-4 py-1.5 text-sm font-semibold text-dream-ink">
+            {DECO_LABEL[decoration]}
+          </span>
+        )}
+      </Row>
 
       {/* Ink colours (screen only) + locations, aligned side by side */}
       <div className={cn("grid gap-4", isScreen ? "grid-cols-2" : "grid-cols-1")}>
@@ -238,6 +320,9 @@ export function DetailedQuote({
           Quick quote
         </Link>
       </p>
+      </div>
+      </div>
+      </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { approveProofCore, requestProofChangesCore } from "@/lib/orders/proofDecision";
-import { ensureCheckoutSession } from "@/lib/orders/payments";
+import { ensureCheckoutSession, orderPayableError } from "@/lib/orders/payments";
 
 /**
  * Server actions for the public, no-login order page. The unguessable
@@ -50,13 +50,13 @@ export async function payNowPublicAction(token: string): Promise<{ url?: string;
   const service = requireSupabaseServiceClient();
   const { data: order } = await service
     .from("orders")
-    .select("id, order_number, public_token, customer_id, guest_email, pricing, stripe_checkout_session_id, invoice_sent_at, paid_at")
+    .select("id, order_number, public_token, customer_id, guest_email, pricing, stripe_checkout_session_id, invoice_sent_at, paid_at, status")
     .eq("public_token", token)
     .maybeSingle();
   if (!order) return { error: "Order not found" };
 
-  if (!order.invoice_sent_at) return { error: "This order hasn't been invoiced yet." };
-  if (order.paid_at) return { error: "This order is already paid." };
+  const notPayable = orderPayableError(order);
+  if (notPayable) return { error: notPayable };
 
   return ensureCheckoutSession(service, order);
 }

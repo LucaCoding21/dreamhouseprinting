@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSettings";
+import { mergeAddonSettings, type AddonSettings } from "@/lib/addonSettings";
 import type { Json, Database } from "@/lib/db/types";
 
 type DecorationMethodUpdate = Database["public"]["Tables"]["decoration_methods"]["Update"];
@@ -73,6 +74,22 @@ export async function updateCheckoutSettingsAction(
   const { error } = await service
     .from("settings")
     .upsert({ key: "checkout", value: asJson(clean) }, { onConflict: "key" });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings");
+  return { ok: true };
+}
+
+export async function updateAddonSettingsAction(
+  settings: AddonSettings
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("settings.manage");
+  const service = requireSupabaseServiceClient();
+
+  const clean = mergeAddonSettings(settings);
+  const { error } = await service
+    .from("settings")
+    .upsert({ key: "addons", value: asJson(clean) }, { onConflict: "key" });
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings");

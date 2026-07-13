@@ -5,11 +5,37 @@ import { getStripe } from "@/lib/stripe";
 import { sendOrderEmail, notifyJulian } from "@/lib/notify";
 import { publicOrderPath, appOrigin } from "@/lib/orders/publicLink";
 import { formatCAD } from "@/lib/money";
+import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
+import type { OrderStatus } from "@/lib/db/rows";
 import type { Json } from "@/lib/db/types";
 import type { requireSupabaseServiceClient } from "@/lib/supabase/service";
 
 type Service = ReturnType<typeof requireSupabaseServiceClient>;
 const asJson = (v: unknown) => v as unknown as Json;
+
+/**
+ * Why an order can't be paid right now, or null when it can. Payability is
+ * approval-driven (approve-and-pay): once the proof is approved the customer
+ * pays self-serve at the CURRENT pricing.total — an explicit invoice email is
+ * only required for pre-approval payment.
+ */
+export function orderPayableError(order: {
+  status: string;
+  paid_at: string | null;
+  invoice_sent_at: string | null;
+  pricing: Json;
+}): string | null {
+  if (order.paid_at) return "This order is already paid.";
+  if (order.status === "cancelled") return "This order was cancelled.";
+  const pricing = (order.pricing ?? {}) as { total?: number };
+  if (!(typeof pricing.total === "number" && pricing.total > 0)) {
+    return "This order doesn't have a total yet — we'll email you when it's ready to pay.";
+  }
+  if (!PAYABLE_ORDER_STATUSES.has(order.status as OrderStatus) && !order.invoice_sent_at) {
+    return "Payment opens as soon as you approve your proof.";
+  }
+  return null;
+}
 
 interface CheckoutOrder {
   id: string;

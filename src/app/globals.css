@@ -35,6 +35,9 @@
   --color-dream-danger-soft: #fbe4e3;
   --color-dream-info: #3b6fe0;
   --color-dream-info-soft: #e4ecfb;
+  /* Neutral grey scrim for modal backdrops — deliberately hue-free so dialogs
+     dim to grey, not the navy-purple of dream-ink. Use as bg-dream-overlay/NN. */
+  --color-dream-overlay: #3a3a3f;
 
   --font-display: var(--font-archivo);
   --font-daruma: var(--font-darumadrop);

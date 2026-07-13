@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
 import { useToast } from "@/components/ui/use-toast";
 import type { PrintAreaRow, ProductColourJson } from "@/lib/db/rows";
+import { formatInches } from "@/lib/design/printArea";
 import { savePrintAreasAction, type PrintAreaInput } from "../actions";
 
 type Colour = ProductColourJson & { enabled?: boolean };
@@ -53,6 +55,8 @@ export function PrintAreaEditor({
     startX: number;
     startY: number;
     startPos: EditorArea["position"];
+    startWIn: number;
+    startHIn: number;
     rect: DOMRect;
   } | null>(null);
 
@@ -72,6 +76,7 @@ export function PrintAreaEditor({
     })
   );
   const [selected, setSelected] = useState<number | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   // Aspect ratio of the loaded garment image. The frame matches it so the
   // image fills with no letterbox — then % box coords and drag deltas (which
   // divide by the container rect) map 1:1 to the same basis the designer uses.
@@ -100,7 +105,16 @@ export function PrintAreaEditor({
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setSelected(idx);
-    dragRef.current = { idx, mode, startX: e.clientX, startY: e.clientY, startPos: { ...areas[idx].position }, rect };
+    dragRef.current = {
+      idx,
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      startPos: { ...areas[idx].position },
+      startWIn: areas[idx].maxWidthIn,
+      startHIn: areas[idx].maxHeightIn,
+      rect,
+    };
   }
 
   function onMove(e: React.PointerEvent) {
@@ -111,14 +125,23 @@ export function PrintAreaEditor({
     setAreas((prev) => {
       const next = [...prev];
       const p = { ...d.startPos };
+      const patch: Partial<EditorArea> = {};
       if (d.mode === "move") {
         p.x = clamp(d.startPos.x + dx, 0, 1 - d.startPos.width);
         p.y = clamp(d.startPos.y + dy, 0, 1 - d.startPos.height);
       } else {
+        // Free corner resize: width follows horizontal drag, height follows
+        // vertical drag, both at once. The inch dims scale with each axis so the
+        // numbers track the box. Rounded to the nearest half-inch.
         p.width = clamp(d.startPos.width + dx, 0.05, 1 - d.startPos.x);
         p.height = clamp(d.startPos.height + dy, 0.05, 1 - d.startPos.y);
+        if (d.startPos.width > 0 && d.startPos.height > 0 && d.startWIn > 0 && d.startHIn > 0) {
+          const round = (n: number) => Math.max(0.5, Math.round(n * 2) / 2);
+          patch.maxWidthIn = round((p.width / d.startPos.width) * d.startWIn);
+          patch.maxHeightIn = round((p.height / d.startPos.height) * d.startHIn);
+        }
       }
-      next[d.idx] = { ...next[d.idx], position: p };
+      next[d.idx] = { ...next[d.idx], position: p, ...patch };
       return next;
     });
   }
@@ -129,6 +152,25 @@ export function PrintAreaEditor({
 
   function updateArea(idx: number, patch: Partial<EditorArea>) {
     setAreas((prev) => prev.map((a, i) => (i === idx ? { ...a, ...patch } : a)));
+  }
+
+  /** Typing an inch dimension resizes the box on that axis at the same
+   *  pixels-per-inch, so the box on the photo keeps matching the numbers. */
+  function setInch(idx: number, dim: "w" | "h", value: number) {
+    setAreas((prev) =>
+      prev.map((a, i) => {
+        if (i !== idx) return a;
+        const position = { ...a.position };
+        if (value > 0) {
+          if (dim === "w" && a.maxWidthIn > 0) {
+            position.width = clamp(value * (a.position.width / a.maxWidthIn), 0.05, 1 - position.x);
+          } else if (dim === "h" && a.maxHeightIn > 0) {
+            position.height = clamp(value * (a.position.height / a.maxHeightIn), 0.05, 1 - position.y);
+          }
+        }
+        return { ...a, [dim === "w" ? "maxWidthIn" : "maxHeightIn"]: value, position };
+      })
+    );
   }
 
   function removeArea(idx: number) {
@@ -157,9 +199,20 @@ export function PrintAreaEditor({
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Print areas</CardTitle>
+        <div className="flex items-center gap-1.5">
+          <CardTitle>Print areas</CardTitle>
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            aria-label="How print areas work"
+            className="grid h-5 w-5 place-items-center rounded-full border border-dream-line text-xs font-bold text-dream-muted transition-colors hover:border-dream-purple hover:text-dream-purple"
+          >
+            ?
+          </button>
+        </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={addArea}>
             + Add area
@@ -171,8 +224,7 @@ export function PrintAreaEditor({
       </CardHeader>
       <CardContent>
         <p className="mb-3 text-sm text-dream-muted">
-          Draw the printable zones on the garment. Boxes stay aligned across colours and follow the view. A product
-          needs at least one print area to open in the designer.
+          Drag to move, drag the corner to resize. Inch sizes update as you go.
         </p>
 
         {availableViews.length > 1 && (
@@ -236,6 +288,7 @@ export function PrintAreaEditor({
               >
                 <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-dream-purple px-1.5 py-0.5 text-[10px] font-medium text-white">
                   {a.name}
+                  {a.maxWidthIn > 0 && a.maxHeightIn > 0 && ` · ${formatInches(a.maxWidthIn, a.maxHeightIn)}`}
                 </span>
                 <div
                   onPointerDown={(e) => {
@@ -277,21 +330,11 @@ export function PrintAreaEditor({
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-xs text-dream-muted">
                     Max width (in)
-                    <Input
-                      type="number"
-                      value={a.maxWidthIn}
-                      onChange={(e) => updateArea(i, { maxWidthIn: Number(e.target.value) })}
-                      className="mt-1 h-8"
-                    />
+                    <InchInput value={a.maxWidthIn} onChange={(n) => setInch(i, "w", n)} />
                   </label>
                   <label className="text-xs text-dream-muted">
                     Max height (in)
-                    <Input
-                      type="number"
-                      value={a.maxHeightIn}
-                      onChange={(e) => updateArea(i, { maxHeightIn: Number(e.target.value) })}
-                      className="mt-1 h-8"
-                    />
+                    <InchInput value={a.maxHeightIn} onChange={(n) => setInch(i, "h", n)} />
                   </label>
                 </div>
               </div>
@@ -300,5 +343,71 @@ export function PrintAreaEditor({
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={showHelp} onOpenChange={setShowHelp}>
+      <DialogContent className="max-w-md">
+        <DialogHeader className="px-6 pt-6 pb-1">
+          <DialogTitle>How print areas work</DialogTitle>
+          <DialogDescription className="pt-1 leading-relaxed">
+            Each box is a printable zone on the garment. Drag it to reposition, or drag the corner
+            handle to resize it in any direction. As you resize, the width and height in inches update
+            automatically, and you can fine-tune them in the fields below (typing a size resizes the box
+            to match).
+            <br />
+            <br />
+            What you draw here is what customers see in the designer and print against. Boxes stay
+            aligned across every colour and follow the selected view. A product needs at least one print
+            area before it can open in the designer.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end px-6 pb-6 pt-3">
+          <button
+            onClick={() => setShowHelp(false)}
+            className="rounded-full bg-dream-purple px-5 py-2 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+          >
+            Got it
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
+  );
+}
+
+/**
+ * Number field that edits through a string draft so decimals type cleanly — no
+ * stuck leading zero (the controlled `type=number` bug) and you can clear it
+ * mid-edit. Syncs from the external number only while unfocused (e.g. when a
+ * drag changes the size). Blank/invalid entries don't propagate.
+ */
+function InchInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [draft, setDraft] = useState(() => (value ? String(value) : ""));
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setDraft(value ? String(value) : "");
+  }, [value]);
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      onFocus={() => {
+        focused.current = true;
+      }}
+      onBlur={() => {
+        focused.current = false;
+        setDraft(value ? String(value) : "");
+      }}
+      onChange={(e) => {
+        const s = e.target.value;
+        if (/[^0-9.]/.test(s)) return; // digits and one decimal point only
+        setDraft(s);
+        const n = Number(s);
+        if (s.trim() !== "" && !Number.isNaN(n)) onChange(n);
+      }}
+      className="mt-1 h-8"
+    />
   );
 }

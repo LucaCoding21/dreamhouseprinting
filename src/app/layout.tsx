@@ -1,33 +1,10 @@
 import type { Metadata } from "next";
-import { Archivo, Darumadrop_One, Inter, Lilita_One } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart/CartContext";
+import { archivo, darumadrop, inter, lilitaOne } from "@/lib/fonts";
 
 const GA_MEASUREMENT_ID = "G-1X4CV46YY4";
-
-const archivo = Archivo({
-  variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
-
-const darumadrop = Darumadrop_One({
-  variable: "--font-darumadrop",
-  subsets: ["latin"],
-  weight: "400",
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const lilitaOne = Lilita_One({
-  variable: "--font-lilita",
-  subsets: ["latin"],
-  weight: "400",
-});
 
 const homeTitle = "Custom Screen Printing & Embroidery in Vancouver | Dreamhouse";
 const homeDescription =

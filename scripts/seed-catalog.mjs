@@ -176,24 +176,34 @@ async function buildProductDraft(styleId) {
 /* ------------------------- curated catalog ------------------------------ */
 
 // Default print areas per product family (normalized 0..1 on the matching view
-// image). After the alignment fix these map 1:1 to the rendered garment. Apparel
-// gets a front AND a back so the designer shows both sides at once; caps are
-// front-only (no back print).
+// image). Apparel gets a front AND a back so the designer shows both sides at
+// once; caps are front-only (no back print).
+//
+// The position envelope's PIXEL aspect must match maxWidthIn:maxHeightIn so
+// inch measurements are uniform on both axes. S&S CDN colour images are all
+// 500×625 (aspect A = 0.8), so:  height = width × A × maxHeightIn / maxWidthIn.
+// (The designer aspect-corrects at runtime anyway — lib/design/printArea — so a
+// drifted box degrades gracefully; these defaults start out exact.) Widths are
+// calibrated to the garment's real-world scale in the S&S photos so a 12″ print
+// looks 12″ on the mockup.
 const PRINT_AREA = {
   shirts: {
-    front: { name: "Front center", position: { x: 0.32, y: 0.27, width: 0.36, height: 0.34 }, maxWidthIn: 12, maxHeightIn: 14 },
-    back: { name: "Full back", position: { x: 0.24, y: 0.16, width: 0.52, height: 0.5 }, maxWidthIn: 14, maxHeightIn: 16 },
+    // ~22″ garment across ~0.80 of the frame → 1″ ≈ 0.036 of image width.
+    front: { name: "Front center", position: { x: 0.28, y: 0.24, width: 0.44, height: 0.41 }, maxWidthIn: 12, maxHeightIn: 14 },
+    back: { name: "Full back", position: { x: 0.245, y: 0.18, width: 0.51, height: 0.47 }, maxWidthIn: 14, maxHeightIn: 16 },
   },
   hoodies: {
-    front: { name: "Front center", position: { x: 0.33, y: 0.31, width: 0.34, height: 0.28 }, maxWidthIn: 12, maxHeightIn: 14 },
-    back: { name: "Full back", position: { x: 0.25, y: 0.18, width: 0.5, height: 0.44 }, maxWidthIn: 14, maxHeightIn: 16 },
+    // Bulkier garment, wider in frame; front print sits above the pouch pocket.
+    front: { name: "Front center", position: { x: 0.29, y: 0.3, width: 0.42, height: 0.34 }, maxWidthIn: 12, maxHeightIn: 12 },
+    back: { name: "Full back", position: { x: 0.29, y: 0.17, width: 0.42, height: 0.45 }, maxWidthIn: 12, maxHeightIn: 16 },
   },
   "hats-toques": {
-    front: { name: "Front", position: { x: 0.37, y: 0.33, width: 0.26, height: 0.15 }, maxWidthIn: 4.5, maxHeightIn: 2.5 },
+    // Embroidery on the front panel.
+    front: { name: "Front", position: { x: 0.345, y: 0.33, width: 0.31, height: 0.14 }, maxWidthIn: 4.5, maxHeightIn: 2.5 },
   },
   totes: {
-    front: { name: "Front center", position: { x: 0.29, y: 0.3, width: 0.42, height: 0.4 }, maxWidthIn: 12, maxHeightIn: 14 },
-    back: { name: "Back center", position: { x: 0.29, y: 0.3, width: 0.42, height: 0.4 }, maxWidthIn: 12, maxHeightIn: 14 },
+    front: { name: "Front center", position: { x: 0.265, y: 0.28, width: 0.47, height: 0.45 }, maxWidthIn: 10, maxHeightIn: 12 },
+    back: { name: "Back center", position: { x: 0.265, y: 0.28, width: 0.47, height: 0.45 }, maxWidthIn: 10, maxHeightIn: 12 },
   },
 };
 

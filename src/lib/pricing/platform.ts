@@ -2,10 +2,13 @@ import { roundCents } from "@/lib/money";
 import type { ProductRow, DecorationMethodRow } from "@/lib/db/rows";
 
 /**
- * Platform pricing engine (PRD §10.3). Every surface — catalog "starting at",
- * designer live price, cart, order, quote — computes price here so they never
- * diverge. The price shown at submit is snapshotted onto the Design/Order so a
- * later catalog change can't retroactively alter a placed order.
+ * Platform cost-plus engine (PRD §10.3) — now the FALLBACK, not the primary.
+ * Customer pricing lives in the per-product quantity-break curve
+ * (products.pricing_rules.quote, priced by lib/pricing/quote.ts); this engine
+ * only prices products without a curve, and supplies garment retail as the
+ * curve-less "from" price plus internal cost/margin info for admin.
+ * The price shown at submit is snapshotted onto the Design/Order so a later
+ * catalog change can't retroactively alter a placed order.
  *
  *   garment retail  = base_price override, else wholesale_cost + markup
  *   decoration/unit = (per_unit_cost + per_color_cost × colours) × locations
@@ -91,9 +94,4 @@ export function calcPrice(input: PricingInput): PriceBreakdown {
     subtotal,
     total,
   };
-}
-
-/** "Starting at" price for a catalog card — garment retail only (no decoration). */
-export function startingAtPrice(product: PricingInput["product"]): number {
-  return garmentRetailUnit(product);
 }

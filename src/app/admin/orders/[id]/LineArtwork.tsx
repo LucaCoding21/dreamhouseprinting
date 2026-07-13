@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
 import type { DesignRow } from "@/lib/db/rows";
@@ -63,8 +63,7 @@ function asSceneMap(value: unknown): Record<string, SceneJson> {
 function asSourceFiles(value: unknown): SourceFile[] {
   if (!Array.isArray(value)) return [];
   return value.filter(
-    (f): f is SourceFile =>
-      !!f && typeof f === "object" && isString((f as SourceFile).name),
+    (f): f is SourceFile => !!f && typeof f === "object" && isString((f as SourceFile).name),
   );
 }
 
@@ -146,24 +145,10 @@ function collectPieces(scenes: Record<string, SceneJson>): Piece[] {
         if (!src || !isDataUrl(src)) return;
         if (isSvgDataUrl(src)) {
           stickerN += 1;
-          pieces.push({
-            key: `${view}-${i}`,
-            view,
-            index: stickerN,
-            kind: "sticker",
-            object,
-            src,
-          });
+          pieces.push({ key: `${view}-${i}`, view, index: stickerN, kind: "sticker", object, src });
         } else {
           imageN += 1;
-          pieces.push({
-            key: `${view}-${i}`,
-            view,
-            index: imageN,
-            kind: "image",
-            object,
-            src,
-          });
+          pieces.push({ key: `${view}-${i}`, view, index: imageN, kind: "image", object, src });
         }
       } else if (TEXT_TYPE.test(type)) {
         const text = isString(object.text) ? object.text : "";
@@ -184,87 +169,63 @@ function collectPieces(scenes: Record<string, SceneJson>): Piece[] {
   return pieces;
 }
 
-interface EnrichedDesign {
-  design: DesignRow;
-  slug: string;
-  colour: ColourJson | null;
-  sourceFiles: SourceFile[];
-  pieces: Piece[];
-}
-
-export function DesignAssets({ designs }: { designs: DesignRow[] }) {
+/**
+ * Per-line artwork viewer — a "View artwork" button that opens a modal with the
+ * customer's original uploads and every design piece (image / sticker / text),
+ * each downloadable, ready to drop into a proof. One design per line.
+ */
+export function LineArtwork({ design }: { design: DesignRow | undefined }) {
   const { toast } = useToast();
+  const [open, setOpen] = useState(false);
   const [renderingKey, setRenderingKey] = useState<string | null>(null);
 
-  const enriched: EnrichedDesign[] = designs
-    .map((design) => {
-      const scenes = asSceneMap(design.scene_definition);
-      return {
-        design,
-        slug: designSlug(design.name),
-        colour: asColour(design.colour),
-        sourceFiles: asSourceFiles(design.source_artwork_files),
-        pieces: collectPieces(scenes),
-      };
-    })
-    .filter((d) => d.pieces.length > 0 || d.sourceFiles.length > 0);
+  if (!design) return null;
+  const slug = designSlug(design.name);
+  const colour = asColour(design.colour);
+  const sourceFiles = asSourceFiles(design.source_artwork_files);
+  const pieces = collectPieces(asSceneMap(design.scene_definition));
+  if (pieces.length === 0 && sourceFiles.length === 0) return null;
 
-  if (enriched.length === 0) return null;
-
-  function downloadImage(item: EnrichedDesign, piece: Piece) {
+  function downloadImage(piece: Piece) {
     if (!piece.src) return;
     try {
       const blob = dataUrlToBlob(piece.src);
       const ext = rasterExtension(piece.src);
-      downloadBlob(blob, `${item.slug}-${piece.view}-image-${piece.index}.${ext}`);
+      downloadBlob(blob, `${slug}-${piece.view}-image-${piece.index}.${ext}`);
     } catch {
-      toast({
-        title: "Could not download image",
-        description: "The image data appears to be corrupt.",
-        variant: "error",
-      });
+      toast({ title: "Could not download image", description: "The image data appears to be corrupt.", variant: "error" });
     }
   }
 
-  function downloadSticker(item: EnrichedDesign, piece: Piece) {
+  function downloadSticker(piece: Piece) {
     if (!piece.src) return;
     try {
       const [, payload = ""] = piece.src.split(",", 2);
-      const svg = /;base64/i.test(piece.src)
-        ? atob(payload)
-        : decodeURIComponent(payload);
+      const svg = /;base64/i.test(piece.src) ? atob(payload) : decodeURIComponent(payload);
       const blob = new Blob([svg], { type: "image/svg+xml" });
-      downloadBlob(blob, `${item.slug}-${piece.view}-sticker-${piece.index}.svg`);
+      downloadBlob(blob, `${slug}-${piece.view}-sticker-${piece.index}.svg`);
     } catch {
-      toast({
-        title: "Could not download sticker",
-        description: "The vector data could not be decoded.",
-        variant: "error",
-      });
+      toast({ title: "Could not download sticker", description: "The vector data could not be decoded.", variant: "error" });
     }
   }
 
-  async function downloadText(item: EnrichedDesign, piece: Piece) {
+  async function downloadText(piece: Piece) {
     setRenderingKey(piece.key);
     try {
       if (typeof document !== "undefined" && document.fonts?.ready) {
         await document.fonts.ready;
       }
       const fabric = await import("fabric");
-      const enlivened = await fabric.util.enlivenObjects<
-        InstanceType<typeof fabric.FabricObject>
-      >([piece.object as Record<string, unknown>]);
+      const enlivened = await fabric.util.enlivenObjects<InstanceType<typeof fabric.FabricObject>>([
+        piece.object as Record<string, unknown>,
+      ]);
       const obj = enlivened[0];
       if (!obj) throw new Error("no object");
 
-      // Shift so the bounding rect's top-left lands at (margin, margin) —
-      // works regardless of the object's originX/Y (Fabric v7 defaults to center).
+      // Shift so the bounding rect's top-left lands at (margin, margin).
       const margin = 24;
       const bounds = obj.getBoundingRect();
-      obj.set({
-        left: (obj.left ?? 0) - bounds.left + margin,
-        top: (obj.top ?? 0) - bounds.top + margin,
-      });
+      obj.set({ left: (obj.left ?? 0) - bounds.left + margin, top: (obj.top ?? 0) - bounds.top + margin });
       obj.setCoords();
 
       const canvas = new fabric.StaticCanvas(undefined, {
@@ -279,53 +240,46 @@ export function DesignAssets({ designs }: { designs: DesignRow[] }) {
       const dataUrl = canvas.toDataURL({ format: "png", multiplier: 4 });
       canvas.dispose();
 
-      const blob = dataUrlToBlob(dataUrl);
-      downloadBlob(blob, `${item.slug}-${piece.view}-text-${piece.index}.png`);
+      downloadBlob(dataUrlToBlob(dataUrl), `${slug}-${piece.view}-text-${piece.index}.png`);
     } catch {
-      toast({
-        title: "Could not render text",
-        description: "The text art could not be exported to PNG.",
-        variant: "error",
-      });
+      toast({ title: "Could not render text", description: "The text art could not be exported to PNG.", variant: "error" });
     } finally {
       setRenderingKey(null);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Artwork &amp; downloads</CardTitle>
-        <p className="text-sm text-dream-muted">
-          Every piece of the customer&apos;s design, ready to drop into your own
-          proof.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-8">
-        {enriched.map((item) => (
-          <div key={item.design.id} className="space-y-4">
-            <div className="flex items-center gap-2">
-              <h4 className="font-display text-sm font-semibold text-dream-ink">
-                {item.design.name ?? "Untitled design"}
-              </h4>
-              {item.colour && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-dream-muted">
-                  <span
-                    className="h-3 w-3 rounded-full border border-dream-line"
-                    style={{ backgroundColor: item.colour.hex }}
-                  />
-                  {item.colour.name}
-                </span>
-              )}
-            </div>
+    <>
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="w-full justify-center gap-1.5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+          <path d="M12 19l7-7 3 3-7 7-3-3z" />
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+          <path d="M2 2l7.586 7.586" />
+          <circle cx="11" cy="11" r="2" />
+        </svg>
+        View artwork
+      </Button>
 
-            {item.sourceFiles.length > 0 && (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
+          <DialogClose />
+          <DialogHeader>
+            <DialogTitle>Artwork: {design.name ?? "Untitled design"}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[70vh] space-y-6 overflow-y-auto px-5 pb-5">
+            {colour && (
+              <p className="inline-flex items-center gap-1.5 text-sm text-dream-muted">
+                Colour:
+                <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={{ backgroundColor: colour.hex }} />
+                <span className="font-medium text-dream-ink">{colour.name}</span>
+              </p>
+            )}
+
+            {sourceFiles.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-dream-muted">
-                  Original uploads
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-dream-muted">Original uploads</p>
                 <div className="flex flex-wrap gap-2">
-                  {item.sourceFiles.map((file, i) =>
+                  {sourceFiles.map((file, i) =>
                     file.url ? (
                       <a
                         key={`${file.path}-${i}`}
@@ -350,22 +304,19 @@ export function DesignAssets({ designs }: { designs: DesignRow[] }) {
               </div>
             )}
 
-            {item.pieces.length > 0 && (
+            {pieces.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-dream-muted">
-                  Design pieces
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wide text-dream-muted">Design pieces</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-3">
-                  {item.pieces.map((piece) => (
+                  {pieces.map((piece) => (
                     <PieceTile
-                      key={`${item.design.id}-${piece.key}`}
+                      key={`${design.id}-${piece.key}`}
                       piece={piece}
                       rendering={renderingKey === piece.key}
                       onDownload={() => {
-                        if (piece.kind === "image") downloadImage(item, piece);
-                        else if (piece.kind === "sticker")
-                          downloadSticker(item, piece);
-                        else void downloadText(item, piece);
+                        if (piece.kind === "image") downloadImage(piece);
+                        else if (piece.kind === "sticker") downloadSticker(piece);
+                        else void downloadText(piece);
                       }}
                     />
                   ))}
@@ -373,9 +324,9 @@ export function DesignAssets({ designs }: { designs: DesignRow[] }) {
               </div>
             )}
           </div>
-        ))}
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -386,30 +337,18 @@ interface PieceTileProps {
 }
 
 function PieceTile({ piece, rendering, onDownload }: PieceTileProps) {
-  const label =
-    piece.kind === "image"
-      ? "Image"
-      : piece.kind === "sticker"
-        ? "Sticker"
-        : `"${piece.text ?? ""}"`;
+  const label = piece.kind === "image" ? "Image" : piece.kind === "sticker" ? "Sticker" : `"${piece.text ?? ""}"`;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-dream-line bg-dream-surface">
       <div className="relative flex aspect-square items-center justify-center bg-dream-bg p-2">
         {piece.kind === "text" ? (
-          <div
-            className="line-clamp-3 text-center font-display text-base font-bold leading-tight"
-            style={{ color: piece.fill }}
-          >
+          <div className="line-clamp-3 text-center font-display text-base font-bold leading-tight" style={{ color: piece.fill }}>
             {piece.text}
           </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={piece.src}
-            alt={label}
-            className="max-h-full max-w-full object-contain"
-          />
+          <img src={piece.src} alt={label} className="max-h-full max-w-full object-contain" />
         )}
         {piece.kind === "sticker" && (
           <span className="absolute right-1.5 top-1.5 rounded bg-dream-ink/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
@@ -422,17 +361,9 @@ function PieceTile({ piece, rendering, onDownload }: PieceTileProps) {
           <p className="truncate text-xs font-medium text-dream-ink" title={label}>
             {label}
           </p>
-          <p className="text-[10px] uppercase tracking-wide text-dream-muted">
-            {viewLabel(piece.view)}
-          </p>
+          <p className="text-[10px] uppercase tracking-wide text-dream-muted">{viewLabel(piece.view)}</p>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          className="w-full"
-          loading={rendering}
-          onClick={onDownload}
-        >
+        <Button size="sm" variant="secondary" className="w-full" loading={rendering} onClick={onDownload}>
           {!rendering && <DownloadIcon className="h-3.5 w-3.5" />}
           Download
         </Button>

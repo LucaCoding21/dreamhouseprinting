@@ -5,13 +5,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/DropdownMenu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
-import { formatCAD } from "@/lib/money";
-import { STATUS_META, TRACKER_STAGES, statusStageIndex } from "@/lib/orderStatus";
-import { ORDER_STATUSES, type OrderStatus, type PaymentStatus } from "@/lib/db/rows";
+import { STATUS_META } from "@/lib/orderStatus";
+import { ORDER_STATUSES, type OrderStatus } from "@/lib/db/rows";
 import { setOrderStatusAction, addOrderNoteAction, sendInvoiceAction, setTrackingAction } from "../actions";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { fmtDay, nextAction, useOrderAction, type Can, type Detail } from "./shared";
@@ -26,19 +26,35 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
 
   const status = order.status as OrderStatus;
   const kind = nextAction(order);
-  const stageIdx = statusStageIndex(status);
 
   const pricing = (order.pricing ?? {}) as { total?: number };
   const total = pricing.total ?? 0;
-  const payment = order.payment_status as PaymentStatus;
-  const paymentBadge: "success" | "info" | "warn" | "neutral" =
-    payment === "paid_in_full" ? "success" : payment.startsWith("deposit") ? "info" : payment === "refunded" ? "neutral" : "warn";
 
   const [jumpOpen, setJumpOpen] = useState(false);
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
   const [approveConfirm, setApproveConfirm] = useState(false);
+  const [approveReason, setApproveReason] = useState("");
   const [shipOpen, setShipOpen] = useState(false);
   const [tracking, setTracking] = useState(order.shipping_tracking ?? "");
+
+  // Approve on the customer's behalf, recording WHY as an internal note (paper
+  // trail — with many orders, an on-behalf approval needs a reason on record).
+  function approveOnBehalf() {
+    const reason = approveReason.trim();
+    if (!reason) return;
+    run(
+      async () => {
+        const r = await setOrderStatusAction(order.id, "approved");
+        if (!r.error) await addOrderNoteAction(order.id, `Approved on customer's behalf: ${reason}`, "internal");
+        return r;
+      },
+      "Proof approved",
+      () => {
+        setApproveConfirm(false);
+        setApproveReason("");
+      },
+    );
+  }
 
   // Latest change request (for the changes_requested callout).
   const latestChange = detail.proofs
@@ -69,7 +85,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       setInvoiceConfirm(true);
       return;
     }
-    run(() => sendInvoiceAction(order.id), order.invoice_sent_at ? "Invoice re-sent" : "Invoice sent");
+    run(() => sendInvoiceAction(order.id), order.invoice_sent_at ? "Payment link re-sent" : "Payment link emailed");
   }
 
   function markShipped() {
@@ -128,10 +144,13 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         </div>
       </div>
 
-      {/* Row 2 — identity + money */}
+      {/* Row 2 — identity + status */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-3xl font-bold text-dream-ink">Order {order.order_number ?? ""}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-3xl font-bold text-dream-ink">Order {order.order_number ?? ""}</h1>
+            <Badge variant={status === "changes_requested" ? "warn" : "info"}>{STATUS_META[status].label}</Badge>
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-dream-muted">
             <span className="font-medium text-dream-ink">{who}</span>
             <span aria-hidden>·</span>
@@ -144,12 +163,6 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             )}
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-display text-2xl font-bold text-dream-ink">{formatCAD(total)}</div>
-          <div className="mt-1">
-            <Badge variant={paymentBadge}>{payment === "paid_in_full" ? "Paid" : payment.replace(/_/g, " ")}</Badge>
-          </div>
-        </div>
       </div>
 
       {order.hold_note && (
@@ -157,55 +170,6 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
           <strong>On hold:</strong> {order.hold_note}
         </div>
       )}
-
-      {/* Row 3 — stepper */}
-      <div className="flex items-start">
-        {TRACKER_STAGES.map((stage, i) => {
-          const done = stageIdx >= 0 && i < stageIdx;
-          const current = stageIdx === i;
-          return (
-            <div key={stage.key} className="relative flex flex-1 flex-col items-center text-center">
-              {i > 0 && (
-                <span
-                  className={cn(
-                    "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2",
-                    stageIdx >= 0 && i <= stageIdx ? "bg-dream-success" : "bg-dream-line-strong",
-                  )}
-                />
-              )}
-              <span
-                className={cn(
-                  "relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold",
-                  done && "border-dream-success bg-dream-success text-white",
-                  current && "border-dream-purple bg-dream-purple text-white ring-4 ring-dream-lavender-soft",
-                  !done && !current && "border-transparent bg-dream-bg text-dream-faint",
-                )}
-              >
-                {done ? (
-                  <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden>
-                    <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
-              </span>
-              <span className={cn("mt-2 px-1 text-[11px] font-medium", current ? "text-dream-ink" : "text-dream-muted")}>
-                {stage.label}
-              </span>
-              {current && (
-                <span
-                  className={cn(
-                    "mt-0.5 px-1 text-[11px] font-semibold",
-                    status === "changes_requested" ? "text-dream-warn" : "text-dream-purple",
-                  )}
-                >
-                  {STATUS_META[status].label}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
 
       {/* Row 3 — hero action */}
       {can.edit && (
@@ -219,6 +183,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         orderNumber={order.order_number}
         customerName={who}
         isReplacement={status === "changes_requested" || status === "proof_ready"}
+        orderTotal={total}
       />
 
       {/* Jump-to-status dialog */}
@@ -273,7 +238,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               loading={pending}
               onClick={() => {
                 setInvoiceConfirm(false);
-                run(() => sendInvoiceAction(order.id), order.invoice_sent_at ? "Invoice re-sent" : "Invoice sent");
+                run(() => sendInvoiceAction(order.id), order.invoice_sent_at ? "Payment link re-sent" : "Payment link emailed");
               }}
             >
               Send anyway
@@ -283,27 +248,39 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       </Dialog>
 
       {/* Approve on customer's behalf confirm */}
-      <Dialog open={approveConfirm} onOpenChange={setApproveConfirm}>
-        <DialogContent>
+      <Dialog
+        open={approveConfirm}
+        onOpenChange={(o) => {
+          setApproveConfirm(o);
+          if (!o) setApproveReason("");
+        }}
+      >
+        <DialogContent backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
+          <DialogClose />
           <DialogHeader>
-            <DialogTitle>Skip the approval step?</DialogTitle>
+            <DialogTitle>Approve on the customer’s behalf?</DialogTitle>
             <DialogDescription>
               The order moves straight to Approved and the customer won’t get an approval email. Do this when the design is
               print-ready as-is, or when they already approved by text or phone.
             </DialogDescription>
           </DialogHeader>
+          <div className="p-5 pt-0">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+              Why are you approving for them? (internal — the customer never sees this)
+            </label>
+            <Textarea
+              rows={3}
+              autoFocus
+              value={approveReason}
+              onChange={(e) => setApproveReason(e.target.value)}
+              placeholder="e.g. customer approved by text, print-ready as submitted"
+            />
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setApproveConfirm(false)}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              loading={pending}
-              onClick={() => {
-                setApproveConfirm(false);
-                run(() => setOrderStatusAction(order.id, "approved"), "Proof approved");
-              }}
-            >
+            <Button variant="primary" loading={pending} disabled={!approveReason.trim()} onClick={approveOnBehalf}>
               Approve
             </Button>
           </DialogFooter>
@@ -353,7 +330,9 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             <Button variant="primary" size="lg" disabled={!can.proofs} onClick={pickProof} className="min-w-48">
               Upload proof
             </Button>
-            <p className="text-sm text-dream-muted">Sends the customer an approval email</p>
+            <p className="text-sm text-dream-muted">
+              Sends an approval email — the customer approves &amp; pays in one step, so double-check pricing first
+            </p>
             <Button variant="ghost" className="ml-auto" onClick={() => setApproveConfirm(true)}>
               Looks good — skip proof
             </Button>
@@ -365,6 +344,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             <Badge variant="warn" className="px-3 py-1.5 text-sm">
               Waiting on customer approval
             </Badge>
+            <p className="text-sm text-dream-muted">They&rsquo;ll be asked to pay the current total the moment they approve</p>
             <div className="ml-auto flex flex-wrap gap-2">
               <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
                 Upload new proof
@@ -389,12 +369,20 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "approved-invoice":
         return (
           <div className="flex flex-wrap items-center gap-3">
-            {can.pricing ? (
-              <HeroButton label="Send invoice" loading={pending} onClick={sendInvoice} inline disabled={total <= 0} />
-            ) : null}
-            <Button variant="secondary" loading={pending} onClick={() => run(() => setOrderStatusAction(order.id, "in_production"), "Moved to production")}>
-              Start production
-            </Button>
+            <Badge variant="warn" className="px-3 py-1.5 text-sm">
+              Approved — awaiting payment
+            </Badge>
+            <p className="text-sm text-dream-muted">The customer can pay from their order page any time</p>
+            <div className="ml-auto flex flex-wrap gap-2">
+              {can.pricing && (
+                <Button variant="secondary" loading={pending} disabled={total <= 0} onClick={sendInvoice}>
+                  {order.invoice_sent_at ? "Re-send payment link" : "Email payment link"}
+                </Button>
+              )}
+              <Button variant="secondary" loading={pending} onClick={() => run(() => setOrderStatusAction(order.id, "in_production"), "Moved to production")}>
+                Start production
+              </Button>
+            </div>
           </div>
         );
       case "start-production":

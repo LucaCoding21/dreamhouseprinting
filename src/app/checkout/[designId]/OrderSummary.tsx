@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { formatCAD } from "@/lib/money";
 import { calcTax, type ProvinceCode } from "@/lib/pricing/tax";
-import { rushFee } from "@/lib/pricing/rush";
 
 export interface SummaryColorway {
   colourName: string | null;
@@ -43,11 +42,11 @@ export function OrderSummary({
   summary: CheckoutSummary;
   province: ProvinceCode | null;
   shippingLabel?: React.ReactNode;
-  /** Reflect the rush turnaround surcharge (50% of goods + setup) live. */
+  /** Whether the customer requested a rush. No fixed surcharge — the rush fee is
+   *  quoted by the shop when they confirm the order, so it never changes this total. */
   rush?: boolean;
 }) {
-  const rushAmount = rushFee(summary.subtotal, summary.setup, rush);
-  const taxableBase = summary.subtotal + summary.setup + rushAmount;
+  const taxableBase = summary.subtotal + summary.setup;
   const tax = calcTax(taxableBase, province);
   const total = taxableBase + tax.total;
 
@@ -101,7 +100,7 @@ export function OrderSummary({
       <dl className="space-y-2 text-sm">
         <Row label="Subtotal" value={formatCAD(summary.subtotal)} />
         {summary.setup > 0 && <Row label="Setup fees" value={formatCAD(summary.setup)} />}
-        {rushAmount > 0 && <Row label="Rush (+50%)" value={formatCAD(rushAmount)} />}
+        {rush && <Row label="Rush requested" value={<span className="text-dream-faint">Fee quoted on your proof</span>} />}
 
         {province ? (
           tax.lines.map((l) => <Row key={l.label} label={`${l.label} (${ratePct(l.rate)})`} value={formatCAD(l.amount)} />)
