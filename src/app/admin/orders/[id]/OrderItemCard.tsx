@@ -14,6 +14,7 @@ import { formatCAD } from "@/lib/money";
 import { LINE_PRODUCTION_STATUSES, LINE_PRODUCTION_META, type LineProductionStatus } from "@/lib/lineProduction";
 import { LineArtwork } from "./LineArtwork";
 import { BlankGarment } from "./BlankGarment";
+import { ChangeProductDialog } from "./ChangeProductDialog";
 import { ReorderArrows } from "./ReorderArrows";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
@@ -44,6 +45,7 @@ export function OrderItemCard({
   proofsForItem,
   onPatch,
   onRemove,
+  onProductChanged,
   onCollapse,
   onMoveUp,
   onMoveDown,
@@ -64,6 +66,8 @@ export function OrderItemCard({
   proofsForItem: ProofRow[];
   onPatch: (fn: (it: ItemState) => ItemState) => void;
   onRemove: () => void;
+  /** The line's garment was swapped server-side; sync the local item state. */
+  onProductChanged: (productName: string, priceSuggestion: { unit: number; qty: number } | null) => void;
   /** Collapse this line back to a compact row. */
   onCollapse?: () => void;
   /** Move this line up/down the queue. */
@@ -264,7 +268,21 @@ export function OrderItemCard({
               )}
             </div>
 
-            {product?.ss_style_name && <SsSource product={product} />}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {product?.ss_style_name ? (
+                <SsSource product={product} />
+              ) : (
+                <span className="text-sm text-dream-muted">No product linked</span>
+              )}
+              {can.edit && lineItem && (
+                <ChangeProductDialog
+                  orderId={lineItem.order_id}
+                  lineItemId={lineItem.id}
+                  currentProductId={product?.id}
+                  onChanged={onProductChanged}
+                />
+              )}
+            </div>
 
             {/* Sizes — one horizontal row of size columns */}
             <div>
@@ -393,6 +411,43 @@ export function OrderItemCard({
                 {setupFee > 0 && <> + {formatCAD(setupFee)} setup</>}
               </div>
             </div>
+
+            {/* Stale-price nudge after a product swap; the new product's curve
+                price at this quantity. Apply/Dismiss go through Save changes. */}
+            {item.priceSuggestion && (
+              <div className="mt-3 space-y-1.5 rounded-lg border border-dream-warn bg-dream-warn-soft p-2.5 text-xs text-dream-ink">
+                <p>
+                  Price may be stale after the product change. This product&apos;s tier price is{" "}
+                  <strong>{formatCAD(item.priceSuggestion.unit)}</strong>/unit at {item.priceSuggestion.qty} pcs.
+                </p>
+                <div className="flex items-center gap-3">
+                  {can.pricing && (
+                    <button
+                      type="button"
+                      className="font-semibold text-dream-purple hover:underline"
+                      onClick={() =>
+                        onPatch((p) => ({
+                          ...p,
+                          unitPrice: String(p.priceSuggestion?.unit ?? p.unitPrice),
+                          priceSuggestion: null,
+                        }))
+                      }
+                    >
+                      Apply {formatCAD(item.priceSuggestion.unit)}
+                    </button>
+                  )}
+                  {can.edit && (
+                    <button
+                      type="button"
+                      className="text-dream-muted hover:underline"
+                      onClick={() => onPatch((p) => ({ ...p, priceSuggestion: null }))}
+                    >
+                      Keep current price
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

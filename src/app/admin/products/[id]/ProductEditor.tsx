@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/Button";
@@ -18,28 +19,42 @@ import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { garmentRetailUnit } from "@/lib/pricing/platform";
 import { decorationForMethodSlug } from "@/lib/pricing/quote";
+import { compileCurveFromProfile, normalizeProfile, blankShift, profileIdForProduct } from "@/lib/pricing/profile";
 import { productPrimaryImage, colourCardImage } from "@/lib/productImage";
-import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, ProductColourJson, ProductSizeJson, ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
+import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, ProductColourJson, ProductSizeJson, ProductQuoteCurveJson, QuoteDecoration, QuotePriceBreak, PricingProfileRow } from "@/lib/db/rows";
 import { InfoTip } from "@/components/ui/InfoTip";
-import type { CurveSource } from "@/lib/admin/queries";
 import { updateProductAction, syncProductAction, setProductFlagsAction } from "../actions";
 import { PrintAreaEditor } from "./PrintAreaEditor";
 
 type Colour = ProductColourJson & { enabled?: boolean; primary?: boolean };
 type Size = ProductSizeJson & { enabled?: boolean };
 
+const DECO_LABEL: Record<QuoteDecoration, string> = { screen: "Screen print", embroidery: "Embroidery" };
+// Representative quantities shown in the live price preview (not every tier).
+const PREVIEW_QTYS = [1, 12, 25, 50, 100, 250, 500];
+
+/** Price at a quantity from a sorted tier list (each tier applies up to the next). */
+function tierPriceAt(breaks: QuotePriceBreak[], qty: number): number {
+  let price = breaks[0]?.price ?? 0;
+  for (const b of breaks) {
+    if (qty >= b.minQty) price = b.price;
+    else break;
+  }
+  return price;
+}
+
 export function ProductEditor({
   product,
   printAreas,
   categories,
   methods,
-  curveSources,
+  profiles,
 }: {
   product: ProductRow;
   printAreas: PrintAreaRow[];
   categories: CategoryRow[];
   methods: DecorationMethodRow[];
-  curveSources: CurveSource[];
+  profiles: PricingProfileRow[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -74,90 +89,52 @@ export function ProductEditor({
   const [isActive, setIsActive] = useState(product.is_active);
   const [isFeatured, setIsFeatured] = useState(product.is_featured);
 
-  // Customer price tiers (pricing_rules.quote) — THE price every surface
-  // charges (shop card, product page, designer, orders). Rows are edited as
-  // strings; parsed + sorted on save. New products start empty and can copy
-  // tiers from a priced product below.
-  const initialCurve = (product.pricing_rules as { quote?: ProductQuoteCurveJson } | null)?.quote;
-  const [quoteDecorations, setQuoteDecorations] = useState<QuoteDecoration[]>(initialCurve?.decorations ?? []);
-  const [quoteBreaks, setQuoteBreaks] = useState<Record<string, { minQty: string; price: string }[]>>(() => {
-    const out: Record<string, { minQty: string; price: string }[]> = {};
-    for (const d of initialCurve?.decorations ?? []) {
-      out[d] = (initialCurve?.breaks[d] ?? []).map((b) => ({ minQty: String(b.minQty), price: String(b.price) }));
-    }
-    return out;
-  });
+  // Customer pricing = the product's blank (wholesale + markup) + a shared
+  // decoration profile. The curve is compiled live for preview here and again
+  // on the server at save. New/curve-less products start with no profile.
+  const [profileId, setProfileId] = useState<string>(profileIdForProduct(product) ?? "");
 
-  // "Copy pricing from" — stamps another product's tiers into the grid so a
-  // fresh S&S import is priced in one click, then hand-tuned.
-  const [copySourceId, setCopySourceId] = useState("");
-  const [copiedFrom, setCopiedFrom] = useState<CurveSource | null>(null);
-  function applyCurveSource() {
-    const src = curveSources.find((s) => s.id === copySourceId);
-    if (!src) return;
-    setQuoteDecorations(src.curve.decorations);
-    setQuoteBreaks(() => {
-      const out: Record<string, { minQty: string; price: string }[]> = {};
-      for (const d of src.curve.decorations) {
-        out[d] = (src.curve.breaks[d] ?? []).map((b) => ({ minQty: String(b.minQty), price: String(b.price) }));
-      }
-      return out;
-    });
-    setCopiedFrom(src);
-  }
-  // Blank-cost gap between this product and the copied source, so the admin
-  // knows how much to raise or lower the copied prices.
-  const copiedCostGap =
-    copiedFrom && copiedFrom.wholesaleCost != null && product.wholesale_cost != null
-      ? Math.round((product.wholesale_cost - copiedFrom.wholesaleCost) * 100) / 100
-      : null;
+  // Live blank input from the current markup edits (base_price ignored for the
+  // shift, which is purely blank-cost-driven).
+  const blankInput = useMemo(
+    () => ({
+      wholesale_cost: product.wholesale_cost,
+      base_price: null,
+      markup_type: markupType,
+      markup_value: Number(markupValue) || 0,
+      pricing_rules: product.pricing_rules,
+    }),
+    [product.wholesale_cost, product.pricing_rules, markupType, markupValue]
+  );
 
-  function setBreakRow(deco: string, idx: number, field: "minQty" | "price", val: string) {
-    setQuoteBreaks((prev) => ({
-      ...prev,
-      [deco]: prev[deco].map((r, i) => (i === idx ? { ...r, [field]: val } : r)),
-    }));
-  }
-  function addBreakRow(deco: string) {
-    setQuoteBreaks((prev) => ({ ...prev, [deco]: [...(prev[deco] ?? []), { minQty: "", price: "" }] }));
-  }
-  function removeBreakRow(deco: string, idx: number) {
-    setQuoteBreaks((prev) => ({ ...prev, [deco]: prev[deco].filter((_, i) => i !== idx) }));
-  }
+  const selectedProfile = useMemo(() => profiles.find((p) => p.id === profileId) ?? null, [profiles, profileId]);
+  const previewCurve = useMemo<ProductQuoteCurveJson | null>(
+    () => (selectedProfile ? compileCurveFromProfile(blankInput, normalizeProfile(selectedProfile)) : null),
+    [selectedProfile, blankInput]
+  );
+  const previewShift = useMemo(
+    () => (selectedProfile ? blankShift(blankInput, { refWholesale: selectedProfile.ref_wholesale }) : 0),
+    [selectedProfile, blankInput]
+  );
 
-  // Which curve axes have at least one priced tier right now (live editor
-  // state). With a priced curve, the storefront + designer only offer methods
-  // the curve prices, so the checkboxes below hint at real customer visibility.
+  // Which decoration axes are actually priced (drives the "customers see this
+  // method" hints below).
   const pricedAxes = useMemo(() => {
     const out = new Set<QuoteDecoration>();
-    for (const d of quoteDecorations) {
-      if ((quoteBreaks[d] ?? []).some((r) => Number(r.price) > 0)) out.add(d);
+    if (previewCurve) {
+      for (const d of previewCurve.decorations) {
+        if ((previewCurve.breaks[d] ?? []).length > 0) out.add(d);
+      }
     }
     return out;
-  }, [quoteDecorations, quoteBreaks]);
+  }, [previewCurve]);
   const hasPricedCurve = pricedAxes.size > 0;
-  /** Will customers actually see this method on the product page + designer? */
   function methodCustomerVisible(slug: string): boolean {
     if (!hasPricedCurve) return true; // curve-less products fall back to cost-plus
     const axis = decorationForMethodSlug(slug);
     return axis !== null && pricedAxes.has(axis);
   }
-  const visibleEnabledCount = methods.filter(
-    (m) => allowed.has(m.id) && methodCustomerVisible(m.slug),
-  ).length;
-
-  /** Build the curve to persist, or undefined when the product has no curve. */
-  function buildQuoteCurve(): ProductQuoteCurveJson | undefined {
-    if (quoteDecorations.length === 0) return undefined;
-    const breaks: ProductQuoteCurveJson["breaks"] = {};
-    for (const d of quoteDecorations) {
-      breaks[d] = (quoteBreaks[d] ?? [])
-        .map((r) => ({ minQty: Math.max(1, Math.round(Number(r.minQty) || 0)), price: Number(r.price) || 0 }))
-        .filter((r) => r.price > 0)
-        .sort((a, b) => a.minQty - b.minQty);
-    }
-    return { decorations: quoteDecorations, breaks };
-  }
+  const visibleEnabledCount = methods.filter((m) => allowed.has(m.id) && methodCustomerVisible(m.slug)).length;
 
   const retailPreview = useMemo(
     () =>
@@ -171,8 +148,8 @@ export function ProductEditor({
     [product.wholesale_cost, markupType, markupValue, product.pricing_rules]
   );
 
-  // Setup checklist — computed from the saved product (plus the live Active
-  // switch, which persists immediately). Drives the "not visible yet" banner.
+  // Setup checklist: pricing step is done once a profile is chosen and yields
+  // priced tiers (turns green live, before save).
   const setupSteps = [
     {
       done: Boolean(product.category_id),
@@ -181,11 +158,9 @@ export function ProductEditor({
       href: "#pe-details",
     },
     {
-      done: Boolean(
-        initialCurve?.decorations?.some((d) => (initialCurve.breaks[d] ?? []).length > 0)
-      ),
+      done: hasPricedCurve,
       label: "Set customer pricing",
-      hint: "Add price tiers, or copy them from a similar product.",
+      hint: "Pick a decoration pricing profile.",
       href: "#pe-pricing",
     },
     {
@@ -238,7 +213,7 @@ export function ProductEditor({
         enabledSizes: [...enSizes],
         thumbnailColour: thumbColour && enColours.has(thumbColour) ? thumbColour : null,
         thumbnailView: thumbView,
-        quoteCurve: buildQuoteCurve(),
+        profileId: profileId || null,
       });
       if (res.error) toast({ title: "Save failed", description: res.error, variant: "error" });
       else {
@@ -556,104 +531,113 @@ export function ProductEditor({
             </CardContent>
           </Card>
 
-          {/* Customer price tiers (pricing_rules.quote) — the ONE price every
-              surface charges. Always visible so unpriced imports can add tiers. */}
+          {/* Customer pricing: blank (wholesale x markup) + a shared decoration
+              profile. The tier table is computed, not hand-typed. */}
           <Card id="pe-pricing" className="scroll-mt-24">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Customer pricing
-                <InfoTip text="This table is the price customers see everywhere: the shop, the product page, the designer and their order. Each row means: order this many or more, and each item costs this much. Prices include the blank, one print location and setup." />
+                <InfoTip text="What customers pay everywhere: shop, product page, designer, order. Built from this product's blank cost plus a shared decoration profile. Change the blank or switch the profile and the whole table re-prices. Edit the tiers themselves in Pricing." />
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-5">
-              <p className="text-xs text-dream-muted">
-                Per-unit price by quantity. Bigger orders get cheaper rows. Prices include 1 ink
-                colour and 1 print location; extra colours and locations are added automatically.
-              </p>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg bg-dream-bg px-3 py-2 text-sm">
+                <span className="flex items-center gap-1 text-dream-muted">
+                  Blank cost (S&amp;S)
+                  <InfoTip text="What you pay S&S for the blank. Synced from S&S; drives the price gap vs the profile's reference blank." />
+                </span>
+                <span className="font-semibold text-dream-ink">{formatCAD(product.wholesale_cost ?? 0)}</span>
+              </div>
 
-              {quoteDecorations.length === 0 && (
+              <Field
+                label={
+                  <span className="flex items-center gap-1">
+                    Markup
+                    <InfoTip text="Applied to the blank. It sets the retail of this blank and how much a pricier/cheaper blank shifts the profile's tiers." />
+                  </span>
+                }
+              >
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <Input type="number" value={markupValue} onChange={(e) => setMarkupValue(e.target.value)} />
+                  <Select value={markupType} onChange={(e) => setMarkupType(e.target.value as "percent" | "flat")}>
+                    <option value="percent">%</option>
+                    <option value="flat">$</option>
+                  </Select>
+                </div>
+              </Field>
+
+              <Field
+                label={
+                  <span className="flex items-center gap-1">
+                    Decoration pricing profile
+                    <InfoTip text="The shared quantity-break curve for this kind of product. Every product on the same profile prices consistently; you edit the curve once in Pricing." />
+                  </span>
+                }
+              >
+                <Select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
+                  <option value="">— None (rough blank price only) —</option>
+                  {profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              {!selectedProfile && (
                 <p className="rounded-lg bg-dream-sun-soft px-3 py-2 text-xs font-medium text-dream-ink">
-                  No price tiers yet. Customers see a rough blank-garment price and the designer
-                  falls back to cost-plus pricing. Copy tiers from a similar product below to fix
-                  this in one click.
+                  No profile selected. Customers see a rough blank-garment price and the designer falls back to
+                  cost-plus pricing. Pick a profile above to give it real quantity-break pricing.
                 </p>
               )}
 
-              {quoteDecorations.map((deco) => (
-                <div key={deco}>
-                  <Label>{deco === "screen" ? "Screen print" : "Embroidery"}</Label>
-                  <div className="mt-2 space-y-1.5">
-                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[11px] font-medium uppercase tracking-wide text-dream-muted">
-                      <span className="flex items-center gap-1">
-                        Min qty
-                        <InfoTip text="The row applies from this quantity up to the next row. Example: a 25 row and a 50 row means orders of 25 to 49 use the 25 row." />
+              {selectedProfile && previewCurve && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-dream-muted">Resulting price / unit</span>
+                    {previewShift !== 0 && (
+                      <span className="text-dream-faint">
+                        {previewShift > 0 ? "+" : "−"}
+                        {formatCAD(Math.abs(previewShift))} vs reference blank
                       </span>
-                      <span>$ / unit</span>
-                      <span className="w-7" />
-                    </div>
-                    {(quoteBreaks[deco] ?? []).map((row, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={row.minQty}
-                          onChange={(e) => setBreakRow(deco, i, "minQty", e.target.value)}
-                        />
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={row.price}
-                          onChange={(e) => setBreakRow(deco, i, "price", e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          aria-label="Remove tier"
-                          onClick={() => removeBreakRow(deco, i)}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-dream-muted hover:bg-dream-bg hover:text-dream-ink"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                    <Button variant="ghost" size="sm" onClick={() => addBreakRow(deco)}>
-                      + Add tier
-                    </Button>
+                    )}
                   </div>
-                </div>
-              ))}
-
-              {/* Copy pricing from an already-priced product */}
-              {curveSources.length > 0 && (
-                <div className="border-t border-dream-line pt-4">
-                  <Label className="flex items-center gap-1">
-                    Copy pricing from
-                    <InfoTip text="Copies the whole price table from another product. Pick the closest match, apply, then adjust for this blank. A pricier blank should have pricier rows." />
-                  </Label>
-                  <div className="mt-2 flex gap-2">
-                    <Select value={copySourceId} onChange={(e) => setCopySourceId(e.target.value)}>
-                      <option value="">Choose a product…</option>
-                      {curveSources.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Button variant="secondary" size="sm" onClick={applyCurveSource} disabled={!copySourceId}>
-                      Apply
-                    </Button>
+                  <div className="overflow-hidden rounded-lg border border-dream-line">
+                    <table className="w-full text-sm tabular-nums">
+                      <thead>
+                        <tr className="bg-dream-bg text-[11px] uppercase tracking-wide text-dream-muted">
+                          <th className="px-3 py-1.5 text-left font-medium">Qty</th>
+                          {previewCurve.decorations.map((d) => (
+                            <th key={d} className="px-3 py-1.5 text-right font-medium">
+                              {DECO_LABEL[d]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {PREVIEW_QTYS.map((q) => (
+                          <tr key={q} className="border-t border-dream-line">
+                            <td className="px-3 py-1.5 text-left text-dream-muted">{q}+</td>
+                            {previewCurve.decorations.map((d) => {
+                              const breaks = previewCurve.breaks[d] ?? [];
+                              return (
+                                <td key={d} className="px-3 py-1.5 text-right font-medium text-dream-ink">
+                                  {breaks.length ? formatCAD(tierPriceAt(breaks, q)) : "—"}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  {copiedFrom && (
-                    <p className="mt-2 text-xs text-dream-muted">
-                      Copied from {copiedFrom.name}.{" "}
-                      {copiedCostGap == null || Math.abs(copiedCostGap) < 0.5
-                        ? "The blanks cost about the same, so these prices should be close."
-                        : copiedCostGap > 0
-                          ? `This blank costs ${formatCAD(copiedCostGap)} more, so raise each price to keep your margin.`
-                          : `This blank costs ${formatCAD(Math.abs(copiedCostGap))} less, so you have room to lower prices.`}{" "}
-                      Remember to hit Save changes.
-                    </p>
-                  )}
+                  <p className="text-xs text-dream-muted">
+                    Computed from the profile&apos;s tiers plus this blank. Extra ink colours and print locations
+                    are added on top automatically.{" "}
+                    <Link href="/admin/pricing" className="font-medium text-dream-purple hover:underline">
+                      Edit tiers in Pricing →
+                    </Link>
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -663,7 +647,7 @@ export function ProductEditor({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Cost and margin
-                <InfoTip text="Internal numbers. Customers never see these. Use them to check that your price tiers leave enough margin." />
+                <InfoTip text="Internal numbers. Customers never see these. Use them to sanity-check that your price tiers leave enough margin." />
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -677,21 +661,12 @@ export function ProductEditor({
                 </div>
                 <div className="mt-1 flex justify-between font-semibold text-dream-ink">
                   <span className="flex items-center gap-1">
-                    Fallback retail / unit
-                    <InfoTip text="Blank cost plus the markup below. Only used when a product has no price tiers. Once tiers exist, customers always pay tier prices." />
+                    Blank retail / unit
+                    <InfoTip text="Blank cost times the markup above. This is the 'from' price for a product with no profile; with a profile, customers pay the tier prices." />
                   </span>
                   <span>{formatCAD(retailPreview)}</span>
                 </div>
               </div>
-              <Field label={markupType === "percent" ? "Fallback markup %" : "Fallback markup $"}>
-                <div className="grid grid-cols-[1fr_auto] gap-2">
-                  <Input type="number" value={markupValue} onChange={(e) => setMarkupValue(e.target.value)} />
-                  <Select value={markupType} onChange={(e) => setMarkupType(e.target.value as "percent" | "flat")}>
-                    <option value="percent">%</option>
-                    <option value="flat">$</option>
-                  </Select>
-                </div>
-              </Field>
               <Field label="Lead time (days)">
                 <Input type="number" value={leadTime} onChange={(e) => setLeadTime(e.target.value)} />
               </Field>
@@ -725,7 +700,7 @@ export function ProductEditor({
                     {allowed.has(m.id) && !visible && (
                       <p className="ml-6 mt-0.5 text-[11px] leading-snug text-dream-muted">
                         {decorationForMethodSlug(m.slug)
-                          ? "Add price tiers for this method under Customer pricing to offer it."
+                          ? "The selected profile doesn't price this method, so it stays hidden from customers."
                           : "This method has no customer pricing yet, so it stays hidden from customers."}
                       </p>
                     )}
@@ -735,7 +710,7 @@ export function ProductEditor({
               {visibleEnabledCount === 0 && (
                 <p className="rounded-lg bg-dream-sun/25 px-3 py-2 text-xs font-medium leading-snug text-dream-ink">
                   None of the enabled methods is priced for customers, so no print method will show on
-                  the product page or in the designer. Enable at least one method that has price tiers.
+                  the product page or in the designer. Choose a profile that prices at least one enabled method.
                 </p>
               )}
             </CardContent>

@@ -8,7 +8,8 @@ import { buildProductDraft } from "@/lib/ss/transform";
 import type { SSStyle } from "@/lib/ss/types";
 import { ssImageUrl } from "@/lib/ss/client";
 import type { Json, Database } from "@/lib/db/types";
-import type { ProductQuoteCurveJson } from "@/lib/db/rows";
+import type { PricingProfileRow, ProductRow } from "@/lib/db/rows";
+import { buildProductPricingRules } from "@/lib/admin/pricing";
 
 type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
 
@@ -121,7 +122,10 @@ export interface ProductConfigInput {
   enabledSizes?: string[];   // names of S&S sizes offered (subset)
   thumbnailColour?: string | null; // colour pinned as the card thumbnail (null = auto)
   thumbnailView?: "model" | "flat"; // which of the pinned colour's shots to show (default: model)
-  quoteCurve?: ProductQuoteCurveJson; // storefront Detailed Quote price/tiers
+  // Shared decoration pricing profile: the customer curve is compiled from this
+  // profile + the product's blank. undefined = leave unchanged; null = detach
+  // (fall back to blank retail); a string id = use that profile.
+  profileId?: string | null;
 }
 
 /** Update Admin-owned product configuration. S&S-owned fields are not touched here. */
@@ -145,16 +149,30 @@ export async function updateProductAction(
   if (input.leadTimeDays !== undefined) patch.lead_time_days = input.leadTimeDays;
   if (input.stockStatus !== undefined) patch.stock_status = input.stockStatus;
 
-  // Storefront quote curve lives under pricing_rules.quote — merge so other
-  // pricing_rules keys (e.g. bulkTiers) are preserved.
-  if (input.quoteCurve !== undefined) {
+  // Customer pricing: compile the curve from the chosen shared profile + this
+  // product's blank, and stamp it (plus profileId) onto pricing_rules.quote so
+  // every storefront/designer/order surface keeps reading the same shape.
+  if (input.profileId !== undefined) {
     const { data: prod } = await supabase
       .from("products")
-      .select("pricing_rules")
+      .select("wholesale_cost, base_price, markup_type, markup_value, pricing_rules")
       .eq("id", id)
       .single();
-    const existing = (prod?.pricing_rules ?? {}) as Record<string, unknown>;
-    patch.pricing_rules = asJson({ ...existing, quote: input.quoteCurve });
+    if (prod) {
+      // markup edits in this same save affect the compiled shift, so use the
+      // incoming markup values (fall back to the stored ones).
+      const blank = {
+        ...prod,
+        markup_type: input.markupType ?? prod.markup_type,
+        markup_value: input.markupValue ?? prod.markup_value,
+      } as Pick<ProductRow, "wholesale_cost" | "base_price" | "markup_type" | "markup_value" | "pricing_rules">;
+      let profileRow: PricingProfileRow | null = null;
+      if (input.profileId) {
+        const { data: p } = await supabase.from("pricing_profiles").select("*").eq("id", input.profileId).maybeSingle();
+        profileRow = (p as PricingProfileRow | null) ?? null;
+      }
+      patch.pricing_rules = asJson(buildProductPricingRules(blank, profileRow));
+    }
   }
 
   // Colour/size enablement: mark each S&S colour/size with an `enabled` flag, and

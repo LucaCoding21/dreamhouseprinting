@@ -91,6 +91,7 @@ export function OrderItemsSection({
         productionNotes: dec.productionNotes ?? "",
         internalNotes: dec.internalNotes ?? "",
         shippingNotes: dec.shippingNotes ?? "",
+        priceSuggestion: dec.priceSuggestion ?? null,
       };
     });
   };
@@ -101,6 +102,17 @@ export function OrderItemsSection({
 
   const patchItem = (id: string, fn: (it: ItemState) => ItemState) =>
     setItems((arr) => arr.map((it) => (it.id === id ? fn(it) : it)));
+
+  // A product swap persists server-side immediately; sync the new name and
+  // price suggestion into BOTH the live state and the snapshot so they don't
+  // read as unsaved edits (and a later "Save changes" can't write stale values
+  // back). Applying/dismissing the suggestion later IS a normal unsaved edit.
+  const syncSwap = (id: string, name: string, priceSuggestion: { unit: number; qty: number } | null) => {
+    const apply = (arr: ItemState[]) =>
+      arr.map((it) => (it.id === id ? { ...it, productName: name, priceSuggestion } : it));
+    setItems(apply);
+    setItemsSnap((snap) => JSON.stringify(apply(JSON.parse(snap) as ItemState[])));
+  };
 
   // Move a line up/down the queue. Persists on "Save changes" as decorations.position.
   const moveItem = (index: number, dir: -1 | 1) =>
@@ -132,6 +144,7 @@ export function OrderItemsSection({
               internalNotes: it.internalNotes,
               shippingNotes: it.shippingNotes,
               position: idx,
+              priceSuggestion: it.priceSuggestion,
             },
           })),
         ),
@@ -251,6 +264,7 @@ export function OrderItemsSection({
                 proofsForItem={proofsByItem.get(it.id) ?? []}
                 onPatch={(fn) => patchItem(it.id, fn)}
                 onRemove={() => removeItem(it.id)}
+                onProductChanged={(name, suggestion) => syncSwap(it.id, name, suggestion)}
                 onCollapse={() => toggleCollapsed(it.id)}
                 onMoveUp={() => moveItem(idx, -1)}
                 onMoveDown={() => moveItem(idx, 1)}

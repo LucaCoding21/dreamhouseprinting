@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { label: "Dashboard", href: "/admin" },
   { label: "Orders", href: "/admin/orders", perm: "orders.view" },
   { label: "Products", href: "/admin/products", perm: "products.manage" },
+  { label: "Pricing", href: "/admin/pricing", perm: "products.manage" },
   { label: "Customers", href: "/admin/customers", perm: "customers.view" },
   { label: "Settings", href: "/admin/settings", perm: "settings.manage" },
 ];

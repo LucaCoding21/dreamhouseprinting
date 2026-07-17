@@ -54,7 +54,8 @@ export async function approveProofCore(
   const label = await orderLabel(service, orderId);
   await notifyJulian(
     `Proof approved — ${label}`,
-    `The customer approved the proof on order ${label} and was taken straight to payment — you'll get another email once it's paid. If pricing changed since the proof went out, update it on the order page; the payment amount always follows the current total.`
+    `The customer approved the proof on order ${label} and was taken straight to payment — you'll get another email once it's paid. If pricing changed since the proof went out, update it on the order page; the payment amount always follows the current total.`,
+    { orderId, kicker: "Proof approved", tone: "success", amountLabel: "Awaiting payment" }
   );
 
   revalidateOrderViews(orderId);
@@ -89,7 +90,8 @@ export async function requestProofChangesCore(
   const label = await orderLabel(service, orderId);
   await notifyJulian(
     `Changes requested — ${label}`,
-    `The customer requested changes on order ${label}:\n\n"${comment.trim()}"`
+    `The customer requested changes on order ${label}:\n\n"${comment.trim()}"`,
+    { orderId, kicker: "Changes requested", tone: "warn" }
   );
 
   revalidateOrderViews(orderId);

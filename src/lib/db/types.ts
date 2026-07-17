@@ -806,6 +806,45 @@ export type Database = {
           },
         ]
       }
+      pricing_profiles: {
+        Row: {
+          created_at: string
+          decorations: string[]
+          id: string
+          is_active: boolean
+          name: string
+          ref_wholesale: number | null
+          setup: Json
+          slug: string
+          tiers: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decorations?: string[]
+          id?: string
+          is_active?: boolean
+          name: string
+          ref_wholesale?: number | null
+          setup?: Json
+          slug: string
+          tiers?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decorations?: string[]
+          id?: string
+          is_active?: boolean
+          name?: string
+          ref_wholesale?: number | null
+          setup?: Json
+          slug?: string
+          tiers?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           key: string

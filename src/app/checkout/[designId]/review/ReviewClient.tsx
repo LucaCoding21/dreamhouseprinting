@@ -19,11 +19,13 @@ export function ReviewClient({
   ctx,
   fulfillment,
   turnaround,
+  neededBy,
   timeline,
 }: {
   ctx: ReviewContext;
   fulfillment: "ship" | "pickup";
   turnaround: "standard" | "rush";
+  neededBy: string | null;
   timeline: Milestone[];
 }) {
   const router = useRouter();
@@ -46,7 +48,7 @@ export function ReviewClient({
     setError(null);
     setBusy(true);
     try {
-      const res = await placeOrderAction({ designId, fulfillment, turnaround });
+      const res = await placeOrderAction({ designId, fulfillment, turnaround, neededBy });
       if (res.error) {
         setError(res.error);
         return;
@@ -114,6 +116,7 @@ export function ReviewClient({
               <MoneyRow label="Cart subtotal" value={formatCAD(summary.subtotal)} />
               {summary.setup > 0 && <MoneyRow label="Setup fees" value={formatCAD(summary.setup)} />}
               {isRush && <MoneyRow label="Rush requested" value="Fee quoted on your proof" muted />}
+              {isRush && neededBy && <MoneyRow label="Need it by" value={fmtNeededBy(neededBy)} muted />}
               <MoneyRow label="Shipping" value={formatCAD(shipping)} />
               {tax.lines.map((l) => (
                 <MoneyRow key={l.label} label={l.label} value={formatCAD(l.amount)} />
@@ -274,6 +277,17 @@ export function ReviewClient({
       <SiteFooter />
     </div>
   );
+}
+
+/** Render a YYYY-MM-DD need-by date as a friendly local-day label. */
+function fmtNeededBy(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString("en-CA", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function TimelineIcon({ name }: { name: string }) {

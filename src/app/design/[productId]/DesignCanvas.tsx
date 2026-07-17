@@ -61,6 +61,20 @@ const MAX_W = 520;
 const MAX_H = 600;
 const DEFAULT_DIMS = { w: 480, h: 560 };
 
+/**
+ * Marker stamped on the print-guide rect + label so they can be recognised by
+ * VALUE, not just by ref. Fabric's loadFromJSON clears the canvas and re-adds
+ * objects, and stack-order helpers like bringObjectToFront blindly push an
+ * object back into `_objects` even if it was just removed, so a guide can be
+ * resurrected while the refs no longer track it. Every guide-aware code path
+ * (export, measurement, hasObjects) must treat tagged orphans as guides too.
+ */
+const GUIDE_TAG = "dhGuide" as const;
+
+function isGuideObject(o: fabric.FabricObject): boolean {
+  return (o as unknown as Record<string, unknown>)[GUIDE_TAG] === true;
+}
+
 function fitDims(imgW: number, imgH: number) {
   const aspect = imgW / imgH || DEFAULT_DIMS.w / DEFAULT_DIMS.h;
   let w = MAX_W;
@@ -107,6 +121,13 @@ export const DesignCanvas = forwardRef<
   // The inch-true box actually drawn/measured against (see lib/design/printArea).
   const effBoxRef = useRef<PrintBox | null>(null);
   const dimsRef = useRef({ ...DEFAULT_DIMS });
+  // Monotonic token per setGarment call: a slow image load that finishes
+  // after a newer call must not stomp the newer garment (out-of-order swaps).
+  const garmentSeqRef = useRef(0);
+  // Scene loads are serialized: two overlapping loadFromJSON calls interleave
+  // their clear/add/redraw steps and corrupt the canvas (orphaned guides,
+  // wrong scene winning). Each load chains onto the previous one.
+  const loadChainRef = useRef<Promise<void>>(Promise.resolve());
   // A round X badge pinned to each object's top-right corner. Created once the
   // canvas mounts and attached to every art object so delete is always in reach.
   const deleteControlRef = useRef<fabric.Control | null>(null);
@@ -184,9 +205,15 @@ export const DesignCanvas = forwardRef<
     canvas.on("selection:cleared", () => onSelectionChange?.(false));
     canvas.on("object:modified", () => onChange?.());
     canvas.on("object:added", (e) => {
-      // Keep the print-area label readable above newly added art.
+      // Keep the print-area label readable above newly added art. Only reorder
+      // a label that is STILL on the canvas: bringObjectToFront pushes its
+      // argument into the object stack unconditionally, so calling it with a
+      // label that loadFromJSON's clear() just removed would resurrect it as
+      // an untracked orphan (which then bakes into exported mockups).
       const label = printLabelRef.current;
-      if (label && e.target !== label) canvas.bringObjectToFront(label);
+      if (label && e.target !== label && canvas.getObjects().includes(label)) {
+        canvas.bringObjectToFront(label);
+      }
       onChange?.();
     });
     canvas.on("object:removed", () => onChange?.());
@@ -209,14 +236,14 @@ export const DesignCanvas = forwardRef<
   function redrawPrintRect() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (printRectRef.current) {
-      canvas.remove(printRectRef.current);
-      printRectRef.current = null;
-    }
-    if (printLabelRef.current) {
-      canvas.remove(printLabelRef.current);
-      printLabelRef.current = null;
-    }
+    // Sweep EVERY guide off the canvas, the tracked pair AND any tag-marked
+    // orphan a scene load may have left behind, before drawing fresh ones.
+    canvas
+      .getObjects()
+      .filter((o) => isGuideObject(o) || o === printRectRef.current || o === printLabelRef.current)
+      .forEach((o) => canvas.remove(o));
+    printRectRef.current = null;
+    printLabelRef.current = null;
     const area = printAreaRef.current;
     if (!area) {
       effBoxRef.current = null;
@@ -246,6 +273,7 @@ export const DesignCanvas = forwardRef<
       evented: false,
       excludeFromExport: true,
     });
+    Object.assign(rect, { [GUIDE_TAG]: true });
     printRectRef.current = rect;
     canvas.add(rect);
     canvas.sendObjectToBack(rect);
@@ -270,19 +298,24 @@ export const DesignCanvas = forwardRef<
       evented: false,
       excludeFromExport: true,
     });
+    Object.assign(label, { [GUIDE_TAG]: true });
     printLabelRef.current = label;
     canvas.add(label);
     canvas.bringObjectToFront(label);
     canvas.requestRenderAll();
   }
 
-  /** The print guide (rect + label) — everything that isn't customer art. */
-  const isGuide = (o: fabric.FabricObject) => o === printRectRef.current || o === printLabelRef.current;
+  /** The print guide (rect + label) — everything that isn't customer art.
+   *  Checks the value tag as well as the refs so orphaned guides (from any
+   *  load/reorder race) never count as art or leak into exports/measurements. */
+  const isGuide = (o: fabric.FabricObject) =>
+    o === printRectRef.current || o === printLabelRef.current || isGuideObject(o);
 
   useImperativeHandle(ref, () => ({
     setGarment(url) {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      const seq = ++garmentSeqRef.current;
       if (!url) {
         canvas.backgroundImage = undefined;
         canvas.requestRenderAll();
@@ -291,7 +324,8 @@ export const DesignCanvas = forwardRef<
       }
       fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" }).then((img) => {
         const c = canvasRef.current;
-        if (!c) return;
+        // A newer setGarment superseded this load, so drop the stale image.
+        if (!c || seq !== garmentSeqRef.current) return;
         const iw = img.width ?? DEFAULT_DIMS.w;
         const ih = img.height ?? DEFAULT_DIMS.h;
         const { w, h } = fitDims(iw, ih);
@@ -306,6 +340,11 @@ export const DesignCanvas = forwardRef<
           top: 0,
           originX: "left",
           originY: "top",
+          // Keep the garment out of exportScene() JSON: it is re-derived from
+          // product+colour+view on load, and serializing it bloated every
+          // scene/undo snapshot and reverted colour swaps on undo. Rendering
+          // (mockup export included) is unaffected by this flag.
+          excludeFromExport: true,
         });
         c.backgroundImage = img;
         // Re-place the dashed print guide against the (possibly resized) canvas.
@@ -468,32 +507,45 @@ export const DesignCanvas = forwardRef<
       return canvas.toObject();
     },
     async loadScene(json) {
-      const canvas = canvasRef.current;
-      if (!canvas || !json) return;
-      await canvas.loadFromJSON(json);
-      // Strip any persisted print guide; it's redrawn from the current area.
-      printRectRef.current = null;
-      printLabelRef.current = null;
-      // Re-attach the delete badge to the freshly deserialized objects.
-      canvas.getObjects().forEach((o) => attachControls(o));
-      redrawPrintRect();
-      canvas.requestRenderAll();
+      if (!json) return;
+      const run = async () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        // Scenes saved by older builds carry the garment as backgroundImage;
+        // it is always re-derived from product+colour+view, so drop it rather
+        // than let loadFromJSON re-fetch (and possibly revert) the garment.
+        const scene = { ...(json as Record<string, unknown>) };
+        delete scene.backgroundImage;
+        await canvas.loadFromJSON(scene);
+        // Refs may point at guides loadFromJSON cleared; redrawPrintRect
+        // sweeps every guide (tracked or orphaned) and draws a fresh pair.
+        printRectRef.current = null;
+        printLabelRef.current = null;
+        // Re-attach the delete badge to the freshly deserialized objects.
+        canvas.getObjects().forEach((o) => attachControls(o));
+        redrawPrintRect();
+        canvas.requestRenderAll();
+      };
+      // Chain so overlapping loads (rapid undo/redo) can never interleave.
+      const p = loadChainRef.current.then(run);
+      loadChainRef.current = p.catch(() => {});
+      return p;
     },
     exportMockup() {
       const canvas = canvasRef.current;
       if (!canvas) return null;
-      // Temporarily hide the dashed guide + label for a clean mockup.
-      const rect = printRectRef.current;
-      const label = printLabelRef.current;
-      if (rect) rect.visible = false;
-      if (label) label.visible = false;
       canvas.discardActiveObject();
       canvas.requestRenderAll();
-      const data = canvas.toDataURL({ format: "png", multiplier: 2 });
-      if (rect) rect.visible = true;
-      if (label) label.visible = true;
-      canvas.requestRenderAll();
-      return data;
+      // Render ONLY customer art. toDataURL ignores excludeFromExport (that
+      // flag is serialization-only in Fabric), so the guide must be excluded
+      // via the render filter. This also drops any orphaned guide the
+      // hide-the-refs approach used to miss. The garment backgroundImage is
+      // drawn separately and stays in the mockup.
+      return canvas.toDataURL({
+        format: "png",
+        multiplier: 2,
+        filter: (o) => !isGuide(o as fabric.FabricObject) && !o.excludeFromExport,
+      });
     },
     hasObjects() {
       const canvas = canvasRef.current;

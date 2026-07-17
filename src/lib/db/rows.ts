@@ -69,6 +69,14 @@ export interface ProductQuoteCurveJson {
   breaks: Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
 }
 
+export type PricingProfileRow = T["pricing_profiles"]["Row"];
+
+/** One-time setup fee per decoration (digitizing / screens). Informational: already
+ *  folded into `tiers`; surfaced so invoices can itemize it later. */
+export type PricingProfileSetupJson = Partial<Record<QuoteDecoration, number>>;
+/** Validated all-inclusive $/unit tiers per decoration, calibrated at `ref_wholesale`. */
+export type PricingProfileTiersJson = Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
+
 /** The three static note fields on the admin order detail (orders.production_notes). */
 export interface ProductionNotesJson {
   customer?: string;

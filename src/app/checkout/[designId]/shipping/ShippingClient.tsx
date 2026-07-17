@@ -9,6 +9,7 @@ import type { ProvinceCode } from "@/lib/pricing/tax";
 import type { CheckoutSettings } from "@/lib/checkoutSettings";
 import { OrderSummary, type CheckoutSummary } from "../OrderSummary";
 import { CheckoutHeader } from "../CheckoutClient";
+import { RushDatePicker } from "@/components/RushDatePicker";
 
 type Fulfillment = "ship" | "pickup";
 type Turnaround = "standard" | "rush";
@@ -27,11 +28,22 @@ export function ShippingClient({
   const router = useRouter();
   const [fulfillment, setFulfillment] = useState<Fulfillment>("ship");
   const [turnaround, setTurnaround] = useState<Turnaround>("standard");
+  const [neededBy, setNeededBy] = useState<string | null>(null);
+  const [showDateError, setShowDateError] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // A rush must carry a need-by date — that's the whole point of the request.
+  const rushNeedsDate = turnaround === "rush" && !neededBy;
+
   function goToReview() {
+    if (rushNeedsDate) {
+      setShowDateError(true);
+      return;
+    }
     setBusy(true);
-    router.push(`/checkout/${designId}/review?fulfillment=${fulfillment}&turnaround=${turnaround}`);
+    const params = new URLSearchParams({ fulfillment, turnaround });
+    if (turnaround === "rush" && neededBy) params.set("neededBy", neededBy);
+    router.push(`/checkout/${designId}/review?${params.toString()}`);
   }
 
   return (
@@ -83,11 +95,38 @@ export function ShippingClient({
                   />
                   <OptionCard
                     selected={turnaround === "rush"}
-                    onSelect={() => setTurnaround("rush")}
+                    onSelect={() => {
+                      setTurnaround("rush");
+                      setShowDateError(false);
+                    }}
                     title="Request a rush"
                     subtitle="Bump to the front of the queue. We'll discuss any additional fee when we confirm your order."
                   />
                 </div>
+
+                {turnaround === "rush" && (
+                  <div className="mt-4 rounded-2xl border border-dream-purple/30 bg-dream-lavender-soft/50 p-4">
+                    <p className="text-sm font-semibold text-dream-ink">What day do you need it in hand?</p>
+                    <p className="mt-0.5 text-xs text-dream-muted">
+                      Pick your target date so we can confirm whether we can hit it.
+                    </p>
+                    <div className="mt-3 max-w-sm">
+                      <RushDatePicker
+                        value={neededBy}
+                        autoOpen
+                        onChange={(iso) => {
+                          setNeededBy(iso);
+                          setShowDateError(false);
+                        }}
+                      />
+                    </div>
+                    {showDateError && (
+                      <p className="mt-2 text-xs font-semibold text-dream-danger">
+                        Please pick the day you need it by.
+                      </p>
+                    )}
+                  </div>
+                )}
               </section>
             )}
 

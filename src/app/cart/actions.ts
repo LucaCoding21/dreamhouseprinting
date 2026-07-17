@@ -11,6 +11,8 @@ export interface PlaceCartInput {
   contact: Omit<CheckoutContactInput, "designId">;
   fulfillment: "ship" | "pickup";
   turnaround: "standard" | "rush";
+  /** Customer's requested in-hand date (YYYY-MM-DD), only on a rush. */
+  neededBy?: string | null;
 }
 
 export interface PlaceCartResult {
@@ -38,6 +40,7 @@ export async function placeCartOrdersAction(input: PlaceCartInput): Promise<Plac
       designId,
       fulfillment: input.fulfillment,
       turnaround: input.turnaround,
+      neededBy: input.neededBy,
     });
     if (order.error) {
       failed.push({ designId, error: order.error });

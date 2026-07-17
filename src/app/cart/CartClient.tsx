@@ -12,6 +12,7 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { HelpPrompt } from "@/components/support/HelpPrompt";
+import { RushDatePicker } from "@/components/RushDatePicker";
 import { placeCartOrdersAction } from "./actions";
 
 export interface CartPrefill {
@@ -32,6 +33,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   const [contact, setContact] = useState<CartPrefill>(prefill);
   const [fulfillment, setFulfillment] = useState<"ship" | "pickup">("ship");
   const [rush, setRush] = useState(false);
+  const [neededBy, setNeededBy] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,6 +55,10 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
       setError("Enter a valid email.");
       return;
     }
+    if (rush && !neededBy) {
+      setError("Please pick the day you need your rush order by.");
+      return;
+    }
 
     setBusy(true);
     try {
@@ -61,6 +67,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
         contact,
         fulfillment,
         turnaround: rush ? "rush" : "standard",
+        neededBy: rush ? neededBy : null,
       });
       // Drop every successfully placed design from the cart.
       res.placed.forEach((p) => removeItem(p.designId));
@@ -314,7 +321,10 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 <input
                   type="checkbox"
                   checked={rush}
-                  onChange={(e) => setRush(e.target.checked)}
+                  onChange={(e) => {
+                    setRush(e.target.checked);
+                    if (!e.target.checked) setNeededBy(null);
+                  }}
                   className="sr-only"
                 />
                 {/* Custom check indicator — fills in when selected */}
@@ -338,6 +348,16 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                   </span>
                 </span>
               </label>
+
+              {rush && (
+                <div className="mt-3 rounded-xl border border-dream-purple/30 bg-dream-lavender-mist/50 p-4">
+                  <p className="text-sm font-semibold text-dream-ink">What day do you need it in hand?</p>
+                  <p className="mt-0.5 text-xs text-dream-muted">Pick your target date so we can confirm whether we can hit it.</p>
+                  <div className="mt-3">
+                    <RushDatePicker value={neededBy} autoOpen onChange={setNeededBy} />
+                  </div>
+                </div>
+              )}
 
               {/* Estimate */}
               <div className="mt-5 flex items-start justify-between gap-3 border-t border-dream-line pt-4">

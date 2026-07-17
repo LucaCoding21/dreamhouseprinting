@@ -1,7 +1,38 @@
 import "server-only";
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
-import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, ProductQuoteCurveJson } from "@/lib/db/rows";
+import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, PricingProfileRow } from "@/lib/db/rows";
+
+/** A pricing profile plus how many products currently use it. */
+export interface PricingProfileWithUsage {
+  profile: PricingProfileRow;
+  productCount: number;
+}
+
+/** All decoration pricing profiles, with per-profile usage counts. */
+export async function getPricingProfiles(): Promise<PricingProfileWithUsage[]> {
+  const supabase = requireSupabaseServiceClient();
+  const [{ data: profiles }, { data: products }] = await Promise.all([
+    supabase.from("pricing_profiles").select("*").order("name"),
+    supabase.from("products").select("pricing_rules"),
+  ]);
+  const counts = new Map<string, number>();
+  for (const p of products ?? []) {
+    const id = (p.pricing_rules as { profileId?: string } | null)?.profileId;
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return (profiles ?? []).map((profile) => ({
+    profile: profile as PricingProfileRow,
+    productCount: counts.get((profile as PricingProfileRow).id) ?? 0,
+  }));
+}
+
+/** All pricing profiles, unadorned (for the product editor's profile picker). */
+export async function getPricingProfileRows(): Promise<PricingProfileRow[]> {
+  const supabase = requireSupabaseServiceClient();
+  const { data } = await supabase.from("pricing_profiles").select("*").order("name");
+  return (data ?? []) as PricingProfileRow[];
+}
 
 /**
  * Admin read layer — uses the service client so staff see ALL products (incl.
@@ -30,35 +61,6 @@ export async function getAdminProduct(id: string): Promise<{
     .eq("product_id", id)
     .order("display_order");
   return { product: product as ProductRow, printAreas: (printAreas ?? []) as PrintAreaRow[] };
-}
-
-/**
- * Products that already have a customer price curve, offered as "copy pricing
- * from" sources in the product editor. Wholesale is included so the editor can
- * show the blank-cost difference between source and target.
- */
-export interface CurveSource {
-  id: string;
-  name: string;
-  wholesaleCost: number | null;
-  curve: ProductQuoteCurveJson;
-}
-
-export async function getCurveSources(): Promise<CurveSource[]> {
-  const supabase = requireSupabaseServiceClient();
-  const { data } = await supabase
-    .from("products")
-    .select("id, name, wholesale_cost, pricing_rules")
-    .order("name");
-  return (data ?? [])
-    .map((p) => {
-      const curve = (p.pricing_rules as { quote?: ProductQuoteCurveJson } | null)?.quote;
-      const hasPrices = curve?.decorations?.some((d) => (curve.breaks[d] ?? []).length > 0);
-      return hasPrices && curve
-        ? { id: p.id as string, name: p.name as string, wholesaleCost: p.wholesale_cost as number | null, curve }
-        : null;
-    })
-    .filter((s): s is CurveSource => s !== null);
 }
 
 export async function getAllCategories(): Promise<CategoryRow[]> {

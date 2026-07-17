@@ -162,6 +162,8 @@ export interface PlaceOrderInput {
   fulfillment: "ship" | "pickup";
   /** A customer preference, not a hard fee — Julian confirms timing on the proof. */
   turnaround: "standard" | "rush";
+  /** Customer's requested in-hand date (YYYY-MM-DD), only on a rush. */
+  neededBy?: string | null;
 }
 
 /**
@@ -229,12 +231,21 @@ export async function placeOrderAction(
   const due = new Date();
   due.setDate(due.getDate() + lead);
 
+  // On a rush, the customer's picked need-by date IS the order's target date, so
+  // it drives due_date (falling back to the lead-time projection). Only trust a
+  // well-formed YYYY-MM-DD so a tampered request can't write garbage.
+  const neededBy =
+    input.turnaround === "rush" && /^\d{4}-\d{2}-\d{2}$/.test(input.neededBy ?? "") ? input.neededBy! : null;
+  const dueDate = neededBy ?? due.toISOString().slice(0, 10);
+
   const notes: { at: string; actor: string; text: string }[] = [];
   if (input.turnaround === "rush") {
     notes.push({
       at: new Date().toISOString(),
       actor: "customer",
-      text: "Rush turnaround requested — confirm timeline and quote the rush fee.",
+      text: neededBy
+        ? `Rush turnaround requested — customer needs it by ${neededBy}. Confirm timeline and quote the rush fee.`
+        : "Rush turnaround requested — confirm timeline and quote the rush fee.",
     });
   }
 
@@ -246,7 +257,7 @@ export async function placeOrderAction(
       status: "submitted",
       payment_status: "unpaid",
       pricing: asJson({ subtotal, setupFees: setup, rush, shipping, tax, total }),
-      due_date: due.toISOString().slice(0, 10),
+      due_date: dueDate,
       fulfillment_method: input.fulfillment,
       shipping_method: input.turnaround,
       shipping_address: input.fulfillment === "ship" ? asJson(address) : null,
@@ -302,7 +313,7 @@ export async function placeOrderAction(
     actor_id: auth.userId,
     actor_name: "Customer",
     type: "order_created",
-    detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround, guest: auth.isGuest }),
+    detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround, neededBy, guest: auth.isGuest }),
   });
 
   // Confirmation emails — the done page tells the customer to watch their
@@ -314,11 +325,13 @@ export async function placeOrderAction(
       `New order ${order.order_number ?? order.id} — ${formatCAD(total)}`,
       [
         `${address?.name || "A customer"} placed ${order.order_number ?? "an order"} for ${formatCAD(total)}.`,
-        input.turnaround === "rush" ? "RUSH turnaround requested — confirm timeline and quote the fee." : null,
-        `Review it: ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/orders/${order.id}`,
+        input.turnaround === "rush"
+          ? `RUSH turnaround requested${neededBy ? ` — needed by ${neededBy}` : ""}. Confirm timeline and quote the fee.`
+          : null,
       ]
         .filter(Boolean)
-        .join("\n")
+        .join("\n\n"),
+      { orderId: order.id, kicker: "New order", tone: "purple", amountLabel: "Order total" }
     );
   } catch (e) {
     console.error("[checkout] order confirmation emails failed", e);

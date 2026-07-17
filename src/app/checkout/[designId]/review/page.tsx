@@ -10,7 +10,7 @@ export default async function ReviewStepPage({
   searchParams,
 }: {
   params: Promise<{ designId: string }>;
-  searchParams: Promise<{ fulfillment?: string; turnaround?: string }>;
+  searchParams: Promise<{ fulfillment?: string; turnaround?: string; neededBy?: string }>;
 }) {
   const { designId } = await params;
   const sp = await searchParams;
@@ -20,6 +20,9 @@ export default async function ReviewStepPage({
 
   const fulfillment = sp.fulfillment === "pickup" ? "pickup" : "ship";
   const turnaround = sp.turnaround === "rush" ? "rush" : "standard";
+  // Customer's requested need-by date (only meaningful on a rush). Validate the
+  // YYYY-MM-DD shape so a hand-edited URL can't smuggle junk into the order.
+  const neededBy = turnaround === "rush" && /^\d{4}-\d{2}-\d{2}$/.test(sp.neededBy ?? "") ? sp.neededBy! : null;
 
   // Projected timeline (estimates — Julian confirms the real dates on the proof).
   const today = new Date();
@@ -44,5 +47,5 @@ export default async function ReviewStepPage({
     },
   ];
 
-  return <ReviewClient ctx={ctx} fulfillment={fulfillment} turnaround={turnaround} timeline={timeline} />;
+  return <ReviewClient ctx={ctx} fulfillment={fulfillment} turnaround={turnaround} neededBy={neededBy} timeline={timeline} />;
 }

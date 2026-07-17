@@ -571,28 +571,32 @@ export function DesignerClient(props: Props) {
     refreshUndo(v);
   }
 
-  function undo() {
+  async function undo() {
     const v = activeView;
     const c = canvasRefs.current[v];
     const hist = histories.current[v];
     if (!c || !hist || hist.length === 0) return;
     (futures.current[v] ??= []).push(c.exportScene());
-    c.loadScene(hist.pop()!);
+    const scene = hist.pop()!;
     setSelection(null);
-    onCanvasChange(v);
     refreshUndo(v);
+    // Wait for the scene to actually land before re-measuring, or the
+    // art/bounds/colour recompute reads the half-loaded canvas.
+    await c.loadScene(scene);
+    onCanvasChange(v);
   }
 
-  function redo() {
+  async function redo() {
     const v = activeView;
     const c = canvasRefs.current[v];
     const fut = futures.current[v];
     if (!c || !fut || fut.length === 0) return;
     (histories.current[v] ??= []).push(c.exportScene());
-    c.loadScene(fut.pop()!);
+    const scene = fut.pop()!;
     setSelection(null);
-    onCanvasChange(v);
     refreshUndo(v);
+    await c.loadScene(scene);
+    onCanvasChange(v);
   }
 
   /** Analyze an image source once and cache it. PDFs get their original file's

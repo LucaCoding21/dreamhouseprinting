@@ -73,6 +73,8 @@ export interface ItemState {
   productionNotes: string;
   internalNotes: string;
   shippingNotes: string;
+  /** Stale-price nudge from a product swap; null once applied or dismissed. */
+  priceSuggestion: { unit: number; qty: number } | null;
 }
 
 export const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];

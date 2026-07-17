@@ -409,11 +409,100 @@ Resume your design: ${resumeUrl}
   }
 }
 
+/** Chip colours per event tone — soft background + strong text, from the dream palette. */
+const STAFF_TONES = {
+  purple: { bg: "#eef0ff", fg: "#4a3f9e" },
+  success: { bg: "#e3f5ee", fg: "#18966a" },
+  warn: { bg: "#fbeecd", fg: "#c98a16" },
+} as const;
+
+export interface StaffNotifyOpts {
+  /** Attach order context: facts table (order / customer / total / status) + "Open in admin" button. */
+  orderId?: string;
+  /** Small uppercase event chip, e.g. "New order", "Proof approved". Defaults to "Update". */
+  kicker?: string;
+  tone?: keyof typeof STAFF_TONES;
+  /** Render the order total as a highlighted amount card with this label (e.g. "Amount paid"). */
+  amountLabel?: string;
+}
+
 /**
- * Internal notification to Julian (+ CC list) — proof decisions, payments.
- * Hardcoded copy on purpose: staff mail isn't customer-template territory.
+ * Branded shell for internal staff notifications — same visual family as the
+ * customer emails (lavender ground, white card, Archivo-stack heading) but
+ * admin-flavoured: an event chip, a key-facts table, and an "Open in admin"
+ * button instead of the public order link. Table-based + inline styles for
+ * Outlook/Gmail; copy is hardcoded on purpose (staff mail isn't
+ * customer-template territory).
  */
-export async function notifyJulian(subject: string, text: string): Promise<void> {
+function renderStaffEmailHtml(opts: {
+  kicker: string;
+  tone: keyof typeof STAFF_TONES;
+  heading: string;
+  bodyText: string;
+  facts: { label: string; value: string }[];
+  amount?: { label: string; value: string } | null;
+  ctaUrl?: string | null;
+}): string {
+  const tone = STAFF_TONES[opts.tone];
+
+  const factRows = opts.facts
+    .map(
+      (f, i) => `<tr>
+        <td style="padding:${i === 0 ? "0" : "8px"} 16px 0 0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#8a84ad;white-space:nowrap;vertical-align:top;">${escapeHtml(f.label)}</td>
+        <td style="padding:${i === 0 ? "0" : "8px"} 0 0;font-size:14px;line-height:1.5;color:#1b1458;vertical-align:top;">${escapeHtml(f.value)}</td>
+      </tr>`
+    )
+    .join("");
+
+  const factsCard = opts.facts.length
+    ? `<tr><td style="padding:4px 0 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f7fd;border-radius:12px;"><tr><td style="padding:16px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0">${factRows}</table>
+      </td></tr></table>
+    </td></tr>`
+    : "";
+
+  const amountCard = opts.amount
+    ? `<tr><td style="padding:0 0 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff7d6;border-radius:12px;"><tr><td style="padding:16px 20px;">
+        <span style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#4a3f9e;margin:0 0 4px;">${escapeHtml(opts.amount.label)}</span>
+        <span style="display:block;font-family:Archivo,Helvetica,Arial,sans-serif;font-size:26px;font-weight:800;color:#1b1458;">${escapeHtml(opts.amount.value)}</span>
+      </td></tr></table>
+    </td></tr>`
+    : "";
+
+  const ctaBlock = opts.ctaUrl
+    ? `<tr><td style="padding:0 0 24px;">
+      <a href="${escapeHtml(opts.ctaUrl)}" style="display:inline-block;background:#7664ff;color:#ffffff;font-family:Archivo,Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;text-decoration:none;padding:13px 28px;border-radius:10px;">Open order in admin</a>
+    </td></tr>`
+    : "";
+
+  return `
+<div style="margin:0;padding:24px;background:#f4f1fb;font-family:Inter,Helvetica,Arial,sans-serif;color:#1b1458;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;">
+    <tr><td style="padding:0 0 14px;">
+      <span style="display:inline-block;background:${tone.bg};color:${tone.fg};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:5px 12px;border-radius:999px;">${escapeHtml(opts.kicker)}</span>
+    </td></tr>
+    <tr><td style="font-family:Archivo,Helvetica,Arial,sans-serif;font-size:21px;font-weight:700;line-height:1.3;padding:0 0 14px;color:#1b1458;">${escapeHtml(opts.heading)}</td></tr>
+    <tr><td>${bodyToParagraphs(opts.bodyText)}</td></tr>
+    ${factsCard}
+    ${amountCard}
+    ${ctaBlock}
+    <tr><td style="border-top:1px solid #eae7f7;padding:16px 0 0;font-size:12px;line-height:1.6;color:#8a84ad;">
+      Internal notification from your <strong style="color:#1b1458;">Dreamhouse Printing</strong> shop.
+    </td></tr>
+  </table>
+</div>`.trim();
+}
+
+/**
+ * Internal notification to Julian (+ CC list) — new orders, proof decisions,
+ * payments. Pass `opts.orderId` to enrich the email with an order facts table
+ * and an "Open order in admin" button; without opts it still gets the branded
+ * staff shell around the plain text. The `text` argument stays the plain-text
+ * alternative verbatim.
+ */
+export async function notifyJulian(subject: string, text: string, opts: StaffNotifyOpts = {}): Promise<void> {
   const mail = resendClient();
   const to = process.env.JULIAN_NOTIFY_EMAIL;
   if (!mail || !to) return;
@@ -423,12 +512,60 @@ export async function notifyJulian(subject: string, text: string): Promise<void>
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Order context (facts + CTA), best-effort — a lookup failure never blocks the send.
+  const facts: { label: string; value: string }[] = [];
+  let amount: { label: string; value: string } | null = null;
+  let ctaUrl: string | null = null;
+  if (opts.orderId) {
+    try {
+      const service = createSupabaseServiceClient();
+      const { data: order } = service
+        ? await service
+            .from("orders")
+            .select("order_number, status, pricing, customer_id, guest_email")
+            .eq("id", opts.orderId)
+            .maybeSingle()
+        : { data: null };
+      if (order) {
+        let customer = order.guest_email ? `${order.guest_email} (guest)` : "";
+        if (order.customer_id && service) {
+          const { data: profile } = await service
+            .from("profiles")
+            .select("name, email")
+            .eq("id", order.customer_id)
+            .maybeSingle();
+          if (profile) customer = [profile.name, profile.email].filter(Boolean).join(" · ");
+        }
+        const pricing = (order.pricing ?? {}) as { total?: number };
+        if (order.order_number) facts.push({ label: "Order", value: order.order_number });
+        if (customer) facts.push({ label: "Customer", value: customer });
+        if (typeof pricing.total === "number" && pricing.total > 0) {
+          facts.push({ label: "Total", value: formatCAD(pricing.total) });
+          if (opts.amountLabel) amount = { label: opts.amountLabel, value: formatCAD(pricing.total) };
+        }
+        facts.push({ label: "Status", value: order.status.replace(/_/g, " ") });
+        ctaUrl = `${await appOrigin()}/admin/orders/${opts.orderId}`;
+      }
+    } catch (e) {
+      console.error("[notify] staff email order context failed", e);
+    }
+  }
+
   try {
     await mail.resend.emails.send({
       from: mail.from,
       to: [to, ...cc],
       subject,
-      text,
+      html: renderStaffEmailHtml({
+        kicker: opts.kicker ?? "Update",
+        tone: opts.tone ?? "purple",
+        heading: subject,
+        bodyText: text,
+        facts,
+        amount,
+        ctaUrl,
+      }),
+      text: ctaUrl ? `${text}\n\nOpen order in admin: ${ctaUrl}` : text,
     });
   } catch (e) {
     console.error("[notify] staff email failed", e);

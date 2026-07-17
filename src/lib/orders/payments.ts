@@ -162,7 +162,8 @@ export async function markOrderPaid(
   await sendOrderEmail(orderId, "payment_received");
   await notifyJulian(
     `Payment received — ${label}`,
-    `${formatCAD(pricing.total ?? 0)} was paid on order ${label} via Stripe. It's ready for production.`
+    `${formatCAD(pricing.total ?? 0)} was paid on order ${label} via Stripe. It's ready for production.`,
+    { orderId, kicker: "Payment received", tone: "success", amountLabel: "Amount paid" }
   );
 
   if (revalidate) {

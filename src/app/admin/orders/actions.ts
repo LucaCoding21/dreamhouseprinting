@@ -6,7 +6,15 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendOrderStatusEmail, sendOrderEmail, sendOrderCommentEmail } from "@/lib/notify";
 import { ensureCheckoutSession } from "@/lib/orders/payments";
 import type { Json, Database } from "@/lib/db/types";
-import type { OrderStatus, PaymentStatus, ProductionNotesJson } from "@/lib/db/rows";
+import type {
+  OrderStatus,
+  PaymentStatus,
+  ProductionNotesJson,
+  ProductColourJson,
+  ProductQuoteCurveJson,
+  QuoteDecoration,
+} from "@/lib/db/rows";
+import { priceFromCurve, defaultDecoration } from "@/lib/pricing/quote";
 import type { LineProductionStatus } from "@/lib/lineProduction";
 import { mergeAddonSettings, lineAddonTotal } from "@/lib/addonSettings";
 import { resolveDiscount, type DiscountType } from "@/lib/pricing/discount";
@@ -233,6 +241,12 @@ export interface LineItemDecorations {
   shippingNotes?: string;
   /** Manual queue order within the order (lower = higher up). */
   position?: number;
+  /**
+   * Stale-price nudge set by a product swap: the new product's curve price at
+   * the line's quantity, when it differs from the stored unit price. Cleared
+   * when admin applies or dismisses it (via the normal items save).
+   */
+  priceSuggestion?: { unit: number; qty: number } | null;
 }
 
 export interface LineItemPatch {
@@ -352,6 +366,159 @@ export async function deleteLineItemAction(
   await logActivity(service, orderId, "item_removed", {});
   revalidateOrder(orderId);
   return { ok: true };
+}
+
+/** A product colour slimmed down for the change-product picker. */
+export interface SwapProductColour {
+  name: string;
+  hex: string | null;
+  /** Blank garment shot for the colour tile (front, falling back to model/side). */
+  thumb: string | null;
+  inStock: boolean;
+}
+
+/** A catalog product slimmed down for the change-product picker. */
+export interface SwapProduct {
+  id: string;
+  name: string;
+  brand: string | null;
+  ssStyleName: string | null;
+  isActive: boolean;
+  stockStatus: string;
+  /** Card thumbnail, the primary colour's blank shot. */
+  thumb: string | null;
+  colours: SwapProductColour[];
+}
+
+const colourThumb = (c: ProductColourJson) => c.images?.front ?? c.images?.model ?? c.images?.side ?? null;
+
+/**
+ * The catalog, slimmed for the "Change product" picker on a line item.
+ * Includes hidden (inactive) products, flagged so the UI can badge them,
+ * since admin may swap to something not yet live in the shop.
+ */
+export async function listSwapProductsAction(): Promise<{ products?: SwapProduct[]; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const { data, error } = await service
+    .from("products")
+    .select("id, name, brand, ss_style_name, is_active, stock_status, colours")
+    .order("is_active", { ascending: false })
+    .order("name");
+  if (error) return { error: error.message };
+
+  const products: SwapProduct[] = (data ?? []).map((p) => {
+    // Admin-disabled colours stay out of the picker, same as the shop.
+    const colours = ((p.colours ?? []) as unknown as ProductColourJson[]).filter((c) => c.enabled !== false);
+    const primary = colours.find((c) => c.primary) ?? colours[0];
+    return {
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      ssStyleName: p.ss_style_name,
+      isActive: p.is_active,
+      stockStatus: p.stock_status,
+      thumb: primary ? colourThumb(primary) : null,
+      colours: colours.map((c) => ({
+        name: c.name,
+        hex: c.hex ?? null,
+        thumb: colourThumb(c),
+        inStock: c.inStock !== false,
+      })),
+    };
+  });
+  return { products };
+}
+
+/**
+ * The new product's curve price at the line's config, for the stale-price
+ * nudge. Decoration/colours/locations are derived from the line's print spots
+ * (best effort: this is a suggestion, admin confirms it).
+ */
+function suggestUnitPrice(
+  pricingRules: Json | null,
+  decorations: Partial<LineItemDecorations>,
+  qty: number
+): number | null {
+  const curve = (pricingRules as { quote?: ProductQuoteCurveJson } | null)?.quote;
+  if (!curve || qty <= 0) return null;
+
+  const spots = decorations.spots ?? [];
+  const wantsEmbroidery = spots.some((s) => /embroider/i.test(s.type));
+  const decoration: QuoteDecoration =
+    wantsEmbroidery && curve.breaks.embroidery?.length
+      ? "embroidery"
+      : curve.breaks.screen?.length
+        ? "screen"
+        : defaultDecoration(curve);
+  // Screen colour surcharge keys off the largest per-spot colour count (non-numeric
+  // entries like "Full colour" fall back to 1; the curve caps surcharges anyway).
+  const colours = Math.max(1, ...spots.map((s) => parseInt(s.colours, 10) || 1));
+  const locations = Math.max(1, spots.length);
+
+  const result = priceFromCurve(curve, { qty, colours, locations, decoration });
+  return result.available ? round2(result.perUnit) : null;
+}
+
+/**
+ * Swap the garment on a line item (customer changed their mind mid-order).
+ * Requires an explicit colour pick: the new product's colours never map 1:1,
+ * so nothing is auto-selected. Sizes, prints, notes, design and pricing are
+ * all kept. The price is NOT auto-changed; instead, when the new product's
+ * curve price differs from the stored unit price, a suggestion is stamped on
+ * the line (decorations.priceSuggestion) for admin to apply or dismiss.
+ */
+export async function changeLineItemProductAction(
+  orderId: string,
+  lineItemId: string,
+  productId: string,
+  colourName: string
+): Promise<{ ok?: boolean; error?: string; suggestion?: { unit: number; qty: number } | null }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+
+  const [{ data: line }, { data: product }] = await Promise.all([
+    service
+      .from("line_items")
+      .select("id, product_name, unit_price, size_quantities, decorations")
+      .eq("id", lineItemId)
+      .eq("order_id", orderId)
+      .maybeSingle(),
+    service.from("products").select("id, name, colours, pricing_rules").eq("id", productId).maybeSingle(),
+  ]);
+  if (!line) return { error: "Line item not found on this order." };
+  if (!product) return { error: "Product not found." };
+
+  const colours = (product.colours ?? []) as unknown as ProductColourJson[];
+  const norm = (s: string) => s.trim().toLowerCase();
+  const colour = colours.find((c) => norm(c.name) === norm(colourName));
+  if (!colour) return { error: "Pick a colour from the new product." };
+
+  // Stale-price nudge: suggest the new product's curve price when it differs.
+  const decorations = (line.decorations ?? {}) as Partial<LineItemDecorations>;
+  const qty = sumSizes((line.size_quantities ?? {}) as Record<string, number>);
+  const curveUnit = suggestUnitPrice(product.pricing_rules, decorations, qty);
+  const suggestion =
+    curveUnit !== null && Math.abs(curveUnit - line.unit_price) >= 0.01 ? { unit: curveUnit, qty } : null;
+
+  const { error } = await service
+    .from("line_items")
+    .update({
+      product_id: product.id,
+      product_name: product.name,
+      colour: asJson({ name: colour.name, hex: colour.hex ?? null }),
+      decorations: asJson({ ...decorations, priceSuggestion: suggestion }),
+    })
+    .eq("id", lineItemId);
+  if (error) return { error: error.message };
+
+  await logActivity(service, orderId, "product_changed", {
+    from: line.product_name,
+    to: product.name,
+    colour: colour.name,
+  });
+  revalidateOrder(orderId);
+  return { ok: true, suggestion };
 }
 
 /** Upload an official mockup/proof (already staged in the proofs bucket) and move to proof_ready. */

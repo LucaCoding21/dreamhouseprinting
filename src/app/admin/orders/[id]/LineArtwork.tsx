@@ -94,8 +94,33 @@ function isDataUrl(src: string): boolean {
   return /^data:image\//i.test(src);
 }
 
-/** Sniff the file extension out of a raster data-URL prefix. */
+/** Big uploads aren't inlined in the scene: they are staged to Storage and the
+ *  scene holds a signed https URL (see the designer's save path). */
+function isHttpUrl(src: string): boolean {
+  return /^https?:\/\//i.test(src);
+}
+
+function isSvgSrc(src: string): boolean {
+  if (isSvgDataUrl(src)) return true;
+  if (!isHttpUrl(src)) return false;
+  try {
+    return /\.svg$/i.test(new URL(src).pathname);
+  } catch {
+    return false;
+  }
+}
+
+/** Sniff the file extension out of a raster data-URL prefix or a storage URL path. */
 function rasterExtension(src: string): string {
+  if (isHttpUrl(src)) {
+    try {
+      const ext = /\.([a-z0-9]+)$/i.exec(new URL(src).pathname)?.[1]?.toLowerCase();
+      if (ext) return ext === "jpeg" ? "jpg" : ext;
+    } catch {
+      /* fall through to the default */
+    }
+    return "png";
+  }
   const match = /^data:image\/([a-z0-9.+-]+)/i.exec(src);
   const mime = match ? match[1].toLowerCase() : "png";
   if (mime === "jpeg" || mime === "jpg") return "jpg";
@@ -141,9 +166,12 @@ function collectPieces(scenes: Record<string, SceneJson>): Piece[] {
     objects.forEach((object, i) => {
       const type = isString(object?.type) ? object.type : "";
       if (IMAGE_TYPE.test(type)) {
+        // Accept inline data URLs AND staged Storage URLs (big uploads are not
+        // inlined in the scene, so skipping https srcs made customer photos
+        // silently vanish from this panel).
         const src = isString(object.src) ? object.src : null;
-        if (!src || !isDataUrl(src)) return;
-        if (isSvgDataUrl(src)) {
+        if (!src || (!isDataUrl(src) && !isHttpUrl(src))) return;
+        if (isSvgSrc(src)) {
           stickerN += 1;
           pieces.push({ key: `${view}-${i}`, view, index: stickerN, kind: "sticker", object, src });
         } else {
@@ -186,26 +214,31 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
   const pieces = collectPieces(asSceneMap(design.scene_definition));
   if (pieces.length === 0 && sourceFiles.length === 0) return null;
 
-  function downloadImage(piece: Piece) {
+  async function downloadImage(piece: Piece) {
     if (!piece.src) return;
     try {
-      const blob = dataUrlToBlob(piece.src);
+      const blob = isHttpUrl(piece.src) ? await (await fetch(piece.src)).blob() : dataUrlToBlob(piece.src);
       const ext = rasterExtension(piece.src);
       downloadBlob(blob, `${slug}-${piece.view}-image-${piece.index}.${ext}`);
     } catch {
-      toast({ title: "Could not download image", description: "The image data appears to be corrupt.", variant: "error" });
+      toast({ title: "Could not download image", description: "The image could not be fetched or decoded.", variant: "error" });
     }
   }
 
-  function downloadSticker(piece: Piece) {
+  async function downloadSticker(piece: Piece) {
     if (!piece.src) return;
     try {
-      const [, payload = ""] = piece.src.split(",", 2);
-      const svg = /;base64/i.test(piece.src) ? atob(payload) : decodeURIComponent(payload);
+      let svg: string;
+      if (isHttpUrl(piece.src)) {
+        svg = await (await fetch(piece.src)).text();
+      } else {
+        const [, payload = ""] = piece.src.split(",", 2);
+        svg = /;base64/i.test(piece.src) ? atob(payload) : decodeURIComponent(payload);
+      }
       const blob = new Blob([svg], { type: "image/svg+xml" });
       downloadBlob(blob, `${slug}-${piece.view}-sticker-${piece.index}.svg`);
     } catch {
-      toast({ title: "Could not download sticker", description: "The vector data could not be decoded.", variant: "error" });
+      toast({ title: "Could not download sticker", description: "The vector data could not be fetched or decoded.", variant: "error" });
     }
   }
 
@@ -314,8 +347,8 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
                       piece={piece}
                       rendering={renderingKey === piece.key}
                       onDownload={() => {
-                        if (piece.kind === "image") downloadImage(piece);
-                        else if (piece.kind === "sticker") downloadSticker(piece);
+                        if (piece.kind === "image") void downloadImage(piece);
+                        else if (piece.kind === "sticker") void downloadSticker(piece);
                         else void downloadText(piece);
                       }}
                     />
