@@ -1986,6 +1986,17 @@ export function DesignerClient(props: Props) {
                       Add {nextTier.add} more to save {nextTier.pct}% per unit
                     </p>
                   )}
+                  {/* Running subtotal + what's still to come, so the per-unit
+                      figure above isn't mistaken for the out-the-door price.
+                      Shipping is free; tax is added at checkout once we know
+                      the province (this screen has no address yet). */}
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-dream-lavender-soft pt-2.5">
+                    <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
+                    <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-dream-purple-dark/60">
+                    Free shipping. Tax is added at checkout, and final pricing is confirmed on your proof before you pay.
+                  </p>
                 </div>
 
                 {/* Estimated delivery — one confident in-hands date (shared math

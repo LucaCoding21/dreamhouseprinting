@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart/CartContext";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { PROVINCES } from "@/lib/pricing/tax";
+import { PROVINCES, calcTax, isProvinceCode, provinceName } from "@/lib/pricing/tax";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -41,7 +41,14 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   // Each item.total is that design's pre-tax price (goods + setup). Rush is a
   // request only — the shop quotes the fee when they confirm the order, so it
   // never changes this estimate.
-  const total = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  const subtotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  // Shipping is free on every order (see checkout settings), so the only line
+  // between subtotal and the out-the-door number is sales tax. Compute it live
+  // from the province the customer types into their address, so the "Estimated
+  // total" is what they'll actually be charged — not just the goods subtotal.
+  const province = isProvinceCode(contact.province) ? contact.province : null;
+  const tax = calcTax(subtotal, province);
+  const grandTotal = subtotal + tax.total;
   const set = (k: keyof CartPrefill, v: string) => setContact((c) => ({ ...c, [k]: v }));
 
   async function request() {
@@ -385,15 +392,39 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 </div>
               )}
 
-              {/* Estimate */}
-              <div className="mt-5 flex items-start justify-between gap-3 border-t border-dream-line pt-4">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">Estimated total</span>
-                  <p className="mt-1 text-xs text-dream-faint">Taxes &amp; final pricing land on your proof.</p>
+              {/* Order summary — a transparent line-item breakdown so the
+                  customer sees the real out-the-door number (goods + free
+                  shipping + tax), not just the goods subtotal. Tax is computed
+                  live from the province in their address above. */}
+              <div className="mt-5 border-t border-dream-line pt-4">
+                <p className="text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">Order summary</p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-dream-muted">{count === 1 ? "Design" : `Designs (${count})`}</dt>
+                    <dd className="font-semibold text-dream-ink">{formatCAD(subtotal)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-dream-muted">Shipping</dt>
+                    <dd className="font-semibold text-dream-success">Free</dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-dream-muted">
+                      {province ? `Tax · ${provinceName(province)} (${tax.lines.map((l) => l.label).join(" + ")})` : "Tax"}
+                    </dt>
+                    <dd className={cn("font-semibold", province ? "text-dream-ink" : "text-dream-faint")}>
+                      {province ? formatCAD(tax.total) : "Enter province"}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-dream-line pt-3">
+                  <div>
+                    <span className="font-display text-sm font-bold text-dream-ink">Estimated total</span>
+                    <p className="mt-0.5 text-xs text-dream-faint">Final pricing confirmed on your proof before you pay.</p>
+                  </div>
+                  <span className="rounded-xl bg-dream-sun px-3 py-1.5 font-display text-xl font-extrabold text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.18)]">
+                    {formatCAD(grandTotal)}
+                  </span>
                 </div>
-                <span className="rounded-xl bg-dream-sun px-3 py-1.5 font-display text-xl font-extrabold text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.18)]">
-                  {formatCAD(total)}
-                </span>
               </div>
 
               {notice && <p className="mt-3 rounded-xl bg-dream-success-soft px-3 py-2 text-sm text-dream-success">{notice}</p>}
