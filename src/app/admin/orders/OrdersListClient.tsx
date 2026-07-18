@@ -18,6 +18,8 @@ interface Row {
   status: string;
   isRush: boolean;
   paymentStatus: string;
+  paymentMethod: string | null;
+  etransferReportedAt: string | null;
   invoiceSentAt: string | null;
   paidAt: string | null;
   dueDate: string | null;
@@ -31,9 +33,15 @@ interface Row {
   latestNote: string | null;
 }
 
-/** Payment badge: paid > invoiced (amber) > unpaid (neutral). */
-function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "neutral" } {
-  if (r.paidAt || r.paymentStatus === "paid_in_full") return { label: "Paid", variant: "success" };
+/** Payment badge: paid > e-transfer to verify (amber) > invoiced (amber) > unpaid (neutral). */
+function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "info" | "neutral" } {
+  if (r.paidAt || r.paymentStatus === "paid_in_full") {
+    return { label: r.paymentMethod === "etransfer" ? "Paid · e-transfer" : "Paid", variant: "success" };
+  }
+  if (r.etransferReportedAt) {
+    const short = new Date(r.etransferReportedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    return { label: `E-transfer sent ${short}`, variant: "warn" };
+  }
   if (r.invoiceSentAt) {
     const short = new Date(r.invoiceSentAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
     return { label: `Invoiced ${short}`, variant: "warn" };

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { getOrCreateGuestToken } from "@/lib/guest";
+import { getProfile, hasPermission } from "@/lib/auth";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +15,12 @@ export const dynamic = "force-dynamic";
 // saved).
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-const BUCKETS = new Set(["designs", "artwork", "proofs"]);
+// Buckets any caller may stage into. `proofs` is staff-only (added below) — it
+// holds Julian's proof images and guests/customers must never mint into it.
+const CUSTOMER_BUCKETS = ["designs", "artwork"];
+// Generous per-identity cap so abuse can't churn signed URLs; see rateLimit.ts.
+const MINT_LIMIT = 40;
+const MINT_WINDOW_MS = 10 * 60 * 1000;
 
 function sanitize(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "file";
@@ -27,6 +34,18 @@ export async function POST(request: Request) {
   // Logged-in customers scope under their user id; guests under their cookie
   // token (created here on first upload — guest checkout uploads before saving).
   const ownerPrefix = user ? user.id : `guest/${await getOrCreateGuestToken()}`;
+
+  if (!rateLimit(`design-upload:${ownerPrefix}`, MINT_LIMIT, MINT_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "Too many uploads in a short time. Please wait a few minutes and try again." },
+      { status: 429 },
+    );
+  }
+
+  // Staff (proofs.manage) may also stage into the proofs bucket; everyone else
+  // is limited to designs + artwork.
+  const canProofs = user ? hasPermission(await getProfile(), "proofs.manage") : false;
+  const allowedBuckets = new Set(canProofs ? [...CUSTOMER_BUCKETS, "proofs"] : CUSTOMER_BUCKETS);
 
   let body: unknown;
   try {
@@ -47,8 +66,11 @@ export async function POST(request: Request) {
   for (let i = 0; i < files.length; i++) {
     const f = files[i] as { id?: string; bucket?: string; name?: string; size?: number; kind?: string };
     const bucket = String(f.bucket ?? "");
-    if (!BUCKETS.has(bucket)) {
-      return NextResponse.json({ error: `Bad bucket: ${bucket}` }, { status: 400 });
+    if (!allowedBuckets.has(bucket)) {
+      // Distinguish "not permitted" (proofs without staff rights) from a genuinely
+      // unknown bucket so the caller gets an accurate status.
+      const status = bucket === "proofs" ? 403 : 400;
+      return NextResponse.json({ error: `Bad bucket: ${bucket}` }, { status });
     }
     if ((f.size ?? 0) > MAX_FILE_SIZE) {
       return NextResponse.json({ error: `"${f.name}" exceeds the size limit.` }, { status: 413 });

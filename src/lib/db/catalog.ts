@@ -21,7 +21,7 @@ export interface ProductFilter {
 
 const LIST_COLUMNS =
   "id, name, brand, photos, colours, sizes, base_price, markup_type, markup_value, " +
-  "wholesale_cost, lead_time_days, stock_status, is_featured, category_id, subcategory_id, allowed_decoration_method_ids";
+  "wholesale_cost, pricing_rules, lead_time_days, stock_status, is_featured, category_id, subcategory_id, allowed_decoration_method_ids";
 
 export async function getCategories(): Promise<CategoryRow[]> {
   const supabase = await createSupabaseServerClient();

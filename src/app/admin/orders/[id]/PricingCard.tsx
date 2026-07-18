@@ -180,21 +180,28 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
             variant="secondary"
             className="mt-2 w-full"
             loading={pending}
-            onClick={() =>
+            onClick={() => {
+              // Editing a paid order's pricing needs a deliberate confirm (the
+              // server rejects it otherwise) — a refund/top-up may be owed.
+              if (order.paid_at && !window.confirm("This order is already paid. Update its pricing anyway?")) return;
               run(
                 () =>
-                  updateOrderPricingAction(order.id, {
-                    ...price,
-                    addons,
-                    discountType,
-                    discountValue,
-                    discountLabel: discountLabel.trim() || undefined,
-                    discount,
-                    total,
-                  }),
+                  updateOrderPricingAction(
+                    order.id,
+                    {
+                      ...price,
+                      addons,
+                      discountType,
+                      discountValue,
+                      discountLabel: discountLabel.trim() || undefined,
+                      discount,
+                      total,
+                    },
+                    !!order.paid_at
+                  ),
                 "Pricing saved"
-              )
-            }
+              );
+            }}
           >
             Save pricing
           </Button>

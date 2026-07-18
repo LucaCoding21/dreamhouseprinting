@@ -10,9 +10,11 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
+import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/db/rows";
 import { setOrderStatusAction, addOrderNoteAction, sendInvoiceAction, setTrackingAction } from "../actions";
+import { EtransferVerify } from "./EtransferVerify";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { fmtDay, nextAction, useOrderAction, type Can, type Detail } from "./shared";
 
@@ -61,14 +63,14 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
     .filter((p) => p.status === "changes_requested" && p.change_request_comment)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
-  function goToStatus(target: OrderStatus) {
+  function goToStatus(target: OrderStatus, confirmed = false) {
     if (target === status) return;
     const targetIdx = ORDER_STATUSES.indexOf(target);
     const currentIdx = ORDER_STATUSES.indexOf(status);
     if (targetIdx >= 0 && currentIdx >= 0 && targetIdx < currentIdx && !["on_hold", "cancelled"].includes(target)) {
       if (!window.confirm(`Move backwards to “${STATUS_META[target].label}”?`)) return;
     }
-    run(() => setOrderStatusAction(order.id, target), "Status updated", () => setJumpOpen(false));
+    run(() => setOrderStatusAction(order.id, target, confirmed), "Status updated", () => setJumpOpen(false));
   }
 
   function putOnHold() {
@@ -133,7 +135,9 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                   disabled={status === "cancelled"}
                   className="text-dream-danger hover:bg-dream-danger-soft"
                   onClick={() => {
-                    if (window.confirm("Cancel this order?")) goToStatus("cancelled");
+                    // The prompt IS the human confirmation the server requires to
+                    // cancel a paid order, so pass confirmed through.
+                    if (window.confirm("Cancel this order?")) goToStatus("cancelled", true);
                   }}
                 >
                   Cancel order
@@ -364,6 +368,26 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               </div>
             )}
             <HeroButton label="Upload new proof" disabled={!can.proofs} onClick={pickProof} />
+          </div>
+        );
+      case "verify-etransfer":
+        return (
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="warn" className="px-3 py-1.5 text-sm">
+              E-transfer to verify
+            </Badge>
+            <p className="text-sm text-dream-muted">
+              The customer says they sent {formatCAD(total)} by Interac e-Transfer. Check your bank, then confirm.
+            </p>
+            <div className="ml-auto">
+              <EtransferVerify
+                orderId={order.id}
+                amount={total}
+                reportedAt={order.etransfer_reported_at ?? order.created_at}
+                orderStatus={status}
+                compact
+              />
+            </div>
           </div>
         );
       case "approved-invoice":

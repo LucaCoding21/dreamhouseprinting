@@ -36,6 +36,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   const [neededBy, setNeededBy] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Each item.total is that design's pre-tax price (goods + setup). Rush is a
   // request only — the shop quotes the fee when they confirm the order, so it
@@ -45,6 +46,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
 
   async function request() {
     setError(null);
+    setNotice(null);
     const required: (keyof CartPrefill)[] = ["firstName", "lastName", "email", "phone", "street", "city", "province", "postal"];
     const missing = required.find((k) => !contact[k]?.trim());
     if (missing) {
@@ -76,12 +78,36 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
         return;
       }
       if (res.failed.length > 0) {
-        setError(`${res.placed.length} placed, but ${res.failed.length} couldn’t be. Those are still in your cart.`);
+        // Some went through, some didn't. Celebrate the successes and flag the
+        // stragglers separately (they stay in the cart to retry).
+        const placedNums = res.placed.map((p) => p.orderNumber).filter(Boolean).join(", ");
+        setNotice(
+          res.placed.length === 1
+            ? `Order ${placedNums} is in. We’ll email your proof.`
+            : `${res.placed.length} orders placed (${placedNums}). We’ll email your proofs.`
+        );
+        setError(
+          `${res.failed.length} ${res.failed.length === 1 ? "design" : "designs"} couldn’t be sent and ${res.failed.length === 1 ? "is" : "are"} still in your cart. Please try again.`
+        );
         return;
       }
       clearCart();
+      if (isLoggedIn) {
+        router.push("/account/orders");
+        return;
+      }
+      // Guests land on the done page. Carry EVERY placed order (number:token,
+      // comma-separated in `orders`) so it can link each to /o/{token}. `order`
+      // keeps the first number for backward compatibility.
+      const params = new URLSearchParams();
       const first = res.placed[0]?.orderNumber;
-      router.push(isLoggedIn ? "/account/orders" : `/checkout/done${first ? `?order=${encodeURIComponent(first)}` : ""}`);
+      if (first) params.set("order", first);
+      const pairs = res.placed
+        .filter((p) => p.orderNumber && p.publicToken)
+        .map((p) => `${p.orderNumber}:${p.publicToken}`);
+      if (pairs.length) params.set("orders", pairs.join(","));
+      const qs = params.toString();
+      router.push(`/checkout/done${qs ? `?${qs}` : ""}`);
     } catch {
       setError("Something went wrong placing your request. Please try again.");
     } finally {
@@ -370,6 +396,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 </span>
               </div>
 
+              {notice && <p className="mt-3 rounded-xl bg-dream-success-soft px-3 py-2 text-sm text-dream-success">{notice}</p>}
               {error && <p className="mt-3 rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
 
               <button

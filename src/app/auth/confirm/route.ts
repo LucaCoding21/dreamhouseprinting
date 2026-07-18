@@ -23,8 +23,12 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const code = searchParams.get("code");
   const rawNext = searchParams.get("next") ?? "/account";
-  // Only allow same-site relative paths.
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/account";
+  // Only allow same-site relative paths. Reject protocol-relative ("//host") and
+  // any backslash, which browsers normalise to "/" ("/\evil.com" -> "//evil.com").
+  const next =
+    rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\")
+      ? rawNext
+      : "/account";
 
   const supabase = await createSupabaseServerClient();
 

@@ -26,6 +26,7 @@ const CUSTOMER_ACTIVITY_TYPES = new Set([
   "changes_requested",
   "invoice_sent",
   "payment_received",
+  "etransfer_reported",
 ]);
 
 function activityText(type: string, detail: Record<string, unknown>): string {
@@ -47,6 +48,8 @@ function activityText(type: string, detail: Record<string, unknown>): string {
       return "Your invoice was sent";
     case "payment_received":
       return "Payment received — thank you!";
+    case "etransfer_reported":
+      return "You let us know your e-transfer is on the way";
     default:
       return type.replace(/_/g, " ");
   }
@@ -149,6 +152,8 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       invoice_sent_at: order.invoice_sent_at,
       invoice_amount: order.invoice_amount,
       paid_at: order.paid_at,
+      payment_method: order.payment_method,
+      etransfer_reported_at: order.etransfer_reported_at,
     },
     lineItems: lineItems.map((li) => {
       const colour = (li.colour ?? {}) as { name?: string; hex?: string };

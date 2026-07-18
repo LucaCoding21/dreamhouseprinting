@@ -19,6 +19,8 @@ export default async function AdminOrdersPage({
     status: o.order.status,
     isRush: (o.order.shipping_method ?? "") === "rush",
     paymentStatus: o.order.payment_status,
+    paymentMethod: o.order.payment_method,
+    etransferReportedAt: o.order.etransfer_reported_at,
     invoiceSentAt: o.order.invoice_sent_at,
     paidAt: o.order.paid_at,
     dueDate: o.order.due_date,

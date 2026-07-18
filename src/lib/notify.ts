@@ -44,6 +44,7 @@ const EMAIL_CONFIG: Record<string, { cta: string; amountLabel?: string }> = {
   ready_for_pickup: { cta: "View pickup details" },
   invoice_sent: { cta: "Review & pay securely", amountLabel: "Total due" },
   payment_received: { cta: "View your order", amountLabel: "Amount paid" },
+  etransfer_reported: { cta: "View your order", amountLabel: "Amount sent" },
 };
 
 interface Template {

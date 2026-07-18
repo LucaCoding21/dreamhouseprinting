@@ -12,6 +12,7 @@ import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
 import { PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from "@/lib/db/rows";
 import { setPaymentStatusAction, sendInvoiceAction, setTrackingAction } from "../actions";
+import { EtransferVerify } from "./EtransferVerify";
 import { LBL, SHIP_ON_TRACKING, fmtDay, useOrderAction, type Can, type Detail } from "./shared";
 
 const PRE_APPROVAL = new Set<string>(["draft", "submitted", "in_review", "proof_ready", "changes_requested"]);
@@ -31,6 +32,11 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
 
   const paymentBadge: "success" | "info" | "warn" | "neutral" =
     payment === "paid_in_full" ? "success" : payment.startsWith("deposit") ? "info" : payment === "refunded" ? "neutral" : "warn";
+
+  // The customer said their e-transfer is on the way; Julian verifies it here.
+  const etransferPending = !!order.etransfer_reported_at && !order.paid_at;
+  const methodLabel =
+    order.payment_method === "etransfer" ? "Interac e-Transfer" : order.payment_method === "card" ? "Card (Stripe)" : null;
 
   function sendInvoice() {
     run(() => sendInvoiceAction(order.id), order.invoice_sent_at ? "Payment link re-sent" : "Payment link emailed");
@@ -58,6 +64,15 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
           <Badge variant={paymentBadge}>{payment === "paid_in_full" ? "Paid" : payment.replace(/_/g, " ")}</Badge>
         </CardHeader>
         <CardContent className="space-y-2.5">
+          {etransferPending && can.edit && (
+            <EtransferVerify
+              orderId={order.id}
+              amount={total}
+              reportedAt={order.etransfer_reported_at!}
+              orderStatus={status}
+            />
+          )}
+
           <Select
             value={payment}
             disabled={!can.edit}
@@ -75,6 +90,18 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
           </Select>
 
           <dl className="space-y-1 text-sm">
+            {methodLabel && (
+              <div className="flex justify-between">
+                <dt className="text-dream-muted">Method</dt>
+                <dd className="text-dream-ink">{methodLabel}</dd>
+              </div>
+            )}
+            {order.etransfer_reported_at && !order.paid_at && (
+              <div className="flex justify-between">
+                <dt className="text-dream-muted">E-transfer reported</dt>
+                <dd className="text-dream-ink">{fmtDay(order.etransfer_reported_at)}</dd>
+              </div>
+            )}
             {order.invoice_sent_at && (
               <div className="flex justify-between">
                 <dt className="text-dream-muted">Invoice sent</dt>

@@ -16,6 +16,16 @@ export interface OrderViewOrder {
   invoice_sent_at: string | null;
   invoice_amount: number | null;
   paid_at: string | null;
+  /** 'card' | 'etransfer' | 'other' once a payment path was chosen/settled. */
+  payment_method: string | null;
+  /** Customer clicked "I've sent the e-transfer"; unpaid until admin confirms. */
+  etransfer_reported_at: string | null;
+}
+
+/** Interac e-Transfer details for the payment dialog (null = option not offered). */
+export interface OrderViewEtransfer {
+  email: string;
+  note: string | null;
 }
 
 export interface OrderViewLineItem {
@@ -65,6 +75,8 @@ export interface OrderViewActions {
   approveProof: (proofId: string) => Promise<{ ok?: boolean; error?: string }>;
   requestChanges: (proofId: string, comment: string) => Promise<{ ok?: boolean; error?: string }>;
   payNow: () => Promise<{ url?: string; error?: string }>;
+  /** "I've sent the e-transfer": flags the order for admin verification. */
+  reportEtransfer: () => Promise<{ ok?: boolean; error?: string }>;
 }
 
 export interface OrderViewProps {
@@ -73,4 +85,6 @@ export interface OrderViewProps {
   proofs: OrderViewProof[];
   activity: OrderViewActivityEntry[];
   actions: OrderViewActions;
+  /** E-transfer payment option from admin settings; null hides it (card only). */
+  etransfer: OrderViewEtransfer | null;
 }

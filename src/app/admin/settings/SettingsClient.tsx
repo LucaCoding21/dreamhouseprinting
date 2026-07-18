@@ -17,11 +17,13 @@ import { useToast } from "@/components/ui/use-toast";
 import type { DecorationMethodRow } from "@/lib/db/rows";
 import type { CheckoutSettings } from "@/lib/checkoutSettings";
 import type { AddonSettings } from "@/lib/addonSettings";
+import type { PaymentSettings } from "@/lib/paymentSettings";
 import {
   updateDecorationMethodAction,
   updateEmailTemplatesAction,
   updateCheckoutSettingsAction,
   updateAddonSettingsAction,
+  updatePaymentSettingsAction,
   type EmailTemplateMap,
 } from "./actions";
 
@@ -44,9 +46,10 @@ interface SettingsClientProps {
   emailTemplates: Record<string, EmailTemplate>;
   checkout: CheckoutSettings;
   addons: AddonSettings;
+  payments: PaymentSettings;
 }
 
-export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout, addons }: SettingsClientProps) {
+export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout, addons, payments }: SettingsClientProps) {
   return (
     <div>
       <AdminHeader title="Settings" />
@@ -56,6 +59,7 @@ export function SettingsClient({ decorationMethods, staff, emailTemplates, check
             <TabsTrigger value="decoration">Decoration methods</TabsTrigger>
             <TabsTrigger value="addons">Add-ons</TabsTrigger>
             <TabsTrigger value="checkout">Checkout</TabsTrigger>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="email">Email templates</TabsTrigger>
           </TabsList>
@@ -70,6 +74,10 @@ export function SettingsClient({ decorationMethods, staff, emailTemplates, check
 
           <TabsContent value="checkout" className="mt-4">
             <CheckoutTab settings={checkout} />
+          </TabsContent>
+
+          <TabsContent value="payments" className="mt-4">
+            <PaymentsTab settings={payments} />
           </TabsContent>
 
           <TabsContent value="staff" className="mt-4">
@@ -361,6 +369,81 @@ function CheckoutTab({ settings }: { settings: CheckoutSettings }) {
           <div className="flex justify-end">
             <Button variant="primary" loading={pending} onClick={save}>
               Save checkout settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Payments                                                           */
+/* ------------------------------------------------------------------ */
+
+function PaymentsTab({ settings }: { settings: PaymentSettings }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [pending, start] = useTransition();
+  const [draft, setDraft] = useState<PaymentSettings>(settings);
+
+  const set = (patch: Partial<PaymentSettings>) => setDraft((d) => ({ ...d, ...patch }));
+  const live = draft.etransferEnabled && draft.etransferEmail.trim() !== "";
+
+  function save() {
+    start(async () => {
+      const res = await updatePaymentSettingsAction(draft);
+      if (res.error) toast({ title: "Failed", description: res.error, variant: "error" });
+      else {
+        toast({ title: "Payment settings saved", variant: "success" });
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-dream-muted">
+        Card payments run through Stripe and are always on. Interac e-Transfer shows as a second option in the
+        customer&rsquo;s payment step once it&rsquo;s enabled and has a recipient email.
+      </p>
+      <Card className="max-w-xl">
+        <CardHeader className="flex-row items-center justify-between gap-3">
+          <CardTitle>Interac e-Transfer</CardTitle>
+          <Badge variant={live ? "success" : "neutral"}>{live ? "Offered to customers" : "Hidden"}</Badge>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <label className="flex items-center gap-2 text-sm text-dream-ink">
+            <Switch checked={draft.etransferEnabled} onCheckedChange={(v) => set({ etransferEnabled: v })} />
+            Accept Interac e-Transfer
+          </label>
+          <Field label="Send transfers to (email)" htmlFor="pay-et-email">
+            <Input
+              id="pay-et-email"
+              type="email"
+              value={draft.etransferEmail}
+              onChange={(e) => set({ etransferEmail: e.target.value })}
+              placeholder="payments@yourshop.com"
+              disabled={!draft.etransferEnabled}
+            />
+          </Field>
+          <Field label="Note shown with the instructions" htmlFor="pay-et-note">
+            <Textarea
+              id="pay-et-note"
+              rows={2}
+              value={draft.etransferNote}
+              onChange={(e) => set({ etransferNote: e.target.value })}
+              placeholder="e.g. Autodeposit is on, so no security question is needed."
+              disabled={!draft.etransferEnabled}
+            />
+          </Field>
+          <p className="text-xs text-dream-faint">
+            When a customer says they&rsquo;ve sent a transfer, the order shows in the dashboard under
+            &ldquo;E-transfers to verify&rdquo;. Check your bank, then confirm it on the order to mark it paid.
+          </p>
+          <div className="flex justify-end">
+            <Button variant="primary" loading={pending} onClick={save}>
+              Save payment settings
             </Button>
           </div>
         </CardContent>

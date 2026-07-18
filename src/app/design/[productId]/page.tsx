@@ -5,6 +5,7 @@ import { getUser } from "@/lib/auth";
 import { getGuestToken } from "@/lib/guest";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { enabledColours } from "@/lib/productImage";
+import { garmentRetailUnit } from "@/lib/pricing/platform";
 import { DesignerClient, type InitialDesign } from "./DesignerClient";
 import type { ProductColourJson, ProductSizeJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
@@ -105,10 +106,10 @@ export default async function DesignPage({
       description={product.description}
       stockStatus={product.stock_status}
       pricing={{
-        wholesale_cost: product.wholesale_cost,
-        base_price: product.base_price,
-        markup_type: product.markup_type,
-        markup_value: product.markup_value,
+        // Only the (public) garment retail unit crosses to the client — the
+        // confidential wholesale_cost + markup must never ride the RSC payload.
+        // This is the sole cost-plus fallback input calcPrice derives from them.
+        garmentRetail: garmentRetailUnit(product),
         pricing_rules: product.pricing_rules,
       }}
       leadTimeDays={product.lead_time_days}

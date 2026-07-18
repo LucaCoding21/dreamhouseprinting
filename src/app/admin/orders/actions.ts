@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission, getProfile, hasPermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendOrderStatusEmail, sendOrderEmail, sendOrderCommentEmail } from "@/lib/notify";
-import { ensureCheckoutSession } from "@/lib/orders/payments";
+import { ensureCheckoutSession, expireOpenCheckoutSession, markOrderPaid } from "@/lib/orders/payments";
 import type { Json, Database } from "@/lib/db/types";
 import type {
   OrderStatus,
@@ -18,6 +18,7 @@ import { priceFromCurve, defaultDecoration } from "@/lib/pricing/quote";
 import type { LineProductionStatus } from "@/lib/lineProduction";
 import { mergeAddonSettings, lineAddonTotal } from "@/lib/addonSettings";
 import { resolveDiscount, type DiscountType } from "@/lib/pricing/discount";
+import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
 
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
 const asJson = (v: unknown) => v as unknown as Json;
@@ -66,14 +67,41 @@ async function applyStatus(
 
 export async function setOrderStatusAction(
   orderId: string,
-  status: OrderStatus
+  status: OrderStatus,
+  /** Required to cancel a PAID order (a refund may be owed) — the UI confirms first. */
+  confirmed = false
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
 
-  const { data: prev } = await service.from("orders").select("status").eq("id", orderId).single();
+  const { data: prev } = await service
+    .from("orders")
+    .select("status, paid_at, stripe_checkout_session_id")
+    .eq("id", orderId)
+    .single();
+
+  // Minimal transition guards (one-man shop — permissive, only the dangerous moves).
+  if (status === "proof_ready" && prev?.status !== "proof_ready") {
+    // No proof waiting means nothing to review — don't email an approve-and-pay CTA.
+    const { count } = await service
+      .from("proofs")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", orderId)
+      .eq("status", "pending");
+    if (!count) return { error: "Upload a proof before moving this order to Proof ready." };
+  }
+  if (status === "cancelled" && prev?.paid_at && !confirmed) {
+    return { error: "This order is already paid. Confirm the cancellation — a refund may be owed." };
+  }
+
   const err = await applyStatus(service, orderId, status, prev?.status);
   if (err) return { error: err };
+
+  // Cancelling kills any open payment link so a stale Stripe tab can't complete.
+  if (status === "cancelled") {
+    await expireOpenCheckoutSession({ stripe_checkout_session_id: prev?.stripe_checkout_session_id ?? null });
+  }
+
   revalidateOrder(orderId);
   return { ok: true };
 }
@@ -89,9 +117,104 @@ export async function setPaymentStatusAction(
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
-  const { error } = await service.from("orders").update({ payment_status: paymentStatus }).eq("id", orderId);
+
+  const { data: order } = await service
+    .from("orders")
+    .select("paid_at, stripe_checkout_session_id")
+    .eq("id", orderId)
+    .single();
+
+  const patch: OrderUpdate = { payment_status: paymentStatus };
+  // A manual "paid in full" (e.g. cash) must also stamp paid_at, or the customer's
+  // self-serve Pay button stays open and the order could be charged again via Stripe.
+  // Only stamp when not already paid — never move an existing paid timestamp.
+  const markingPaid = paymentStatus === "paid_in_full" && !order?.paid_at;
+  if (markingPaid) patch.paid_at = new Date().toISOString();
+  // Reopening to unpaid clears the timestamp so the pay flow can run again.
+  if (paymentStatus === "unpaid") patch.paid_at = null;
+
+  const { error } = await service.from("orders").update(patch).eq("id", orderId);
   if (error) return { error: error.message };
-  await logActivity(service, orderId, "payment_status", { to: paymentStatus });
+
+  // Killing any open Stripe session prevents a double charge on the now-paid order.
+  if (markingPaid) {
+    await expireOpenCheckoutSession({ stripe_checkout_session_id: order?.stripe_checkout_session_id ?? null });
+  }
+
+  await logActivity(service, orderId, "payment_status", { to: paymentStatus, paidAt: patch.paid_at ?? null });
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/**
+ * Admin checked the bank and the customer's Interac e-Transfer landed: mark the
+ * order paid (full payment_received flow: activity, customer email, Stripe
+ * session expiry so an old card link can't double-charge) and optionally move
+ * an approved order straight into production.
+ */
+export async function confirmEtransferAction(
+  orderId: string,
+  startProduction: boolean
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const profile = await getProfile();
+
+  const { data: order } = await service
+    .from("orders")
+    .select("status, paid_at, stripe_checkout_session_id")
+    .eq("id", orderId)
+    .single();
+  if (!order) return { error: "Order not found." };
+  if (order.paid_at) return { error: "This order is already paid." };
+
+  const res = await markOrderPaid(service, orderId, null, "manual", true, {
+    method: "etransfer",
+    actorName: profile?.name ?? "Staff",
+  });
+  if (res.error) return { error: res.error };
+
+  // An open Stripe checkout link could still charge the now-paid order.
+  await expireOpenCheckoutSession({ stripe_checkout_session_id: order.stripe_checkout_session_id ?? null });
+
+  if (startProduction && order.status === "approved") {
+    const err = await applyStatus(service, orderId, "in_production", order.status);
+    if (err) return { error: err };
+  }
+
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/**
+ * Admin looked and the reported e-transfer never arrived. Clears the pending
+ * flag (the customer's order page goes back to the normal payment options) and
+ * optionally sends the customer a note explaining what to check.
+ */
+export async function etransferNotReceivedAction(
+  orderId: string,
+  messageToCustomer?: string
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+
+  const { data: order } = await service.from("orders").select("paid_at").eq("id", orderId).single();
+  if (!order) return { error: "Order not found." };
+  if (order.paid_at) return { error: "This order is already paid." };
+
+  const { error } = await service
+    .from("orders")
+    .update({ etransfer_reported_at: null, payment_method: null })
+    .eq("id", orderId);
+  if (error) return { error: error.message };
+  await logActivity(service, orderId, "etransfer_not_received", {});
+
+  const message = messageToCustomer?.trim();
+  if (message) {
+    const noted = await addOrderNoteAction(orderId, message, "customer");
+    if (noted.error) return { error: noted.error };
+  }
+
   revalidateOrder(orderId);
   return { ok: true };
 }
@@ -142,13 +265,50 @@ export async function updateOrderPricingAction(
     discountValue?: number;
     discountLabel?: string;
     discount?: number;
-  }
+  },
+  /** Required to edit a PAID order's pricing — the UI confirms first. */
+  confirmed = false
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.pricing");
   const service = requireSupabaseServiceClient();
-  const { error } = await service.from("orders").update({ pricing: asJson(pricing) }).eq("id", orderId);
+
+  // Every money field must be a real, non-negative number — never trust the client.
+  const parts = [pricing.subtotal, pricing.setupFees, pricing.rush, pricing.addons, pricing.shipping, pricing.tax];
+  if (pricing.discountValue !== undefined) parts.push(pricing.discountValue);
+  if (parts.some((n) => !Number.isFinite(n) || n < 0)) {
+    return { error: "Pricing values must be zero or greater." };
+  }
+
+  const { data: order } = await service.from("orders").select("paid_at").eq("id", orderId).single();
+  if (order?.paid_at && !confirmed) {
+    return { error: "This order is already paid. Confirm before changing its pricing." };
+  }
+
+  // Recompute the total from the parts server-side — a tampered client sum can't
+  // undercharge (or, once paid via Stripe, mismatch what was collected).
+  const goods = pricing.subtotal + pricing.setupFees + pricing.rush + pricing.addons;
+  const discount = resolveDiscount(goods, {
+    discountType: pricing.discountType,
+    discountValue: pricing.discountValue,
+  });
+  const total = round2(goods - discount + pricing.shipping + pricing.tax);
+  const next = {
+    subtotal: pricing.subtotal,
+    setupFees: pricing.setupFees,
+    rush: pricing.rush,
+    addons: pricing.addons,
+    shipping: pricing.shipping,
+    tax: pricing.tax,
+    discountType: pricing.discountType,
+    discountValue: pricing.discountValue,
+    discountLabel: pricing.discountLabel,
+    discount,
+    total,
+  };
+
+  const { error } = await service.from("orders").update({ pricing: asJson(next) }).eq("id", orderId);
   if (error) return { error: error.message };
-  await logActivity(service, orderId, "price_edit", { total: pricing.total });
+  await logActivity(service, orderId, "price_edit", { total });
   revalidateOrder(orderId);
   return { ok: true };
 }
@@ -265,7 +425,7 @@ const sumSizes = (sq: Record<string, number>) =>
 async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServiceClient>, orderId: string) {
   const [{ data: items }, { data: order }, { data: addonRow }] = await Promise.all([
     service.from("line_items").select("unit_price, size_quantities, decorations").eq("order_id", orderId),
-    service.from("orders").select("pricing").eq("id", orderId).single(),
+    service.from("orders").select("pricing, shipping_address").eq("id", orderId).single(),
     service.from("settings").select("value").eq("key", "addons").maybeSingle(),
   ]);
   const pricing = (order?.pricing ?? {}) as {
@@ -291,12 +451,18 @@ async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServic
   const setupFees = pricing.setupFees ?? 0;
   const rush = pricing.rush ?? 0;
   const shipping = pricing.shipping ?? 0;
-  const tax = pricing.tax ?? 0;
   // Preserve the admin's manual discount across auto-recompute (re-resolve against the new goods).
   const discountType = pricing.discountType;
   const discountValue = pricing.discountValue;
   const discountLabel = pricing.discountLabel;
   const discount = resolveDiscount(subtotal + setupFees + rush + addons, { discountType, discountValue });
+  // Re-derive tax from the shipping province on the recomputed base (matches the
+  // PricingCard live formula) so an item edit can't leave a stale tax the customer
+  // then pays. Unknown province keeps whatever tax was there before.
+  const shipProv = (order?.shipping_address as { prov?: string } | null)?.prov;
+  const prov = isProvinceCode(shipProv) ? shipProv : null;
+  const taxBase = Math.max(subtotal + setupFees + rush + addons - discount + shipping, 0);
+  const tax = prov ? calcTax(taxBase, prov).total : pricing.tax ?? 0;
   const next = {
     subtotal,
     setupFees,
@@ -333,7 +499,10 @@ export async function updateLineItemsAction(
     const row = byId.get(patch.id);
     if (!row) return { error: "Line item not found on this order." };
     // Unit price changes require the pricing permission; others keep the stored price.
-    const unitPrice = canPrice ? patch.unitPrice : row.unit_price;
+    const rawUnit = canPrice ? patch.unitPrice : row.unit_price;
+    // Clamp money to a real, non-negative number (a NaN/negative would poison the total).
+    const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : 0;
+    const setupFee = Number.isFinite(row.setup_fee) && row.setup_fee >= 0 ? row.setup_fee : 0;
     const qty = sumSizes(patch.sizeQuantities);
     const { error } = await service
       .from("line_items")
@@ -341,8 +510,10 @@ export async function updateLineItemsAction(
         product_name: patch.productName.trim() || null,
         size_quantities: asJson(patch.sizeQuantities),
         unit_price: unitPrice,
-        decorations: asJson(patch.decorations),
-        line_total: round2(unitPrice * qty + row.setup_fee),
+        // The stale-price nudge is UI-only — never persist it (customers can read
+        // decorations jsonb via RLS, and it can't be column-guarded).
+        decorations: asJson({ ...patch.decorations, priceSuggestion: null }),
+        line_total: round2(unitPrice * qty + setupFee),
       })
       .eq("id", patch.id);
     if (error) return { error: error.message };
@@ -465,8 +636,9 @@ function suggestUnitPrice(
  * Requires an explicit colour pick: the new product's colours never map 1:1,
  * so nothing is auto-selected. Sizes, prints, notes, design and pricing are
  * all kept. The price is NOT auto-changed; instead, when the new product's
- * curve price differs from the stored unit price, a suggestion is stamped on
- * the line (decorations.priceSuggestion) for admin to apply or dismiss.
+ * curve price differs from the stored unit price, a suggestion is RETURNED to
+ * the client (for a display-only nudge) — never persisted, since customers can
+ * read the decorations jsonb via RLS.
  */
 export async function changeLineItemProductAction(
   orderId: string,
@@ -507,7 +679,9 @@ export async function changeLineItemProductAction(
       product_id: product.id,
       product_name: product.name,
       colour: asJson({ name: colour.name, hex: colour.hex ?? null }),
-      decorations: asJson({ ...decorations, priceSuggestion: suggestion }),
+      // The suggestion is returned to the client for display only, never persisted
+      // (customers can read decorations jsonb via RLS — see suggestUnitPrice header).
+      decorations: asJson({ ...decorations, priceSuggestion: null }),
     })
     .eq("id", lineItemId);
   if (error) return { error: error.message };
@@ -521,18 +695,36 @@ export async function changeLineItemProductAction(
   return { ok: true, suggestion };
 }
 
-/** Upload an official mockup/proof (already staged in the proofs bucket) and move to proof_ready. */
+/**
+ * Upload an official mockup/proof (already staged in the proofs bucket). On a
+ * live order it moves to proof_ready and emails the approve-and-pay CTA; on a
+ * settled order (paid/completed) it just files the proof without touching status
+ * or emailing; on a cancelled order it's refused.
+ */
 export async function uploadProofsAction(
   orderId: string,
   proofPaths: string[],
   lineItemId?: string
-): Promise<{ ok?: boolean; error?: string }> {
+): Promise<{ ok?: boolean; error?: string; note?: string }> {
   await requirePermission("proofs.manage");
   const service = requireSupabaseServiceClient();
   const profile = await getProfile();
 
   const paths = proofPaths.filter(Boolean);
   if (paths.length === 0) return { error: "No proof files to send." };
+
+  const { data: order } = await service
+    .from("orders")
+    .select("official_mockups, status, paid_at")
+    .eq("id", orderId)
+    .single();
+  // Never send a proof onto a cancelled order.
+  if (order?.status === "cancelled") {
+    return { error: "This order was cancelled — reopen it before sending a proof." };
+  }
+  // A paid or completed order is settled: still record the proof on file, but
+  // don't reset its status or re-fire the approve-and-pay email (they already paid).
+  const settled = !!order?.paid_at || order?.status === "completed";
 
   // Sign every uploaded file (front / back / …); a single unsignable file
   // fails the whole batch so the customer never gets a partial proof set.
@@ -554,18 +746,24 @@ export async function uploadProofsAction(
   );
   if (pErr) return { error: pErr.message };
 
-  // Append all to official mockups and advance status once.
-  const { data: order } = await service.from("orders").select("official_mockups").eq("id", orderId).single();
+  // Append all to official mockups; advance status only on an unsettled order.
   const mockups = (order?.official_mockups ?? []) as { url: string; path: string }[];
-  await service
-    .from("orders")
-    .update({
-      official_mockups: asJson([...mockups, ...signed]),
-      status: "proof_ready",
-    })
-    .eq("id", orderId);
+  const patch: OrderUpdate = { official_mockups: asJson([...mockups, ...signed]) };
+  if (!settled) {
+    patch.status = "proof_ready";
+    // Direct status write bypasses applyStatus — clear a stale hold note here too.
+    if (order?.status === "on_hold") patch.hold_note = null;
+  }
+  await service.from("orders").update(patch).eq("id", orderId);
 
-  await logActivity(service, orderId, "proof_uploaded", { count: signed.length });
+  await logActivity(service, orderId, "proof_uploaded", { count: signed.length, settled });
+  if (settled) {
+    revalidateOrder(orderId);
+    return {
+      ok: true,
+      note: "Proof saved to the order. The customer wasn't emailed because this order is already settled.",
+    };
+  }
   // One email for the whole set — the proof page shows every image.
   await sendOrderStatusEmail(orderId, "proof_ready");
   revalidateOrder(orderId);

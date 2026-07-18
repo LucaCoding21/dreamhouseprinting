@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { formatCAD } from "@/lib/money";
 import { StatusTag } from "@/components/portal/StatusTag";
 import { IconZoom, IconClose, IconCheck } from "@/components/portal/icons";
-import type { OrderViewProof, OrderViewActions } from "./types";
+import { PaymentMethodDialog } from "./PaymentMethodDialog";
+import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./types";
 
 /**
  * Customer proof review + approve / request-changes. Shared by the logged-in
@@ -22,16 +23,23 @@ export function ProofPanel({
   onApprove,
   onRequestChanges,
   onPayNow,
+  onReportEtransfer,
   payOnApprove,
   amountDue,
+  orderNumber,
+  etransfer,
 }: {
   proofs: OrderViewProof[];
   onApprove: OrderViewActions["approveProof"];
   onRequestChanges: OrderViewActions["requestChanges"];
   onPayNow: OrderViewActions["payNow"];
-  /** Approve-and-pay: approving goes straight to Stripe Checkout for amountDue. */
+  onReportEtransfer: OrderViewActions["reportEtransfer"];
+  /** Approve-and-pay: approving flows straight into payment for amountDue. */
   payOnApprove: boolean;
   amountDue: number;
+  orderNumber: string | null;
+  /** When set, approving opens the card / e-transfer chooser instead of going straight to Stripe. */
+  etransfer: OrderViewEtransfer | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -39,6 +47,7 @@ export function ProofPanel({
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState<string | null>(null);
+  const [payDialog, setPayDialog] = useState(false);
 
   // One decision covers the whole set; the primary proof drives status + id.
   const proof = proofs[0];
@@ -53,10 +62,18 @@ export function ProofPanel({
         setError(r.error);
         return;
       }
-      // Straight into Stripe Checkout — if the session can't be minted (e.g.
-      // Stripe unconfigured) fall back to refreshing: the payment panel below
-      // takes over with its own Pay button.
       if (payOnApprove) {
+        // E-transfer configured: let them choose how to pay. The refresh behind
+        // the dialog re-renders the approved state; the dialog itself is client
+        // state and survives it.
+        if (etransfer) {
+          setPayDialog(true);
+          router.refresh();
+          return;
+        }
+        // Card only: straight into Stripe Checkout. If the session can't be
+        // minted (e.g. Stripe unconfigured) fall back to refreshing: the
+        // payment panel below takes over with its own Pay button.
         const pay = await onPayNow();
         if (pay.url) {
           window.location.assign(pay.url);
@@ -132,7 +149,9 @@ export function ProofPanel({
                   Review {multiple ? "every mockup" : "your mockup"} carefully: spelling, colours and placement. Approving covers
                   {multiple ? " all of them" : " it"}
                   {payOnApprove
-                    ? " and takes you to secure checkout — once paid, your order goes to production."
+                    ? etransfer
+                      ? " and opens payment (card or Interac e-Transfer). Once paid, your order goes to production."
+                      : " and takes you to secure checkout — once paid, your order goes to production."
                     : " — send to production, or tell us what to change."}
                 </p>
                 {!requesting ? (
@@ -214,6 +233,19 @@ export function ProofPanel({
             />
           </div>
         </div>
+      )}
+
+      {etransfer && (
+        <PaymentMethodDialog
+          open={payDialog}
+          onOpenChange={setPayDialog}
+          amountDue={amountDue}
+          orderNumber={orderNumber}
+          etransfer={etransfer}
+          payNow={onPayNow}
+          reportEtransfer={onReportEtransfer}
+          onReported={() => router.refresh()}
+        />
       )}
     </Card>
   );

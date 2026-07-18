@@ -68,6 +68,13 @@ export interface DesignSubmitInput {
   designId?: string;
 }
 
+/** Storage-path prefix the caller is allowed to reference. Mirrors the prefix
+ *  minted in /api/design/upload: `${userId}/…` for members, `guest/${token}/…`
+ *  for guests. Any path outside it belongs to someone else. */
+function ownerPathPrefix(owner: DesignOwner): string {
+  return "userId" in owner ? `${owner.userId}/` : `guest/${owner.guestToken}/`;
+}
+
 async function signAll(
   service: ReturnType<typeof requireSupabaseServiceClient>,
   items: { bucket: string; path: string }[]
@@ -105,7 +112,15 @@ async function persistDesign(
   status: "draft" | "submitted"
 ): Promise<{ id: string; created: boolean; mockupUrl: string | null }> {
   const sceneImages = input.sceneImages ?? [];
-  const signed = await signAll(service, [...input.mockups, ...input.artwork, ...sceneImages]);
+  // Only sign storage paths this caller actually owns. Without this guard the
+  // client could hand us any path (another customer's artwork, a staff proof)
+  // and we would mint a year-long signed URL for it.
+  const prefix = ownerPathPrefix(owner);
+  const referenced = [...input.mockups, ...input.artwork, ...sceneImages];
+  if (referenced.some((it) => !it.path.startsWith(prefix))) {
+    throw new Error("Those uploaded files could not be verified. Please re-upload and try again.");
+  }
+  const signed = await signAll(service, referenced);
   const mockupImages = input.mockups.map((m) => ({ view: m.view, path: m.path, url: signed[m.path] ?? null }));
   const sourceArtwork = input.artwork.map((a) => ({ name: a.name, path: a.path, url: signed[a.path] ?? null }));
   const mockupUrl = mockupImages.find((m) => m.url)?.url ?? null;

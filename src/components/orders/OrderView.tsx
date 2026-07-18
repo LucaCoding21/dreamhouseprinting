@@ -14,16 +14,19 @@ import type { OrderViewProps } from "./types";
  * spacing — the portal keeps its exact `space-y-6` rhythm. Actions are passed
  * in already bound to the order/token by the route.
  */
-export function OrderView({ order, lineItems, proofs, activity, actions }: OrderViewProps) {
+export function OrderView({ order, lineItems, proofs, activity, actions, etransfer }: OrderViewProps) {
   const pricing = order.pricing;
   // Always the LIVE total — admin pricing edits show (and charge) immediately;
   // the stamped invoice_amount is only a fallback for legacy rows.
   const amountDue = pricing.total ?? order.invoice_amount ?? 0;
 
   // Approve-and-pay: once the proof is approved the order is payable without an
-  // invoice email. Pre-approval, an explicit invoice still unlocks payment.
+  // invoice email. Pre-approval, an explicit invoice still unlocks payment. A
+  // cancelled order is never payable (mirrors orderPayableError) — otherwise it
+  // would show a Pay-now button whose action then errors.
   const payable =
     !order.paid_at &&
+    order.status !== "cancelled" &&
     amountDue > 0 &&
     (PAYABLE_ORDER_STATUSES.has(order.status) || !!order.invoice_sent_at);
 
@@ -41,8 +44,11 @@ export function OrderView({ order, lineItems, proofs, activity, actions }: Order
           onApprove={actions.approveProof}
           onRequestChanges={actions.requestChanges}
           onPayNow={actions.payNow}
+          onReportEtransfer={actions.reportEtransfer}
           payOnApprove={!order.paid_at && amountDue > 0}
           amountDue={amountDue}
+          orderNumber={order.order_number}
+          etransfer={etransfer}
         />
       )}
 
@@ -51,7 +57,12 @@ export function OrderView({ order, lineItems, proofs, activity, actions }: Order
           invoiceSentAt={order.invoice_sent_at}
           amountDue={amountDue}
           paidAt={order.paid_at}
+          paymentMethod={order.payment_method}
+          etransferReportedAt={order.etransfer_reported_at}
+          orderNumber={order.order_number}
+          etransfer={etransfer}
           payNow={actions.payNow}
+          reportEtransfer={actions.reportEtransfer}
         />
       )}
 

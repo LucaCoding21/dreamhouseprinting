@@ -42,6 +42,7 @@ export function OrderItemsSection({
     });
   const shipName = (order.shipping_address as StoredAddress | null)?.name;
   const customerName = detail.customer?.name ?? shipName ?? order.guest_email ?? "the customer";
+  const orderTotal = ((order.pricing ?? {}) as { total?: number }).total ?? 0;
 
   const designById = useMemo(() => new Map(detail.designs.map((d) => [d.id, d])), [detail.designs]);
   const setupById = useMemo(() => new Map(detail.lineItems.map((li) => [li.id, li.setup_fee])), [detail.lineItems]);
@@ -261,6 +262,7 @@ export function OrderItemsSection({
                 embroideryMethod={embroideryMethod}
                 can={can}
                 setupFee={setupById.get(it.id) ?? 0}
+                orderTotal={orderTotal}
                 proofsForItem={proofsByItem.get(it.id) ?? []}
                 onPatch={(fn) => patchItem(it.id, fn)}
                 onRemove={() => removeItem(it.id)}

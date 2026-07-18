@@ -2,6 +2,8 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { markOrderPaid } from "@/lib/orders/payments";
+import { notifyJulian } from "@/lib/notify";
+import { formatCAD } from "@/lib/money";
 
 /**
  * Stripe webhook — the authoritative "order paid" signal. Dev:
@@ -33,7 +35,27 @@ export async function POST(req: Request) {
     const orderId = session.metadata?.order_id;
     if (orderId && session.payment_status === "paid") {
       const service = requireSupabaseServiceClient();
-      await markOrderPaid(service, orderId, session.id, "webhook");
+      const { data: order } = await service
+        .from("orders")
+        .select("status, order_number")
+        .eq("id", orderId)
+        .maybeSingle();
+
+      if (order?.status === "cancelled") {
+        // Payment landed on an order that was cancelled after the session was
+        // created (e.g. customer paid an old link). Do NOT mark it paid — alert
+        // Julian to refund it manually in Stripe. Return 200 so Stripe doesn't
+        // retry the (correctly-handled) event.
+        const label = order.order_number ?? orderId;
+        const amount = formatCAD((session.amount_total ?? 0) / 100);
+        await notifyJulian(
+          `Payment on a CANCELLED order — ${label}`,
+          `${amount} was paid on order ${label}, but that order is CANCELLED. It has NOT been marked paid. Refund the customer in Stripe.`,
+          { orderId, kicker: "Refund needed", tone: "warn", amountLabel: "Amount to refund" }
+        );
+      } else {
+        await markOrderPaid(service, orderId, session.id, "webhook");
+      }
     }
   }
 

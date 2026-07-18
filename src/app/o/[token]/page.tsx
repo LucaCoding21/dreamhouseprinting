@@ -19,7 +19,13 @@ import type {
   ProofRow,
   OrderActivityRow,
 } from "@/lib/db/rows";
-import { approveProofPublicAction, requestProofChangesPublicAction, payNowPublicAction } from "./actions";
+import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
+import {
+  approveProofPublicAction,
+  requestProofChangesPublicAction,
+  payNowPublicAction,
+  reportEtransferPublicAction,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { robots: { index: false } };
@@ -93,6 +99,13 @@ export default async function PublicOrderPage({
   const { order } = view;
   const meta = STATUS_META[order.status as OrderStatus];
 
+  const { data: paySetting } = await requireSupabaseServiceClient()
+    .from("settings")
+    .select("value")
+    .eq("key", "payments")
+    .maybeSingle();
+  const etransfer = etransferOption(mergePaymentSettings(paySetting?.value));
+
   return (
     <div className="flex min-h-dvh flex-col bg-dream-bg">
       <header className="border-b border-dream-line bg-white">
@@ -128,7 +141,9 @@ export default async function PublicOrderPage({
             approveProof: approveProofPublicAction.bind(null, token),
             requestChanges: requestProofChangesPublicAction.bind(null, token),
             payNow: payNowPublicAction.bind(null, token),
+            reportEtransfer: reportEtransferPublicAction.bind(null, token),
           }}
+          etransfer={etransfer}
         />
       </main>
 

@@ -345,6 +345,7 @@ export type Database = {
           customer_id: string | null
           customer_notes: Json
           due_date: string | null
+          etransfer_reported_at: string | null
           fulfillment_method: string | null
           guest_email: string | null
           hold_note: string | null
@@ -356,6 +357,7 @@ export type Database = {
           order_number: string | null
           organization_id: string | null
           paid_at: string | null
+          payment_method: string | null
           payment_status: string
           pricing: Json
           production_notes: Json
@@ -374,6 +376,7 @@ export type Database = {
           customer_id?: string | null
           customer_notes?: Json
           due_date?: string | null
+          etransfer_reported_at?: string | null
           fulfillment_method?: string | null
           guest_email?: string | null
           hold_note?: string | null
@@ -385,6 +388,7 @@ export type Database = {
           order_number?: string | null
           organization_id?: string | null
           paid_at?: string | null
+          payment_method?: string | null
           payment_status?: string
           pricing?: Json
           production_notes?: Json
@@ -403,6 +407,7 @@ export type Database = {
           customer_id?: string | null
           customer_notes?: Json
           due_date?: string | null
+          etransfer_reported_at?: string | null
           fulfillment_method?: string | null
           guest_email?: string | null
           hold_note?: string | null
@@ -414,6 +419,7 @@ export type Database = {
           order_number?: string | null
           organization_id?: string | null
           paid_at?: string | null
+          payment_method?: string | null
           payment_status?: string
           pricing?: Json
           production_notes?: Json

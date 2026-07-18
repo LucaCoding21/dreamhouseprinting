@@ -16,7 +16,7 @@ export interface PlaceCartInput {
 }
 
 export interface PlaceCartResult {
-  placed: { designId: string; orderNumber?: string }[];
+  placed: { designId: string; orderId?: string; orderNumber?: string; publicToken?: string }[];
   failed: { designId: string; error: string }[];
 }
 
@@ -46,7 +46,12 @@ export async function placeCartOrdersAction(input: PlaceCartInput): Promise<Plac
       failed.push({ designId, error: order.error });
       continue;
     }
-    placed.push({ designId, orderNumber: order.orderNumber });
+    placed.push({
+      designId,
+      orderId: order.orderId,
+      orderNumber: order.orderNumber,
+      publicToken: order.publicToken,
+    });
   }
 
   return { placed, failed };

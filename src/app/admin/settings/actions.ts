@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSettings";
 import { mergeAddonSettings, type AddonSettings } from "@/lib/addonSettings";
+import { mergePaymentSettings, type PaymentSettings } from "@/lib/paymentSettings";
 import type { Json, Database } from "@/lib/db/types";
 
 type DecorationMethodUpdate = Database["public"]["Tables"]["decoration_methods"]["Update"];
@@ -77,6 +78,26 @@ export async function updateCheckoutSettingsAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings");
+  return { ok: true };
+}
+
+export async function updatePaymentSettingsAction(
+  settings: PaymentSettings
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("settings.manage");
+  const service = requireSupabaseServiceClient();
+
+  const clean = mergePaymentSettings(settings);
+  if (clean.etransferEnabled && clean.etransferEmail.trim() && !/^\S+@\S+\.\S+$/.test(clean.etransferEmail.trim())) {
+    return { error: "That e-transfer email doesn't look like a valid address." };
+  }
+  const { error } = await service
+    .from("settings")
+    .upsert({ key: "payments", value: asJson(clean) }, { onConflict: "key" });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings");
+  // The customer order pages read this at render time; no other paths cached.
   return { ok: true };
 }
 

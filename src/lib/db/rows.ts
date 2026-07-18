@@ -96,3 +96,7 @@ export const PAYMENT_STATUSES = [
   "unpaid", "deposit_paid", "paid_in_full", "refunded", "partially_refunded",
 ] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/** How an order was (or is being) paid: Stripe card checkout, Interac e-Transfer, or a manual/other path. */
+export const PAYMENT_METHODS = ["card", "etransfer", "other"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

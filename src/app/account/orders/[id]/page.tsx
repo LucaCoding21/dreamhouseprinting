@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getMyOrder } from "@/lib/db/orders";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
@@ -13,8 +12,9 @@ import { StatusTag } from "@/components/portal/StatusTag";
 import { IconArrowLeft } from "@/components/portal/icons";
 import { STATUS_META } from "@/lib/orderStatus";
 import type { OrderStatus, OrderActivityRow } from "@/lib/db/rows";
+import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
 import { approveProofAction, requestProofChangesAction } from "./actions";
-import { payNowAction } from "./pay-action";
+import { payNowAction, reportEtransferAction } from "./pay-action";
 
 export default async function OrderDetailPage({
   params,
@@ -50,12 +50,17 @@ export default async function OrderDetailPage({
 
   const { order, lineItems, designs, proofs } = detail;
 
-  const supa = await createSupabaseServerClient();
-  const { data: activity } = await supa
-    .from("order_activity")
-    .select("*")
-    .eq("order_id", order.id)
-    .order("created_at", { ascending: false });
+  // order_activity SELECT is revoked from the authenticated role (migration
+  // 0014) so a customer cannot read internal activity entries straight from
+  // PostgREST. Ownership is already proven: getMyOrder above returns null under
+  // RLS unless this user may see the order, so reading its activity with the
+  // service client is safe. serializeOrderView emits only customer-safe types.
+  const activityClient = requireSupabaseServiceClient();
+  const [{ data: activity }, { data: paySetting }] = await Promise.all([
+    activityClient.from("order_activity").select("*").eq("order_id", order.id).order("created_at", { ascending: false }),
+    activityClient.from("settings").select("value").eq("key", "payments").maybeSingle(),
+  ]);
+  const etransfer = etransferOption(mergePaymentSettings(paySetting?.value));
 
   const view = serializeOrderView({
     order,
@@ -105,7 +110,9 @@ export default async function OrderDetailPage({
           approveProof: approveProofAction,
           requestChanges: requestProofChangesAction,
           payNow: payNowAction.bind(null, order.id),
+          reportEtransfer: reportEtransferAction.bind(null, order.id),
         }}
+        etransfer={etransfer}
       />
     </div>
   );

@@ -4,6 +4,14 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
 import { roundCents, formatCAD } from "@/lib/money";
 import { sendOrderStatusEmail, notifyJulian } from "@/lib/notify";
+import { calcPrice } from "@/lib/pricing/platform";
+import {
+  curveForProduct,
+  priceFromCurve,
+  allowedCurveDecorations,
+  decorationForMethodSlug,
+  defaultDecoration,
+} from "@/lib/pricing/quote";
 import { resolveCheckoutAuth } from "./context";
 import type { Json } from "@/lib/db/types";
 
@@ -46,6 +54,8 @@ interface StoredSnapshot {
   setupTotal?: number;
   total?: number;
   quantity?: number;
+  /** Colour count the designer priced with (provisional; artist confirms). */
+  inkColours?: number;
   decorationSpots?: {
     view?: string;
     location?: string;
@@ -175,17 +185,45 @@ export interface PlaceOrderInput {
  */
 export async function placeOrderAction(
   input: PlaceOrderInput
-): Promise<{ orderId?: string; orderNumber?: string; isGuest?: boolean; error?: string }> {
+): Promise<{ orderId?: string; orderNumber?: string; publicToken?: string; isGuest?: boolean; error?: string }> {
   const auth = await resolveCheckoutAuth(input.designId);
   if (!auth) return { error: "We couldn’t find your design — please start over." };
   const service = requireSupabaseServiceClient();
 
   const { data: design } = await service
     .from("designs")
-    .select("id, name, product_id, colour, colorways, size_quantities, price_snapshot, decoration_method_id, guest_contact")
+    .select("id, name, status, product_id, colour, colorways, size_quantities, price_snapshot, decoration_method_id, guest_contact")
     .eq("id", input.designId)
     .single();
   if (!design) return { error: "Design not found." };
+
+  // Idempotency: the design flips to "submitted" once its order exists. A
+  // back-button resubmit or a cart retry must not create a second order (and a
+  // second batch of emails). Return the order already placed for this design.
+  if (design.status === "submitted") {
+    const { data: priorLine } = await service
+      .from("line_items")
+      .select("order_id")
+      .eq("design_id", design.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (priorLine?.order_id) {
+      const { data: priorOrder } = await service
+        .from("orders")
+        .select("id, order_number, public_token")
+        .eq("id", priorLine.order_id)
+        .maybeSingle();
+      if (priorOrder) {
+        return {
+          orderId: priorOrder.id,
+          orderNumber: priorOrder.order_number ?? undefined,
+          publicToken: priorOrder.public_token ?? undefined,
+          isGuest: auth.isGuest,
+        };
+      }
+    }
+  }
 
   // Contact + shipping address: the profile for logged-in customers, the
   // design's guest_contact for guests (who have no profile).
@@ -213,9 +251,146 @@ export async function placeOrderAction(
   }
   if (!address?.street) return { error: "Add your contact details first." };
 
+  // The snapshot the designer wrote is the customer-facing estimate + print
+  // spec ONLY. The money actually charged (approve-and-pay bills pricing.total)
+  // is rebuilt here from the product's authoritative pricing rules, so a
+  // tampered save cannot place a real job at a fake price.
   const snap = (design.price_snapshot ?? {}) as StoredSnapshot;
-  const subtotal = Number(snap.subtotal ?? 0);
-  const setup = Number(snap.setupTotal ?? 0);
+
+  // One line item per garment colourway. Built up front because the combined
+  // quantity across colourways is what the quantity-break curve prices against.
+  const rawColorways = (design.colorways ?? []) as StoredColorway[];
+  const legacySizes = (design.size_quantities ?? {}) as Record<string, number>;
+  const legacyColour = (design.colour ?? {}) as { name?: string; hex?: string | null };
+  const cwQuantity = (cw: StoredColorway) => {
+    const fromSizes = Object.values(cw.sizeQuantities ?? {}).reduce(
+      (s, n) => s + (Number(n) > 0 ? Number(n) : 0),
+      0
+    );
+    return fromSizes > 0 ? fromSizes : Math.max(0, Number(cw.quantity ?? 0));
+  };
+  const colorways: StoredColorway[] = rawColorways.length
+    ? rawColorways
+    : [
+        {
+          colourName: legacyColour.name,
+          colourHex: legacyColour.hex ?? null,
+          sizeQuantities: legacySizes,
+          quantity: Object.values(legacySizes).reduce((s, n) => s + (Number(n) > 0 ? Number(n) : 0), 0),
+        },
+      ];
+  const colourwayQtys = colorways.map(cwQuantity);
+  const combinedQty = colourwayQtys.reduce((s, n) => s + n, 0);
+
+  // Product pricing inputs + the design's decoration method (and the product's
+  // allowed methods, for the curve-decoration fallback below).
+  const { data: product } = design.product_id
+    ? await service
+        .from("products")
+        .select(
+          "name, lead_time_days, wholesale_cost, base_price, markup_type, markup_value, pricing_rules, allowed_decoration_method_ids"
+        )
+        .eq("id", design.product_id)
+        .single()
+    : { data: null };
+
+  const methodIds = [
+    ...(design.decoration_method_id ? [design.decoration_method_id] : []),
+    ...((product?.allowed_decoration_method_ids ?? []) as string[]),
+  ];
+  const { data: methods } = methodIds.length
+    ? await service
+        .from("decoration_methods")
+        .select("id, slug, setup_fee, per_unit_cost, per_color_cost")
+        .in("id", methodIds)
+    : {
+        data: [] as {
+          id: string;
+          slug: string;
+          setup_fee: number;
+          per_unit_cost: number;
+          per_color_cost: number;
+        }[],
+      };
+  const selectedMethod = methods?.find((m) => m.id === design.decoration_method_id) ?? null;
+  const allowedSlugs = ((product?.allowed_decoration_method_ids ?? []) as string[])
+    .map((id) => methods?.find((m) => m.id === id)?.slug)
+    .filter((s): s is string => !!s);
+
+  // Colour count + location count the designer priced with. Both are provisional
+  // (the artist confirms the real screen count at proofing and nothing is
+  // charged before the invoice), so we mirror the designer and trust them here.
+  const inkColours = Math.max(1, Number(snap.inkColours ?? 1) || 1);
+  const locations = Math.max(
+    1,
+    (snap.decorationSpots ?? []).filter((s) => s.location || s.view).length || 1
+  );
+  const qty = Math.max(combinedQty, 1);
+
+  // Recompute the per-unit price exactly the way the designer's `jobPrice` does:
+  // the product's all-inclusive customer curve when it has one and the method
+  // maps onto it (curve jobs carry no separate setup), else the cost-plus
+  // platform engine off server-loaded wholesale/markup.
+  const productPricing = product
+    ? {
+        wholesale_cost: product.wholesale_cost,
+        base_price: product.base_price,
+        markup_type: product.markup_type,
+        markup_value: product.markup_value,
+        pricing_rules: product.pricing_rules,
+      }
+    : null;
+
+  let unitPrice = 0;
+  let setup = 0;
+  if (productPricing) {
+    const curve = curveForProduct(productPricing);
+    let decoration = decorationForMethodSlug(selectedMethod?.slug);
+    let pricedFromCurve = false;
+    if (curve) {
+      // The designer only offers curve-priceable methods; if the stored method
+      // cannot price on the curve, fall back to the first allowed curve
+      // decoration (matching allowedCurveDecorations / priceableMethods[0]).
+      if (!decoration || !(curve.breaks[decoration]?.length)) {
+        const allowed = allowedCurveDecorations(curve, allowedSlugs.length ? allowedSlugs : null);
+        decoration = allowed[0] ?? defaultDecoration(curve);
+      }
+      const r = priceFromCurve(curve, { qty, colours: inkColours, locations, decoration });
+      if (r.available) {
+        unitPrice = roundCents(r.perUnit);
+        setup = 0;
+        pricedFromCurve = true;
+      }
+    }
+    if (!pricedFromCurve) {
+      const p = calcPrice({
+        product: productPricing,
+        method: selectedMethod,
+        quantity: qty,
+        colourCount: inkColours,
+        locationCount: locations,
+      });
+      unitPrice = p.unitPrice;
+      setup = p.setupTotal;
+    }
+  } else {
+    // No product to reprice against (product deleted): the stored estimate is
+    // the best available basis.
+    unitPrice = Number(snap.unitPrice ?? 0);
+    setup = Number(snap.setupTotal ?? 0);
+  }
+
+  // Combined-quantity per-unit price applied to each colourway's own quantity,
+  // matching the designer's grand subtotal (round per line, then sum).
+  const subtotal = roundCents(
+    colourwayQtys.reduce((s, q) => s + roundCents(unitPrice * q), 0)
+  );
+
+  // Flag when the trustworthy server number departs from the client estimate by
+  // more than a rounding cent so admin can see the estimate was superseded.
+  const snapBasis = Number(snap.subtotal ?? 0) + Number(snap.setupTotal ?? 0);
+  const serverRepriced = Math.abs(subtotal + setup - snapBasis) > 0.05;
+
   // Rush is a request, not a fixed surcharge — the shop quotes the real fee when
   // they confirm the order, so nothing is added to the customer's total here.
   const rush = 0;
@@ -224,9 +399,6 @@ export async function placeOrderAction(
   const shipping = 0;
   const total = roundCents(subtotal + setup + shipping + tax);
 
-  const { data: product } = design.product_id
-    ? await service.from("products").select("name, lead_time_days").eq("id", design.product_id).single()
-    : { data: null };
   const lead = product?.lead_time_days ?? 7;
   const due = new Date();
   due.setDate(due.getDate() + lead);
@@ -256,37 +428,29 @@ export async function placeOrderAction(
       guest_email: guestEmail,
       status: "submitted",
       payment_status: "unpaid",
-      pricing: asJson({ subtotal, setupFees: setup, rush, shipping, tax, total }),
+      pricing: asJson({
+        subtotal,
+        setupFees: setup,
+        rush,
+        shipping,
+        tax,
+        total,
+        ...(serverRepriced ? { serverRepriced: true } : {}),
+      }),
       due_date: dueDate,
       fulfillment_method: input.fulfillment,
       shipping_method: input.turnaround,
       shipping_address: input.fulfillment === "ship" ? asJson(address) : null,
       customer_notes: asJson(notes),
     })
-    .select("id, order_number")
+    .select("id, order_number, public_token")
     .single();
   if (orderErr) return { error: orderErr.message };
 
-  // One line item per garment colourway. Setup is a single shared fee, placed on
-  // the first line so the line totals sum to the order's subtotal + setup.
-  const rawColorways = (design.colorways ?? []) as StoredColorway[];
-  const legacySizes = (design.size_quantities ?? {}) as Record<string, number>;
-  const legacyColour = (design.colour ?? {}) as { name?: string; hex?: string | null };
-  const colorways: StoredColorway[] = rawColorways.length
-    ? rawColorways
-    : [
-        {
-          colourName: legacyColour.name,
-          colourHex: legacyColour.hex ?? null,
-          sizeQuantities: legacySizes,
-          quantity: Object.values(legacySizes).reduce((s, n) => s + (Number(n) > 0 ? Number(n) : 0), 0),
-          unitPrice: Number(snap.unitPrice ?? 0),
-          lineTotal: Number(snap.subtotal ?? subtotal),
-        },
-      ];
-
-  // Same artwork on every colourway, so every line gets the same pre-filled
-  // decoration spec (measured size + colour count from the designer).
+  // Same artwork on every colourway, so every line gets the same server-priced
+  // unit + the same pre-filled decoration spec (measured size + colour count
+  // from the designer). Setup is a single shared fee on the first line so the
+  // line totals sum to the order's subtotal + setup.
   const decorations = decorationsFromSnapshot(snap);
   const lineRows = colorways.map((cw, i) => ({
     order_id: order.id,
@@ -296,13 +460,19 @@ export async function placeOrderAction(
     colour: asJson({ name: cw.colourName ?? null, hex: cw.colourHex ?? null }),
     size_quantities: asJson(cw.sizeQuantities ?? {}),
     decoration_method_id: design.decoration_method_id,
-    unit_price: Number(cw.unitPrice ?? 0),
+    unit_price: unitPrice,
     setup_fee: i === 0 ? setup : 0,
-    line_total: roundCents(Number(cw.lineTotal ?? 0) + (i === 0 ? setup : 0)),
+    line_total: roundCents(roundCents(unitPrice * colourwayQtys[i]) + (i === 0 ? setup : 0)),
     ...(decorations ? { decorations: asJson(decorations) } : {}),
   }));
   const { error: liErr } = await service.from("line_items").insert(lineRows);
-  if (liErr) return { error: liErr.message };
+  if (liErr) {
+    // Roll back the just-created order (and any activity) so a failed line
+    // insert can't leave a headless submitted order with no items behind.
+    await service.from("order_activity").delete().eq("order_id", order.id);
+    await service.from("orders").delete().eq("id", order.id);
+    return { error: liErr.message };
+  }
 
   // The design was a draft until the order was placed.
   const statusUpdate = service.from("designs").update({ status: "submitted" }).eq("id", design.id);
@@ -337,5 +507,10 @@ export async function placeOrderAction(
     console.error("[checkout] order confirmation emails failed", e);
   }
 
-  return { orderId: order.id, orderNumber: order.order_number ?? undefined, isGuest: auth.isGuest };
+  return {
+    orderId: order.id,
+    orderNumber: order.order_number ?? undefined,
+    publicToken: order.public_token ?? undefined,
+    isGuest: auth.isGuest,
+  };
 }

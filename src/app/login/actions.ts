@@ -24,8 +24,9 @@ async function requestOrigin(): Promise<string> {
 
 function safeNext(next: FormDataEntryValue | null): string {
   const n = typeof next === "string" ? next : "";
-  // Only allow same-site relative paths.
-  return n.startsWith("/") && !n.startsWith("//") ? n : "/account";
+  // Only allow same-site relative paths. Reject protocol-relative ("//host") and
+  // any backslash, which browsers normalise to "/" ("/\evil.com" -> "//evil.com").
+  return n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : "/account";
 }
 
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {

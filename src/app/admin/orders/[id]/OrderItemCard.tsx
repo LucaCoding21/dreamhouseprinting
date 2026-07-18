@@ -42,6 +42,7 @@ export function OrderItemCard({
   embroideryMethod,
   can,
   setupFee,
+  orderTotal,
   proofsForItem,
   onPatch,
   onRemove,
@@ -63,6 +64,8 @@ export function OrderItemCard({
   embroideryMethod: string | undefined;
   can: Can;
   setupFee: number;
+  /** Live order total — the per-item proof dialog warns before proofing a $0 order. */
+  orderTotal: number;
   proofsForItem: ProofRow[];
   onPatch: (fn: (it: ItemState) => ItemState) => void;
   onRemove: () => void;
@@ -463,6 +466,7 @@ export function OrderItemCard({
         customerName={customerName}
         contextLabel={item.productName || undefined}
         isReplacement={!!latestProof}
+        orderTotal={orderTotal}
       />
     )}
     {latestProof?.image && (

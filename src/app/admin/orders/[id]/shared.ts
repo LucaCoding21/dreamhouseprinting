@@ -123,6 +123,7 @@ export type NextActionKind =
   | "upload-proof" // submitted | in_review
   | "awaiting-approval" // proof_ready
   | "upload-new-proof" // changes_requested
+  | "verify-etransfer" // customer reported an e-transfer; Julian checks the bank and confirms
   | "approved-invoice" // approved, unpaid — customer self-serves payment; link email is optional
   | "start-production" // approved (already invoiced/paid)
   | "mark-shipped" // in_production | quality_check, ship
@@ -145,6 +146,7 @@ export function nextAction(order: OrderRow): NextActionKind {
     case "changes_requested":
       return "upload-new-proof";
     case "approved":
+      if (order.etransfer_reported_at && !order.paid_at) return "verify-etransfer";
       return !order.invoice_sent_at && order.payment_status === "unpaid" ? "approved-invoice" : "start-production";
     case "in_production":
     case "quality_check":
@@ -199,7 +201,7 @@ export function useProofUpload(orderId: string) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
 
-  async function uploadProofs(files: File[], lineItemId?: string): Promise<{ ok?: boolean; error?: string }> {
+  async function uploadProofs(files: File[], lineItemId?: string): Promise<{ ok?: boolean; error?: string; note?: string }> {
     if (files.length === 0) return { error: "No files selected" };
     setUploading(true);
     try {
@@ -231,9 +233,14 @@ export function useProofUpload(orderId: string) {
       const paths = files.map((_, i) => byId.get(`p${i}`)!.path);
       const result = await uploadProofsAction(orderId, paths, lineItemId);
       if (result.error) throw new Error(result.error);
-      toast({ title: files.length > 1 ? "Proofs sent to customer" : "Proof sent to customer", variant: "success" });
+      // A settled order (paid/completed) records the proof but doesn't email — say so.
+      toast({
+        title: result.note ? "Proof saved" : files.length > 1 ? "Proofs sent to customer" : "Proof sent to customer",
+        description: result.note,
+        variant: "success",
+      });
       router.refresh();
-      return { ok: true };
+      return { ok: true, note: result.note };
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       toast({ title: "Proof upload failed", description: message, variant: "error" });

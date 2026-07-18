@@ -2,7 +2,7 @@
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { approveProofCore, requestProofChangesCore } from "@/lib/orders/proofDecision";
-import { ensureCheckoutSession, orderPayableError } from "@/lib/orders/payments";
+import { ensureCheckoutSession, orderPayableError, reportEtransferCore } from "@/lib/orders/payments";
 
 /**
  * Server actions for the public, no-login order page. The unguessable
@@ -50,7 +50,7 @@ export async function payNowPublicAction(token: string): Promise<{ url?: string;
   const service = requireSupabaseServiceClient();
   const { data: order } = await service
     .from("orders")
-    .select("id, order_number, public_token, customer_id, guest_email, pricing, stripe_checkout_session_id, invoice_sent_at, paid_at, status")
+    .select("id, order_number, public_token, customer_id, guest_email, pricing, stripe_checkout_session_id, invoice_sent_at, paid_at, payment_status, status")
     .eq("public_token", token)
     .maybeSingle();
   if (!order) return { error: "Order not found" };
@@ -59,4 +59,11 @@ export async function payNowPublicAction(token: string): Promise<{ url?: string;
   if (notPayable) return { error: notPayable };
 
   return ensureCheckoutSession(service, order);
+}
+
+/** Customer on the public order page says their Interac e-Transfer is sent. */
+export async function reportEtransferPublicAction(token: string): Promise<{ ok?: boolean; error?: string }> {
+  const orderId = await orderIdForToken(token);
+  if (!orderId) return { error: "Order not found" };
+  return reportEtransferCore(requireSupabaseServiceClient(), orderId);
 }

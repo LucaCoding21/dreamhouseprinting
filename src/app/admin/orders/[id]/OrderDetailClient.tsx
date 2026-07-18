@@ -48,7 +48,9 @@ export function OrderDetailClient({
         <div className="grid items-start gap-6 lg:grid-cols-3">
           <CustomerCard detail={detail} canEdit={can.edit} />
           <OrderReference detail={detail} can={can} pieces={pieces} />
-          <PricingCard detail={detail} can={can} />
+          {/* Remount when the stored pricing changes (e.g. after an item edit
+              recomputes tax) so the card can't overwrite it with stale local state. */}
+          <PricingCard key={JSON.stringify(order.pricing)} detail={detail} can={can} />
         </div>
 
         {detail.activity.length > 0 && (

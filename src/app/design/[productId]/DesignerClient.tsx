@@ -90,10 +90,10 @@ interface Props {
   description: string | null;
   stockStatus: string;
   pricing: {
-    wholesale_cost: number | null;
-    base_price: number | null;
-    markup_type: string;
-    markup_value: number;
+    // Garment retail unit (post-markup, already public). Replaces the confidential
+    // wholesale_cost + markup, which must not reach the client. Feeds the cost-plus
+    // fallback below as calcPrice's `base_price` so its output is identical.
+    garmentRetail: number;
     pricing_rules: unknown;
   };
   leadTimeDays: number;
@@ -336,10 +336,13 @@ export function DesignerClient(props: Props) {
 
   const productInput = useMemo(
     () => ({
-      wholesale_cost: props.pricing.wholesale_cost,
-      base_price: props.pricing.base_price,
-      markup_type: props.pricing.markup_type,
-      markup_value: props.pricing.markup_value,
+      // garmentRetailUnit() already resolved retail server-side; feed it as the
+      // base_price so calcPrice returns it verbatim (base_price wins over
+      // wholesale × markup). No confidential cost is present client-side.
+      wholesale_cost: null,
+      base_price: props.pricing.garmentRetail,
+      markup_type: "flat",
+      markup_value: 0,
       pricing_rules: props.pricing.pricing_rules as never,
     }),
     [props.pricing]
