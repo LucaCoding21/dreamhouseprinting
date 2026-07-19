@@ -84,6 +84,8 @@ export interface OrderViewProps {
   lineItems: OrderViewLineItem[];
   proofs: OrderViewProof[];
   activity: OrderViewActivityEntry[];
+  /** ISO date the order entered each tracker stage (index-aligned to TRACKER_STAGES); null where unknown. */
+  stageDates: (string | null)[];
   actions: OrderViewActions;
   /** E-transfer payment option from admin settings; null hides it (card only). */
   etransfer: OrderViewEtransfer | null;

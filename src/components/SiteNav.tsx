@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { label: "Shop All", href: "/shop", rotate: 1 },
   { label: "Brands", href: "/brands", rotate: -0.75 },
   { label: "Services", href: "/services", rotate: -1 },
-  { label: "How to Order", href: "/#how-it-works", rotate: -0.5 },
+  { label: "How to Order", href: "/how-to-order", rotate: -0.5 },
   { label: "About", href: "/about", rotate: 1 },
   { label: "Contact", href: "/contact", rotate: 0.5 },
 ];

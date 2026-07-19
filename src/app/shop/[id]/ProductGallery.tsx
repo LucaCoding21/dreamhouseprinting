@@ -296,22 +296,29 @@ export function ProductGallery({
           </div>
         )}
 
-        {/* Decoration techniques this product offers (admin-toggled per product) */}
+        {/* Decoration techniques this product offers (admin-toggled per product).
+            Informational only — the customer picks a method later in the
+            designer — so these are styled as passive "available" tags, not the
+            selectable pills used for colour/size above. */}
         {decorationNames && decorationNames.length > 0 && (
           <div className="pb-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">
               Decoration
             </span>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
               {decorationNames.map((n) => (
                 <span
                   key={n}
-                  className="inline-flex items-center rounded-full border border-dream-line bg-white px-3 py-1 text-xs font-semibold text-dream-ink-soft"
+                  className="inline-flex items-center gap-2 text-base font-semibold text-dream-muted"
                 >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="text-dream-success" aria-hidden><path d="M4 13c2 1 3.5 2.5 5 5C11 12 14.5 7 20 4" /></svg>
                   {n}
                 </span>
               ))}
             </div>
+            <p className="mt-1.5 text-[11px] text-dream-muted">
+              Available on this product. You&apos;ll choose a method when you customize.
+            </p>
           </div>
         )}
         </div>

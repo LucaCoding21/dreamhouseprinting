@@ -20,7 +20,7 @@ export function RegisterForm({ next }: { next: string }) {
       <Field label="Email" required>
         <Input name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
       </Field>
-      <Field label="Phone" hint="Optional — helps us reach you about your order.">
+      <Field label="Phone" hint="Optional. Helps us reach you about your order.">
         <Input name="phone" type="tel" autoComplete="tel" placeholder="(604) 555-0123" />
       </Field>
       <Field label="Password" required hint="At least 8 characters.">

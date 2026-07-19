@@ -281,7 +281,7 @@ function Hero() {
             <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2.5 shadow-[8px_8px_0_0_rgba(27,20,88,1)]">
               <div className="relative aspect-square overflow-hidden rounded-lg">
                 <Image
-                  src="/custom-screen-printed-tshirts-vancouver.webp"
+                  src="/screen-printed-tshirt-vancouver.jpeg"
                   alt="Couple wearing matching custom screen-printed t-shirts in Vancouver"
                   title="Matching custom tees printed for a Vancouver event"
                   fill
@@ -295,7 +295,7 @@ function Hero() {
             <div className="absolute -bottom-8 right-0 z-20 w-[48%] rotate-[7deg] rounded-lg bg-white p-2 shadow-[6px_6px_0_0_rgba(27,20,88,0.95)] sm:-bottom-6 sm:right-2 lg:right-4">
               <div className="relative aspect-square overflow-hidden rounded-md">
                 <Image
-                  src="/custom-printed-brand-merch-vancouver.webp"
+                  src="/custom-printed-tshirts-vancouver.jpeg"
                   alt="Custom screen-printed brand merch t-shirts on hangers"
                   title="Custom printed brand merch in Vancouver"
                   fill

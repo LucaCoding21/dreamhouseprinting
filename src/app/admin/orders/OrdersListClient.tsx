@@ -162,7 +162,7 @@ export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab
                         <div className="text-xs text-dream-muted">{formatCAD(r.total)}</div>
                       </TD>
                       <TD className="max-w-[220px]">
-                        <span className="line-clamp-2 text-sm text-dream-muted">{r.latestNote ?? "—"}</span>
+                        <span className="line-clamp-2 text-sm text-dream-muted">{r.latestNote ?? "No notes"}</span>
                       </TD>
                       <TD>
                         <div className="flex -space-x-2">

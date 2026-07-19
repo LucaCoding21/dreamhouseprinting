@@ -9,10 +9,7 @@ import { serializeOrderView } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import SiteFooter from "@/components/SiteFooter";
-import { StatusTag } from "@/components/portal/StatusTag";
-import { STATUS_META } from "@/lib/orderStatus";
 import type {
-  OrderStatus,
   OrderRow,
   LineItemRow,
   DesignRow,
@@ -96,8 +93,6 @@ export default async function PublicOrderPage({
   }
 
   const view = serializeOrderView(loaded);
-  const { order } = view;
-  const meta = STATUS_META[order.status as OrderStatus];
 
   const { data: paySetting } = await requireSupabaseServiceClient()
     .from("settings")
@@ -107,9 +102,9 @@ export default async function PublicOrderPage({
   const etransfer = etransferOption(mergePaymentSettings(paySetting?.value));
 
   return (
-    <div className="flex min-h-dvh flex-col bg-dream-bg">
-      <header className="border-b border-dream-line bg-white">
-        <div className="mx-auto flex max-w-6xl items-center px-5 py-4 lg:px-8">
+    <div className="flex min-h-dvh flex-col bg-dream-cream">
+      <header className="border-b border-dream-ink/10 bg-dream-lavender-soft">
+        <div className="mx-auto flex max-w-5xl items-center px-5 py-4 lg:px-8">
           <Link href="/" className="flex items-center">
             <Image
               src="/dreamhouse-logo-full.png"
@@ -122,21 +117,15 @@ export default async function PublicOrderPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-5 py-8 lg:px-8">
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-5 py-8 lg:px-8">
         {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="font-display text-2xl font-bold text-dream-ink">
-            {order.order_number ?? "Order"}
-          </h1>
-          <StatusTag tone={meta?.badge ?? "neutral"}>{meta?.label ?? order.status}</StatusTag>
-        </div>
 
         <OrderView
           order={view.order}
           lineItems={view.lineItems}
           proofs={view.proofs}
           activity={view.activity}
+          stageDates={view.stageDates}
           actions={{
             approveProof: approveProofPublicAction.bind(null, token),
             requestChanges: requestProofChangesPublicAction.bind(null, token),
@@ -147,7 +136,7 @@ export default async function PublicOrderPage({
         />
       </main>
 
-      <SiteFooter />
+      <SiteFooter hideDog />
     </div>
   );
 }

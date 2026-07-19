@@ -2,18 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { formatCAD } from "@/lib/money";
 import { PaymentMethodDialog, type PaymentDialogStep } from "./PaymentMethodDialog";
 import type { OrderViewActions, OrderViewEtransfer } from "./types";
 
 /**
- * Payment panel. Rendered on BOTH the portal and the public order page once
- * the order is payable — proof approved (approve-and-pay) or an invoice was
- * explicitly sent. Three states: settled (paid), e-transfer reported (we're
- * verifying the deposit; card stays available as a fallback), and due. "Pay
- * now" opens the method chooser when e-transfer is configured, else goes
- * straight to Stripe Checkout at the CURRENT order total.
+ * Payment strip. Rendered INSIDE the combined "Payment" box (alongside the cost
+ * summary + total) once the order is payable — proof approved (approve-and-pay)
+ * or an invoice was explicitly sent. No card wrapper and no amount figure of its
+ * own: the box's Total is the amount. Three states: settled (paid), e-transfer
+ * reported (verifying; card stays a fallback), and due. "Pay now" opens the
+ * method chooser when e-transfer is configured, else goes straight to Stripe.
  */
 export function InvoicePanel({
   invoiceSentAt,
@@ -62,72 +61,66 @@ export function InvoicePanel({
   }
 
   return (
-    <Card className="border-dream-purple">
-      <CardHeader className="flex-row items-center justify-between gap-3">
-        <CardTitle>Payment</CardTitle>
+    <div>
         {paidAt ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-dream-success-soft px-3 py-1 text-xs font-semibold text-dream-success">
-            Paid
-          </span>
-        ) : etransferPending ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-dream-warn-soft px-3 py-1 text-xs font-semibold text-dream-warn">
-            Confirming e-transfer
-          </span>
-        ) : null}
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-sm text-dream-muted">{paidAt ? "Amount paid" : "Total due"}</div>
-            <div className="mt-0.5 font-display text-3xl font-bold text-dream-ink">{formatCAD(amountDue)}</div>
-            <p className="mt-1 text-xs text-dream-muted">
-              {paidAt
-                ? `Paid ${fmtDate(paidAt)}${paymentMethod === "etransfer" ? " by Interac e-Transfer" : paymentMethod === "card" ? " by card" : ""}. Thank you!`
-                : etransferPending
-                  ? `You told us your e-transfer was sent ${fmtDate(etransferReportedAt!)}. We'll confirm it as soon as it lands and get printing.`
-                  : invoiceSentAt
-                    ? `Invoice sent ${fmtDate(invoiceSentAt)}`
-                    : "Proof approved — pay to send your order to production."}
-            </p>
+          // Settled — a compact positive confirmation (the box Total is the amount).
+          <div className="flex items-center gap-3 rounded-2xl bg-dream-success-soft px-4 py-3 ring-1 ring-dream-success/25">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-dream-success text-white">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 10.5l3.5 3.5L15 6.5" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="font-display text-sm font-bold text-dream-ink">Payment received</div>
+              <p className="text-xs text-dream-muted">
+                Paid {fmtDate(paidAt)}
+                {paymentMethod === "etransfer" ? " by Interac e-Transfer" : paymentMethod === "card" ? " by card" : ""}. Thank
+                you!
+              </p>
+            </div>
           </div>
-
-          {!paidAt && (
-            <div className="flex flex-col items-start gap-1.5 sm:items-end">
-              {etransferPending ? (
-                <div className="flex flex-wrap gap-2">
-                  {etransfer && (
-                    <button
-                      type="button"
-                      onClick={() => openDialog("etransfer")}
-                      className="rounded-full border border-dream-line bg-white px-5 py-2.5 font-display text-sm font-bold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple"
-                    >
-                      View transfer details
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={payByCard}
-                    className="rounded-full border border-dream-line bg-white px-5 py-2.5 font-display text-sm font-bold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple disabled:opacity-70"
-                  >
-                    {pending ? "Starting checkout…" : "Pay by card instead"}
-                  </button>
-                </div>
-              ) : (
+        ) : etransferPending ? (
+          <div className="rounded-2xl bg-dream-warn-soft px-4 py-3 ring-1 ring-dream-warn/25">
+            <p className="text-sm text-dream-ink">
+              We&apos;re confirming your e-transfer (sent {fmtDate(etransferReportedAt!)}). We&apos;ll get printing as soon as
+              it lands.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {etransfer && (
                 <button
                   type="button"
-                  disabled={pending}
-                  onClick={() => (etransfer ? openDialog("choose") : payByCard())}
-                  className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+                  onClick={() => openDialog("etransfer")}
+                  className="rounded-full border border-dream-line bg-white px-4 py-2 font-display text-sm font-bold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple"
                 >
-                  {pending ? "Starting checkout…" : "Pay now"}
+                  View transfer details
                 </button>
               )}
-              {error && <p className="text-sm text-dream-danger">{error}</p>}
+              <button
+                type="button"
+                disabled={pending}
+                onClick={payByCard}
+                className="rounded-full border border-dream-line bg-white px-4 py-2 font-display text-sm font-bold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple disabled:opacity-70"
+              >
+                {pending ? "Starting checkout…" : "Pay by card instead"}
+              </button>
             </div>
-          )}
-        </div>
-      </CardContent>
+          </div>
+        ) : (
+          <div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => (etransfer ? openDialog("choose") : payByCard())}
+              className="rough-pill rough-pill-filled inline-flex w-full items-center justify-center px-6 py-3 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+            >
+              {pending ? "Starting checkout…" : `Pay ${formatCAD(amountDue)}`}
+            </button>
+            <p className="mt-2 text-center text-xs text-dream-muted">
+              {invoiceSentAt ? `Invoice sent ${fmtDate(invoiceSentAt)}` : "Approved. Pay to send your order to production."}
+            </p>
+          </div>
+        )}
+        {error && <p className="mt-2 text-sm text-dream-danger">{error}</p>}
 
       {etransfer && (
         <PaymentMethodDialog
@@ -142,6 +135,6 @@ export function InvoicePanel({
           initialStep={dialogStep}
         />
       )}
-    </Card>
+    </div>
   );
 }

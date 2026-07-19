@@ -159,7 +159,7 @@ function QueueCard({ queue }: { queue: Queue }) {
           href={`/admin/orders?tab=${queue.tab}`}
           className="text-xs font-medium text-dream-purple hover:underline"
         >
-          View all &rarr;
+          View all
         </Link>
       </div>
       {rows.length === 0 ? (
@@ -353,6 +353,13 @@ export default async function AdminDashboardPage({
           Welcome back, {profile.name || "team"}. Here&apos;s what needs your attention today.
         </p>
 
+        {/* Unpaid balance — a read-only summary stat, plain stacked text (no box)
+            so it's clearly a figure, not a clickable chip. Sits above the chips. */}
+        <div title="Total value of orders that haven't been paid in full yet (excludes cancelled orders).">
+          <div className="text-xs font-semibold uppercase tracking-wide text-dream-muted">Unpaid balance</div>
+          <div className="mt-0.5 font-display text-3xl font-extrabold text-dream-ink">{formatCAD(outstanding)}</div>
+        </div>
+
         {/* Top strip: clickable count chips */}
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -368,10 +375,6 @@ export default async function AdminDashboardPage({
                 </span>
               </a>
             ))}
-            <div className="inline-flex items-center gap-2 rounded-full border border-dream-line bg-dream-surface px-3 py-1.5 text-sm">
-              <span className="text-dream-muted">Outstanding</span>
-              <span className="font-display font-bold text-dream-ink">{formatCAD(outstanding)}</span>
-            </div>
           </div>
         )}
 

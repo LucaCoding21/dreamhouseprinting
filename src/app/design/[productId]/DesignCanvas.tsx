@@ -516,7 +516,14 @@ export const DesignCanvas = forwardRef<
         // than let loadFromJSON re-fetch (and possibly revert) the garment.
         const scene = { ...(json as Record<string, unknown>) };
         delete scene.backgroundImage;
+        // loadFromJSON repopulates the canvas from the JSON, which resets
+        // backgroundImage to whatever the JSON holds — i.e. nothing, since the
+        // garment is kept out of the scene. Capture the live garment and put it
+        // back afterwards so reopening a saved design (and undo/redo) keep the
+        // shirt behind the art instead of a blank canvas.
+        const garment = canvas.backgroundImage;
         await canvas.loadFromJSON(scene);
+        if (garment && !canvas.backgroundImage) canvas.backgroundImage = garment;
         // Refs may point at guides loadFromJSON cleared; redrawPrintRect
         // sweeps every guide (tracked or orphaned) and draws a fresh pair.
         printRectRef.current = null;

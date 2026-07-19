@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { CONTACT_PATH, SUPPORT_EMAIL, SUPPORT_MAILTO, SUPPORT_RESPONSE } from "@/lib/support";
+import { CONTACT_PATH, SUPPORT_EMAIL, SUPPORT_RESPONSE } from "@/lib/support";
 
 export default function HelpPage() {
   return (
@@ -33,9 +33,9 @@ export default function HelpPage() {
             >
               Send us a message
             </Link>
-            <a className="font-medium text-dream-purple hover:underline" href={SUPPORT_MAILTO}>
+            <span className="font-medium text-dream-muted">
               or email {SUPPORT_EMAIL}
-            </a>
+            </span>
           </div>
         </CardContent>
       </Card>

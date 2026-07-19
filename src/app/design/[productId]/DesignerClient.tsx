@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import SiteNav from "@/components/SiteNav";
+import CartNavButton from "@/components/CartNavButton";
+import { AccountIcon } from "@/components/AccountIcon";
 import {
   DesignCanvas,
   type DesignCanvasHandle,
@@ -786,7 +787,7 @@ export function DesignerClient(props: Props) {
   // panels stay in sync off the single `methodId` state.
   const methodPicker = priceableMethods.length > 0 && (
     <>
-      <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-dream-muted">
+      <div className="mt-5 flex items-center gap-1.5 text-xs font-medium text-dream-muted">
         Print method
         <HelpDot
           label="Compare print and embroidery"
@@ -801,7 +802,7 @@ export function DesignerClient(props: Props) {
             onClick={() => setMethodId(m.id)}
             aria-pressed={methodId === m.id}
             className={cn(
-              "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
+              "whitespace-nowrap rounded-xl border px-2 py-2.5 text-xs font-semibold transition-colors",
               methodId === m.id
                 ? "border-dream-purple bg-dream-lavender-soft text-dream-ink"
                 : "border-dream-line text-dream-muted hover:border-dream-line-strong"
@@ -1143,10 +1144,32 @@ export function DesignerClient(props: Props) {
           The shirt-details section + footer below sit in normal page flow, so
           the whole page scrolls past the editor to reveal them. */}
       <div className="flex h-dvh flex-col overflow-hidden">
-        {/* Site nav — same chrome as the rest of the store */}
-        <div className="shrink-0 bg-dream-lavender-soft">
-          <SiteNav />
-        </div>
+        {/* Slim designer header — the full store nav is intentionally dropped
+            here so the canvas gets as much height as possible. Just the logo
+            (home), cart, and account; "Back to product" lives on the left rail. */}
+        <header className="flex shrink-0 items-center justify-between border-b border-dream-ink/15 bg-dream-lavender-soft px-4 py-2.5 sm:px-6">
+          <Link href="/" className="flex shrink-0 items-center" aria-label="Dreamhouse Printing home">
+            <Image
+              src="/dreamhouse-logo-nav.svg"
+              alt="Dreamhouse Printing"
+              width={457}
+              height={298}
+              priority
+              className="h-9 w-auto sm:h-10"
+            />
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CartNavButton />
+            <Link
+              href="/account"
+              aria-label="Your account"
+              title="Your account"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+            >
+              <AccountIcon className="h-[19px] w-[19px]" />
+            </Link>
+          </div>
+        </header>
 
       {/* Full-bleed work area. Stays mounted (hidden) during the review phase so
           the canvases keep their artwork for mockup export. */}
@@ -1170,18 +1193,23 @@ export function DesignerClient(props: Props) {
               className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-0.5"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-dream-lavender-soft text-dream-purple">
+                {/* Sidebar/panel glyph (not a back arrow) so it can't be confused
+                    with the "Back" nav link directly below. The left column fills
+                    in when the panel is open to signal its current state. */}
                 <svg
-                  width="17"
-                  height="17"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2.4"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className={cn("transition-transform", !leftOpen && "rotate-180")}
+                  aria-hidden
                 >
-                  <path d="M15 6l-6 6 6 6" />
+                  <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+                  <path d="M9 4.5v15" />
+                  {leftOpen && <rect x="3" y="4.5" width="6" height="15" rx="2.5" fill="currentColor" stroke="none" />}
                 </svg>
               </span>
               <span className="text-[11px] font-semibold text-dream-ink">{leftOpen ? "Hide" : "Show"}</span>
@@ -1203,7 +1231,7 @@ export function DesignerClient(props: Props) {
               aria-pressed={tool === "colour"}
               className={cn(
                 "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
-                tool === "colour" && "h-14 w-14 rounded-lg bg-dream-ink shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+                tool === "colour" && "h-14 w-14 rounded-lg bg-dream-ink pt-1.5 shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
               )}
             >
               <svg
@@ -1237,7 +1265,7 @@ export function DesignerClient(props: Props) {
                   aria-pressed={isActive}
                   className={cn(
                     "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
-                    isActive && "h-14 w-14 rounded-lg bg-dream-ink shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+                    isActive && "h-14 w-14 rounded-lg bg-dream-ink pt-1.5 shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
                   )}
                 >
                   <Image
@@ -1268,7 +1296,7 @@ export function DesignerClient(props: Props) {
 
           {/* Panel — scrolls within the fixed-height aside; hidden when collapsed */}
           <div className={cn("no-scrollbar min-w-0 flex-1 overflow-y-auto p-5 lg:p-6", !leftOpen && "hidden")}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Garment</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Garment</div>
             <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
             {sizeRange && <p className="mt-1 text-xs text-dream-muted">Sizes {sizeRange}</p>}
 
@@ -1326,7 +1354,7 @@ export function DesignerClient(props: Props) {
 
             <hr className="my-6 border-dream-line" />
 
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-dream-purple">Design tools</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Design tools</div>
 
             {/* Tool panels. The colour tab also renders Upload + Text below the
                 colour picker (scroll down) so a customer can keep going without
@@ -1359,13 +1387,13 @@ export function DesignerClient(props: Props) {
                       {uploadMsg.text}
                     </p>
                   )}
-                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">
-                    Not print-ready? We&apos;ll vectorize or touch up your art for print, free.
+                  <p className="mt-3 text-xs leading-relaxed text-dream-muted">
+                    Not print-ready? We&apos;ll touch up your art, free.
                   </p>
                   {(() => {
                     const pa = printAreaForView(activeView);
                     return pa?.maxWidthIn && pa?.maxHeightIn ? (
-                      <p className="mt-2 text-xs leading-relaxed text-dream-faint">
+                      <p className="mt-2 text-xs leading-relaxed text-dream-muted">
                         {VIEW_LABEL[activeView]} prints up to {pa.maxWidthIn} × {pa.maxHeightIn} in.
                       </p>
                     ) : null;
@@ -1539,7 +1567,7 @@ export function DesignerClient(props: Props) {
                 Want it on the sleeve{hasSleeve ? "" : " or somewhere else"}?
               </h3>
               <p className="mt-1.5 text-xs leading-relaxed text-dream-muted">
-                The designer covers the front and back. For sleeves, tags, or anything custom, message us and we&apos;ll set it up with you and send a proof.
+                The designer covers front and back. For sleeves, tags, or anything custom, message us and we&apos;ll send you a proof.
               </p>
               <Link
                 href="/contact"
@@ -1689,7 +1717,7 @@ export function DesignerClient(props: Props) {
                       aria-pressed={on}
                       className={cn(
                         "rounded-full px-4 py-2 text-[13px] font-bold transition-colors",
-                        on ? "bg-dream-ink text-white" : "text-dream-muted hover:text-dream-ink"
+                        on ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
                       )}
                     >
                       {VIEW_LABEL[v]}
@@ -1752,7 +1780,7 @@ export function DesignerClient(props: Props) {
 
         {/* Design footer — pricing & quantity live on the review screen; this advances to it */}
         {phase === "design" && (
-          <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3">
+          <div className="shrink-0 border-t border-dream-line bg-white px-4 py-2">
             <div className="mx-auto flex max-w-[1400px] items-center justify-end gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <p className={cn("hidden truncate text-sm sm:block", error ? "font-medium text-dream-danger" : "text-dream-muted")}>
@@ -1760,7 +1788,7 @@ export function DesignerClient(props: Props) {
                 </p>
                 <button
                   onClick={goToReview}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-dream-purple px-7 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
                 >
                   Continue
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -1958,7 +1986,7 @@ export function DesignerClient(props: Props) {
 
                 {/* Estimate — same grounded price box as the product page's
                     instant estimate: per-unit (with bulk savings) + est. total. */}
-                <div className="mt-6 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
+                <div className="mt-8 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Your price</p>
@@ -1981,10 +2009,13 @@ export function DesignerClient(props: Props) {
                     </div>
                   </div>
                   {nextTier && quantity > 0 && (
-                    <p className="mt-2.5 flex items-center gap-1.5 border-t border-dream-lavender-soft pt-2 text-xs font-bold text-dream-ink">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-dream-purple" aria-hidden><path d="M12 19V5M5 12l7-7 7 7" /></svg>
-                      Add {nextTier.add} more to save {nextTier.pct}% per unit
-                    </p>
+                    <div className="mt-3 flex items-center gap-2.5">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-sun px-2.5 py-1 font-display text-xs font-extrabold text-dream-ink">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.3-8.3a1 1 0 0 0 0-1.4L12 2Z" /><path d="M6.5 6.5h.01" /></svg>
+                        Save {nextTier.pct}%
+                      </span>
+                      <span className="text-xs font-semibold text-dream-ink">Add {nextTier.add} more {nextTier.add === 1 ? "item" : "items"} to unlock</span>
+                    </div>
                   )}
                   {/* Running subtotal + what's still to come, so the per-unit
                       figure above isn't mistaken for the out-the-door price.
@@ -1994,7 +2025,7 @@ export function DesignerClient(props: Props) {
                     <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
                     <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
                   </div>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-dream-purple-dark/60">
+                  <p className="mt-1.5 text-xs font-medium leading-relaxed text-dream-muted">
                     Free shipping. Tax is added at checkout, and final pricing is confirmed on your proof before you pay.
                   </p>
                 </div>

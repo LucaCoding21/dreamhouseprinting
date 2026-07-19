@@ -8,10 +8,8 @@ import { serializeOrderView } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import { ReorderButton } from "./ReorderButton";
-import { StatusTag } from "@/components/portal/StatusTag";
 import { IconArrowLeft } from "@/components/portal/icons";
-import { STATUS_META } from "@/lib/orderStatus";
-import type { OrderStatus, OrderActivityRow } from "@/lib/db/rows";
+import type { OrderActivityRow } from "@/lib/db/rows";
 import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
 import { approveProofAction, requestProofChangesAction } from "./actions";
 import { payNowAction, reportEtransferAction } from "./pay-action";
@@ -70,8 +68,6 @@ export default async function OrderDetailPage({
     activity: (activity ?? []) as OrderActivityRow[],
   });
 
-  const meta = STATUS_META[order.status as OrderStatus];
-
   return (
     <div className="space-y-6">
       {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
@@ -82,22 +78,14 @@ export default async function OrderDetailPage({
         </div>
       )}
 
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div>
-          <Link
-            href="/account/orders"
-            className="group inline-flex items-center gap-1.5 text-sm font-medium text-dream-muted transition-colors hover:text-dream-ink"
-          >
-            <IconArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            My orders
-          </Link>
-          <div className="mt-3 flex flex-wrap items-center gap-2.5">
-            <h1 className="font-display text-2xl font-bold text-dream-ink">
-              {order.order_number ?? "Order"}
-            </h1>
-            <StatusTag tone={meta?.badge ?? "neutral"}>{meta?.label ?? order.status}</StatusTag>
-          </div>
-        </div>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <Link
+          href="/account/orders"
+          className="group inline-flex items-center gap-1.5 text-sm font-medium text-dream-muted transition-colors hover:text-dream-ink"
+        >
+          <IconArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+          My orders
+        </Link>
         <ReorderButton orderId={order.id} />
       </div>
 
@@ -106,6 +94,7 @@ export default async function OrderDetailPage({
         lineItems={view.lineItems}
         proofs={view.proofs}
         activity={view.activity}
+        stageDates={view.stageDates}
         actions={{
           approveProof: approveProofAction,
           requestChanges: requestProofChangesAction,

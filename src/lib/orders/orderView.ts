@@ -1,6 +1,6 @@
 import "server-only";
 
-import { STATUS_META } from "@/lib/orderStatus";
+import { STATUS_META, statusStageIndex, TRACKER_STAGES } from "@/lib/orderStatus";
 import type { OrderStatus } from "@/lib/db/rows";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow } from "@/lib/db/rows";
 import type {
@@ -47,7 +47,7 @@ function activityText(type: string, detail: Record<string, unknown>): string {
     case "invoice_sent":
       return "Your invoice was sent";
     case "payment_received":
-      return "Payment received — thank you!";
+      return "Payment received. Thank you!";
     case "etransfer_reported":
       return "You let us know your e-transfer is on the way";
     default:
@@ -72,6 +72,28 @@ function buildActivity(order: OrderRow, activity: OrderActivityRow[]): OrderView
 
   // Newest first.
   return entries.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+}
+
+/**
+ * Best-effort date the order entered each tracker stage, index-aligned to
+ * TRACKER_STAGES. Stage 0 defaults to order creation; every `status_change`
+ * activity maps its target status to a stage and records the earliest entry.
+ */
+function buildStageDates(order: OrderRow, activity: OrderActivityRow[]): (string | null)[] {
+  const dates: (string | null)[] = TRACKER_STAGES.map(() => null);
+  const setEarliest = (idx: number, at: string | null | undefined) => {
+    if (idx < 0 || idx >= dates.length || !at) return;
+    if (!dates[idx] || at < dates[idx]!) dates[idx] = at;
+  };
+
+  setEarliest(0, order.created_at); // submitted == stage 0
+  for (const a of activity) {
+    if (a.type !== "status_change") continue;
+    const to = ((a.detail ?? {}) as Record<string, unknown>).to;
+    if (typeof to !== "string") continue;
+    setEarliest(statusStageIndex(to as OrderStatus), a.created_at);
+  }
+  return dates;
 }
 
 /** The most recent message Julian sent the customer (from customer_notes). */
@@ -99,6 +121,8 @@ export interface OrderViewSerialized {
   lineItems: OrderViewLineItem[];
   proofs: OrderViewProof[];
   activity: OrderViewActivityEntry[];
+  /** ISO date the order entered each tracker stage; null where unknown. */
+  stageDates: (string | null)[];
   /** Newest direct message from Julian, surfaced as a banner. */
   latestMessage: OrderViewMessage | null;
 }
@@ -174,6 +198,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       change_request_comment: p.change_request_comment,
     })),
     activity: buildActivity(order, activity),
+    stageDates: buildStageDates(order, activity),
     latestMessage: latestMessage(order),
   };
 }

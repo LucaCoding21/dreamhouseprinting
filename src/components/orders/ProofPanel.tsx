@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatCAD } from "@/lib/money";
 import { StatusTag } from "@/components/portal/StatusTag";
 import { IconZoom, IconClose, IconCheck } from "@/components/portal/icons";
+import { OrderPanel } from "./OrderPanel";
 import { PaymentMethodDialog } from "./PaymentMethodDialog";
 import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./types";
 
@@ -85,14 +86,17 @@ export function ProofPanel({
   }
 
   return (
-    <Card className="border-dream-purple">
-      <CardHeader className="flex-row items-center gap-3">
-        <CardTitle>{multiple ? `Your proofs are ready (${proofs.length})` : "Your proof is ready"}</CardTitle>
-        <StatusTag tone={proof.status === "approved" ? "success" : proof.status === "changes_requested" ? "warn" : "purple"}>
+    <OrderPanel
+      title={multiple ? `Your proofs are ready (${proofs.length})` : "Your proof is ready"}
+      tag={
+        <StatusTag
+          tone={proof.status === "approved" ? "success" : proof.status === "changes_requested" ? "warn" : "purple"}
+          className="capitalize"
+        >
           {proof.status.replace(/_/g, " ")}
         </StatusTag>
-      </CardHeader>
-      <CardContent>
+      }
+    >
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className={multiple ? "grid w-full shrink-0 grid-cols-2 gap-2 self-start sm:w-56" : "w-48 shrink-0 self-start"}>
             {proofs.map((p, i) => (
@@ -100,7 +104,7 @@ export function ProofPanel({
                 key={p.id}
                 type="button"
                 onClick={() => setZoomed(p.image)}
-                className="group relative block overflow-hidden rounded-xl border border-dream-line bg-dream-bg"
+                className="group relative block overflow-hidden rounded-2xl border-2 border-dream-ink/10 bg-dream-bg"
                 aria-label={`View proof ${i + 1} full size`}
               >
                 {/* Proofs arrive at any aspect ratio — fix the width and let the box
@@ -116,12 +120,38 @@ export function ProofPanel({
           </div>
           <div className="flex flex-1 flex-col">
             {decided ? (
-              <p className="text-sm text-dream-success">
-                You approved {multiple ? "these proofs" : "this proof"}. {multiple ? "They’re" : "It’s"} locked for production. 🎉
+              <div className="rounded-2xl bg-dream-success-soft p-4 ring-1 ring-dream-success/25">
+                <p className="flex items-start gap-2 text-sm font-semibold text-dream-success">
+                  <IconCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    You approved {multiple ? "these proofs" : "this proof"}. {multiple ? "They’re" : "It’s"} locked for
+                    production. 🎉
+                  </span>
+                </p>
+                <p className="mt-2 flex items-start gap-2 text-sm text-dream-muted">
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="5" y="11" width="14" height="9" rx="2" />
+                    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                  </svg>
+                  <span>Spotted something off? Reach out as soon as possible and we’ll help.</span>
+                </p>
                 {payOnApprove && (
-                  <span className="mt-1 block text-dream-muted">One step left — complete your payment below and we’ll get printing.</span>
+                  <p className="mt-2 text-sm text-dream-muted">
+                    One step left: complete your payment below and we’ll get printing.
+                  </p>
                 )}
-              </p>
+                <div className="mt-3">
+                  <Link
+                    href="/contact"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-dream-line bg-white px-4 py-2 font-display text-sm font-bold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M4 5h16v12H8l-4 4z" />
+                    </svg>
+                    Contact us
+                  </Link>
+                </div>
+              </div>
             ) : changesRequested && !requesting ? (
               <div className="flex flex-1 flex-col">
                 <div className="rounded-xl border border-dream-success/40 bg-dream-success/10 p-4">
@@ -145,14 +175,27 @@ export function ProofPanel({
               </div>
             ) : (
               <>
-                <p className="mb-3 text-sm text-dream-muted">
-                  Review {multiple ? "every mockup" : "your mockup"} carefully: spelling, colours and placement. Approving covers
-                  {multiple ? " all of them" : " it"}
+                <p className="text-sm font-semibold text-dream-ink">
+                  Give {multiple ? "every mockup" : "your mockup"} a once-over before you approve:
+                </p>
+                <ul className="mt-2.5 space-y-1.5">
+                  {["Spelling and text", "Colours", "Placement and size"].map((c) => (
+                    <li key={c} className="flex items-center gap-2 text-sm text-dream-muted">
+                      <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple">
+                        <svg viewBox="0 0 20 20" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M5 10.5l3.5 3.5L15 6.5" />
+                        </svg>
+                      </span>
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mb-3 mt-3 text-sm text-dream-muted">
                   {payOnApprove
                     ? etransfer
-                      ? " and opens payment (card or Interac e-Transfer). Once paid, your order goes to production."
-                      : " and takes you to secure checkout — once paid, your order goes to production."
-                    : " — send to production, or tell us what to change."}
+                      ? "Approving opens payment (card or Interac e-Transfer). Once paid, your order goes to production."
+                      : "Approving takes you to secure checkout. Once paid, your order goes to production."
+                    : "Approving sends it to production. Otherwise, tell us what to change."}
                 </p>
                 {!requesting ? (
                   <div className="mt-auto flex flex-wrap justify-end gap-2">
@@ -206,7 +249,6 @@ export function ProofPanel({
             )}
           </div>
         </div>
-      </CardContent>
 
       {zoomed && (
         <div
@@ -247,6 +289,6 @@ export function ProofPanel({
           onReported={() => router.refresh()}
         />
       )}
-    </Card>
+    </OrderPanel>
   );
 }

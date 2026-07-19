@@ -6,11 +6,13 @@ import { cn } from "@/lib/cn";
 
 export type MethodKey = "print" | "embroidery";
 
+type MethodImage = { src: string; alt: string };
+
 type MethodInfo = {
   label: string;
   tagline: string;
   blurb: string;
-  images: string[];
+  images: MethodImage[];
   pros: string[];
   cons: string[];
 };
@@ -22,12 +24,11 @@ const METHODS: Record<MethodKey, MethodInfo> = {
     label: "Screen Print",
     tagline: "Ink pressed into the fabric",
     blurb:
-      "Screen printing presses ink onto the garment through a stencil. It is our go-to for bold, colourful designs and larger orders. For full-colour photos or very fine detail we may use a direct film transfer instead. We always pick the best fit for your art and confirm it on your proof.",
+      "Screen printing presses ink onto the garment through a stencil. It is what we reach for most on bold, colourful designs and larger orders. For photo prints or very fine detail we may use a direct film transfer instead. We always pick the best fit for your art and confirm it on your proof.",
     images: [
-      "/custom-screen-printed-tshirts-vancouver.webp",
-      "/screen-printing-vancouver.webp",
-      "/custom-printed-brand-merch-vancouver.webp",
-      "/custom-t-shirt-printing-vancouver.webp",
+      { src: "/screen-printing-process-vancouver.jpeg", alt: "Screen printing press applying ink to a shirt in our Vancouver shop" },
+      { src: "/screen-printed-tshirt-vancouver.jpeg", alt: "Finished screen-printed custom t-shirt" },
+      { src: "/custom-printed-tshirts-vancouver.jpeg", alt: "Stack of custom screen-printed t-shirts" },
     ],
     pros: [
       "Bright, vivid colours",
@@ -47,8 +48,8 @@ const METHODS: Record<MethodKey, MethodInfo> = {
     blurb:
       "Embroidery stitches your design into the garment with thread. It gives a premium, textured finish that lasts, and it looks especially sharp on hats, polos, and jackets.",
     images: [
-      "/custom-embroidery-vancouver.webp",
-      "/shopbycategories/custom-embroidered-dad-caps-vancouver-v2.webp",
+      { src: "/embroidery-machine-stitching-vancouver.jpeg", alt: "Embroidery machine stitching a green thread design into fabric" },
+      { src: "/embroidered-cat-tshirt.jpeg", alt: "Embroidered green cat design on a brown t-shirt" },
     ],
     pros: [
       "Premium, professional look",
@@ -123,16 +124,16 @@ export function MethodGuideModal({
               info.images.length >= 4 ? "sm:grid-cols-4" : info.images.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2",
             )}
           >
-            {info.images.map((src) => (
-              <div key={src} className="relative aspect-square overflow-hidden rounded-xl border border-dream-line bg-dream-cream">
-                <Image src={src} alt={`${info.label} sample`} fill sizes="(max-width: 640px) 45vw, 22vw" className="object-cover" />
+            {info.images.map((img) => (
+              <div key={img.src} className="relative aspect-square overflow-hidden rounded-xl border border-dream-line bg-dream-cream">
+                <Image src={img.src} alt={img.alt} fill sizes="(max-width: 640px) 45vw, 22vw" className="object-cover" />
               </div>
             ))}
           </div>
 
           {/* Tagline + description */}
-          <p className="mt-5 font-display text-base font-bold text-dream-purple">{info.tagline}</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-dream-ink-soft">{info.blurb}</p>
+          <p className="mt-5 font-display text-base font-bold text-dream-ink">{info.tagline}</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">{info.blurb}</p>
 
           {/* Pros / Cons */}
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -140,8 +141,8 @@ export function MethodGuideModal({
             <ProsConsList kind="cons" items={info.cons} />
           </div>
 
-          <p className="mt-6 rounded-xl bg-dream-lavender-mist px-4 py-3 text-xs leading-relaxed text-dream-purple-dark">
-            Still deciding? Pick either one for now. An artist reviews every order and will confirm the best method on your free proof before anything prints.
+          <p className="mt-6 border border-dream-line bg-dream-cream px-4 py-3 text-xs leading-relaxed text-dream-ink">
+            Not sure? Pick either one. An artist confirms the best method on your free proof before anything prints.
           </p>
         </div>
 
@@ -165,17 +166,20 @@ function ProsConsList({ kind, items }: { kind: "pros" | "cons"; items: string[] 
       <h3 className="font-display text-sm font-bold text-dream-ink">{isPros ? "Pros" : "Cons"}</h3>
       <ul className="mt-2.5 space-y-2">
         {items.map((item) => (
-          <li key={item} className="flex items-start gap-2 text-sm text-dream-ink-soft">
+          <li key={item} className="flex items-start gap-2.5 text-sm text-dream-muted">
             <span
               className={cn(
-                "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full",
-                isPros ? "bg-dream-success-soft text-dream-success" : "bg-dream-warn-soft text-dream-warn",
+                "mt-px shrink-0",
+                isPros ? "text-dream-success" : "text-dream-danger",
               )}
+              aria-hidden
             >
               {isPros ? (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+                // Loose, hand-drawn tick
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 13c2 1 3.5 2.5 5 5C11 12 14.5 7 20 4" /></svg>
               ) : (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6 6 18M6 6l12 12" /></svg>
+                // Loose, hand-drawn cross (two slightly-off strokes so it reads as an X, not a badge)
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M6.5 6C10 9.5 13.5 13.5 17.5 18" /><path d="M17.5 6.5C13.5 10 10 13.5 6 18" /></svg>
               )}
             </span>
             {item}

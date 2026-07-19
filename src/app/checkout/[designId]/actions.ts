@@ -415,9 +415,11 @@ export async function placeOrderAction(
     notes.push({
       at: new Date().toISOString(),
       actor: "customer",
+      // Rendered where notes use whitespace-pre-wrap, so the newline bullets
+      // display as a scannable list rather than a run-on sentence.
       text: neededBy
-        ? `Rush turnaround requested — customer needs it by ${neededBy}. Confirm timeline and quote the rush fee.`
-        : "Rush turnaround requested — confirm timeline and quote the rush fee.",
+        ? `Rush turnaround requested:\n• Needs it by ${neededBy}\n• Confirm the timeline\n• Quote the rush fee`
+        : "Rush turnaround requested:\n• Confirm the timeline\n• Quote the rush fee",
     });
   }
 

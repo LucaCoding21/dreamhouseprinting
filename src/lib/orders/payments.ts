@@ -182,7 +182,7 @@ export async function markOrderPaid(
   if (source !== "manual") {
     const via = method === "etransfer" ? "by Interac e-Transfer" : "via Stripe";
     await notifyJulian(
-      `Payment received — ${label}`,
+      `Payment received: ${label}`,
       `${formatCAD(pricing.total ?? 0)} was paid on order ${label} ${via}. It's ready for production.`,
       { orderId, kicker: "Payment received", tone: "success", amountLabel: "Amount paid" }
     );

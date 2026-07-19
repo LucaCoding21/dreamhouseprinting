@@ -16,21 +16,23 @@ const COMPANY_LINKS = [
 ];
 
 
-export default function SiteFooter() {
+export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
   return (
-    <footer className="relative bg-dream-lavender-soft">
-      <div className="pointer-events-none absolute inset-x-0 bottom-full z-10">
-        <div className="mx-auto flex max-w-[1400px] justify-end px-6 lg:px-10">
-          <Image
-            src="/testimonailsplusfooter/footerdog.png"
-            alt=""
-            width={364}
-            height={628}
-            className="block h-auto w-[285px] translate-x-20 translate-y-[39px] sm:w-[325px] sm:translate-x-0 sm:translate-y-[44px] lg:w-[370px] lg:translate-y-[51px]"
-            aria-hidden="true"
-          />
+    <footer className="relative mt-16 bg-dream-lavender-soft lg:mt-24">
+      {!hideDog && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-full z-10">
+          <div className="mx-auto flex max-w-[1400px] justify-end px-6 lg:px-10">
+            <Image
+              src="/testimonailsplusfooter/footerdog.png"
+              alt=""
+              width={364}
+              height={628}
+              className="block h-auto w-[285px] translate-x-20 translate-y-[39px] sm:w-[325px] sm:translate-x-0 sm:translate-y-[44px] lg:w-[370px] lg:translate-y-[51px]"
+              aria-hidden="true"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mx-auto max-w-[1400px] px-6 py-10 lg:px-10 lg:py-16">
         <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">

@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { PORTAL_NAV, isNavActive } from "./nav";
-import { IconBell } from "./icons";
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -25,13 +24,6 @@ export function PortalTopbar({ name }: { name: string }) {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
-          {/* Notifications placeholder — no feed wired yet, decorative for now */}
-          <span
-            aria-hidden
-            className="grid h-9 w-9 place-items-center rounded-full border border-dream-line bg-white text-dream-ink-soft"
-          >
-            <IconBell className="h-4 w-4" />
-          </span>
           <span
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-dream-purple text-xs font-bold text-white"
             title={name}
