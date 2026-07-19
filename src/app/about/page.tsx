@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import ParallaxScroll from "@/components/ParallaxScroll";
-import PolaroidPhoto from "@/components/PolaroidPhoto";
 import Reveal from "@/components/Reveal";
+import ShopReel from "@/components/ShopReel";
 import SiteFooter from "@/components/SiteFooter";
 import SiteNav from "@/components/SiteNav";
 
@@ -19,7 +19,7 @@ export default function AboutPage() {
 
       <Hero />
       <WhatWeDo />
-      <BoldStatement />
+      <BehindTheScenes />
       <ReadyCTA />
 
       <SiteFooter />
@@ -64,13 +64,13 @@ function Hero() {
             <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2 shadow-[8px_8px_0_0_rgba(27,20,88,1)] sm:p-2.5">
               <div className="relative aspect-square w-[340px] overflow-hidden rounded-lg sm:w-[450px] lg:w-[560px]">
                 <Image
-                  src="/dreamhouse-screen-print-shop-vancouver.webp"
+                  src="/screen-printing-squeegee-vancouver-shop.png"
                   alt="Dreamhouse screen printer pulling a fresh print at the Vancouver shop"
                   title="Inside our Vancouver screen print shop"
                   fill
                   priority
                   sizes="(min-width: 1024px) 560px, (min-width: 640px) 450px, 340px"
-                  className="object-cover"
+                  className="object-cover object-top"
                 />
               </div>
             </div>
@@ -131,11 +131,11 @@ function WhatWeDo() {
         </div>
 
         {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
-        <div className="mx-auto grid w-full max-w-[680px] grid-cols-2 items-start gap-4 sm:gap-5">
+        <div className="mx-auto grid w-full max-w-[720px] grid-cols-[0.8fr_1.2fr] items-start gap-4 sm:gap-5">
           <ParallaxScroll speed={0.02}>
-            <div className="aspect-[3/4] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
+            <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
               <Image
-                src="/products/custom-t-shirts-vancouver.jpg"
+                src="/screen-printed-graphic-tshirts-vancouver.png"
                 alt=""
                 width={400}
                 height={520}
@@ -147,7 +147,7 @@ function WhatWeDo() {
           <ParallaxScroll speed={0.05} className="mt-10 sm:mt-14">
             <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
               <Image
-                src="/products/custom-hoodies-vancouver.jpg"
+                src="/embroidered-hoodies-stack-vancouver.png"
                 alt=""
                 width={400}
                 height={620}
@@ -202,12 +202,19 @@ function WhatWeDo() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 3. Bold Statement — collage with overlapping polaroids and tilted heading
+// 3. Behind the Scenes — landscape video + photo placeholders of the print process
 // ────────────────────────────────────────────────────────────────────────────
+//
+// PLACEHOLDERS: swap the <MediaPlaceholder /> boxes for real media.
+//   • Video  → replace with a <video> tag (see the commented example inside
+//     MediaPlaceholder) pointing at an .mp4/.webm you drop in /public.
+//   • Photo  → replace with <Image src="/your-photo.jpg" fill ... />.
+// The frames are all landscape (16:9 for video, 4:3 for photos) so the layout
+// holds its shape whether a box is a placeholder or the real thing.
 
-function BoldStatement() {
+function BehindTheScenes() {
   return (
-    <section className="relative overflow-hidden bg-dream-lavender-soft pb-12 pt-24 sm:pt-20 lg:pb-16 lg:pt-32">
+    <section className="relative overflow-hidden bg-dream-lavender-soft pb-24 pt-24 lg:pb-32 lg:pt-32">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
@@ -215,7 +222,7 @@ function BoldStatement() {
       >
         <defs>
           <pattern
-            id="about-madeinvan-scallop"
+            id="about-bts-scallop"
             width="120"
             height="28"
             patternUnits="userSpaceOnUse"
@@ -223,76 +230,59 @@ function BoldStatement() {
             <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#about-madeinvan-scallop)" />
+        <rect width="100%" height="100%" fill="url(#about-bts-scallop)" />
       </svg>
+
+      {/* Decorative sticker — fills the empty top-right corner */}
       <Image
         src="/madeinvan/sticker1.png"
         alt=""
         width={400}
         height={400}
         aria-hidden="true"
-        className="pointer-events-none absolute left-12 top-24 z-0 hidden h-auto w-[180px] sm:block sm:left-20 sm:top-32 sm:w-[240px] lg:left-32 lg:top-40 lg:w-[280px]"
-      />
-      <Image
-        src="/madeinvan/sticker1.png"
-        alt=""
-        width={400}
-        height={400}
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-32 right-32 z-0 hidden h-auto w-[180px] rotate-[24deg] sm:block sm:bottom-44 sm:right-56 sm:w-[240px] lg:bottom-60 lg:right-80 lg:w-[280px]"
+        className="pointer-events-none absolute right-4 top-12 z-0 hidden h-auto w-[130px] rotate-[12deg] sm:block lg:right-14 lg:w-[170px]"
       />
 
-      <div className="relative w-full px-6 lg:px-10">
-        <div className="mx-auto grid max-w-[1280px] items-center gap-10 lg:grid-cols-[1fr_1.4fr_1fr]">
-          <div aria-hidden="true" className="hidden lg:block" />
-
-          <div className="relative h-[520px] w-full sm:h-[720px] md:h-[800px] lg:h-[920px]">
-            <h2 className="pointer-events-none absolute inset-0 z-20 grid place-items-center text-center font-daruma text-[92px] leading-[0.85] tracking-tight text-dream-purple-dark [-webkit-text-stroke:3px_#f4f2ff] [paint-order:stroke_fill] drop-shadow-[3px_4px_0_rgba(27,20,88,0.85)] sm:text-[140px] sm:[-webkit-text-stroke:4px_#f4f2ff] md:text-[172px] md:[-webkit-text-stroke:5px_#f4f2ff] lg:text-[212px] lg:[-webkit-text-stroke:6px_#f4f2ff]">
-              <span>
-                MADE
-                <br />
-                IN
-                <br />
-                VAN
-              </span>
-            </h2>
-
-            <PolaroidPhoto
-              src="/madeinvan/made-in-van1.jpg"
-              tilt={-12}
-              className="absolute left-0 top-16 z-10 w-[58%] sm:-left-44 sm:top-20 sm:w-[74%] lg:-left-60 lg:w-[72%]"
-              bg="bg-white"
-              padding="p-1"
-              delay={0}
-            />
-            <PolaroidPhoto
-              src="/madeinvan/made-in-van2.jpg"
-              tilt={8}
-              className="absolute right-0 top-0 z-10 w-[54%] sm:-right-24 sm:w-[64%] lg:-right-36 lg:w-[62%]"
-              bg="bg-white"
-              padding="p-1"
-              delay={120}
-            />
-            <PolaroidPhoto
-              src="/madeinvan/made-in-van3.jpg"
-              tilt={-5}
-              className="absolute -bottom-12 left-1/2 z-10 w-[62%] -translate-x-1/2 sm:-bottom-24 sm:left-[60%] sm:w-[70%] lg:w-[68%]"
-              bg="bg-white"
-              padding="p-1"
-              delay={240}
-            />
-          </div>
-
-          <div aria-hidden="true" className="hidden lg:block" />
+      <div className="relative mx-auto max-w-[1440px] px-6 md:px-8 lg:px-10">
+        {/* TOP-LEFT — heading + copy */}
+        <div className="max-w-[560px] text-left">
+          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+            Behind the{" "}
+            <span className="relative inline-block">
+              scenes
+              <ScribbleUnderline className="-bottom-1" />
+            </span>
+            .
+          </h2>
+          <p className="mt-7 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            Ever wondered how a blank shirt turns into the real thing? Here&apos;s
+            a look inside the shop, from burning screens to the press pulling
+            ink, so you can see exactly where your order gets made.
+          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+            Every order runs through these same hands and machines. No
+            middleman, no guesswork, just real people making your stuff right
+            here in the shop.
+          </p>
         </div>
 
-        <div className="grid gap-10 pb-4 pt-16 sm:pb-8 sm:pt-40 lg:grid-cols-[1.4fr_1fr] lg:pb-12 lg:pt-52">
-          <p className="max-w-[560px] text-[17px] leading-relaxed text-dream-ink-soft sm:text-[19px] lg:ml-24">
-            Looking for a print shop that&apos;ll actually pick up the phone?
-            That&apos;s us. We answer questions, send proofs, and stand
-            behind every order.
-          </p>
-          <div aria-hidden="true" />
+        {/* BOTTOM-RIGHT — video reels */}
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-7 lg:mt-16 lg:ml-auto lg:w-[80%] lg:gap-8">
+          <ShopReel
+            src="/behind-the-scenes/screen-printing-vancouver-shop.mp4"
+            poster="/behind-the-scenes/screen-printing-vancouver-shop.jpg"
+            label="Screen printing in progress at our Vancouver shop"
+          />
+          <ShopReel
+            src="/behind-the-scenes/screen-printing-press-vancouver.mp4"
+            poster="/behind-the-scenes/screen-printing-press-vancouver.jpg"
+            label="Pulling ink across the screen at our Vancouver shop"
+          />
+          <ShopReel
+            src="/behind-the-scenes/custom-screen-printing-vancouver.mp4"
+            poster="/behind-the-scenes/custom-screen-printing-vancouver.jpg"
+            label="Custom screen printing at our Vancouver studio"
+          />
         </div>
       </div>
     </section>

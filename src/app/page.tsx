@@ -1,4 +1,6 @@
 import Link from "next/link";
+import BehindTheScenes from "@/components/BehindTheScenes";
+import BrandStrip from "@/components/BrandStrip";
 import HeroImage from "@/components/HeroImage";
 import HowItWorks from "@/components/HowItWorks";
 import QuoteCard from "@/components/QuoteCard";
@@ -146,8 +148,10 @@ export default function Home() {
       </section>
 
       <HowItWorks />
+      <BrandStrip />
       <ShopByCategories />
       <QuoteCard />
+      <BehindTheScenes />
       <Testimonials />
       <SiteFooter />
     </main>

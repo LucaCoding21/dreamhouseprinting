@@ -147,6 +147,25 @@ body {
   }
 }
 
+/* Continuous logo marquee ("brands we print on"). The track holds two
+   identical copies of the brand row side by side; translating it -50%
+   lands copy 2 exactly where copy 1 started, so the loop is seamless. */
+@keyframes brand-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-brand-marquee {
+  animation: brand-marquee var(--marquee-duration, 40s) linear infinite;
+}
+.brand-marquee:hover .animate-brand-marquee {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-brand-marquee {
+    animation: none;
+  }
+}
+
 /* Subtle highlight from the top so the lavender has a little depth */
 body {
   background-image: radial-gradient(
