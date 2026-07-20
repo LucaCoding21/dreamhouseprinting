@@ -617,7 +617,7 @@ export function DesignerClient(props: Props) {
    *  (front + back + sleeve) need a smaller zoom to sit side by side than two. */
   function setMode(m: "single" | "both") {
     setViewMode(m);
-    setZoom(m === "both" ? (views.length >= 3 ? 0.55 : 0.75) : 1);
+    setZoom(m === "both" ? 0.75 : 1);
   }
 
   /** In single mode, show one side and make it the tool target. */
@@ -1779,7 +1779,7 @@ export function DesignerClient(props: Props) {
               {views.length <= 1
                 ? "Design preview"
                 : viewMode === "both"
-                  ? views.length >= 3 ? "All sides" : "Front & back"
+                  ? "Front & back"
                   : activeView
                     ? `Editing the ${VIEW_LABEL[activeView].toLowerCase()}`
                     : "Pick a side to edit"}
@@ -1819,7 +1819,9 @@ export function DesignerClient(props: Props) {
               // In single mode only the shown side is visible; the others stay
               // mounted (so their art is preserved + still exports) but hidden.
               // Falls back to displayView so nothing is active never blanks it.
-              const hidden = viewMode === "single" && v !== displayView;
+              // "See both" keeps the classic front-and-back pair: the sleeve
+              // stays mounted-but-hidden there and is reached via its own pill.
+              const hidden = viewMode === "single" ? v !== displayView : v === "sleeve";
               return (
                 <div
                   key={v}
@@ -1963,7 +1965,7 @@ export function DesignerClient(props: Props) {
                     viewMode === "both" ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
                   )}
                 >
-                  {views.length >= 3 ? "See all" : "See both"}
+                  See both
                 </button>
               </div>
             )}
