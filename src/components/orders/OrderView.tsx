@@ -141,6 +141,8 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
             {!!pricing.discount && (
               <Row label={pricing.discountLabel?.trim() || "Discount"} value={`−${formatCAD(pricing.discount)}`} accent />
             )}
+            {!!pricing.shipping && <Row label="Shipping" value={formatCAD(pricing.shipping)} />}
+            {!!pricing.tax && <Row label="Tax" value={formatCAD(pricing.tax)} />}
           </div>
 
           {/* Total, the focal figure, in brand purple. */}

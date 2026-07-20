@@ -12,7 +12,7 @@ export interface OrderViewOrder {
   order_number: string | null;
   status: OrderStatus;
   due_date: string | null;
-  pricing: { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; discount?: number; discountLabel?: string };
+  pricing: { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; shipping?: number; tax?: number; discount?: number; discountLabel?: string };
   invoice_sent_at: string | null;
   invoice_amount: number | null;
   paid_at: string | null;

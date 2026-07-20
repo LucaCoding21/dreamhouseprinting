@@ -203,7 +203,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       order_number: order.order_number,
       status: order.status as OrderStatus,
       due_date: order.due_date,
-      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; discount?: number; discountLabel?: string },
+      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; shipping?: number; tax?: number; discount?: number; discountLabel?: string },
       invoice_sent_at: order.invoice_sent_at,
       invoice_amount: order.invoice_amount,
       paid_at: order.paid_at,

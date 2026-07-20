@@ -26,7 +26,13 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
   const pricing = (order.pricing ?? {}) as { total?: number };
   const total = pricing.total ?? 0;
 
-  const [payment, setPayment] = useState(order.payment_status as PaymentStatus);
+  // The select's value must follow the SERVER payment status whenever it moves
+  // (e-transfer confirm, Stripe webhook, another admin), so the local pick only
+  // bridges the moment between choosing and the refresh landing. A plain
+  // useState seed went permanently stale here.
+  const serverPayment = order.payment_status as PaymentStatus;
+  const [paymentPick, setPaymentPick] = useState<{ base: PaymentStatus; value: PaymentStatus } | null>(null);
+  const payment = paymentPick && paymentPick.base === serverPayment ? paymentPick.value : serverPayment;
   const [tracking, setTracking] = useState(order.shipping_tracking ?? "");
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
 
@@ -78,7 +84,7 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
             disabled={!can.edit}
             onChange={(e) => {
               const next = e.target.value as PaymentStatus;
-              setPayment(next);
+              setPaymentPick({ base: serverPayment, value: next });
               run(() => setPaymentStatusAction(order.id, next), "Payment updated");
             }}
           >
