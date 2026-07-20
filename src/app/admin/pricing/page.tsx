@@ -5,7 +5,9 @@ import { PricingClient } from "./PricingClient";
 export const metadata = { title: "Pricing | Admin" };
 
 export default async function AdminPricingPage() {
-  await requirePermission("products.manage");
-  const profiles = await getPricingProfiles();
+  const [, profiles] = await Promise.all([
+    requirePermission("products.manage"),
+    getPricingProfiles(),
+  ]);
   return <PricingClient profiles={profiles} />;
 }

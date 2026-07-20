@@ -184,7 +184,7 @@ export function PaymentMethodDialog({
             <DialogHeader>
               <DialogTitle>Thanks! We&rsquo;re watching for it</DialogTitle>
               <DialogDescription>
-                We&rsquo;ll confirm your e-transfer of {formatCAD(amountDue)} as soon as it lands, then start on your
+                We&rsquo;ll confirm your e-transfer of {formatCAD(amountDue)}{" "}as soon as it lands, then start on your
                 order right away. You&rsquo;ll get an email the moment it&rsquo;s confirmed.
               </DialogDescription>
             </DialogHeader>

@@ -16,10 +16,10 @@ interface EmailTemplate {
 }
 
 export default async function AdminSettingsPage() {
-  await requirePermission("settings.manage");
   const service = requireSupabaseServiceClient();
 
-  const [{ data: methods }, { data: staff }, { data: settings }] = await Promise.all([
+  const [, { data: methods }, { data: staff }, { data: settings }] = await Promise.all([
+    requirePermission("settings.manage"),
     service.from("decoration_methods").select("*").order("display_order"),
     service.from("profiles").select("*").in("role", ["staff", "staff_admin"]),
     service.from("settings").select("*").in("key", ["shipping", "tax", "email_templates", "shop", "checkout", "addons", "payments", "business"]),

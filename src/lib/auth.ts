@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/db/types";
@@ -23,25 +24,26 @@ export const STAFF_PERMISSIONS = [
 ] as const;
 export type StaffPermission = (typeof STAFF_PERMISSIONS)[number];
 
-/** The authenticated auth.users record, or null. Cheap; cached per request by Supabase. */
-export async function getUser() {
+/**
+ * The authenticated auth.users record, or null. React cache() dedupes the
+ * Supabase Auth round trip so layout + page + guards share one call per request.
+ */
+export const getUser = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
-/** The current user's profile row (role, permissions, org), or null if logged out. */
-export async function getProfile(): Promise<Profile | null> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+/** The current user's profile row (role, permissions, org), or null if logged out. Deduped per request. */
+export const getProfile = cache(async (): Promise<Profile | null> => {
+  const user = await getUser();
   if (!user) return null;
+  const supabase = await createSupabaseServerClient();
   const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   return data ?? null;
-}
+});
 
 export function isStaff(profile: Profile | null): boolean {
   return profile?.role === "staff" || profile?.role === "staff_admin";

@@ -207,10 +207,26 @@ export default async function AdminDashboardPage({
 }: {
   searchParams: Promise<{ denied?: string }>;
 }) {
-  const profile = await requireStaff();
-  const { denied } = await searchParams;
-
-  const orders = await getAdminOrders();
+  // Everything independent races in parallel: auth, orders, open quotes and
+  // the activity feed. Permission-gated sections are filtered after the fact
+  // (service-role reads never reach the client when the gate fails).
+  const supabase = requireSupabaseServiceClient();
+  const [profile, { denied }, orders, { data: quoteRows }, { data: activityRows }] =
+    await Promise.all([
+      requireStaff(),
+      searchParams,
+      getAdminOrders(),
+      supabase
+        .from("quotes")
+        .select("*")
+        .in("status", ["requested", "sent"])
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("order_activity")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
 
   const inStatus = (statuses: string[], o: AdminOrderListItem) => statuses.includes(o.order.status);
 
@@ -262,15 +278,9 @@ export default async function AdminDashboardPage({
     .reduce((sum, o) => sum + o.total, 0);
 
   // --- Quote requests (open only), mirrors the old quotes loader, thumbnail via designs ---
-  const supabase = requireSupabaseServiceClient();
   const canManageQuotes = hasPermission(profile, "quotes.manage");
   let quoteItems: QuoteRequestItem[] = [];
   if (canManageQuotes) {
-    const { data: quoteRows } = await supabase
-      .from("quotes")
-      .select("*")
-      .in("status", ["requested", "sent"])
-      .order("created_at", { ascending: false });
     const rowsRaw = quoteRows ?? [];
 
     const customerIds = [...new Set(rowsRaw.map((q) => q.customer_id).filter(Boolean))] as string[];
@@ -315,11 +325,6 @@ export default async function AdminDashboardPage({
   }
 
   // --- Recent activity (latest 10), with order_number resolved by id ---
-  const { data: activityRows } = await supabase
-    .from("order_activity")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(10);
   const activity = (activityRows ?? []) as OrderActivityRow[];
   const orderNumberById = new Map(orders.map((o) => [o.order.id, o.order.order_number]));
 

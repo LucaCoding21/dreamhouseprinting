@@ -7,10 +7,15 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     // Designer scenes stage their images to Storage and send only markers, so
-    // action bodies stay small — this is headroom for text-heavy scenes, kept
+    // action bodies stay small, this is headroom for text-heavy scenes, kept
     // under Vercel's 4.5MB serverless request cap (raising it further would do
     // nothing in production).
     serverActions: { bodySizeLimit: "3mb" },
+    // Client router cache for dynamic pages: revisiting a page seen within the
+    // last 30s renders instantly from cache instead of refetching. Safe because
+    // every mutation goes through a server action that calls revalidatePath /
+    // router.refresh, which purges this cache immediately.
+    staleTimes: { dynamic: 30, static: 180 },
   },
   images: {
     // Cache optimized image variants on Vercel's edge for 30 days instead of

@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { cn } from "@/lib/cn";
 import { LBL } from "./shared";
+import { MeasureHelpDot } from "./MeasureHelp";
 import type { DecorationSpot } from "../actions";
 
 export function DecorationSpotRow({
@@ -52,14 +53,20 @@ export function DecorationSpotRow({
           </Select>
         </div>
         <div className="w-24">
-          <div className={cn(LBL, "mb-1")}>Width</div>
+          <div className={cn(LBL, "mb-1 flex items-center gap-1")}>
+            Width
+            <MeasureHelpDot />
+          </div>
           <div className="flex items-center gap-1">
             <Input value={spot.widthIn} disabled={!canEdit} onChange={(e) => onPatch({ widthIn: e.target.value })} />
             <span className="text-xs text-dream-muted">in</span>
           </div>
         </div>
         <div className="w-24">
-          <div className={cn(LBL, "mb-1")}>Height</div>
+          <div className={cn(LBL, "mb-1 flex items-center gap-1")}>
+            Height
+            <MeasureHelpDot />
+          </div>
           <div className="flex items-center gap-1">
             <Input value={spot.heightIn} disabled={!canEdit} onChange={(e) => onPatch({ heightIn: e.target.value })} />
             <span className="text-xs text-dream-muted">in</span>

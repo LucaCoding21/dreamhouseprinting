@@ -10,10 +10,10 @@ export default async function AdminProductEditPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission("products.manage");
   const { id } = await params;
 
-  const [loaded, categories, methods, profiles] = await Promise.all([
+  const [, loaded, categories, methods, profiles] = await Promise.all([
+    requirePermission("products.manage"),
     getAdminProduct(id),
     getAllCategories(),
     getAllDecorationMethods(),

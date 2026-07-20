@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requirePermission, getProfile, hasPermission } from "@/lib/auth";
+import { requirePermission, hasPermission } from "@/lib/auth";
 import { getAdminOrder } from "@/lib/admin/orders";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { DecorationMethodRow } from "@/lib/db/rows";
@@ -8,14 +8,16 @@ import { OrderDetailClient } from "./OrderDetailClient";
 export const metadata = { title: "Order | Admin" };
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("orders.view");
   const { id } = await params;
-  const [detail, profile] = await Promise.all([getAdminOrder(id), getProfile()]);
-  if (!detail) notFound();
-
-  // Decoration method names so the spec table can label "Screen Print" etc.
+  // Permission gate, order detail and method names race in parallel; the gate
+  // redirects before render. requirePermission returns the profile (deduped).
   const supabase = requireSupabaseServiceClient();
-  const { data: methods } = await supabase.from("decoration_methods").select("id, name");
+  const [profile, detail, { data: methods }] = await Promise.all([
+    requirePermission("orders.view"),
+    getAdminOrder(id),
+    supabase.from("decoration_methods").select("id, name"),
+  ]);
+  if (!detail) notFound();
   const methodNames: Record<string, string> = {};
   for (const m of (methods ?? []) as Pick<DecorationMethodRow, "id" | "name">[]) {
     methodNames[m.id] = m.name;

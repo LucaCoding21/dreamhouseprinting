@@ -25,15 +25,17 @@ export default async function AdminCustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission("customers.view");
   const { id } = await params;
   const supabase = requireSupabaseServiceClient();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, name, email, phone, organization_id, saved_artwork")
-    .eq("id", id)
-    .maybeSingle();
+  const [, { data: profile }] = await Promise.all([
+    requirePermission("customers.view"),
+    supabase
+      .from("profiles")
+      .select("id, name, email, phone, organization_id, saved_artwork")
+      .eq("id", id)
+      .maybeSingle(),
+  ]);
   if (!profile) notFound();
 
   const [{ data: orders }, { data: org }] = await Promise.all([

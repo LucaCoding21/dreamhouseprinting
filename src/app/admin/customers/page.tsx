@@ -5,14 +5,16 @@ import { CustomersClient } from "./CustomersClient";
 export const metadata = { title: "Customers | Admin" };
 
 export default async function AdminCustomersPage() {
-  await requirePermission("customers.view");
   const supabase = requireSupabaseServiceClient();
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, name, email, phone, organization_id")
-    .eq("role", "customer")
-    .order("created_at", { ascending: false });
+  const [, { data: profiles }] = await Promise.all([
+    requirePermission("customers.view"),
+    supabase
+      .from("profiles")
+      .select("id, name, email, phone, organization_id")
+      .eq("role", "customer")
+      .order("created_at", { ascending: false }),
+  ]);
 
   const customers = profiles ?? [];
   const customerIds = customers.map((c) => c.id);

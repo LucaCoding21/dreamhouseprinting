@@ -111,37 +111,35 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
   const { data: order } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
   if (!order) return null;
 
-  const [{ data: lineItems }, { data: proofs }, { data: activity }] = await Promise.all([
-    supabase.from("line_items").select("*").eq("order_id", id),
-    supabase.from("proofs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
-    supabase.from("order_activity").select("*").eq("order_id", id).order("created_at", { ascending: false }),
-  ]);
+  // Customer lookup depends only on the order row, so it joins the first
+  // parallel batch instead of trailing at the end.
+  const [{ data: lineItems }, { data: proofs }, { data: activity }, customerRes] =
+    await Promise.all([
+      supabase.from("line_items").select("*").eq("order_id", id),
+      supabase.from("proofs").select("*").eq("order_id", id).order("created_at", { ascending: false }),
+      supabase.from("order_activity").select("*").eq("order_id", id).order("created_at", { ascending: false }),
+      order.customer_id
+        ? supabase.from("profiles").select("id, name, email, phone").eq("id", order.customer_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   const designIds = (lineItems ?? []).map((l) => l.design_id).filter(Boolean) as string[];
-  let designs: DesignRow[] = [];
-  if (designIds.length) {
-    const { data } = await supabase.from("designs").select("*").in("id", designIds);
-    designs = (data ?? []) as DesignRow[];
-  }
-
   const productIds = [...new Set((lineItems ?? []).map((l) => l.product_id).filter(Boolean))] as string[];
-  let products: AdminOrderDetail["products"] = [];
-  if (productIds.length) {
-    const { data } = await supabase
-      .from("products")
-      .select("id, name, brand, ss_style_name, ss_style_id, colours")
-      .in("id", productIds);
-    products = (data ?? []) as AdminOrderDetail["products"];
-  }
+
+  const [designsRes, productsRes] = await Promise.all([
+    designIds.length
+      ? supabase.from("designs").select("*").in("id", designIds)
+      : Promise.resolve({ data: [] }),
+    productIds.length
+      ? supabase.from("products").select("id, name, brand, ss_style_name, ss_style_id, colours").in("id", productIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const designs = (designsRes.data ?? []) as DesignRow[];
+  const products = (productsRes.data ?? []) as AdminOrderDetail["products"];
 
   let customer: AdminOrderDetail["customer"] = null;
   if (order.customer_id) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, name, email, phone")
-      .eq("id", order.customer_id)
-      .maybeSingle();
-    customer = data ?? null;
+    customer = customerRes.data ?? null;
   } else {
     // Guest order, synthesize a contact from the order's guest email + ship-to.
     const ship = (order.shipping_address ?? {}) as { name?: string; phone?: string };

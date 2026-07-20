@@ -9,9 +9,12 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  await requirePermission("orders.view");
-  const { tab } = await searchParams;
-  const orders = await getAdminOrders();
+  // Permission gate and data race in parallel; the gate redirects before render.
+  const [, { tab }, orders] = await Promise.all([
+    requirePermission("orders.view"),
+    searchParams,
+    getAdminOrders(),
+  ]);
   // Serialize down to the client-friendly shape.
   const rows = orders.map((o) => ({
     id: o.order.id,

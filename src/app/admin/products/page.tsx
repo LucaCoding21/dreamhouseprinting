@@ -5,8 +5,11 @@ import { ProductsClient } from "./ProductsClient";
 export const metadata = { title: "Products | Admin" };
 
 export default async function AdminProductsPage() {
-  await requirePermission("products.manage");
-  const [products, categories] = await Promise.all([getAdminProducts(), getAllCategories()]);
+  const [, products, categories] = await Promise.all([
+    requirePermission("products.manage"),
+    getAdminProducts(),
+    getAllCategories(),
+  ]);
 
   return <ProductsClient products={products} categories={categories} />;
 }

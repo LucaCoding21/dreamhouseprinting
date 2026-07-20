@@ -9,14 +9,16 @@ export const metadata = { title: "Admin | Dreamhouse Printing" };
 const ACTION_STATUSES = ["submitted", "in_review", "changes_requested"];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const profile = await requireStaff();
-
-  // Count of orders awaiting a proof / staff action, surfaced as a nav badge.
+  // Auth check and nav-badge count race in parallel; requireStaff redirects
+  // non-staff before anything renders either way.
   const supabase = requireSupabaseServiceClient();
-  const { count: actionCount } = await supabase
-    .from("orders")
-    .select("id", { count: "exact", head: true })
-    .in("status", ACTION_STATUSES);
+  const [profile, { count: actionCount }] = await Promise.all([
+    requireStaff(),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .in("status", ACTION_STATUSES),
+  ]);
 
   return (
     <ToastProvider>
