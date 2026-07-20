@@ -239,7 +239,11 @@ export default function ServicesPage() {
       <FAQ />
       <CTA />
 
-      <SiteFooter />
+      {/* Footer sits flush against the dark CTA, drop the shared footer's top
+          margin so the cream page bg doesn't show as a gap under the dog. */}
+      <div className="[&>footer]:!mt-0">
+        <SiteFooter />
+      </div>
     </main>
   );
 }

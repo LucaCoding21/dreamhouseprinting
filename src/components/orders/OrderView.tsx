@@ -8,6 +8,7 @@ import { StatusTag } from "@/components/portal/StatusTag";
 import { OrderPanel } from "./OrderPanel";
 import { ProofPanel } from "./ProofPanel";
 import { InvoicePanel } from "./InvoicePanel";
+import { BalanceDueBanner } from "./BalanceDueBanner";
 import type { OrderViewProps } from "./types";
 
 /**
@@ -37,6 +38,15 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
   // batch is sent together, so it sits contiguous at the top, newest-first).
   const proofSet = proofs.filter((p) => p.status === proofs[0]?.status);
 
+  // Is a proof currently awaiting the customer's decision? Then ProofPanel's
+  // "Approve & pay" is the payment prompt and the banner stays out of the way.
+  const proofAwaitingDecision =
+    proofSet.length > 0 && proofSet[0].status !== "approved" && proofSet[0].status !== "changes_requested";
+
+  // Admin-skipped-proof path: the order is payable but nothing on the page asks
+  // for money (no pending proof, no e-transfer being verified). Shout about it.
+  const showBalanceDue = payable && !proofAwaitingDecision && !order.etransfer_reported_at;
+
   const paymentTag = order.paid_at ? (
     <StatusTag tone="success">Paid</StatusTag>
   ) : order.etransfer_reported_at ? (
@@ -50,6 +60,17 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
 
   return (
     <>
+      {/* Money first when it's owed and nothing else is asking for it. */}
+      {showBalanceDue && (
+        <BalanceDueBanner
+          amountDue={amountDue}
+          orderNumber={order.order_number}
+          etransfer={etransfer}
+          payNow={actions.payNow}
+          reportEtransfer={actions.reportEtransfer}
+        />
+      )}
+
       {/* Where it is, the status hero, on top. */}
       <OrderTracker status={order.status} stageDates={stageDates} dueDate={order.due_date} />
 

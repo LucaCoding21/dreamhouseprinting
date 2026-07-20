@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { publicOrderUrl, appOrigin } from "@/lib/orders/publicLink";
 import { formatCAD } from "@/lib/money";
 import type { OrderStatus } from "@/lib/db/rows";
+import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
 
 /**
  * Transactional order notifications (PRD §10.1). The SAME status change that
@@ -106,7 +107,7 @@ export async function sendOrderEmail(
 
   const { data: order } = await service
     .from("orders")
-    .select("order_number, customer_id, guest_email, shipping_tracking, public_token, pricing, customer_notes")
+    .select("order_number, customer_id, guest_email, shipping_tracking, public_token, pricing, customer_notes, status, paid_at, invoice_sent_at")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return;
@@ -141,7 +142,18 @@ export async function sendOrderEmail(
     ...extraVars,
   };
 
-  const cfg = EMAIL_CONFIG[templateKey] ?? { cta: "View your order" };
+  let cfg = EMAIL_CONFIG[templateKey] ?? { cta: "View your order" };
+  // Admin-skipped-proof path: an order can reach approved or production while
+  // still unpaid (no proof email, no invoice email). Any status email that goes
+  // out for a payable-but-unpaid order carries the amount due and a pay CTA,
+  // otherwise the customer reads "in production" and never learns they owe.
+  const unpaidDue =
+    !order.paid_at &&
+    (pricing.total ?? 0) > 0 &&
+    (PAYABLE_ORDER_STATUSES.has(order.status as OrderStatus) || !!order.invoice_sent_at);
+  if (unpaidDue && !cfg.amountLabel && templateKey !== "payment_received" && templateKey !== "etransfer_reported") {
+    cfg = { cta: "View your order & pay", amountLabel: "Total due" };
+  }
   const heading = interpolate(tpl.subject, vars);
   const bodyText = interpolate(tpl.body, vars);
 

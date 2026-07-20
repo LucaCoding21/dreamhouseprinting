@@ -52,7 +52,28 @@ export async function getActiveProducts(filter: ProductFilter = {}): Promise<Pro
       q = q.or(ids.map((id) => `category_id.eq.${id},subcategory_id.eq.${id}`).join(","));
     }
   }
-  if (filter.search) q = q.ilike("name", `%${filter.search}%`);
+  if (filter.search) {
+    // "shirts" / "toques" / "hats" should find the CATEGORY, not just product
+    // names, so the nav search behaves the way people type. Tokenize both
+    // sides, strip a trailing s (plural tolerance), and prefix-match; matching
+    // category ids join the name ilike in one OR. Commas/parens are stripped
+    // because they would break PostgREST or() syntax.
+    const term = filter.search.trim().replace(/[,()]/g, " ").replace(/\s+/g, " ").trim();
+    if (term) {
+      const stem = (s: string) => s.toLowerCase().replace(/s$/, "");
+      const qTokens = term.split(/[^a-z0-9]+/i).filter(Boolean).map(stem);
+      const cats = await getCategories();
+      const catIds = cats
+        .filter((c) => {
+          const cTokens = c.name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(stem);
+          return qTokens.some((qt) => cTokens.some((ct) => ct === qt || ct.startsWith(qt)));
+        })
+        .map((c) => c.id);
+      const ors = [`name.ilike.%${term}%`];
+      for (const id of catIds) ors.push(`category_id.eq.${id}`, `subcategory_id.eq.${id}`);
+      q = q.or(ors.join(","));
+    }
+  }
   if (filter.brand) q = q.ilike("brand", `%${filter.brand}%`);
   if (filter.decorationMethodId) q = q.contains("allowed_decoration_method_ids", [filter.decorationMethodId]);
 
