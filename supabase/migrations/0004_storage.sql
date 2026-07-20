@@ -1,12 +1,12 @@
 -- ============================================================================
 -- Storage buckets. All private; the app mints short-lived signed URLs server-
--- side (matches the existing quote-files pattern, see /api/upload-url). The
+-- side (matches the existing quote-files pattern — see /api/upload-url). The
 -- legacy `quote-files` bucket is left as-is.
 --
---  artwork , customer source uploads (full quality, retained) + org shared logos
---  designs , designer mockup renders + serialized scene assets
---  proofs  , staff official mockups & print-ready proof files
---  catalog , any shop-cached product imagery (S&S images are normally hotlinked
+--  artwork  — customer source uploads (full quality, retained) + org shared logos
+--  designs  — designer mockup renders + serialized scene assets
+--  proofs   — staff official mockups & print-ready proof files
+--  catalog  — any shop-cached product imagery (S&S images are normally hotlinked
 --             from their CDN, but this exists for overrides / manual products)
 -- ============================================================================
 insert into storage.buckets (id, name, public, file_size_limit)
