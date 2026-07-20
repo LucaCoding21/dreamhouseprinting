@@ -33,10 +33,10 @@ export function MeasureHelpDot() {
           </DialogHeader>
 
           <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
-            {/* Annotated example: order 1008's front, stored as 11.7 x 10.8 in. */}
+            {/* Annotated example: order 1006's full back, stored as 11.6 x 13.9 in. */}
             <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-lg border border-dream-line bg-white">
               <Image
-                src="/admin/measure-example.png"
+                src="/admin/measure-example-1006.png"
                 alt="Shirt mockup with a number overlapping a photo, annotated with the measured bounding box"
                 width={960}
                 height={1200}
