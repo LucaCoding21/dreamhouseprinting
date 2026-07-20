@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { cn } from "@/lib/cn";
 import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { useProofUpload } from "./shared";
@@ -93,8 +93,7 @@ export function ProofReviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={close}>
-        <DialogContent className="max-w-2xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-          <DialogClose />
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isReplacement ? "Send a new proof" : "Review proof before sending"}</DialogTitle>
           </DialogHeader>

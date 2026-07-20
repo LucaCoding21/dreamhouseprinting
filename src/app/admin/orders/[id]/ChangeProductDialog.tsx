@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { cn } from "@/lib/cn";
 import { LBL, useOrderAction } from "./shared";
 import { listSwapProductsAction, changeLineItemProductAction, type SwapProduct } from "../actions";
@@ -85,8 +85,7 @@ export function ChangeProductDialog({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[85dvh] max-w-2xl flex-col" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-          <DialogClose />
+        <DialogContent className="flex max-h-[85dvh] max-w-2xl flex-col">
           <DialogHeader>
             <DialogTitle>{picked ? "Pick a colour" : "Change product"}</DialogTitle>
           </DialogHeader>

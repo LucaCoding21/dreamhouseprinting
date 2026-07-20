@@ -48,20 +48,10 @@ export function SizeGuideModal({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-          <div className="flex items-start justify-between gap-4 p-5 pb-3">
-            <div>
-              <h2 className="font-display text-lg font-bold text-dream-ink">Size guide</h2>
-              <p className="mt-0.5 text-sm text-dream-muted">{productName}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close"
-              className="-mr-1 -mt-1 flex h-8 w-8 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-bg hover:text-dream-ink"
-            >
-              <span aria-hidden="true" className="text-xl leading-none">&times;</span>
-            </button>
+        <DialogContent className="max-w-2xl">
+          <div className="p-5 pb-3 pr-12">
+            <h2 className="font-display text-lg font-bold text-dream-ink">Size guide</h2>
+            <p className="mt-0.5 text-sm text-dream-muted">{productName}</p>
           </div>
 
           <div className="max-h-[70vh] overflow-auto px-5 pb-5">

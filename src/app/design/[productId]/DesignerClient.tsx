@@ -2344,7 +2344,7 @@ export function DesignerClient(props: Props) {
       {/* "?" help on the review spec table, the same reassurance for both
           columns: an artist reviews everything before production/payment. */}
       <Dialog open={helpTopic !== null} onOpenChange={(o) => { if (!o) setHelpTopic(null); }}>
-        <DialogContent className="max-w-sm" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
+        <DialogContent className="max-w-sm">
           <DialogHeader className="px-6 pt-6 pb-1">
             <DialogTitle>{helpTopic === "colours" ? colourKindLabel : "Print measurement"}</DialogTitle>
             <DialogDescription className="pt-1 leading-relaxed">
@@ -2375,7 +2375,7 @@ export function DesignerClient(props: Props) {
       {/* Save-your-design gate, names the design + captures a lead email, then
           adds it to the cart. */}
       <Dialog open={showSave} onOpenChange={(o) => { if (busy === null) setShowSave(o); }}>
-        <DialogContent className="max-w-md" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader className="px-6 pt-6 pb-1">
             <DialogTitle>Name your design</DialogTitle>
             <DialogDescription>

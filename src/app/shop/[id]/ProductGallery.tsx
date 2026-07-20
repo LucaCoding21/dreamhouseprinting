@@ -403,7 +403,7 @@ export function ProductGallery({
       {/* Full-size image lightbox */}
       {lightboxOpen && main && (
         <div
-          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/90 p-4 sm:p-8"
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-dream-overlay/90 backdrop-blur-sm p-4 sm:p-8"
           role="dialog"
           aria-modal="true"
           aria-label={`${name}, full size`}

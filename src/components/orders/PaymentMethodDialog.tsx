@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogClose,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -93,8 +92,7 @@ export function PaymentMethodDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent backdropClassName="bg-dream-overlay/40">
-        <DialogClose />
+      <DialogContent>
 
         {step === "choose" && (
           <>

@@ -51,7 +51,7 @@ export function DeleteDesignButton({ designId, name }: { designId: string; name:
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent backdropClassName="bg-dream-overlay/40 backdrop-blur-sm">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete this draft?</DialogTitle>
             <DialogDescription>

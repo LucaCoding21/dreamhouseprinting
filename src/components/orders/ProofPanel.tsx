@@ -265,7 +265,7 @@ export function ProofPanel({
 
       {zoomIndex !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-dream-ink/80 p-4 sm:p-8"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-dream-overlay/90 backdrop-blur-sm p-4 sm:p-8"
           onClick={() => setZoomIndex(null)}
           role="dialog"
           aria-modal="true"

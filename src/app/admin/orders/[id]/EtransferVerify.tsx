@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/Textarea";
 import {
   Dialog,
   DialogContent,
-  DialogClose,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -92,7 +91,6 @@ export function EtransferVerify({
       {/* Confirm received */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
-          <DialogClose />
           <DialogHeader>
             <DialogTitle>Confirm the e-transfer landed?</DialogTitle>
             <DialogDescription>
@@ -123,7 +121,6 @@ export function EtransferVerify({
       {/* Not received */}
       <Dialog open={notReceivedOpen} onOpenChange={setNotReceivedOpen}>
         <DialogContent>
-          <DialogClose />
           <DialogHeader>
             <DialogTitle>E-transfer not received?</DialogTitle>
             <DialogDescription>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { type OrderProduct } from "./shared";
 import type { ProductColourJson } from "@/lib/db/rows";
 
@@ -95,8 +95,7 @@ export function BlankGarment({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-          <DialogClose />
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Supplier blank: {styleLabel}</DialogTitle>
           </DialogHeader>

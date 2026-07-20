@@ -89,7 +89,7 @@ export function MethodGuideModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-2xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
+      <DialogContent className="max-w-2xl">
         {/* Header + tab toggle */}
         <div className="flex flex-col gap-4 px-6 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div>

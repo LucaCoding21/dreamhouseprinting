@@ -41,15 +41,20 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 }
 
 export type DialogContentProps = React.HTMLAttributes<HTMLDivElement> & {
-  /** Optional classes for the backdrop. Global default is transparent (per
-   *  Julian); pass e.g. "bg-dream-overlay/50 backdrop-blur-sm" to dim behind. */
+  /** Override classes for the backdrop. Every dialog dims with the same grey
+   *  scrim by default (per Julian, 2026-07-19); only pass this for a
+   *  deliberate exception. */
   backdropClassName?: string;
+  /** Every dialog renders the top-right X by default; set true only when the
+   *  panel provides its own close affordance in the same spot. */
+  hideClose?: boolean;
 };
 
 export function DialogContent({
   className,
   children,
-  backdropClassName,
+  backdropClassName = "bg-dream-overlay/50 backdrop-blur-sm",
+  hideClose = false,
   ...props
 }: DialogContentProps) {
   const { open, onOpenChange, titleId, descId } = useDialog("DialogContent");
@@ -102,6 +107,7 @@ export function DialogContent({
         )}
         {...props}
       >
+        {!hideClose && <DialogClose />}
         {children}
       </div>
     </div>,
@@ -142,7 +148,7 @@ type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 export function DialogHeader({ className, ...props }: DialogHeaderProps) {
   return (
     <div
-      className={cn("flex flex-col gap-1 p-5 pb-3", className)}
+      className={cn("flex flex-col gap-1 p-5 pb-3 pr-12", className)}
       {...props}
     />
   );

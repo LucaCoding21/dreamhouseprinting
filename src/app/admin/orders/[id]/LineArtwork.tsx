@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
 import type { DesignRow } from "@/lib/db/rows";
@@ -294,8 +294,7 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-          <DialogClose />
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Artwork: {design.name ?? "Untitled design"}</DialogTitle>
           </DialogHeader>

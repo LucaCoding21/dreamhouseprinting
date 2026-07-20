@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/DropdownMenu";
-import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
@@ -259,8 +259,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
           if (!o) setApproveReason("");
         }}
       >
-        <DialogContent backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-          <DialogClose />
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Approve on the customer’s behalf?</DialogTitle>
             <DialogDescription>

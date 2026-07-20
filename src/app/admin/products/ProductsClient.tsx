@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCAD } from "@/lib/money";
@@ -183,8 +183,7 @@ function ImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
-        <DialogClose />
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Import from S&amp;S Activewear</DialogTitle>
         </DialogHeader>
