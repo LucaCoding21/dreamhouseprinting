@@ -31,17 +31,17 @@ export function OrderDetailClient({
 
   return (
     <div className="space-y-6 px-8 py-6">
-      {/* Slim command strip — identity + the one hero action, always up top */}
+      {/* Slim command strip, identity + the one hero action, always up top */}
       <CommandHeader detail={detail} can={can} who={who} />
 
-      {/* The lines — the hero of the screen, full width */}
+      {/* The lines, the hero of the screen, full width */}
       <OrderItemsSection detail={detail} methodNames={methodNames} can={can} />
 
       {/* Active-work context that lives alongside the lines */}
       <ProofHistory detail={detail} />
       <OrderTimeline order={order} orderId={order.id} canEdit={can.edit} />
 
-      {/* ── Reference: status, contact, payment, totals — one-time info, kept at the bottom ── */}
+      {/* ── Reference: status, contact, payment, totals, one-time info, kept at the bottom ── */}
       <section className="space-y-6 border-t border-dream-line pt-8">
         <OrderStatusStrip detail={detail} />
 

@@ -185,7 +185,7 @@ function QueueCard({ queue }: { queue: Queue }) {
                       {o.order.order_number ?? o.customerName ?? o.customerEmail ?? "Order"}
                     </div>
                     <div className="truncate text-xs text-dream-muted">
-                      {o.customerName ?? o.customerEmail ?? "—"}
+                      {o.customerName ?? o.customerEmail ?? "-"}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -225,7 +225,7 @@ export default async function AdminDashboardPage({
     (o) => o.order.etransfer_reported_at && !o.order.paid_at && o.order.status !== "cancelled"
   );
   // Approve-and-pay: approved-or-beyond unpaid orders are payable self-serve
-  // from the customer's order page — one queue, whether or not a payment-link
+  // from the customer's order page, one queue, whether or not a payment-link
   // email (invoice) also went out. Reported e-transfers live in their own
   // queue above, not here.
   const awaitingPayment = orders.filter(
@@ -261,7 +261,7 @@ export default async function AdminDashboardPage({
     .filter((o) => o.order.payment_status !== "paid_in_full" && o.order.status !== "cancelled")
     .reduce((sum, o) => sum + o.total, 0);
 
-  // --- Quote requests (open only) — mirrors the old quotes loader, thumbnail via designs ---
+  // --- Quote requests (open only), mirrors the old quotes loader, thumbnail via designs ---
   const supabase = requireSupabaseServiceClient();
   const canManageQuotes = hasPermission(profile, "quotes.manage");
   let quoteItems: QuoteRequestItem[] = [];
@@ -353,7 +353,7 @@ export default async function AdminDashboardPage({
           Welcome back, {profile.name || "team"}. Here&apos;s what needs your attention today.
         </p>
 
-        {/* Unpaid balance — a read-only summary stat, plain stacked text (no box)
+        {/* Unpaid balance, a read-only summary stat, plain stacked text (no box)
             so it's clearly a figure, not a clickable chip. Sits above the chips. */}
         <div title="Total value of orders that haven't been paid in full yet (excludes cancelled orders).">
           <div className="text-xs font-semibold uppercase tracking-wide text-dream-muted">Unpaid balance</div>

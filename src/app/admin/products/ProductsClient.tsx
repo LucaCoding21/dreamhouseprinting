@@ -36,7 +36,7 @@ export function ProductsClient({
   const router = useRouter();
   const { toast } = useToast();
   const [importing, setImporting] = useState(false);
-  const catName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "—";
+  const catName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "-";
 
   return (
     <div>
@@ -108,7 +108,7 @@ export function ProductsClient({
                         </div>
                       </TD>
                       <TD>
-                        <span className="text-sm font-medium text-dream-purple">Edit →</span>
+                        <span className="text-sm font-medium text-dream-purple">Edit</span>
                       </TD>
                     </TR>
                   );
@@ -155,7 +155,7 @@ function ImportDialog({
   function search() {
     const q = query.trim();
     if (q.length < 2) {
-      setHint("Type at least 2 characters — a style number (like 3001) or a brand name.");
+      setHint("Type at least 2 characters, a style number (like 3001) or a brand name.");
       return;
     }
     setHint(null);
@@ -221,7 +221,7 @@ function ImportDialog({
           ) : results.length === 0 ? (
             <p className="py-10 text-center text-sm text-dream-muted">
               {searched
-                ? "No styles matched. Try a style number (like 3001) or a brand name. Note: we search the S&S Canada catalog — US-only styles won't appear."
+                ? "No styles matched. Try a style number (like 3001) or a brand name. Note: we search the S&S Canada catalog, US-only styles won't appear."
                 : "Search the catalog to import a blank garment."}
             </p>
           ) : (
@@ -238,7 +238,7 @@ function ImportDialog({
                   </div>
                   <div className="text-xs font-semibold uppercase tracking-wide text-dream-muted">{r.brand}</div>
                   <div className="text-sm font-medium text-dream-ink">
-                    {r.styleName} — {r.title}
+                    {r.styleName}, {r.title}
                   </div>
                   <Button
                     variant="secondary"

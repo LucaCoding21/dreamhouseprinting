@@ -5,14 +5,14 @@ import { createServerClient } from "@supabase/ssr";
  * Refreshes the Supabase auth session on every request so Server Components
  * always see a current session, and rewrites the auth cookies onto the response.
  * Route-level access control lives in the page/layout guards (lib/auth.ts), not
- * here — this proxy only keeps the session token fresh.
+ * here, this proxy only keeps the session token fresh.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  // No creds in this environment — skip silently (local dev without auth).
+  // No creds in this environment, skip silently (local dev without auth).
   if (!url || !key) return response;
 
   const supabase = createServerClient(url, key, {

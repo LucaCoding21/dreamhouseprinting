@@ -137,7 +137,7 @@ export default function HowToOrderPage() {
         <CTA />
       </div>
 
-      {/* Footer sits flush against the sticky CTA reveal — drop the shared
+      {/* Footer sits flush against the sticky CTA reveal, drop the shared
           footer's top margin so the cream page bg doesn't show as a gap. */}
       <div className="[&>footer]:!mt-0">
         <SiteFooter />
@@ -201,7 +201,7 @@ function Hero() {
         </div>
       </div>
 
-      {/* Squiggle divider — cream body waves up into the lavender hero. Same
+      {/* Squiggle divider, cream body waves up into the lavender hero. Same
           technique as the shop hero wave, but a repeating multi-hump squiggle
           rather than one big swell. */}
       <svg
@@ -220,7 +220,7 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Start options — the two ways to begin an order
+// Start options, the two ways to begin an order
 // ────────────────────────────────────────────────────────────────────────────
 
 function StartOptions() {
@@ -228,7 +228,7 @@ function StartOptions() {
   return (
     <section className="mx-auto max-w-[1500px] px-6 pb-8 pt-20 lg:px-10 lg:pt-28">
       <div className="grid items-start gap-12 lg:grid-cols-[0.82fr_1.18fr] lg:gap-16">
-        {/* Left column — heading + intro only. */}
+        {/* Left column, heading + intro only. */}
         <Reveal variant="up">
           <div className="lg:pt-4">
             <h2 className="font-display text-[56px] font-bold leading-[0.98] tracking-tight text-dream-ink lg:text-[84px]">
@@ -245,11 +245,11 @@ function StartOptions() {
           </div>
         </Reveal>
 
-        {/* Right column — a bento of mixed-size tiles: the two start options,
+        {/* Right column, a bento of mixed-size tiles: the two start options,
             two studio photos, and a small accent tile. */}
         <Reveal variant="up" delay={120}>
           <div className="grid auto-rows-[104px] grid-cols-6 gap-3 sm:gap-4">
-            {/* Option 1 — large, top-left */}
+            {/* Option 1, large, top-left */}
             <Reveal
               variant="pop"
               className="col-start-1 col-span-4 row-start-1 row-span-3"
@@ -257,7 +257,7 @@ function StartOptions() {
               <BentoOption opt={designIt} className="h-full" />
             </Reveal>
 
-            {/* Photo — top-right */}
+            {/* Photo, top-right */}
             <div className="relative col-start-5 col-span-2 row-start-1 row-span-2 overflow-hidden rounded-[22px] ring-1 ring-dream-ink/10">
               <Image
                 src="/custom-printed-tshirts-vancouver.jpeg"
@@ -268,14 +268,14 @@ function StartOptions() {
               />
             </div>
 
-            {/* Accent — small, right */}
+            {/* Accent, small, right */}
             <div className="col-start-5 col-span-2 row-start-3 row-span-1 flex items-center justify-center rounded-[22px] bg-dream-sun px-3 text-center">
               <span className="font-display text-[17px] font-extrabold leading-tight text-dream-ink">
                 Printed in house
               </span>
             </div>
 
-            {/* Photo — bottom-left */}
+            {/* Photo, bottom-left */}
             <div className="relative col-start-1 col-span-2 row-start-4 row-span-2 overflow-hidden rounded-[22px] ring-1 ring-dream-ink/10">
               <Image
                 src="/screen-printing-process-vancouver.jpeg"
@@ -286,7 +286,7 @@ function StartOptions() {
               />
             </div>
 
-            {/* Option 2 — wide, bottom-right */}
+            {/* Option 2, wide, bottom-right */}
             <Reveal
               variant="pop"
               className="col-start-3 col-span-4 row-start-4 row-span-2"
@@ -540,7 +540,7 @@ function FAQ() {
 // ────────────────────────────────────────────────────────────────────────────
 
 // Full-bleed CTA. It sticks to the top of the viewport so the footer below
-// scrolls up and over it (a reveal effect) — see the SiteFooter wrapper.
+// scrolls up and over it (a reveal effect), see the SiteFooter wrapper.
 function CTA() {
   return (
     <section className="sticky bottom-0 z-0 flex min-h-[58vh] items-center justify-center overflow-hidden px-6 py-20">

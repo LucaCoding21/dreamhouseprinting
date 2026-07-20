@@ -104,7 +104,7 @@ export default function RootLayout({
               />
               <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" />
             </filter>
-            {/* Subtle hand-drawn wobble for thin strokes — single low-amplitude
+            {/* Subtle hand-drawn wobble for thin strokes, single low-amplitude
                 turbulence pass, just enough to keep edges from looking CAD. */}
             <filter
               id="stroke-rough"

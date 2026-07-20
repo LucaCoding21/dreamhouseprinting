@@ -1,6 +1,6 @@
 /**
  * Shared turnaround math. The designer review screen and the checkout review
- * screen both project delivery dates from a product's printing lead time — they
+ * screen both project delivery dates from a product's printing lead time, they
  * MUST use the same helpers or a customer sees one date in the designer and a
  * different one at checkout minutes later. Keep this the single source.
  */

@@ -122,7 +122,7 @@ export default function HowToOrderSteps() {
               <div
                 className={`relative flex min-h-[360px] cursor-pointer flex-col items-center rounded-[28px] px-8 pb-10 pt-9 text-center shadow-[7px_7px_0_0_rgba(27,20,88,0.9)] transition-[transform,box-shadow] duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-[3px_3px_0_0_rgba(27,20,88,0.9)] ${step.cardClass}`}
               >
-                {/* Carved step numeral — bleeds off the bottom-left corner. It
+                {/* Carved step numeral, bleeds off the bottom-left corner. It
                     lives in its own clip layer so only the numeral is clipped to
                     the card shape; the card itself never clips its text. */}
                 <div
@@ -138,7 +138,7 @@ export default function HowToOrderSteps() {
 
                 {/* Content sits above the carved numeral, centred. */}
                 <div className="relative z-10 flex flex-1 flex-col items-center">
-                  {/* Title — the dominant element. */}
+                  {/* Title, the dominant element. */}
                   <h3 className={`font-daruma text-[38px] leading-[0.95] tracking-tight lg:whitespace-nowrap lg:text-[27px] ${step.titleClass}`}>
                     {step.title}
                   </h3>
@@ -156,7 +156,7 @@ export default function HowToOrderSteps() {
                     <path d="M2 7 Q 12.5 1, 23 7 T 44 7 T 65 7 T 86 7" />
                   </svg>
 
-                  {/* Supporting detail — one clean descriptive line. */}
+                  {/* Supporting detail, one clean descriptive line. */}
                   <p className={`mt-5 max-w-[290px] text-[16px] font-medium leading-[1.65] ${step.bulletClass}`}>
                     {step.blurb}
                   </p>

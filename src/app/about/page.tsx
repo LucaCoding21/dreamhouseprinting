@@ -28,7 +28,7 @@ export default function AboutPage() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 1. Hero — flanking copy + huge centered headline + capability strip + wave
+// 1. Hero, flanking copy + huge centered headline + capability strip + wave
 // ────────────────────────────────────────────────────────────────────────────
 
 function Hero() {
@@ -84,7 +84,7 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 2. What We Do — two rotated photo cards + heading & paragraph
+// 2. What We Do, two rotated photo cards + heading & paragraph
 // ────────────────────────────────────────────────────────────────────────────
 
 function WhatWeDo() {
@@ -130,7 +130,7 @@ function WhatWeDo() {
           </h2>
         </div>
 
-        {/* Two-photo column — asymmetric heights + subtle scroll parallax */}
+        {/* Two-photo column, asymmetric heights + subtle scroll parallax */}
         <div className="mx-auto grid w-full max-w-[720px] grid-cols-[0.8fr_1.2fr] items-start gap-4 sm:gap-5">
           <ParallaxScroll speed={0.02}>
             <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
@@ -202,7 +202,7 @@ function WhatWeDo() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 3. Behind the Scenes — landscape video + photo placeholders of the print process
+// 3. Behind the Scenes, landscape video + photo placeholders of the print process
 // ────────────────────────────────────────────────────────────────────────────
 //
 // PLACEHOLDERS: swap the <MediaPlaceholder /> boxes for real media.
@@ -233,7 +233,7 @@ function BehindTheScenes() {
         <rect width="100%" height="100%" fill="url(#about-bts-scallop)" />
       </svg>
 
-      {/* Decorative sticker — fills the empty top-right corner */}
+      {/* Decorative sticker, fills the empty top-right corner */}
       <Image
         src="/madeinvan/sticker1.png"
         alt=""
@@ -244,7 +244,7 @@ function BehindTheScenes() {
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 md:px-8 lg:px-10">
-        {/* TOP-LEFT — heading + copy */}
+        {/* TOP-LEFT, heading + copy */}
         <div className="max-w-[560px] text-left">
           <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
             Behind the{" "}
@@ -266,7 +266,7 @@ function BehindTheScenes() {
           </p>
         </div>
 
-        {/* BOTTOM-RIGHT — video reels */}
+        {/* BOTTOM-RIGHT, video reels */}
         <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-7 lg:mt-16 lg:ml-auto lg:w-[80%] lg:gap-8">
           <ShopReel
             src="/behind-the-scenes/screen-printing-vancouver-shop.mp4"
@@ -290,7 +290,7 @@ function BehindTheScenes() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 4. Ready CTA — soft closing call-to-action
+// 4. Ready CTA, soft closing call-to-action
 // ────────────────────────────────────────────────────────────────────────────
 
 function ReadyCTA() {

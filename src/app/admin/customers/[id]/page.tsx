@@ -79,10 +79,10 @@ export default async function AdminCustomerDetailPage({
             <Avatar name={profile.name ?? profile.email ?? undefined} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="font-display text-lg font-bold text-dream-ink">
-                {profile.name ?? "—"}
+                {profile.name ?? "-"}
               </div>
-              <div className="text-sm text-dream-muted">{profile.email ?? "—"}</div>
-              <div className="text-sm text-dream-muted">{profile.phone ?? "—"}</div>
+              <div className="text-sm text-dream-muted">{profile.email ?? "-"}</div>
+              <div className="text-sm text-dream-muted">{profile.phone ?? "-"}</div>
               {org?.name && (
                 <div className="mt-1">
                   <Badge variant="neutral">{org.name}</Badge>
@@ -139,7 +139,7 @@ export default async function AdminCustomerDetailPage({
                             href={`/admin/orders/${o.id}`}
                             className="font-medium text-dream-purple hover:underline"
                           >
-                            {o.orderNumber ?? "—"}
+                            {o.orderNumber ?? "-"}
                           </Link>
                         </TD>
                         <TD className="text-dream-muted">

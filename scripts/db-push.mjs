@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * db-push — applies SQL migration files to the Dreamhouse Supabase project via
+ * db-push, applies SQL migration files to the Dreamhouse Supabase project via
  * the Supabase Management API (https://api.supabase.com/v1/projects/{ref}/database/query).
  *
  * Why the Management API and not the supabase-js SDK or the MCP:
@@ -79,7 +79,7 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-console.log(`Project ${REF} — ${files.length} migration file(s)\n`);
+console.log(`Project ${REF}, ${files.length} migration file(s)\n`);
 
 let appliedCount = 0;
 for (const file of files) {

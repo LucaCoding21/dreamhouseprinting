@@ -15,7 +15,7 @@ const MINT_WINDOW_MS = 10 * 60 * 1000;
 // (large multipart uploads through /api/submit were failing with 413). The
 // browser uploads to these URLs; /api/submit then just records the paths.
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB — must match the client cap
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB, must match the client cap
 const KINDS = new Set(["artwork", "price-match"]);
 
 type FileReq = { id: string; kind: string; name: string; size: number };
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
-  // No storage configured (local dev without creds) — tell the client to skip
+  // No storage configured (local dev without creds), tell the client to skip
   // direct upload and submit without files, matching the old graceful path.
   if (!supabase) {
     return NextResponse.json({ configured: false });

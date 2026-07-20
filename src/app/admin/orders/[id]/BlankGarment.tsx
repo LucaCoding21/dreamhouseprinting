@@ -35,7 +35,7 @@ function sanitize(s: string): string {
 }
 
 /**
- * The exact S&S blank garment for a line — the customer's colour with no art.
+ * The exact S&S blank garment for a line, the customer's colour with no art.
  * Compact button that opens a modal of the front/back/side blanks, each
  * downloadable, so admin can pull the exact garment (e.g. the exact red shirt).
  */

@@ -40,7 +40,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
   const [tracking, setTracking] = useState(order.shipping_tracking ?? "");
 
   // Approve on the customer's behalf, recording WHY as an internal note (paper
-  // trail — with many orders, an on-behalf approval needs a reason on record).
+  // trail, with many orders, an on-behalf approval needs a reason on record).
   function approveOnBehalf() {
     const reason = approveReason.trim();
     if (!reason) return;
@@ -74,7 +74,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
   }
 
   function putOnHold() {
-    const reason = window.prompt("Reason for hold (optional) — added as an internal comment:") ?? "";
+    const reason = window.prompt("Reason for hold (optional), added as an internal comment:") ?? "";
     run(async () => {
       const r = await setOrderStatusAction(order.id, "on_hold");
       if (!r.error && reason.trim()) await addOrderNoteAction(order.id, `On hold: ${reason.trim()}`, "internal");
@@ -112,10 +112,10 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
 
   return (
     <div className="space-y-5 rounded-xl border border-dream-line bg-dream-surface p-5 shadow-sm sm:p-6">
-      {/* Row 1 — nav + utilities */}
+      {/* Row 1, nav + utilities */}
       <div className="flex items-center justify-between gap-3">
         <Link href="/admin/orders" className="text-sm text-dream-purple hover:underline">
-          ← Back to orders
+          Back to orders
         </Link>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={copyLink}>
@@ -148,7 +148,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         </div>
       </div>
 
-      {/* Row 2 — identity + status */}
+      {/* Row 2, identity + status */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
@@ -175,7 +175,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         </div>
       )}
 
-      {/* Row 3 — hero action */}
+      {/* Row 3, hero action */}
       {can.edit && (
         <div className="border-t border-dream-line pt-5">{renderHero()}</div>
       )}
@@ -270,7 +270,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
           </DialogHeader>
           <div className="p-5 pt-0">
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
-              Why are you approving for them? (internal — the customer never sees this)
+              Why are you approving for them? (internal, the customer never sees this)
             </label>
             <Textarea
               rows={3}
@@ -335,10 +335,10 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               Upload proof
             </Button>
             <p className="text-sm text-dream-muted">
-              Sends an approval email — the customer approves &amp; pays in one step, so double-check pricing first
+              Sends an approval email, the customer approves &amp; pays in one step, so double-check pricing first
             </p>
             <Button variant="ghost" className="ml-auto" onClick={() => setApproveConfirm(true)}>
-              Looks good — skip proof
+              Looks good, skip proof
             </Button>
           </div>
         );
@@ -394,7 +394,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         return (
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="warn" className="px-3 py-1.5 text-sm">
-              Approved — awaiting payment
+              Approved, awaiting payment
             </Badge>
             <p className="text-sm text-dream-muted">The customer can pay from their order page any time</p>
             <div className="ml-auto flex flex-wrap gap-2">

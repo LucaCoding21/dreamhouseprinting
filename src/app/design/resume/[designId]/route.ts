@@ -6,7 +6,7 @@ import { GUEST_COOKIE, GUEST_COOKIE_OPTIONS, getGuestToken } from "@/lib/guest";
 
 /**
  * Guest design-resume link (from the "your design is saved" email). The `?t=`
- * query token must equal the design's stored guest_token exactly — the design id
+ * query token must equal the design's stored guest_token exactly, the design id
  * alone is not enough. Any mismatch/missing/lookup failure silently redirects to
  * /shop so we never confirm whether a given design id exists.
  *
@@ -54,7 +54,7 @@ export async function GET(
     const leadEmail = (data.lead_email ?? "").trim().toLowerCase();
     // Only the person the design was saved for may resume it into their account.
     if (!accountEmail || leadEmail !== accountEmail) return toShop;
-    // Email match is proof of ownership — attach the guest design so the
+    // Email match is proof of ownership, attach the guest design so the
     // logged-in (customer_id-scoped) designer loader can read it. No cookie set.
     await claimGuestRecords(user.id, user.email!);
     return NextResponse.redirect(dest);

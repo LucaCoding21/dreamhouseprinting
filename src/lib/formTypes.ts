@@ -28,13 +28,13 @@ export type PrintLocation =
   | "sleeve-right";
 
 export type QuoteFormData = {
-  // Step 1 — Contact
+  // Step 1, Contact
   name: string;
   email: string;
   phone: string;
   referralCode: string;
 
-  // Step 2 — Product
+  // Step 2, Product
   productType: ProductType | "";
   garmentBrand: GarmentBrand | "";
   garmentColor: string;
@@ -42,20 +42,20 @@ export type QuoteFormData = {
   sizesLater: boolean;
   quantity: string;
 
-  // Step 3 — Print
+  // Step 3, Print
   printColors: string;
   printLocations: PrintLocation[];
   printMethod: PrintMethod;
 
-  // Step 4 — Artwork
+  // Step 4, Artwork
   designDescription: string;
 
-  // Step 5 — Timeline
+  // Step 5, Timeline
   neededBy: string;
   notes: string;
   priceMatchLink: string;
 
-  // Attribution — how the customer found us (marketing source)
+  // Attribution, how the customer found us (marketing source)
   heardAbout: string;
 };
 
@@ -114,7 +114,7 @@ export const PRINT_LOCATIONS: { value: PrintLocation; label: string }[] = [
 ];
 
 export const PRINT_METHOD_OPTIONS: { value: PrintMethod; label: string }[] = [
-  { value: "not-sure", label: "Not sure — Julian figures it out" },
+  { value: "not-sure", label: "Not sure, Julian figures it out" },
   { value: "screen", label: "Screen print" },
   { value: "embroidery", label: "Embroidery" },
   { value: "dtg", label: "DTG" },

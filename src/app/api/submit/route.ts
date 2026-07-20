@@ -125,7 +125,7 @@ function renderEmailHtml(
         : data.garmentBrand === "comfort-colors"
           ? "Comfort Colors (premium)"
           : data.garmentBrand === "no-preference"
-            ? "No preference — Julian picks"
+            ? "No preference, Julian picks"
             : "";
 
   const sizesEntries = (Object.keys(data.sizes) as SizeKey[])
@@ -136,7 +136,7 @@ function renderEmailHtml(
     ? sizesEntries.join(" · ")
     : data.sizesLater
       ? "Will provide later"
-      : "—";
+      : "-";
 
   const priceMatchLinkHtml = data.priceMatchLink
     ? `<div><a href="${esc(data.priceMatchLink)}" style="color:#7664ff;font-weight:600;word-break:break-all;">${esc(data.priceMatchLink)}</a></div>`
@@ -147,7 +147,7 @@ function renderEmailHtml(
       ? `${priceMatchLinkHtml}${priceMatch.length > 0 ? priceMatchFilesHtml : ""}`
       : '<span style="color:#8a7bff;">None</span>';
 
-  // Quote estimate box — the price the customer saw, plus the "why" breakdown.
+  // Quote estimate box, the price the customer saw, plus the "why" breakdown.
   let estimateHtml = "";
   if (estimate && estimate.available) {
     const decoLabel =
@@ -172,7 +172,7 @@ function renderEmailHtml(
     estimateHtml = `
     <div style="padding:18px 24px;background:#fff7d6;border-bottom:1px solid #eee;">
       <p style="margin:0 0 4px;color:#4a3f9e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Quote shown to customer</p>
-      <p style="margin:0;color:#1b1458;font-size:16px;font-weight:700;">No auto-estimate — custom item, needs a manual quote.</p>
+      <p style="margin:0;color:#1b1458;font-size:16px;font-weight:700;">No auto-estimate, custom item, needs a manual quote.</p>
     </div>`;
   }
 
@@ -190,11 +190,11 @@ function renderEmailHtml(
         ${row("Name", data.name)}
         ${row("Email", data.email)}
         ${row("Phone", data.phone)}
-        ${row("Referral", data.referralCode || "—")}
-        ${row("Found us via", data.heardAbout || "—")}
+        ${row("Referral", data.referralCode || "-")}
+        ${row("Found us via", data.heardAbout || "-")}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
         ${row("Product", data.productType)}
-        ${row("Brand tier", brandLabel || "—")}
+        ${row("Brand tier", brandLabel || "-")}
         ${row("Color", data.garmentColor)}
         ${row("Quantity", data.quantity)}
         ${row("Sizes", sizesLine)}
@@ -203,9 +203,9 @@ function renderEmailHtml(
         ${row("Print locations", data.printLocations.join(", "))}
         ${row("Print method", data.printMethod)}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
-        ${row("Needed by", data.neededBy || "—")}
-        ${row("Design notes", data.designDescription || "—")}
-        ${row("Other notes", data.notes || "—")}
+        ${row("Needed by", data.neededBy || "-")}
+        ${row("Design notes", data.designDescription || "-")}
+        ${row("Other notes", data.notes || "-")}
       </tbody>
     </table>
     <div style="padding:16px 24px;border-top:1px solid #eee;">
@@ -241,7 +241,7 @@ async function sendEmail(
 
   if (!apiKey || recipients.length === 0) {
     console.log(
-      "[submit] Resend not configured — skipping email. Recipients:",
+      "[submit] Resend not configured, skipping email. Recipients:",
       recipients,
       "Key set:",
       !!apiKey,
@@ -254,7 +254,7 @@ async function sendEmail(
     from: `Dreamhouse Quotes <${from}>`,
     to: recipients,
     replyTo: data.email,
-    subject: `New quote request — ${data.name} (${data.quantity}x ${data.productType})`,
+    subject: `New quote request, ${data.name} (${data.quantity}x ${data.productType})`,
     html: renderEmailHtml(data, artwork, priceMatch, estimate),
   });
   if (error) {
@@ -309,7 +309,7 @@ function validatePayload(raw: unknown): QuoteFormData | null {
 
 export async function POST(request: Request) {
   try {
-    // Body is small JSON now — files were uploaded straight to Storage from the
+    // Body is small JSON now, files were uploaded straight to Storage from the
     // browser (see /api/upload-url), so we only receive their {name, path}.
     let body: Record<string, unknown>;
     try {
@@ -375,7 +375,7 @@ export async function POST(request: Request) {
       }
       submissionId = inserted.id as string;
     } else {
-      console.log("[submit] Supabase not configured — logging submission:", {
+      console.log("[submit] Supabase not configured, logging submission:", {
         id: submissionId,
         data,
         artworkCount: artworkRefs.length,

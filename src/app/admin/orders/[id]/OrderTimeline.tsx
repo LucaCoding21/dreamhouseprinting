@@ -21,7 +21,7 @@ export function OrderTimeline({
 }) {
   const { pending, run } = useOrderAction();
   const [note, setNote] = useState("");
-  const [vis, setVis] = useState<"internal" | "customer">("internal");
+  const [vis, setVis] = useState<"internal" | "customer">("customer");
 
   const feed = useMemo(() => {
     const internal = ((order.internal_notes ?? []) as unknown as Note[]).map((n) => ({ ...n, vis: "internal" as const }));
@@ -83,8 +83,8 @@ export function OrderTimeline({
             onChange={(e) => setVis(e.target.value as "internal" | "customer")}
             className="w-44"
           >
+            <option value="customer">Customer (emails them)</option>
             <option value="internal">Internal (admin only)</option>
-            <option value="customer">Customer-visible</option>
           </Select>
           <Button
             variant="primary"

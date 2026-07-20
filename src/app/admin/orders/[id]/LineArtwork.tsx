@@ -198,7 +198,7 @@ function collectPieces(scenes: Record<string, SceneJson>): Piece[] {
 }
 
 /**
- * Per-line artwork viewer — a "View artwork" button that opens a modal with the
+ * Per-line artwork viewer, a "View artwork" button that opens a modal with the
  * customer's original uploads and every design piece (image / sticker / text),
  * each downloadable, ready to drop into a proof. One design per line.
  */

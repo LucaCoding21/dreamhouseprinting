@@ -30,7 +30,7 @@ function Inner({
   size?: "sm" | "md";
 }) {
   // "md" compresses on laptop widths (xl) and relaxes back to the full
-  // desktop proportions at 2xl — the nav row doesn't fit six full-size
+  // desktop proportions at 2xl, the nav row doesn't fit six full-size
   // pills plus logo/search/CTA until ~1536px.
   const sizeClass =
     size === "sm"

@@ -170,7 +170,7 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
             Reference blank cost
             <InfoTip text="The blank wholesale these tiers are calibrated for. A product with a pricier blank pays these prices plus the difference; a cheaper blank pays less. Set on the reference product, not here." />
           </span>
-          <span className="font-semibold text-dream-ink">{profile.ref_wholesale != null ? formatCAD(profile.ref_wholesale) : "—"}</span>
+          <span className="font-semibold text-dream-ink">{profile.ref_wholesale != null ? formatCAD(profile.ref_wholesale) : "-"}</span>
         </div>
 
         {data.productCount > 0 && (

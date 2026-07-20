@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 
 /**
  * Lightweight disclosure used for the product detail "Product details" and
- * "Shipping & turnaround" sections (PRD product page). No dependency — a button
+ * "Shipping & turnaround" sections (PRD product page). No dependency, a button
  * toggling a region, matching the reference's collapsible rows.
  */
 export function Collapsible({

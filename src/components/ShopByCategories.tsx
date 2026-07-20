@@ -18,7 +18,7 @@ type Category = {
 const CATEGORIES: Category[] = [
   {
     label: "Shirts",
-    href: "/?product=shirt#quick-quote",
+    href: "/shop?category=shirts",
     image: "/shopbycategories/custom-printed-t-shirts-vancouver.jpg",
     imageAlt: "Stack of folded screen-printed t-shirts in white, yellow, and grey with graphic designs",
     imageTitle: "Custom t-shirts",
@@ -29,7 +29,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: "Hoodies",
-    href: "/?product=hoodie#quick-quote",
+    href: "/shop?category=hoodies",
     image: "/shopbycategories/custom-printed-hoodies-vancouver.jpeg",
     imageAlt: "Three custom-printed pullover hoodies in charcoal, olive green, and navy with screen-printed front graphics",
     imageTitle: "Custom hoodies",
@@ -40,7 +40,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: "Hats",
-    href: "/?product=hat#quick-quote",
+    href: "/shop?category=hats-toques",
     image: "/shopbycategories/custom-embroidered-dad-caps-vancouver-v2.webp",
     imageAlt: "Stack of four embroidered dad caps in green, maroon, navy, and grey on a light grey background",
     imageTitle: "Custom embroidered hats",
@@ -51,7 +51,7 @@ const CATEGORIES: Category[] = [
   },
   {
     label: "Bags",
-    href: "/?product=bag#quick-quote",
+    href: "/shop?category=totes",
     image: "/shopbycategories/custom-tote-bags-vancouver.webp",
     imageAlt: "Three natural cotton canvas tote bags with orange printed graphics",
     imageTitle: "Custom tote bags",

@@ -8,7 +8,7 @@ import type { OrderViewActions, OrderViewEtransfer } from "./types";
 
 /**
  * Payment strip. Rendered INSIDE the combined "Payment" box (alongside the cost
- * summary + total) once the order is payable — proof approved (approve-and-pay)
+ * summary + total) once the order is payable, proof approved (approve-and-pay)
  * or an invoice was explicitly sent. No card wrapper and no amount figure of its
  * own: the box's Total is the amount. Three states: settled (paid), e-transfer
  * reported (verifying; card stays a fallback), and due. "Pay now" opens the
@@ -63,7 +63,7 @@ export function InvoicePanel({
   return (
     <div>
         {paidAt ? (
-          // Settled — a compact positive confirmation (the box Total is the amount).
+          // Settled, a compact positive confirmation (the box Total is the amount).
           <div className="flex items-center gap-3 rounded-2xl bg-dream-success-soft px-4 py-3 ring-1 ring-dream-success/25">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-dream-success text-white">
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

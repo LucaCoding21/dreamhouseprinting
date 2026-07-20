@@ -71,7 +71,7 @@ interface MethodLite {
   per_color_cost: number;
 }
 
-/** A saved design loaded for editing — rehydrates the canvas + review state. */
+/** A saved design loaded for editing, rehydrates the canvas + review state. */
 export interface InitialDesign {
   designId: string;
   name: string | null;
@@ -143,7 +143,7 @@ const GRID_BG: React.CSSProperties = {
   backgroundSize: "26px 26px",
 };
 
-// Floating canvas toolbars — frosted glass, no drop shadow, so the chrome sits
+// Floating canvas toolbars, frosted glass, no drop shadow, so the chrome sits
 // light over the grid instead of reading as a raised surface.
 const GLASS = "rounded-2xl bg-white/60 ring-1 ring-dream-ink/[0.06] backdrop-blur-md";
 
@@ -157,7 +157,7 @@ const CLIPART: { name: string; svg: string }[] = [
   },
   {
     name: "Heart",
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.7-9.7-9.1C.8 8.6 2.3 5.3 5.5 5.3c2 0 3.4 1.2 4.2 2.6C10.6 6.5 12 5.3 14 5.3c3.2 0 4.7 3.3 3.2 6.6C19 16.3 12 21 12 21z" fill="#ff5d8f"/></svg>`,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#ff5d8f"/></svg>`,
   },
   {
     name: "Circle",
@@ -199,7 +199,7 @@ export function DesignerClient(props: Props) {
   const histories = useRef<Record<string, object[]>>({});
   const futures = useRef<Record<string, object[]>>({});
 
-  // Editable views — front/back only. Sleeve is intentionally excluded: we have
+  // Editable views, front/back only. Sleeve is intentionally excluded: we have
   // no true sleeve mockup, so instead of an editable canvas (which would show a
   // misleading front image) we route sleeve requests to a "message us" handoff.
   const views = useMemo(() => {
@@ -217,25 +217,27 @@ export function DesignerClient(props: Props) {
     edit?.colourName ?? props.initialColourName ?? props.colours[0]?.name ?? "",
   );
   // The canvas that tool actions (upload/text/clip-art/undo) target. The user
-  // switches it by clicking a canvas or the "Adding to" pills.
-  const [activeView, setActiveView] = useState<View>(views[0] ?? "front");
-  // Colour is the default landing tab — the first thing a customer sees.
+  // switches it by clicking a canvas or the "Adding to" pills. Null = nothing
+  // active (only possible in side-by-side "both" mode, after a click on the
+  // neutral editor background clears the selection).
+  const [activeView, setActiveView] = useState<View | null>(views[0] ?? "front");
+  // Colour is the default landing tab, the first thing a customer sees.
   const [tool, setTool] = useState<Tool>("colour");
-  // Left panel collapse — shrinks the column to just the icon rail.
+  // Left panel collapse, shrinks the column to just the icon rail.
   const [leftOpen, setLeftOpen] = useState(true);
   // Feedback under the upload dropzone: a rejected file (error) or a heads-up
   // like "showing page 1 of a multi-page PDF" (info). Cleared on each new pick.
   const [uploadMsg, setUploadMsg] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   // True while a picked file is being read/rasterized (PDFs take a beat).
   const [uploadBusy, setUploadBusy] = useState(false);
-  // The customer price curve (products.pricing_rules.quote) — the same table
+  // The customer price curve (products.pricing_rules.quote), the same table
   // the product page quotes. When present it is THE pricing engine here too.
   const curve = useMemo(
     () => curveForProduct({ pricing_rules: props.pricing.pricing_rules as never }),
     [props.pricing.pricing_rules]
   );
   // Methods the customer can pick. When the product has a curve (the normal
-  // case), only offer methods the curve can price — otherwise DTG/vinyl would
+  // case), only offer methods the curve can price, otherwise DTG/vinyl would
   // fall through to the uncalibrated cost-plus fallback and underprice the job.
   const priceableMethods = useMemo(
     () =>
@@ -255,7 +257,7 @@ export function DesignerClient(props: Props) {
   // Per-size quantity breakdown, collected on the review screen. Total quantity
   // is derived from the sum and drives pricing.
   const [sizeQty, setSizeQty] = useState<Record<string, number>>(edit?.primarySizeQty ?? {});
-  // Additional garment colourways for the same artwork — each with its own size
+  // Additional garment colourways for the same artwork, each with its own size
   // breakdown. The primary (canvas) colour + sizeQty is the first colourway;
   // these are the "Add another colour" rows on the review screen.
   const [extraColorways, setExtraColorways] = useState<
@@ -272,12 +274,12 @@ export function DesignerClient(props: Props) {
   // URLs) never re-run it. `pending` guards duplicate in-flight analyses.
   const analysisCache = useRef(new Map<string, ColourAnalysis>());
   const pendingAnalyses = useRef(new Set<string>());
-  // Rush delivery is disabled for now — the toggle was removed from the review
+  // Rush delivery is disabled for now, the toggle was removed from the review
   // screen. Kept as a const so the pricing/snapshot plumbing stays intact.
   const rush = false;
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
   // Views where some artwork spills past the dashed print box. Purely a friendly
-  // heads-up — never blocks ordering (a human rechecks every design at proofing).
+  // heads-up, never blocks ordering (a human rechecks every design at proofing).
   const [outOfBounds, setOutOfBounds] = useState<Set<View>>(new Set());
   // Which canvas currently has a selected object (drives the selection rail).
   // isText gates the text-only colour control.
@@ -302,6 +304,10 @@ export function DesignerClient(props: Props) {
   const [previews, setPreviews] = useState<{ view: View; url: string }[]>([]);
   const [previewIdx, setPreviewIdx] = useState(0);
   const [textColor, setTextColor] = useState("#1b1458");
+  // Text size + alignment: applied to the selected text object and used as the
+  // default for newly added text. Alignment matters mostly for multi-line text.
+  const [fontSize, setFontSize] = useState(40);
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("center");
   // Currently-selected text font (identified by its CSS family string). New text
   // boxes use it; picking a font also restyles the selected text object.
   const [textFontCss, setTextFontCss] = useState(DESIGNER_FONTS[0].css);
@@ -309,7 +315,7 @@ export function DesignerClient(props: Props) {
   // The font picker is a collapsed dropdown (there are many faces now) that
   // expands to a previewed list instead of a big always-open grid.
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
-  // "Save your design" modal — gates the checkout funnel, captures a name + lead
+  // "Save your design" modal, gates the checkout funnel, captures a name + lead
   // email before we send the customer into checkout.
   const [showSave, setShowSave] = useState(false);
   // "?" help dialog on the review spec table (measurement / colour count).
@@ -331,6 +337,9 @@ export function DesignerClient(props: Props) {
       ? { box: pa.position, name: pa.name, maxWidthIn: pa.maxWidthIn, maxHeightIn: pa.maxHeightIn }
       : null;
   };
+  // Which side to SHOW when nothing is active: keeps single-view mode from ever
+  // blanking. The visible "active" ring still tracks the raw (nullable) activeView.
+  const displayView: View = activeView ?? views[0] ?? "front";
 
   const sizeRange =
     props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
@@ -352,7 +361,7 @@ export function DesignerClient(props: Props) {
 
   // Pricing colour count, derived from the artwork (was a hardcoded 1). Exact
   // vector counts are used as-is; raster estimates and "full colour" are
-  // provisional — the artist confirms the count (and price) at proofing, and
+  // provisional, the artist confirms the count (and price) at proofing, and
   // nothing is charged before the invoice. When sides differ we price the
   // highest count. Only matters for methods with a per-colour cost.
   const inkColours = useMemo(() => {
@@ -383,7 +392,7 @@ export function DesignerClient(props: Props) {
   );
   const quantity = colourwayQty.reduce((s, n) => s + n, 0);
 
-  // Job pricing — the customer curve whenever the product has one and the
+  // Job pricing, the customer curve whenever the product has one and the
   // method maps onto it. Curve prices are all-inclusive, so setup is $0.
   // Products without a curve fall back to the platform cost-plus engine.
   const curveDecoration = decorationForMethodSlug(method?.slug);
@@ -440,7 +449,7 @@ export function DesignerClient(props: Props) {
   // the instant-estimate box on the product page, incl. its qty-12 anchor).
   const priceMeta = { anchorPerUnit: jobPrice.anchorPerUnit, discountPct: jobPrice.discountPct };
 
-  // Next quantity break within reach — powers the "add N more to save X%"
+  // Next quantity break within reach, powers the "add N more to save X%"
   // nudge. Reads the curve's own tiers; falls back to platform bulkTiers.
   const nextTier = useMemo(() => {
     if (curve && curveDecoration && jobPrice.engine === "curve") {
@@ -480,7 +489,7 @@ export function DesignerClient(props: Props) {
   }
 
   // (Re)load every mounted canvas's garment + print area when the colour changes.
-  // Art on each canvas is preserved — only the garment backdrop swaps.
+  // Art on each canvas is preserved, only the garment backdrop swaps.
   useEffect(() => {
     setLoadedViews(new Set());
     views.forEach((v) => {
@@ -521,8 +530,8 @@ export function DesignerClient(props: Props) {
 
   // Undo/redo state reflects whichever canvas is currently active.
   useEffect(() => {
-    setCanUndo((histories.current[activeView]?.length ?? 0) > 0);
-    setCanRedo((futures.current[activeView]?.length ?? 0) > 0);
+    setCanUndo(activeView ? (histories.current[activeView]?.length ?? 0) > 0 : false);
+    setCanRedo(activeView ? (futures.current[activeView]?.length ?? 0) > 0 : false);
   }, [activeView]);
 
   function refreshUndo(v: View) {
@@ -530,7 +539,7 @@ export function DesignerClient(props: Props) {
     setCanRedo((futures.current[v]?.length ?? 0) > 0);
   }
 
-  // Delete / Backspace removes the selected object — unless a text box is being
+  // Delete / Backspace removes the selected object, unless a text box is being
   // edited (those keys edit the text) or focus is in a form field.
   useEffect(() => {
     if (!selection) return;
@@ -547,6 +556,40 @@ export function DesignerClient(props: Props) {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection]);
+
+  // Keyboard undo / redo on the active canvas: Cmd/Ctrl+Z undo,
+  // Cmd/Ctrl+Shift+Z or Ctrl+Y redo. Ignored while editing a text box or typing
+  // in a form field so the shortcut doesn't fight native text undo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (phase !== "design") return;
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      const key = e.key.toLowerCase();
+      const isUndo = key === "z" && !e.shiftKey;
+      const isRedo = (key === "z" && e.shiftKey) || key === "y";
+      if (!isUndo && !isRedo) return;
+      if (activeView && canvasRefs.current[activeView]?.isEditingText()) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      e.preventDefault();
+      if (isRedo) void redo();
+      else void undo();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, phase]);
+
+  /** Click on the neutral editor background: drop every canvas's object
+   *  selection, and (in side-by-side mode) clear the active-canvas highlight so
+   *  nothing looks selected. Single-view / single mode keep a target so the
+   *  tools always have somewhere to place art. */
+  function clearActive() {
+    views.forEach((v) => canvasRefs.current[v]?.discardSelection());
+    setSelection(null);
+    if (views.length > 1 && viewMode === "both") setActiveView(null);
+  }
 
   /** Focus a canvas (tool target) and scroll it into view. */
   function focusView(v: View) {
@@ -575,8 +618,19 @@ export function DesignerClient(props: Props) {
     refreshUndo(v);
   }
 
+  /** Record a USER transform/text-edit for undo: `preScene` is the state before
+   *  the change (captured by the canvas at gesture start). */
+  function commitModify(v: View, preScene: object) {
+    (histories.current[v] ??= []).push(preScene);
+    if (histories.current[v].length > 30) histories.current[v].shift();
+    futures.current[v] = [];
+    refreshUndo(v);
+    onCanvasChange(v);
+  }
+
   async function undo() {
     const v = activeView;
+    if (!v) return;
     const c = canvasRefs.current[v];
     const hist = histories.current[v];
     if (!c || !hist || hist.length === 0) return;
@@ -592,6 +646,7 @@ export function DesignerClient(props: Props) {
 
   async function redo() {
     const v = activeView;
+    if (!v) return;
     const c = canvasRefs.current[v];
     const fut = futures.current[v];
     if (!c || !fut || fut.length === 0) return;
@@ -692,6 +747,16 @@ export function DesignerClient(props: Props) {
   function onSelectionChange(v: View, has: boolean, isText?: boolean) {
     if (has) setActiveView(v);
     setSelection((prev) => (has ? { view: v, isText: !!isText } : prev?.view === v ? null : prev));
+    // Sync the text controls to the newly selected text object so size / align /
+    // colour reflect what the customer clicked (rather than the last-used values).
+    if (has && isText) {
+      const p = canvasRefs.current[v]?.getActiveTextProps();
+      if (p) {
+        setFontSize(Math.round(p.fontSize));
+        setTextAlign(p.textAlign === "center" ? "center" : p.textAlign === "right" ? "right" : "left");
+        setTextColor(p.fill);
+      }
+    }
   }
 
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -700,16 +765,16 @@ export function DesignerClient(props: Props) {
     if (!file) return;
     setUploadMsg(null);
 
-    // 1. Size gate — reject before reading so a huge file never loads into memory.
+    // 1. Size gate, reject before reading so a huge file never loads into memory.
     if (file.size > MAX_UPLOAD_BYTES) {
       setUploadMsg({
         tone: "error",
-        text: `That file is ${formatSize(file.size)} — the max is ${formatSize(MAX_UPLOAD_BYTES)}. Try compressing it, or upload a vector (SVG/PDF).`,
+        text: `That file is ${formatSize(file.size)}, the max is ${formatSize(MAX_UPLOAD_BYTES)}. Try compressing it, or upload a vector (SVG/PDF).`,
       });
       return;
     }
 
-    // 2. Type gate — only preview formats the browser can actually draw.
+    // 2. Type gate, only preview formats the browser can actually draw.
     const kind = classifyFile(file);
     if (kind.kind === "unsupported") {
       setUploadMsg({ tone: "error", text: kind.message });
@@ -717,6 +782,10 @@ export function DesignerClient(props: Props) {
     }
 
     const v = activeView;
+    if (!v) {
+      setUploadMsg({ tone: "error", text: "Click a shirt side (front or back) first, then upload your art." });
+      return;
+    }
     const id = crypto.randomUUID();
     setUploadBusy(true);
     try {
@@ -726,7 +795,7 @@ export function DesignerClient(props: Props) {
       if (kind.kind === "pdf") {
         const { dataUrl: png, numPages } = await renderPdfFirstPage(file);
         dataUrl = png;
-        if (numPages > 1) info = `Multi-page PDF — showing page 1 of ${numPages}. We print from your full file.`;
+        if (numPages > 1) info = `Multi-page PDF, showing page 1 of ${numPages}. We print from your full file.`;
       } else {
         dataUrl = await readImageDataUrl(file);
       }
@@ -754,17 +823,21 @@ export function DesignerClient(props: Props) {
   function addText() {
     // Add an editable text object; the customer double-clicks on the canvas to edit it.
     const v = activeView;
+    if (!v) return;
     snapshot(v);
     canvasRefs.current[v]?.addText("Your text", {
       fontFamily: textFont.css,
       fontWeight: textFont.weight,
       fill: textColor,
+      fontSize,
+      textAlign,
     });
     onCanvasChange(v);
   }
 
   async function addClipart(svg: string) {
     const v = activeView;
+    if (!v) return;
     snapshot(v);
     await canvasRefs.current[v]?.addImageFromUrl(svgToDataUrl(svg));
     onCanvasChange(v);
@@ -773,16 +846,37 @@ export function DesignerClient(props: Props) {
   function applyTextColor(hex: string) {
     setTextColor(hex);
     const v = selection?.view ?? activeView;
+    if (!v) return;
     canvasRefs.current[v]?.setActiveColor(hex);
   }
 
   function applyTextFont(font: DesignerFont) {
     setTextFontCss(font.css);
     const v = selection?.view ?? activeView;
+    if (!v) return;
     canvasRefs.current[v]?.setActiveFont(font.css, font.weight);
   }
 
-  // Print-method picker — shown inside each tool panel (upload/text). Drives
+  function applyFontSize(nRaw: number) {
+    const n = Math.max(8, Math.min(200, Math.round(nRaw)));
+    setFontSize(n);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    // Snapshot only when it actually mutates a selected text object (changing the
+    // default for the next text box shouldn't create an undo step).
+    if (selection?.isText && selection.view === v) snapshot(v);
+    canvasRefs.current[v]?.setActiveFontSize(n);
+  }
+
+  function applyTextAlign(a: "left" | "center" | "right") {
+    setTextAlign(a);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    if (selection?.isText && selection.view === v) snapshot(v);
+    canvasRefs.current[v]?.setActiveTextAlign(a);
+  }
+
+  // Print-method picker, shown inside each tool panel (upload/text). Drives
   // decoration pricing and tells Julian how the job is made. Shared so both
   // panels stay in sync off the single `methodId` state.
   const methodPicker = priceableMethods.length > 0 && (
@@ -817,6 +911,7 @@ export function DesignerClient(props: Props) {
 
   function layer(dir: "forward" | "back") {
     const v = selection?.view ?? activeView;
+    if (!v) return;
     const c = canvasRefs.current[v];
     if (!c) return;
     snapshot(v);
@@ -827,6 +922,7 @@ export function DesignerClient(props: Props) {
 
   async function duplicate() {
     const v = selection?.view ?? activeView;
+    if (!v) return;
     snapshot(v);
     await canvasRefs.current[v]?.duplicateActive();
     onCanvasChange(v);
@@ -834,6 +930,7 @@ export function DesignerClient(props: Props) {
 
   function flip(axis: "h" | "v") {
     const v = selection?.view ?? activeView;
+    if (!v) return;
     snapshot(v);
     canvasRefs.current[v]?.flipActive(axis);
     onCanvasChange(v);
@@ -841,6 +938,7 @@ export function DesignerClient(props: Props) {
 
   function centerArt() {
     const v = selection?.view ?? activeView;
+    if (!v) return;
     snapshot(v);
     canvasRefs.current[v]?.centerActiveInPrintArea();
     onCanvasChange(v);
@@ -854,7 +952,9 @@ export function DesignerClient(props: Props) {
   }
 
   function deleteActive() {
-    deleteActiveOn(selection?.view ?? activeView);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    deleteActiveOn(v);
   }
 
   async function stageUploads(items: { id: string; bucket: string; name: string; kind: string; blob: Blob }[]) {
@@ -870,7 +970,7 @@ export function DesignerClient(props: Props) {
         const j = (await res.json()) as { error?: string };
         if (j?.error) msg = j.error;
       } catch {
-        /* non-JSON body — keep the generic message */
+        /* non-JSON body, keep the generic message */
       }
       throw new Error(msg);
     }
@@ -894,13 +994,13 @@ export function DesignerClient(props: Props) {
     const body = dataUrl.slice(comma + 1);
     const mime = /^data:([^;,]+)/.exec(head)?.[1] ?? "image/png";
     // Not everything is base64: clip-art SVGs are utf8/percent-encoded
-    // (`data:image/svg+xml;utf8,…`) — atob() on those throws.
+    // (`data:image/svg+xml;utf8,…`), atob() on those throws.
     if (!/;base64$/i.test(head)) {
       let text = body;
       try {
         text = decodeURIComponent(body);
       } catch {
-        /* body wasn't percent-encoded — use it raw */
+        /* body wasn't percent-encoded, use it raw */
       }
       return new Blob([text], { type: mime });
     }
@@ -932,7 +1032,7 @@ export function DesignerClient(props: Props) {
    * Persist the current design as a draft, then route on. "cart" adds the saved
    * design to the lite cart (carrying the name + lead email from the save modal)
    * and sends the customer to /cart; "designs" parks the draft in My Designs. The
-   * actual Order is NOT created here — it's placed from the cart at checkout.
+   * actual Order is NOT created here, it's placed from the cart at checkout.
    */
   async function saveDesign(
     destination: "cart" | "designs",
@@ -987,7 +1087,7 @@ export function DesignerClient(props: Props) {
 
       // Strip embedded data-URL art out of the scene payload. A big photo or a
       // rasterized PDF page is megabytes of base64, and the scene JSON travels
-      // through a server action (1MB default cap — the "Body exceeded 1 MB
+      // through a server action (1MB default cap, the "Body exceeded 1 MB
       // limit" bug). Each unique image is staged to Storage alongside the
       // mockups; the scene carries a `dh-staged:<path>` marker that the server
       // rewrites to a signed URL. Re-opened designs already hold https srcs,
@@ -1006,7 +1106,7 @@ export function DesignerClient(props: Props) {
         walkSceneImages(sceneObjects(s), (rec) => {
           const src = rec.src as string;
           if (!src.startsWith("data:") || sceneSrcIds.has(src)) return;
-          // Tiny images (built-in clip art) stay inline — a storage round-trip
+          // Tiny images (built-in clip art) stay inline, a storage round-trip
           // costs more than the bytes it saves.
           if (src.length < 32 * 1024) return;
           const id = `scene-img-${sceneSrcIds.size}`;
@@ -1041,7 +1141,7 @@ export function DesignerClient(props: Props) {
         colourHex: colour?.hex,
         // Per-size breakdown of the primary colour (first colourway).
         sizeQuantities: sizeQty,
-        // Every colourway with quantity — one order line item each.
+        // Every colourway with quantity, one order line item each.
         colorways: pricedColorways
           .filter((c) => c.quantity > 0)
           .map((c) => ({
@@ -1068,7 +1168,7 @@ export function DesignerClient(props: Props) {
           quantity,
           rush,
           inkColours,
-          // Per-side print spec (real measurement + colour count) — pre-fills
+          // Per-side print spec (real measurement + colour count), pre-fills
           // the admin decoration sheet so the artist starts from real values.
           decorationSpots: viewsArt.map((v) => {
             const pa = printAreaForView(v);
@@ -1128,10 +1228,10 @@ export function DesignerClient(props: Props) {
   }
 
   const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
-  // Sides that actually carry art — listed in the review spec table.
+  // Sides that actually carry art, listed in the review spec table.
   const decoratedViews = views.filter((v) => viewsWithArt.has(v));
   // Any decorated side with art spilling past the print box (drives the review
-  // heads-up). Informational only — never gates checkout.
+  // heads-up). Informational only, never gates checkout.
   const anyOutOfBounds = decoratedViews.some((v) => outOfBounds.has(v));
   // Embroidery is decorated in thread; screen print / DTG in ink. Label the
   // colour count accordingly so the spec reads in the customer's terms.
@@ -1140,11 +1240,11 @@ export function DesignerClient(props: Props) {
 
   return (
     <div className="bg-dream-lavender-soft text-dream-ink">
-      {/* App screen — exactly one viewport tall; each column scrolls on its own.
+      {/* App screen, exactly one viewport tall; each column scrolls on its own.
           The shirt-details section + footer below sit in normal page flow, so
           the whole page scrolls past the editor to reveal them. */}
       <div className="flex h-dvh flex-col overflow-hidden">
-        {/* Slim designer header — the full store nav is intentionally dropped
+        {/* Slim designer header, the full store nav is intentionally dropped
             here so the canvas gets as much height as possible. Just the logo
             (home), cart, and account; "Back to product" lives on the left rail. */}
         <header className="flex shrink-0 items-center justify-between border-b border-dream-ink/15 bg-dream-lavender-soft px-4 py-2.5 sm:px-6">
@@ -1174,7 +1274,7 @@ export function DesignerClient(props: Props) {
       {/* Full-bleed work area. Stays mounted (hidden) during the review phase so
           the canvases keep their artwork for mockup export. */}
       <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden", phase !== "design" && "hidden")}>
-        {/* Left — clean white column: flat icon rail + product/tools panel.
+        {/* Left, clean white column: flat icon rail + product/tools panel.
             Collapses to just the rail (lg:w-20) when leftOpen is false. */}
         <aside
           className={cn(
@@ -1184,7 +1284,7 @@ export function DesignerClient(props: Props) {
         >
           {/* Vertical icon rail */}
           <div className="flex shrink-0 flex-row items-center gap-5 border-b border-dream-line px-3 py-3 lg:w-20 lg:flex-col lg:gap-9 lg:border-b-0 lg:border-r lg:py-7">
-            {/* Single panel toggle — pinned to the top of the always-visible rail,
+            {/* Single panel toggle, pinned to the top of the always-visible rail,
                 same spot whether open or closed; the chevron just flips. */}
             <button
               onClick={() => setLeftOpen((o) => !o)}
@@ -1221,7 +1321,7 @@ export function DesignerClient(props: Props) {
               <BackArrowIcon />
               <span className="text-[11px] font-semibold text-dream-ink">Back</span>
             </Link>
-            {/* Colour is its own tool and the default landing tab — it sits above
+            {/* Colour is its own tool and the default landing tab, it sits above
                 Upload in the rail so picking a garment colour is the first step. */}
             <button
               onClick={() => {
@@ -1294,13 +1394,13 @@ export function DesignerClient(props: Props) {
             </Link>
           </div>
 
-          {/* Panel — scrolls within the fixed-height aside; hidden when collapsed */}
+          {/* Panel, scrolls within the fixed-height aside; hidden when collapsed */}
           <div className={cn("no-scrollbar min-w-0 flex-1 overflow-y-auto p-5 lg:p-6", !leftOpen && "hidden")}>
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Garment</div>
             <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
             {sizeRange && <p className="mt-1 text-xs text-dream-muted">Sizes {sizeRange}</p>}
 
-            {/* Colour picker — its own tab. Upload + Text follow below it (see
+            {/* Colour picker, its own tab. Upload + Text follow below it (see
                 the Design tools section) so a customer can keep scrolling. */}
             {tool === "colour" && (
               <>
@@ -1331,7 +1431,7 @@ export function DesignerClient(props: Props) {
                       )}
                       style={{ backgroundColor: c.hex }}
                     />
-                    {/* selected check — drops a contrasting tick on the chosen swatch */}
+                    {/* selected check, drops a contrasting tick on the chosen swatch */}
                     {selected && (
                       <svg
                         viewBox="0 0 24 24"
@@ -1355,6 +1455,12 @@ export function DesignerClient(props: Props) {
             <hr className="my-6 border-dream-line" />
 
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Design tools</div>
+
+            {activeView === null && (
+              <p className="mt-2 rounded-lg bg-dream-sun/25 px-3 py-2 text-xs font-semibold text-dream-ink">
+                Click a shirt side to start adding art.
+              </p>
+            )}
 
             {/* Tool panels. The colour tab also renders Upload + Text below the
                 colour picker (scroll down) so a customer can keep going without
@@ -1391,10 +1497,10 @@ export function DesignerClient(props: Props) {
                     Not print-ready? We&apos;ll touch up your art, free.
                   </p>
                   {(() => {
-                    const pa = printAreaForView(activeView);
+                    const pa = printAreaForView(displayView);
                     return pa?.maxWidthIn && pa?.maxHeightIn ? (
                       <p className="mt-2 text-xs leading-relaxed text-dream-muted">
-                        {VIEW_LABEL[activeView]} prints up to {pa.maxWidthIn} × {pa.maxHeightIn} in.
+                        {VIEW_LABEL[displayView]} prints up to {pa.maxWidthIn} × {pa.maxHeightIn} in.
                       </p>
                     ) : null;
                   })()}
@@ -1415,7 +1521,7 @@ export function DesignerClient(props: Props) {
                     Add a text box
                   </button>
                   <div className="mt-3 text-xs font-medium text-dream-muted">Font</div>
-                  {/* Collapsed dropdown — tap to expand a previewed list. Each row
+                  {/* Collapsed dropdown, tap to expand a previewed list. Each row
                       renders its own label in its own face so the customer sees
                       what they're picking. Expands inline; the panel scrolls. */}
                   <button
@@ -1492,6 +1598,62 @@ export function DesignerClient(props: Props) {
                       </div>
                     </div>
                   )}
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {/* Font size: stepper + editable number */}
+                    <div>
+                      <div className="text-xs font-medium text-dream-muted">Size</div>
+                      <div className="mt-2 flex items-center overflow-hidden rounded-lg border border-dream-line bg-white">
+                        <button
+                          type="button"
+                          onClick={() => applyFontSize(fontSize - 2)}
+                          aria-label="Smaller text"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center text-dream-ink transition-colors hover:bg-dream-cream"
+                        >
+                          <MinusIcon />
+                        </button>
+                        <input
+                          type="number"
+                          min={8}
+                          max={200}
+                          value={fontSize}
+                          onChange={(e) => applyFontSize(Number(e.target.value) || fontSize)}
+                          aria-label="Font size"
+                          className="h-9 w-full min-w-0 border-x border-dream-line text-center text-sm font-semibold text-dream-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => applyFontSize(fontSize + 2)}
+                          aria-label="Bigger text"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center text-dream-ink transition-colors hover:bg-dream-cream"
+                        >
+                          <PlusIcon />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Alignment: left / center / right */}
+                    <div>
+                      <div className="text-xs font-medium text-dream-muted">Align</div>
+                      <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-dream-line bg-white p-1">
+                        {(["left", "center", "right"] as const).map((a) => (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => applyTextAlign(a)}
+                            aria-pressed={textAlign === a}
+                            aria-label={`Align ${a}`}
+                            title={`Align ${a}`}
+                            className={cn(
+                              "flex h-7 items-center justify-center rounded-md transition-colors",
+                              textAlign === a ? "bg-dream-lavender-soft text-dream-purple" : "text-dream-muted hover:bg-dream-cream"
+                            )}
+                          >
+                            <AlignIcon align={a} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mt-3 text-xs font-medium text-dream-muted">Text colour</div>
                   <div className="mt-2 grid grid-cols-8 gap-1.5">
                     {TEXT_COLORS.map((hex) => {
@@ -1512,7 +1674,7 @@ export function DesignerClient(props: Props) {
                         />
                       );
                     })}
-                    {/* Custom colour — opens the native picker for anything else. */}
+                    {/* Custom colour, opens the native picker for anything else. */}
                     <label
                       title="Custom colour"
                       className={cn(
@@ -1560,7 +1722,7 @@ export function DesignerClient(props: Props) {
             </div>
 
             {/* Sleeve (and other special placements) aren't in the online
-                designer — hand those off to a real person instead of faking a
+                designer, hand those off to a real person instead of faking a
                 mockup. */}
             <div className="mt-5 rounded-2xl border border-dream-line bg-dream-cream/50 p-4">
               <h3 className="font-display text-sm font-bold text-dream-ink">
@@ -1590,7 +1752,7 @@ export function DesignerClient(props: Props) {
           </div>
         </aside>
 
-        {/* Center — grid-backed canvas stage (full bleed) */}
+        {/* Center, grid-backed canvas stage (full bleed) */}
         <main className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0" style={GRID_BG}>
           {/* Floating top bar */}
           <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex items-center justify-between px-4">
@@ -1599,7 +1761,9 @@ export function DesignerClient(props: Props) {
                 ? "Design preview"
                 : viewMode === "both"
                   ? "Front & back"
-                  : `Editing the ${VIEW_LABEL[activeView].toLowerCase()}`}
+                  : activeView
+                    ? `Editing the ${VIEW_LABEL[activeView].toLowerCase()}`
+                    : "Pick a side to edit"}
             </span>
             <div className="pointer-events-auto flex items-center gap-2">
               <div className={cn(GLASS, "inline-flex items-center gap-0.5 p-1")}>
@@ -1624,22 +1788,31 @@ export function DesignerClient(props: Props) {
             </div>
           </div>
 
-          {/* Canvases — every decorated side side by side, each editable. The
+          {/* Canvases, every decorated side side by side, each editable. The
               active one is ringed; clicking a canvas makes it the tool target. */}
-          <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-5 overflow-auto p-4 pt-16 pb-20">
+          <div
+            onMouseDown={clearActive}
+            className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-5 overflow-auto p-4 pt-16 pb-20"
+          >
             {views.map((v) => {
               const isActive = viewMode === "both" && views.length > 1 && v === activeView;
               const loading = !loadedViews.has(v);
-              // In single mode only the active side is shown; the others stay
+              // In single mode only the shown side is visible; the others stay
               // mounted (so their art is preserved + still exports) but hidden.
-              const hidden = viewMode === "single" && v !== activeView;
+              // Falls back to displayView so nothing is active never blanks it.
+              const hidden = viewMode === "single" && v !== displayView;
               return (
                 <div
                   key={v}
                   ref={(el) => {
                     stageRefs.current[v] = el;
                   }}
-                  onMouseDown={() => setActiveView(v)}
+                  onMouseDown={(e) => {
+                    // Keep the outside-click handler on the neutral background from
+                    // firing when a canvas itself is clicked.
+                    e.stopPropagation();
+                    setActiveView(v);
+                  }}
                   className={cn("flex shrink-0 flex-col items-center", hidden && "hidden")}
                 >
                   {viewMode === "both" && views.length > 1 && (
@@ -1664,6 +1837,7 @@ export function DesignerClient(props: Props) {
                         onSelectionChange={(has, isText) => onSelectionChange(v, has, isText)}
                         onChange={() => onCanvasChange(v)}
                         onRequestDelete={() => deleteActiveOn(v)}
+                        onModifyCommit={(pre) => commitModify(v, pre)}
                         onGarmentLoaded={() => {
                           setLoadedViews((s) => new Set(s).add(v));
                           // Recompute art-vs-box now that the print rect is
@@ -1683,7 +1857,7 @@ export function DesignerClient(props: Props) {
                       </div>
                     )}
 
-                    {/* Out-of-bounds heads-up — subtle, non-blocking. Never
+                    {/* Out-of-bounds heads-up, subtle, non-blocking. Never
                         intercepts canvas clicks (pointer-events-none). */}
                     {!loading && outOfBounds.has(v) && (
                       <div className="pointer-events-none absolute right-2 top-2 z-10 max-w-[13rem]">
@@ -1703,9 +1877,9 @@ export function DesignerClient(props: Props) {
             })}
           </div>
 
-          {/* Floating bottom bar — side switch (left) + selected-object actions */}
+          {/* Floating bottom bar, side switch (left) + selected-object actions */}
           <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-wrap items-center justify-start gap-2 px-4">
-            {/* Side switch — pick which side to design; "See both" shows them together */}
+            {/* Side switch, pick which side to design; "See both" shows them together */}
             {views.length > 1 && (
               <div className={cn(GLASS, "pointer-events-auto inline-flex items-center gap-1 p-1.5")}>
                 {views.map((v) => {
@@ -1739,7 +1913,7 @@ export function DesignerClient(props: Props) {
             )}
           </div>
 
-          {/* Selection rail — object actions live here (right edge, vertically
+          {/* Selection rail, object actions live here (right edge, vertically
               centered) so they're easy to find, unlike the old bottom bar. Shows
               only while something is selected. */}
           {selection && (
@@ -1778,7 +1952,7 @@ export function DesignerClient(props: Props) {
         </main>
         </div>
 
-        {/* Design footer — pricing & quantity live on the review screen; this advances to it */}
+        {/* Design footer, pricing & quantity live on the review screen; this advances to it */}
         {phase === "design" && (
           <div className="shrink-0 border-t border-dream-line bg-white px-4 py-2">
             <div className="mx-auto flex max-w-[1400px] items-center justify-end gap-4">
@@ -1798,11 +1972,11 @@ export function DesignerClient(props: Props) {
           </div>
         )}
 
-        {/* Review screen — scrollable content above a sticky checkout bar */}
+        {/* Review screen, scrollable content above a sticky checkout bar */}
         {phase === "review" && (
           <div className="flex min-h-0 flex-1 flex-col bg-white">
             <div className="min-h-0 flex-1 overflow-y-auto">
-            {/* Progress — full-width above the two columns so the customer knows
+            {/* Progress, full-width above the two columns so the customer knows
                 where they are and that payment comes only after they approve. */}
             <div className="border-b border-dream-line bg-dream-cream/60">
               <ReviewStepper className="mx-auto max-w-6xl px-4 py-3.5 sm:px-6 lg:px-8" />
@@ -1811,7 +1985,7 @@ export function DesignerClient(props: Props) {
                 and is top-aligned + sticky so it stays put while the form on the
                 right grows/scrolls (typing a quantity no longer shifts it). */}
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 lg:flex-row lg:items-start lg:gap-12 lg:px-8 lg:pt-12 lg:pb-28">
-              {/* Preview — centered in the left region, pinned in place. The
+              {/* Preview, centered in the left region, pinned in place. The
                   back button sits at its top-left corner. */}
               <div className="relative flex min-h-[260px] items-center justify-center self-stretch p-3 lg:sticky lg:top-12 lg:min-h-[60vh] lg:flex-1 lg:self-start lg:pr-16">
                 <button
@@ -1826,10 +2000,10 @@ export function DesignerClient(props: Props) {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={(previews[previewIdx] ?? previews[0]).url}
-                      alt={`Your design — ${VIEW_LABEL[(previews[previewIdx] ?? previews[0]).view]}`}
+                      alt={`Your design, ${VIEW_LABEL[(previews[previewIdx] ?? previews[0]).view]}`}
                       className="max-h-[60vh] w-auto max-w-full object-contain"
                     />
-                    {/* Front / back (…) toggle — only when more than one side is decorated. */}
+                    {/* Front / back (…) toggle, only when more than one side is decorated. */}
                     {previews.length > 1 && (
                       <div className="inline-flex gap-1 rounded-full bg-dream-cream p-1 ring-1 ring-dream-line">
                         {previews.map((p, i) => (
@@ -1856,9 +2030,9 @@ export function DesignerClient(props: Props) {
                 )}
               </div>
 
-              {/* Details — a fixed-width form column on the right. */}
+              {/* Details, a fixed-width form column on the right. */}
               <div className="w-full lg:w-[34rem] lg:shrink-0">
-                {/* Decoration spec — what's printed, where, and in how many colours.
+                {/* Decoration spec, what's printed, where, and in how many colours.
                     "Colours" reads as thread (embroidery) or ink (print). */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -1921,10 +2095,10 @@ export function DesignerClient(props: Props) {
                           <span className="whitespace-nowrap text-dream-ink-soft">
                             {measurements[v]
                               ? `${measurements[v]!.widthIn}″ W × ${measurements[v]!.heightIn}″ H`
-                              : "—"}
+                              : "-"}
                           </span>
                           <span className="justify-self-end whitespace-nowrap rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-bold text-dream-purple">
-                            {viewColours[v] ? formatColourChip(viewColours[v]!, isEmbroidery ? "thread" : "ink") : "—"}
+                            {viewColours[v] ? formatColourChip(viewColours[v]!, isEmbroidery ? "thread" : "ink") : "-"}
                           </span>
                         </div>
                         {outOfBounds.has(v) && (
@@ -1942,7 +2116,7 @@ export function DesignerClient(props: Props) {
                 </div>
 
                 <hr className="my-8 border-dream-line" />
-                {/* Colours & sizes — one block per garment colourway. Same artwork,
+                {/* Colours & sizes, one block per garment colourway. Same artwork,
                     different shirt colours; each colour is priced on its own qty. */}
                 <div className="space-y-4">
                   <div>
@@ -1984,7 +2158,7 @@ export function DesignerClient(props: Props) {
                   </button>
                 </div>
 
-                {/* Estimate — same grounded price box as the product page's
+                {/* Estimate, same grounded price box as the product page's
                     instant estimate: per-unit (with bulk savings) + est. total. */}
                 <div className="mt-8 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
                   <div className="flex items-center justify-between gap-3">
@@ -2030,7 +2204,7 @@ export function DesignerClient(props: Props) {
                   </p>
                 </div>
 
-                {/* Estimated delivery — one confident in-hands date (shared math
+                {/* Estimated delivery, one confident in-hands date (shared math
                     with checkout so the two screens never disagree). */}
                 <div className="mt-6 flex items-start gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5">
                   <span className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-dream-cream text-dream-purple">
@@ -2045,7 +2219,7 @@ export function DesignerClient(props: Props) {
                   </div>
                 </div>
 
-                {/* Reassurance — the risk-reducers a first-time custom buyer
+                {/* Reassurance, the risk-reducers a first-time custom buyer
                     weighs right at the decision point. "Pay after approval" is
                     intentionally NOT repeated here (the stepper + CTA carry it). */}
                 <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
@@ -2070,7 +2244,7 @@ export function DesignerClient(props: Props) {
             </div>
             </div>
 
-            {/* Sticky checkout bar — pinned to the bottom of the viewport so the
+            {/* Sticky checkout bar, pinned to the bottom of the viewport so the
                 CTA is always reachable while the form above scrolls. */}
             <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3 sm:px-6">
               <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
@@ -2111,7 +2285,7 @@ export function DesignerClient(props: Props) {
         )}
       </div>
 
-      {/* "?" help on the review spec table — the same reassurance for both
+      {/* "?" help on the review spec table, the same reassurance for both
           columns: an artist reviews everything before production/payment. */}
       <Dialog open={helpTopic !== null} onOpenChange={(o) => { if (!o) setHelpTopic(null); }}>
         <DialogContent className="max-w-sm" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
@@ -2134,7 +2308,7 @@ export function DesignerClient(props: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* Print vs embroidery guide — opened by the "?" on the print-method picker. */}
+      {/* Print vs embroidery guide, opened by the "?" on the print-method picker. */}
       <MethodGuideModal
         open={methodGuideTab !== null}
         tab={methodGuideTab ?? "print"}
@@ -2142,7 +2316,7 @@ export function DesignerClient(props: Props) {
         onClose={() => setMethodGuideTab(null)}
       />
 
-      {/* Save-your-design gate — names the design + captures a lead email, then
+      {/* Save-your-design gate, names the design + captures a lead email, then
           adds it to the cart. */}
       <Dialog open={showSave} onOpenChange={(o) => { if (busy === null) setShowSave(o); }}>
         <DialogContent className="max-w-md" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
@@ -2170,6 +2344,11 @@ export function DesignerClient(props: Props) {
                 onChange={(e) => setLeadEmail(e.target.value)}
                 placeholder="you@email.com"
               />
+              {props.accountEmail && (
+                <p className="mt-1.5 text-xs text-dream-muted">
+                  This design saves to your account ({props.accountEmail}). The email above is just where we send updates and your proof.
+                </p>
+              )}
             </Field>
             {saveError && (
               <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{saveError}</p>
@@ -2294,7 +2473,7 @@ function ColorwayBlock({
           )}
         </div>
       </div>
-      {/* Sizes laid out in a single row — label on top, number box below — so
+      {/* Sizes laid out in a single row, label on top, number box below, so
           the whole size run reads and fills at a glance. Scrolls sideways only
           if there are too many sizes for the width. */}
       <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
@@ -2653,6 +2832,20 @@ function MinusIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <path d="M5 12h14" />
+    </svg>
+  );
+}
+function AlignIcon({ align }: { align: "left" | "center" | "right" }) {
+  // Four horizontal rules; the short ones sit left / centered / right to mirror
+  // the chosen text alignment.
+  const short = align === "left" ? "M4 12h9" : align === "right" ? "M11 12h9" : "M7 12h10";
+  const shorter = align === "left" ? "M4 18h6" : align === "right" ? "M14 18h6" : "M9 18h6";
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 6h16" />
+      <path d={short} />
+      <path d="M4 15h16" />
+      <path d={shorter} />
     </svg>
   );
 }

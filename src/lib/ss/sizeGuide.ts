@@ -6,9 +6,9 @@ import type { SizeGuide } from "./types";
 /**
  * Build a render-ready size guide for a style from the S&S /specs/ endpoint.
  * Pivots the flat spec rows into sizes × measurement columns, ordered by
- * sizeOrder. "Tolerance" rows (the ± allowances) are dropped — they're noise in
+ * sizeOrder. "Tolerance" rows (the ± allowances) are dropped, they're noise in
  * a customer size chart. Returns null when the style has no specs (or S&S is
- * unconfigured / unreachable — callers degrade gracefully).
+ * unconfigured / unreachable, callers degrade gracefully).
  */
 export async function buildSizeGuide(styleId: string | number): Promise<SizeGuide | null> {
   let specs;

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { swatchStyle } from "@/lib/swatch";
 import { formatCAD } from "@/lib/money";
 import { cn } from "@/lib/cn";
+import { DeleteDesignButton } from "./DeleteDesignButton";
 
 interface DesignColour {
   name?: string;
@@ -70,8 +71,9 @@ export default async function MyDesignsPage() {
             const isDraft = d.status === "draft";
 
             return (
-              <Link
-                key={d.id}
+              <div key={d.id} className="relative">
+                {isDraft && <DeleteDesignButton designId={d.id} name={product?.name ?? "Custom design"} />}
+                <Link
                 href={`/design/${d.product_id}?design=${d.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -144,7 +146,8 @@ export default async function MyDesignsPage() {
                     </span>
                   </div>
                 </div>
-              </Link>
+                </Link>
+              </div>
             );
           })}
         </div>

@@ -2,7 +2,7 @@
 //
 // CAVEAT: the window lives in module-level memory, so it is per-serverless-
 // instance, not global. Under fan-out this only blunts abusive bursts routed to
-// the same instance — an acceptable stopgap for signed-URL minting, not a hard
+// the same instance, an acceptable stopgap for signed-URL minting, not a hard
 // quota. Swap for a shared store (Redis/Upstash) if a real guarantee is needed.
 
 const store = new Map<string, number[]>(); // key -> request timestamps (ms)

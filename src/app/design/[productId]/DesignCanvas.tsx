@@ -29,9 +29,20 @@ export interface DesignCanvasHandle {
   setGarment: (url: string | null) => void;
   setPrintArea: (area: PrintAreaSpec | null) => void;
   addImageFromUrl: (url: string) => Promise<void>;
-  addText: (text: string, opts?: { fontFamily?: string; fontWeight?: number | string; fill?: string }) => void;
+  addText: (
+    text: string,
+    opts?: {
+      fontFamily?: string;
+      fontWeight?: number | string;
+      fill?: string;
+      fontSize?: number;
+      textAlign?: "left" | "center" | "right";
+    }
+  ) => void;
   clearArt: () => void;
   deleteActive: () => void;
+  /** Drop any object selection on this canvas (no history change). */
+  discardSelection: () => void;
   isEditingText: () => boolean;
   duplicateActive: () => Promise<void>;
   flipActive: (axis: "h" | "v") => void;
@@ -40,6 +51,10 @@ export interface DesignCanvasHandle {
   sendBackward: () => void;
   setActiveColor: (hex: string) => void;
   setActiveFont: (fontFamily: string, fontWeight?: number | string) => void;
+  setActiveTextAlign: (align: "left" | "center" | "right") => void;
+  setActiveFontSize: (size: number) => void;
+  /** Style of the selected text object (for syncing the tool controls), or null. */
+  getActiveTextProps: () => { fontSize: number; textAlign: string; fill: string; fontFamily: string } | null;
   renderAll: () => void;
   exportScene: () => object;
   loadScene: (json: object | null) => Promise<void>;
@@ -53,8 +68,8 @@ export interface DesignCanvasHandle {
 
 // The canvas sizes itself to the garment image's aspect ratio (within this
 // envelope) so the garment FILLS the frame with no letterboxing. That makes
-// normalized 0..1 print-area coords map 1:1 to canvas pixels — the same basis
-// the admin PrintAreaEditor uses — so the print box lines up exactly across
+// normalized 0..1 print-area coords map 1:1 to canvas pixels, the same basis
+// the admin PrintAreaEditor uses, so the print box lines up exactly across
 // colours and views. (Previously a fixed 520² square letterboxed the garment,
 // so the box drifted on any non-square image.)
 const MAX_W = 520;
@@ -87,7 +102,7 @@ function fitDims(imgW: number, imgH: number) {
 }
 
 /**
- * Ensure a web font is downloaded before Fabric measures/renders text with it —
+ * Ensure a web font is downloaded before Fabric measures/renders text with it,
  * canvas draws with whatever's loaded at paint time, so an un-loaded font
  * silently falls back. `fontFamily` may be a comma list; we load the first face.
  */
@@ -111,8 +126,13 @@ export const DesignCanvas = forwardRef<
     /** Invoked when the on-canvas delete badge is clicked. The parent removes
      *  the active object (so the delete goes through the undo history). */
     onRequestDelete?: () => void;
+    /** Fired after a USER transform (move/scale/rotate) or a committed text
+     *  edit, with the scene as it was BEFORE the change. The parent pushes it
+     *  onto the undo history. Programmatic loads (loadScene/colour swaps) never
+     *  fire this, so they can't pollute history. */
+    onModifyCommit?: (preScene: object) => void;
   }
->(function DesignCanvas({ onSelectionChange, onChange, onGarmentLoaded, onRequestDelete }, ref) {
+>(function DesignCanvas({ onSelectionChange, onChange, onGarmentLoaded, onRequestDelete, onModifyCommit }, ref) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
   const printRectRef = useRef<fabric.Rect | null>(null);
@@ -134,6 +154,9 @@ export const DesignCanvas = forwardRef<
   // Latest delete callback, read by the (stable) control handler.
   const onDeleteRef = useRef(onRequestDelete);
   onDeleteRef.current = onRequestDelete;
+  // Latest modify-commit callback, read by the (stable) canvas event handlers.
+  const onModifyCommitRef = useRef(onModifyCommit);
+  onModifyCommitRef.current = onModifyCommit;
 
   useEffect(() => {
     if (!elRef.current) return;
@@ -203,7 +226,49 @@ export const DesignCanvas = forwardRef<
     canvas.on("selection:created", emitSel);
     canvas.on("selection:updated", emitSel);
     canvas.on("selection:cleared", () => onSelectionChange?.(false));
-    canvas.on("object:modified", () => onChange?.());
+
+    // --- Undo history for USER edits (move/scale/rotate + text edits) ---------
+    // A transform is captured at gesture start (before:transform) and committed
+    // at gesture end (object:modified). We hand the parent the PRE-change scene
+    // so an undo restores it. `toObject()` respects excludeFromExport, so the
+    // print guides are omitted (same basis as exportScene). preScene is cleared
+    // on mouse:up so a click that starts but doesn't move an object can't leave a
+    // stale snapshot behind for the next real edit.
+    let preScene: object | null = null;
+    canvas.on("before:transform", () => {
+      if (!preScene) preScene = canvas.toObject();
+    });
+    canvas.on("object:modified", () => {
+      if (preScene) {
+        onModifyCommitRef.current?.(preScene);
+        preScene = null;
+      } else {
+        onChange?.();
+      }
+    });
+    canvas.on("mouse:up", () => {
+      preScene = null;
+    });
+    // Text edits: snapshot on entering the editor, commit on exit only if the
+    // text actually changed (so merely clicking into and out of a box is a no-op).
+    let preEdit: object | null = null;
+    let preEditText: string | null = null;
+    canvas.on("text:editing:entered", (e) => {
+      preEdit = canvas.toObject();
+      const t = e.target as fabric.IText | undefined;
+      preEditText = t ? (t.text ?? "") : "";
+    });
+    canvas.on("text:editing:exited", (e) => {
+      const t = e.target as fabric.IText | undefined;
+      if (preEdit && t && (t.text ?? "") !== preEditText) {
+        onModifyCommitRef.current?.(preEdit);
+      } else {
+        onChange?.();
+      }
+      preEdit = null;
+      preEditText = null;
+    });
+
     canvas.on("object:added", (e) => {
       // Keep the print-area label readable above newly added art. Only reorder
       // a label that is STILL on the canvas: bringObjectToFront pushes its
@@ -305,7 +370,7 @@ export const DesignCanvas = forwardRef<
     canvas.requestRenderAll();
   }
 
-  /** The print guide (rect + label) — everything that isn't customer art.
+  /** The print guide (rect + label), everything that isn't customer art.
    *  Checks the value tag as well as the refs so orphaned guides (from any
    *  load/reorder race) never count as art or leak into exports/measurements. */
   const isGuide = (o: fabric.FabricObject) =>
@@ -331,7 +396,7 @@ export const DesignCanvas = forwardRef<
         const { w, h } = fitDims(iw, ih);
         dimsRef.current = { w, h };
         c.setDimensions({ width: w, height: h });
-        // Fill the canvas exactly — aspect matches, so this is not a stretch
+        // Fill the canvas exactly, aspect matches, so this is not a stretch
         // beyond sub-pixel rounding. The garment now fills the frame edge-to-edge.
         img.set({
           scaleX: w / iw,
@@ -389,9 +454,10 @@ export const DesignCanvas = forwardRef<
         originX: "center",
         originY: "center",
         fontFamily,
-        fontSize: 40,
+        fontSize: opts?.fontSize ?? 40,
         fill: opts?.fill ?? "#1b1458",
         fontWeight,
+        textAlign: opts?.textAlign ?? "center",
       });
       attachControls(t);
       canvas.add(t);
@@ -416,6 +482,12 @@ export const DesignCanvas = forwardRef<
       if (!canvas) return;
       const objs = canvas.getActiveObjects();
       objs.forEach((o) => canvas.remove(o));
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+    },
+    discardSelection() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
       canvas.discardActiveObject();
       canvas.requestRenderAll();
     },
@@ -497,6 +569,37 @@ export const DesignCanvas = forwardRef<
         onChange?.();
       }
     },
+    setActiveTextAlign(align) {
+      const canvas = canvasRef.current;
+      const o = canvas?.getActiveObject();
+      if (canvas && o && o.type === "i-text") {
+        (o as fabric.IText).set({ textAlign: align });
+        o.setCoords();
+        canvas.requestRenderAll();
+        onChange?.();
+      }
+    },
+    setActiveFontSize(size) {
+      const canvas = canvasRef.current;
+      const o = canvas?.getActiveObject();
+      if (canvas && o && o.type === "i-text") {
+        (o as fabric.IText).set({ fontSize: size });
+        o.setCoords();
+        canvas.requestRenderAll();
+        onChange?.();
+      }
+    },
+    getActiveTextProps() {
+      const o = canvasRef.current?.getActiveObject();
+      if (!o || o.type !== "i-text") return null;
+      const t = o as fabric.IText;
+      return {
+        fontSize: Math.round(t.fontSize ?? 40),
+        textAlign: (t.textAlign as string) ?? "left",
+        fill: String(t.fill ?? "#000000"),
+        fontFamily: String(t.fontFamily ?? ""),
+      };
+    },
     renderAll() {
       canvasRef.current?.requestRenderAll();
     },
@@ -517,7 +620,7 @@ export const DesignCanvas = forwardRef<
         const scene = { ...(json as Record<string, unknown>) };
         delete scene.backgroundImage;
         // loadFromJSON repopulates the canvas from the JSON, which resets
-        // backgroundImage to whatever the JSON holds — i.e. nothing, since the
+        // backgroundImage to whatever the JSON holds, i.e. nothing, since the
         // garment is kept out of the scene. Capture the live garment and put it
         // back afterwards so reopening a saved design (and undo/redo) keep the
         // shirt behind the art instead of a blank canvas.
@@ -585,7 +688,7 @@ export const DesignCanvas = forwardRef<
       if (!canvas || !box || !area) return null;
       const ppi = boxPxPerInch(box, area.maxWidthIn, dimsRef.current.w);
       if (!ppi) return null;
-      // Union bounding box of every art object — the printed footprint of the
+      // Union bounding box of every art object, the printed footprint of the
       // whole composition on this side (rotation-aware via getBoundingRect).
       let minX = Infinity,
         minY = Infinity,

@@ -1,5 +1,5 @@
 -- ============================================================================
--- Dreamhouse Printing — platform data model (PRD §9, canonical)
+-- Dreamhouse Printing, platform data model (PRD §9, canonical)
 -- One shared model behind all four surfaces: storefront, designer, customer
 -- portal, admin. Status fields use text + CHECK (not pg enums) so the canonical
 -- sets can evolve without ALTER TYPE migrations. Decoration methods are records

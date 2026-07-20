@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
  * no timezone drift) so the parent can pass it straight through to the order.
  */
 
-/** Local-day ISO string (YYYY-MM-DD) — deliberately NOT toISOString(), which shifts to UTC. */
+/** Local-day ISO string (YYYY-MM-DD), deliberately NOT toISOString(), which shifts to UTC. */
 function toISODate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -77,7 +77,7 @@ export function RushDatePicker({
   );
 
   const PANEL_W = 224; // w-56
-  const PANEL_H = 320; // approx — enough to decide flip
+  const PANEL_H = 320; // approx, enough to decide flip
 
   // Position the panel relative to the trigger, flipping above when there's no
   // room below. Recomputed on open, scroll and resize.
@@ -126,7 +126,7 @@ export function RushDatePicker({
     setOpen(false);
   }
 
-  // Quick shortcuts — dates + the short weekday shown on the right.
+  // Quick shortcuts, dates + the short weekday shown on the right.
   const day = today.getDay();
   const tomorrow = addDays(today, 1);
   // Upcoming Saturday (today if it already is Saturday).
@@ -262,7 +262,7 @@ export function RushDatePicker({
   );
 }
 
-/* — icons (inline, no deps) — */
+/*, icons (inline, no deps), */
 function ChevronDown({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>

@@ -8,7 +8,7 @@ import { ReorderArrows } from "./ReorderArrows";
 import { itemQty, type ItemState, type OrderProduct } from "./shared";
 import type { DesignRow } from "@/lib/db/rows";
 
-/** One-line summary of an item — used both by the global Compact view and per-line collapse. */
+/** One-line summary of an item, used both by the global Compact view and per-line collapse. */
 export function CompactItemRow({
   it,
   index,
@@ -37,7 +37,7 @@ export function CompactItemRow({
   const thumb = ((design?.mockup_images ?? []) as { url: string | null }[]).find((m) => m.url)?.url ?? null;
   const qty = itemQty(it);
   const unit = Number(it.unitPrice) || 0;
-  const sizeSummary = it.sizes.filter(([, q]) => q > 0).map(([s, q]) => `${s}×${q}`).join("  ") || "—";
+  const sizeSummary = it.sizes.filter(([, q]) => q > 0).map(([s, q]) => `${s}×${q}`).join("  ") || "-";
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">

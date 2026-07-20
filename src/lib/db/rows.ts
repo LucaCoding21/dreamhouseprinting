@@ -65,7 +65,7 @@ export interface QuotePriceBreak {
 export interface ProductQuoteCurveJson {
   /** Decorations this product offers; the first is the default. */
   decorations: QuoteDecoration[];
-  /** Absolute $/unit by quantity, per decoration — the bulk tiers Julian edits. */
+  /** Absolute $/unit by quantity, per decoration, the bulk tiers Julian edits. */
   breaks: Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
 }
 

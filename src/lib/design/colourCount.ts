@@ -1,7 +1,7 @@
 // In-house artwork colour counting for the designer (client-side only).
 //
 // Vectors (SVG, and PDFs whose drawing commands we can read) yield an EXACT
-// count of distinct fill/stroke colours. Rasters yield a quantized ESTIMATE —
+// count of distinct fill/stroke colours. Rasters yield a quantized ESTIMATE,
 // and when the image is clearly photographic / continuous-tone we say "Full
 // colour" instead of pretending an integer is meaningful. The artist confirms
 // the real count at proofing either way; these numbers seed the estimate and
@@ -12,7 +12,7 @@ export type ColourAnalysis =
   | { kind: "estimate"; colours: string[] } // quantized guess from a raster
   | { kind: "full" }; //                       photographic / continuous-tone
 
-/** Above this many distinct colours we call it full colour — more than ~8
+/** Above this many distinct colours we call it full colour, more than ~8
  *  screens is process/simulated-process territory, not spot colours. */
 export const FULL_COLOUR_THRESHOLD = 8;
 
@@ -30,7 +30,7 @@ export function displayAnalysis(a: ColourAnalysis): ColourAnalysis {
   return a;
 }
 
-/** The colour count fed to the pricing engine. Estimates are provisional —
+/** The colour count fed to the pricing engine. Estimates are provisional,
  *  the artist finalizes the count (and price) before anything is charged. */
 export function pricingColourCount(a: ColourAnalysis): number {
   const d = displayAnalysis(a);
@@ -62,7 +62,7 @@ let normCtx: CanvasRenderingContext2D | null = null;
 export function normalizeCssColour(value: string): string | null {
   const v = value.trim().toLowerCase();
   if (!v || v === "none" || v === "transparent" || v === "inherit" || v === "currentcolor") return null;
-  if (v.startsWith("url(")) return null; // gradient/pattern ref — stops counted separately
+  if (v.startsWith("url(")) return null; // gradient/pattern ref, stops counted separately
   if (!normCtx) {
     const c = document.createElement("canvas");
     c.width = c.height = 1;
@@ -125,7 +125,7 @@ export function analyzeSvgText(svg: string): ColourAnalysis {
 
 /** Exact colour count from a PDF's drawing commands (fills/strokes). Returns
  *  null when the page paints raster images or uses colour spaces we can't
- *  resolve — the caller should fall back to a raster estimate of the render. */
+ *  resolve, the caller should fall back to a raster estimate of the render. */
 export async function analyzePdfColours(file: File): Promise<ColourAnalysis | null> {
   try {
     const pdfjs = await import("pdfjs-dist");
@@ -157,13 +157,13 @@ export async function analyzePdfColours(file: File): Promise<ColourAnalysis | nu
           const [r, g, b] = args as number[];
           colours.push(toHex(r, g, b));
         } else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject) {
-          return null; // embedded raster — colours live in pixels, not commands
+          return null; // embedded raster, colours live in pixels, not commands
         } else if (fn === OPS.showText || fn === OPS.showSpacedText) {
           sawText = true;
         }
       }
       if (colours.length === 0) {
-        // Nothing drawable we could read (unsupported colour space, etc.) —
+        // Nothing drawable we could read (unsupported colour space, etc.),
         // unless it's a pure-text PDF, which defaults to black.
         if (!sawText) return null;
         colours.push("#000000");
@@ -227,7 +227,7 @@ export async function analyzeRasterDataUrl(src: string): Promise<ColourAnalysis>
   }
   if (opaque === 0) return { kind: "estimate", colours: [] };
 
-  // A photo/gradient scatters across hundreds of buckets — call it early.
+  // A photo/gradient scatters across hundreds of buckets, call it early.
   if (buckets.size > 200) return { kind: "full" };
 
   // Dominant buckets: ≥1.5% of opaque pixels (antialiasing fringe drops out).
@@ -261,7 +261,7 @@ export async function analyzeImageSource(src: string): Promise<ColourAnalysis> {
       return analyzeSvgText(text);
     }
     if (/\.svg([?#]|$)/i.test(src)) {
-      // Hosted SVG — fetch the source for an exact parse; fall back to raster.
+      // Hosted SVG, fetch the source for an exact parse; fall back to raster.
       try {
         const res = await fetch(src);
         const ct = res.headers.get("content-type") ?? "";
@@ -272,7 +272,7 @@ export async function analyzeImageSource(src: string): Promise<ColourAnalysis> {
     }
     return await analyzeRasterDataUrl(src);
   } catch {
-    // Unreadable (CORS, bad data) — an honest "we don't know".
+    // Unreadable (CORS, bad data), an honest "we don't know".
     return { kind: "full" };
   }
 }

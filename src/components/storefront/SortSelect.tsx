@@ -11,7 +11,7 @@ const OPTIONS = [
   { value: "name", label: "Name: A–Z" },
 ];
 
-/** Sort dropdown — updates the ?sort= param, preserving category/search. */
+/** Sort dropdown, updates the ?sort= param, preserving category/search. */
 export function SortSelect({ value }: { value: string }) {
   const router = useRouter();
   const params = useSearchParams();

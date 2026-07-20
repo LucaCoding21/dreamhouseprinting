@@ -39,10 +39,10 @@ update public.settings
   set value = '{
     "invoice_sent": {
       "subject": "Invoice for your order {{orderNumber}}",
-      "body": "Hi {{customerName}},\n\nYour invoice for order {{orderNumber}} is ready — total due {{totalDue}}.\n\nOpen your order page to review everything and pay securely online."
+      "body": "Hi {{customerName}},\n\nYour invoice for order {{orderNumber}} is ready, total due {{totalDue}}.\n\nOpen your order page to review everything and pay securely online."
     },
     "payment_received": {
-      "subject": "Payment received — {{orderNumber}}",
+      "subject": "Payment received, {{orderNumber}}",
       "body": "Thanks {{customerName}}!\n\nWe received your payment of {{totalDue}} for order {{orderNumber}}. We''ll get printing and keep you posted."
     }
   }'::jsonb || value

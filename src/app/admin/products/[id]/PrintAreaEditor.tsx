@@ -78,7 +78,7 @@ export function PrintAreaEditor({
   const [selected, setSelected] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   // Aspect ratio of the loaded garment image. The frame matches it so the
-  // image fills with no letterbox — then % box coords and drag deltas (which
+  // image fills with no letterbox, then % box coords and drag deltas (which
   // divide by the container rect) map 1:1 to the same basis the designer uses.
   const [imgAspect, setImgAspect] = useState(1);
 
@@ -375,7 +375,7 @@ export function PrintAreaEditor({
 }
 
 /**
- * Number field that edits through a string draft so decimals type cleanly — no
+ * Number field that edits through a string draft so decimals type cleanly, no
  * stuck leading zero (the controlled `type=number` bug) and you can clear it
  * mid-edit. Syncs from the external number only while unfocused (e.g. when a
  * drag changes the size). Blank/invalid entries don't propagate.

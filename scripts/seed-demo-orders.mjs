@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Seeds a spread of DEMO orders for the test customer so the customer portal
- * (/account/*) looks populated — dashboard action cards, order list, tracker,
+ * (/account/*) looks populated, dashboard action cards, order list, tracker,
  * proof approval, line items and pricing. Purely for eyeballing the UI.
  *
  * Target: customer@dreamhouse.test (role=customer, pw dreamhouse123).

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 
-/** Centered, branded frame for the auth pages (login / register) — a playful
+/** Centered, branded frame for the auth pages (login / register), a playful
  *  sky with a layered cloud horizon along the bottom and a chunky raised card. */
 export function AuthShell({
   title,

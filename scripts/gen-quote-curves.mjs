@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Generates scripts/quote-curves.json from the BASE_PRICE / AVAILABLE_DECORATIONS
- * tables in src/lib/pricing.ts (the legacy quick-quote curves — Julian's real
+ * tables in src/lib/pricing.ts (the legacy quick-quote curves, Julian's real
  * per-quantity prices). seed-catalog.mjs reads that JSON to stamp each catalog
  * product's `pricing_rules.quote`. This keeps lib/pricing.ts the single source
  * of truth while letting the plain-Node seed (which can't import the TS module)

@@ -3,7 +3,7 @@ import type { OrderStatus } from "@/lib/db/rows";
 /**
  * Serialized props for the shared <OrderView>, rendered by BOTH the logged-in
  * portal (/account/orders/[id]) and the public tokenized page (/o/[token]).
- * Plain data only — no Supabase rows or server-only imports — so the client
+ * Plain data only, no Supabase rows or server-only imports, so the client
  * children (ProofPanel, InvoicePanel) can share these types.
  */
 
@@ -36,7 +36,7 @@ export interface OrderViewLineItem {
   sizeQuantities: Record<string, number>;
   line_total: number | null;
   /**
-   * The design mockup for THIS colourway — non-null only when this line item is
+   * The design mockup for THIS colourway, non-null only when this line item is
    * the colour the design was actually mocked up on. Non-designed colourways get
    * null (their thumbnail falls back to a colour swatch).
    */

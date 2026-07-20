@@ -50,7 +50,7 @@ function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "in
 }
 
 // Rush orders that are out the door (shipped/picked up/done) or cancelled are no
-// longer "active" — the Rush tab surfaces only the ones still needing attention.
+// longer "active", the Rush tab surfaces only the ones still needing attention.
 const CLOSED_STATUSES = ["shipped", "ready_for_pickup", "completed", "cancelled"];
 
 const TABS: { key: string; label: string; match: (r: Row) => boolean }[] = [
@@ -65,7 +65,7 @@ const TABS: { key: string; label: string; match: (r: Row) => boolean }[] = [
 ];
 
 function inHands(due: string | null): { label: string; urgent: boolean } {
-  if (!due) return { label: "—", urgent: false };
+  if (!due) return { label: "-", urgent: false };
   const days = Math.ceil((new Date(due).getTime() - Date.now()) / 86400000);
   if (days < 0) return { label: `${-days}d overdue`, urgent: true };
   if (days === 0) return { label: "Today", urgent: true };
@@ -143,7 +143,7 @@ export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab
                   return (
                     <TR key={r.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${r.id}`)}>
                       <TD>
-                        <div className="font-medium text-dream-ink">{r.dueDate ?? "—"}</div>
+                        <div className="font-medium text-dream-ink">{r.dueDate ?? "-"}</div>
                         <div className={cn("text-xs", ih.urgent ? "text-dream-danger" : "text-dream-muted")}>{ih.label}</div>
                       </TD>
                       <TD>
@@ -153,10 +153,10 @@ export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab
                         <Badge variant={pay.variant}>{pay.label}</Badge>
                       </TD>
                       <TD>
-                        <div className="font-medium text-dream-ink">{r.customerName ?? r.customerEmail ?? "—"}</div>
+                        <div className="font-medium text-dream-ink">{r.customerName ?? r.customerEmail ?? "-"}</div>
                         <div className="text-xs text-dream-muted">{r.orderNumber}</div>
                       </TD>
-                      <TD>{r.salesRep ?? "—"}</TD>
+                      <TD>{r.salesRep ?? "-"}</TD>
                       <TD>
                         <div className="font-medium text-dream-ink">{r.pieces} pcs</div>
                         <div className="text-xs text-dream-muted">{formatCAD(r.total)}</div>

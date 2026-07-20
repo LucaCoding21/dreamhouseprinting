@@ -12,7 +12,7 @@ export default async function ShippingStepPage({
   const { designId } = await params;
   const ctx = await loadCheckoutContext(designId);
   if (!ctx) notFound();
-  // Can't pick delivery before we have contact details — send them back.
+  // Can't pick delivery before we have contact details, send them back.
   if (!ctx.hasAddress) redirect(`/checkout/${designId}`);
 
   return (

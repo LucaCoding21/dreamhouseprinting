@@ -31,7 +31,7 @@ export function OrderItemsSection({
   const { order } = detail;
   const { pending, run } = useOrderAction();
   const [view, setView] = useState<"detailed" | "compact">("detailed");
-  // Per-line collapse (detailed view) — fold individual lines when an order has many.
+  // Per-line collapse (detailed view), fold individual lines when an order has many.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleCollapsed = (id: string) =>
     setCollapsed((prev) => {

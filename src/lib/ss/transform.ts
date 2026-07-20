@@ -72,7 +72,7 @@ export function sizesFromProducts(products: SSProduct[]): ProductSize[] {
     .sort((a, b) => a.order.localeCompare(b.order));
 }
 
-/** Representative wholesale cost — the lowest customer price across SKUs (base size). */
+/** Representative wholesale cost, the lowest customer price across SKUs (base size). */
 export function baseWholesaleCost(products: SSProduct[]): number {
   const prices = products.map((p) => p.customerPrice).filter((n) => n > 0);
   return prices.length ? Math.min(...prices) : 0;

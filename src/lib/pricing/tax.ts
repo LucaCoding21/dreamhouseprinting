@@ -5,7 +5,7 @@
  *
  * Tax is charged on the taxable base (goods + setup + shipping). We return a
  * breakdown of named lines so the checkout summary can show "GST" / "PST" /
- * "HST" exactly like the receipt the customer will get. Pure module — safe to
+ * "HST" exactly like the receipt the customer will get. Pure module, safe to
  * import on the client for the live order summary.
  *
  * If these ever need to vary per shop, lift the RATES table into `settings`.

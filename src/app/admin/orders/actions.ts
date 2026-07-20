@@ -68,7 +68,7 @@ async function applyStatus(
 export async function setOrderStatusAction(
   orderId: string,
   status: OrderStatus,
-  /** Required to cancel a PAID order (a refund may be owed) — the UI confirms first. */
+  /** Required to cancel a PAID order (a refund may be owed), the UI confirms first. */
   confirmed = false
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.edit");
@@ -80,9 +80,9 @@ export async function setOrderStatusAction(
     .eq("id", orderId)
     .single();
 
-  // Minimal transition guards (one-man shop — permissive, only the dangerous moves).
+  // Minimal transition guards (one-man shop, permissive, only the dangerous moves).
   if (status === "proof_ready" && prev?.status !== "proof_ready") {
-    // No proof waiting means nothing to review — don't email an approve-and-pay CTA.
+    // No proof waiting means nothing to review, don't email an approve-and-pay CTA.
     const { count } = await service
       .from("proofs")
       .select("id", { count: "exact", head: true })
@@ -91,7 +91,7 @@ export async function setOrderStatusAction(
     if (!count) return { error: "Upload a proof before moving this order to Proof ready." };
   }
   if (status === "cancelled" && prev?.paid_at && !confirmed) {
-    return { error: "This order is already paid. Confirm the cancellation — a refund may be owed." };
+    return { error: "This order is already paid. Confirm the cancellation, a refund may be owed." };
   }
 
   const err = await applyStatus(service, orderId, status, prev?.status);
@@ -127,7 +127,7 @@ export async function setPaymentStatusAction(
   const patch: OrderUpdate = { payment_status: paymentStatus };
   // A manual "paid in full" (e.g. cash) must also stamp paid_at, or the customer's
   // self-serve Pay button stays open and the order could be charged again via Stripe.
-  // Only stamp when not already paid — never move an existing paid timestamp.
+  // Only stamp when not already paid, never move an existing paid timestamp.
   const markingPaid = paymentStatus === "paid_in_full" && !order?.paid_at;
   if (markingPaid) patch.paid_at = new Date().toISOString();
   // Reopening to unpaid clears the timestamp so the pay flow can run again.
@@ -266,13 +266,13 @@ export async function updateOrderPricingAction(
     discountLabel?: string;
     discount?: number;
   },
-  /** Required to edit a PAID order's pricing — the UI confirms first. */
+  /** Required to edit a PAID order's pricing, the UI confirms first. */
   confirmed = false
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.pricing");
   const service = requireSupabaseServiceClient();
 
-  // Every money field must be a real, non-negative number — never trust the client.
+  // Every money field must be a real, non-negative number, never trust the client.
   const parts = [pricing.subtotal, pricing.setupFees, pricing.rush, pricing.addons, pricing.shipping, pricing.tax];
   if (pricing.discountValue !== undefined) parts.push(pricing.discountValue);
   if (parts.some((n) => !Number.isFinite(n) || n < 0)) {
@@ -284,7 +284,7 @@ export async function updateOrderPricingAction(
     return { error: "This order is already paid. Confirm before changing its pricing." };
   }
 
-  // Recompute the total from the parts server-side — a tampered client sum can't
+  // Recompute the total from the parts server-side, a tampered client sum can't
   // undercharge (or, once paid via Stripe, mismatch what was collected).
   const goods = pricing.subtotal + pricing.setupFees + pricing.rush + pricing.addons;
   const discount = resolveDiscount(goods, {
@@ -317,7 +317,7 @@ export interface OrderDetailsInput {
   /** Written to the customer's profile when the order has one. */
   contactName?: string;
   contactPhone?: string;
-  /** Guest orders only — the notification email. */
+  /** Guest orders only, the notification email. */
   guestEmail?: string;
   shipping: {
     name?: string;
@@ -374,7 +374,7 @@ export async function updateOrderDetailsAction(
   return { ok: true };
 }
 
-/** One decoration placement ("spot") on a garment — stored in line_items.decorations. */
+/** One decoration placement ("spot") on a garment, stored in line_items.decorations. */
 export interface DecorationSpot {
   location: string;
   type: string;
@@ -395,7 +395,7 @@ export interface LineItemDecorations {
   productionStatus?: LineProductionStatus;
   /** Manufacturing instructions for this line (e.g. white underbase on darks). */
   productionNotes?: string;
-  /** Private team notes — never shown to the customer. */
+  /** Private team notes, never shown to the customer. */
   internalNotes?: string;
   /** Info for the shipping label (e.g. gate code, delivery instructions). */
   shippingNotes?: string;
@@ -510,7 +510,7 @@ export async function updateLineItemsAction(
         product_name: patch.productName.trim() || null,
         size_quantities: asJson(patch.sizeQuantities),
         unit_price: unitPrice,
-        // The stale-price nudge is UI-only — never persist it (customers can read
+        // The stale-price nudge is UI-only, never persist it (customers can read
         // decorations jsonb via RLS, and it can't be column-guarded).
         decorations: asJson({ ...patch.decorations, priceSuggestion: null }),
         line_total: round2(unitPrice * qty + setupFee),
@@ -637,7 +637,7 @@ function suggestUnitPrice(
  * so nothing is auto-selected. Sizes, prints, notes, design and pricing are
  * all kept. The price is NOT auto-changed; instead, when the new product's
  * curve price differs from the stored unit price, a suggestion is RETURNED to
- * the client (for a display-only nudge) — never persisted, since customers can
+ * the client (for a display-only nudge), never persisted, since customers can
  * read the decorations jsonb via RLS.
  */
 export async function changeLineItemProductAction(
@@ -680,7 +680,7 @@ export async function changeLineItemProductAction(
       product_name: product.name,
       colour: asJson({ name: colour.name, hex: colour.hex ?? null }),
       // The suggestion is returned to the client for display only, never persisted
-      // (customers can read decorations jsonb via RLS — see suggestUnitPrice header).
+      // (customers can read decorations jsonb via RLS, see suggestUnitPrice header).
       decorations: asJson({ ...decorations, priceSuggestion: null }),
     })
     .eq("id", lineItemId);
@@ -720,7 +720,7 @@ export async function uploadProofsAction(
     .single();
   // Never send a proof onto a cancelled order.
   if (order?.status === "cancelled") {
-    return { error: "This order was cancelled — reopen it before sending a proof." };
+    return { error: "This order was cancelled, reopen it before sending a proof." };
   }
   // A paid or completed order is settled: still record the proof on file, but
   // don't reset its status or re-fire the approve-and-pay email (they already paid).
@@ -751,7 +751,7 @@ export async function uploadProofsAction(
   const patch: OrderUpdate = { official_mockups: asJson([...mockups, ...signed]) };
   if (!settled) {
     patch.status = "proof_ready";
-    // Direct status write bypasses applyStatus — clear a stale hold note here too.
+    // Direct status write bypasses applyStatus, clear a stale hold note here too.
     if (order?.status === "on_hold") patch.hold_note = null;
   }
   await service.from("orders").update(patch).eq("id", orderId);
@@ -764,7 +764,7 @@ export async function uploadProofsAction(
       note: "Proof saved to the order. The customer wasn't emailed because this order is already settled.",
     };
   }
-  // One email for the whole set — the proof page shows every image.
+  // One email for the whole set, the proof page shows every image.
   await sendOrderStatusEmail(orderId, "proof_ready");
   revalidateOrder(orderId);
   return { ok: true };
@@ -774,7 +774,7 @@ export async function uploadProofsAction(
  * Email (or re-email) the payment link: mint/reuse a Stripe Checkout session
  * for the current order total, stamp invoice fields, and send the customer
  * their public order link with the Pay button. OPTIONAL in the approve-and-pay
- * flow (an approved order is payable self-serve) — this is the nudge/reminder,
+ * flow (an approved order is payable self-serve), this is the nudge/reminder,
  * and the only way to open payment BEFORE proof approval. Requires the pricing
  * permission.
  */

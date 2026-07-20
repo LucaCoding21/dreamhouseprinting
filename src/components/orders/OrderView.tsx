@@ -14,18 +14,18 @@ import type { OrderViewProps } from "./types";
  * The Julian-approved customer order view, shared verbatim by the logged-in
  * portal (/account/orders/[id]) and the public tokenized page (/o/[token]).
  * Renders its sections as siblings (no wrapper) so the hosting page controls
- * spacing — the portal keeps its exact `space-y-6` rhythm. Actions are passed
+ * spacing, the portal keeps its exact `space-y-6` rhythm. Actions are passed
  * in already bound to the order/token by the route.
  */
 export function OrderView({ order, lineItems, proofs, activity, stageDates, actions, etransfer }: OrderViewProps) {
   const pricing = order.pricing;
-  // Always the LIVE total — admin pricing edits show (and charge) immediately;
+  // Always the LIVE total, admin pricing edits show (and charge) immediately;
   // the stamped invoice_amount is only a fallback for legacy rows.
   const amountDue = pricing.total ?? order.invoice_amount ?? 0;
 
   // Approve-and-pay: once the proof is approved the order is payable without an
   // invoice email. Pre-approval, an explicit invoice still unlocks payment. A
-  // cancelled order is never payable (mirrors orderPayableError) — otherwise it
+  // cancelled order is never payable (mirrors orderPayableError), otherwise it
   // would show a Pay-now button whose action then errors.
   const payable =
     !order.paid_at &&
@@ -50,12 +50,27 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
 
   return (
     <>
-      {/* Where it is — the status hero, on top. */}
+      {/* Where it is, the status hero, on top. */}
       <OrderTracker status={order.status} stageDates={stageDates} dueDate={order.due_date} />
 
-      {/* Order + payment side by side — two separate containers, same order. */}
+      {/* Review and approve the proof, sits directly below the status module. */}
+      {proofSet.length > 0 && (
+        <ProofPanel
+          proofs={proofSet}
+          onApprove={actions.approveProof}
+          onRequestChanges={actions.requestChanges}
+          onPayNow={actions.payNow}
+          onReportEtransfer={actions.reportEtransfer}
+          payOnApprove={!order.paid_at && amountDue > 0}
+          amountDue={amountDue}
+          orderNumber={order.order_number}
+          etransfer={etransfer}
+        />
+      )}
+
+      {/* Order + payment side by side, two separate containers, same order. */}
       <div className="grid gap-6 md:grid-cols-[1.55fr_1fr] md:items-start">
-        {/* What you ordered — order identity + its line items. */}
+        {/* What you ordered, order identity + its line items. */}
         <section className="rounded-3xl border border-dream-line bg-white shadow-sm">
           <div className="flex items-center gap-3 border-b border-dream-line px-5 py-4">
             <h2 className="font-display text-xl font-extrabold leading-none text-dream-ink sm:text-2xl">{orderLabel}</h2>
@@ -116,7 +131,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
           </div>
         </section>
 
-        {/* The money — its own container, beside the order. */}
+        {/* The money, its own container, beside the order. */}
         <OrderPanel title="Payment summary" tag={paymentTag}>
           <div className="space-y-1.5 text-sm">
             <Row label="Subtotal" value={formatCAD(pricing.subtotal ?? 0)} />
@@ -128,13 +143,13 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
             )}
           </div>
 
-          {/* Total — the focal figure, in brand purple. */}
+          {/* Total, the focal figure, in brand purple. */}
           <div className="mt-4 flex items-center justify-between border-t-2 border-dream-line pt-4">
             <span className="font-display text-lg font-bold text-dream-ink">Total</span>
             <span className="font-display text-2xl font-extrabold text-dream-purple">{formatCAD(pricing.total ?? 0)}</span>
           </div>
 
-          {/* Payment action / status — same box, since it's all one transaction. */}
+          {/* Payment action / status, same box, since it's all one transaction. */}
           {(payable || order.paid_at) && (
             <div className="mt-4 border-t border-dream-line pt-4">
               <InvoicePanel
@@ -159,21 +174,6 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
           </p>
         </OrderPanel>
       </div>
-
-      {/* Review and approve the proof. */}
-      {proofSet.length > 0 && (
-        <ProofPanel
-          proofs={proofSet}
-          onApprove={actions.approveProof}
-          onRequestChanges={actions.requestChanges}
-          onPayNow={actions.payNow}
-          onReportEtransfer={actions.reportEtransfer}
-          payOnApprove={!order.paid_at && amountDue > 0}
-          amountDue={amountDue}
-          orderNumber={order.order_number}
-          etransfer={etransfer}
-        />
-      )}
 
       {/* The record. */}
       {activity.length > 0 && (

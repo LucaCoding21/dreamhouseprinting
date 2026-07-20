@@ -1,4 +1,4 @@
-/** Sticky top header for admin pages — title + optional actions slot. */
+/** Sticky top header for admin pages, title + optional actions slot. */
 export function AdminHeader({
   title,
   badge,

@@ -84,7 +84,7 @@ export default async function AccountDashboardPage() {
     <div className="space-y-9">
       <Greeting firstName={firstName} />
 
-      {/* PRIMARY — the single action. Only shown when a proof is waiting, so it
+      {/* PRIMARY, the single action. Only shown when a proof is waiting, so it
           never competes with the rest of the page for attention. */}
       {topProof && (
         <section className="rounded-lg border border-dream-purple/25 bg-dream-lavender-soft/60 p-5">
@@ -116,7 +116,7 @@ export default async function AccountDashboardPage() {
         </section>
       )}
 
-      {/* TERTIARY — a quiet glance. No per-stat links; the list below is the way in. */}
+      {/* TERTIARY, a quiet glance. No per-stat links; the list below is the way in. */}
       <section className="rounded-lg border border-dream-line bg-white">
         <dl className="grid grid-cols-2 sm:grid-cols-4">
           {stats.map((s, i) => (
@@ -133,7 +133,7 @@ export default async function AccountDashboardPage() {
         </dl>
       </section>
 
-      {/* SECONDARY — the main content: everything currently moving. */}
+      {/* SECONDARY, the main content: everything currently moving. */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-dream-ink">In progress</h2>

@@ -6,6 +6,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSettings";
 import { mergeAddonSettings, type AddonSettings } from "@/lib/addonSettings";
 import { mergePaymentSettings, type PaymentSettings } from "@/lib/paymentSettings";
+import { mergeBusinessSettings, type BusinessSettings } from "@/lib/businessSettings";
 import type { Json, Database } from "@/lib/db/types";
 
 type DecorationMethodUpdate = Database["public"]["Tables"]["decoration_methods"]["Update"];
@@ -98,6 +99,24 @@ export async function updatePaymentSettingsAction(
 
   revalidatePath("/admin/settings");
   // The customer order pages read this at render time; no other paths cached.
+  return { ok: true };
+}
+
+export async function updateBusinessSettingsAction(
+  settings: BusinessSettings
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("settings.manage");
+  const service = requireSupabaseServiceClient();
+
+  const clean = mergeBusinessSettings(settings);
+  const { error } = await service
+    .from("settings")
+    .upsert({ key: "business", value: asJson(clean) }, { onConflict: "key" });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings");
+  // The cart's pickup panel reads this at render time.
+  revalidatePath("/cart");
   return { ok: true };
 }
 

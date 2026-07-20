@@ -12,8 +12,8 @@ const STAGE_DOGS: Record<number, string> = {
   0: "/order-received-dog.webp", // Order received
   1: "/how it works/step-2-proof-review.webp", // Proof ready
   2: "/how it works/step-3-printing.webp", // In production
-  4: "/delivery-status-dog.webp", // Shipped / ready
-  5: "/delivered-status-dog.webp", // Complete
+  3: "/delivery-status-dog.webp", // Shipped / ready
+  4: "/delivered-status-dog.webp", // Complete
 };
 
 /**
@@ -23,21 +23,21 @@ const STAGE_DOGS: Record<number, string> = {
  * Stages without an entry fall back to DEFAULT_OVAL.
  */
 const STAGE_OVAL: Record<number, string> = {
-  0: "left-[55%] top-[84%] h-9 w-48 rounded-[100%] sm:h-11 sm:w-56", // Order received — flat shadow under the dog
-  1: "left-[52%] top-[45%] h-56 w-56 rotate-6 rounded-[46%_54%_52%_48%/56%_52%_48%_44%] sm:h-72 sm:w-72", // Proof ready — organic blob
-  4: "left-1/2 top-[80%] h-8 w-48 rounded-[100%] sm:h-10 sm:w-56", // Shipped / ready — flat shadow under the dog
-  5: "left-1/2 top-[80%] h-[37px] w-40 rounded-[100%] sm:h-[45px] sm:w-48", // Complete — slightly taller + narrower shadow
+  0: "left-[55%] top-[84%] h-9 w-48 rounded-[100%] sm:h-11 sm:w-56", // Order received, flat shadow under the dog
+  1: "left-[52%] top-[45%] h-56 w-56 rotate-6 rounded-[46%_54%_52%_48%/56%_52%_48%_44%] sm:h-72 sm:w-72", // Proof ready, organic blob
+  3: "left-1/2 top-[80%] h-8 w-48 rounded-[100%] sm:h-10 sm:w-56", // Shipped / ready, flat shadow under the dog
+  4: "left-1/2 top-[80%] h-[37px] w-40 rounded-[100%] sm:h-[45px] sm:w-48", // Complete, slightly taller + narrower shadow
 };
 const DEFAULT_OVAL = "left-1/2 top-[62%] h-24 w-56 rounded-[100%] sm:h-28 sm:w-64";
 
 /**
  * Per-stage dog sizing. Height sets the LAYOUT box (how much room it reserves);
- * a `scale-*` transform enlarges it VISUALLY without growing that box — so a dog
+ * a `scale-*` transform enlarges it VISUALLY without growing that box, so a dog
  * can look bigger without pushing the text / widening the container.
  */
 const STAGE_DOG_SIZE: Record<number, string> = {
-  4: "h-44 -translate-y-4 scale-[1.4] sm:h-52 sm:scale-[1.4]", // Shipped / ready — big visually, small footprint
-  5: "h-52 scale-110 sm:h-64 sm:scale-110", // Complete — same footprint, a touch bigger visually
+  3: "h-44 -translate-y-4 scale-[1.4] sm:h-52 sm:scale-[1.4]", // Shipped / ready, big visually, small footprint
+  4: "h-52 scale-110 sm:h-64 sm:scale-110", // Complete, same footprint, a touch bigger visually
 };
 const DEFAULT_DOG_SIZE = "h-52 sm:h-64";
 
@@ -46,7 +46,6 @@ const STAGE_COPY: Record<string, string> = {
   received: "We've got your order and we're on it.",
   proof: "Your proof is ready for review.",
   production: "We're printing your order right now!",
-  qc: "Giving every piece a final once-over.",
   fulfilment: "Your order is on its way to you!",
   complete: "Delivered. Enjoy your new gear!",
 };
@@ -56,7 +55,7 @@ function fmtStageDate(iso: string): string {
 }
 
 function fmtReadyDate(date: string): string {
-  // date is a plain YYYY-MM-DD — pin to local midnight so it never shifts a day.
+  // date is a plain YYYY-MM-DD, pin to local midnight so it never shifts a day.
   return new Date(`${date}T00:00:00`).toLocaleDateString("en-CA", {
     weekday: "short",
     month: "long",
@@ -66,7 +65,7 @@ function fmtReadyDate(date: string): string {
 }
 
 /**
- * Order progress tracker (PRD §5.4.1) — a playful hero of the current stage:
+ * Order progress tracker (PRD §5.4.1), a playful hero of the current stage:
  * the "current status" name on the left, the stage's doodle dog on an organic
  * blob on the right, a labeled + dated milestone rail beneath, and an
  * estimated-ready card. A friendly layer over the order status field (single
@@ -99,10 +98,7 @@ export function OrderTracker({
   }
 
   const last = TRACKER_STAGES.length - 1;
-  // TEMP dev preview: force a stage so you can eyeball any tracker state. Set
-  // back to null before shipping, otherwise every order shows this stage.
-  const PREVIEW_STAGE: number | null = 5;
-  const clamped = PREVIEW_STAGE ?? Math.max(0, Math.min(statusStageIndex(status), last));
+  const clamped = Math.max(0, Math.min(statusStageIndex(status), last));
   const current = TRACKER_STAGES[clamped];
   const dog = STAGE_DOGS[clamped];
 
@@ -137,7 +133,7 @@ export function OrderTracker({
               )}
             />
             {dog ? (
-              // Animated webp already loops on its own — no CSS keyframe needed.
+              // Animated webp already loops on its own, no CSS keyframe needed.
               // eslint-disable-next-line @next/next/no-img-element
               <img src={dog} alt="" className={cn("relative w-auto object-contain", STAGE_DOG_SIZE[clamped] ?? DEFAULT_DOG_SIZE)} />
             ) : (
@@ -153,7 +149,7 @@ export function OrderTracker({
           </div>
         </div>
 
-        {/* Milestone rail — finished stages check off, the live stage is a purple
+        {/* Milestone rail, finished stages check off, the live stage is a purple
             target that twinkles, upcoming stages are hollow with a dotted track. */}
         <ol className="mt-8 flex w-full items-start">
           {TRACKER_STAGES.map((s, i) => {

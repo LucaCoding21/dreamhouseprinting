@@ -1,6 +1,6 @@
 /**
  * One-off: add a "back" print area to existing apparel products so the designer
- * shows front + back side by side. Idempotent — skips products that already have
+ * shows front + back side by side. Idempotent, skips products that already have
  * a back area, and skips caps (front-only). No S&S calls; pure DB.
  *
  *   node --env-file=.env.local scripts/add-back-print-areas.mjs

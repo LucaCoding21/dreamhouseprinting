@@ -1,7 +1,7 @@
 import React from "react";
 
 /** Shared line-icon set for the customer portal (sidebar, dashboard, cards).
- *  24x24, currentColor stroke — size/colour via className on each usage. */
+ *  24x24, currentColor stroke, size/colour via className on each usage. */
 function Svg({ children, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg

@@ -5,7 +5,7 @@ import { getGuestToken } from "@/lib/guest";
 
 /**
  * Escape a literal string for use as an `ilike` pattern. `ilike` with no `%`/`_`
- * wildcards is a case-insensitive equality match — but a stray wildcard in an
+ * wildcards is a case-insensitive equality match, but a stray wildcard in an
  * address (unusual, but possible) would widen the match, so neutralise them.
  */
 function escapeLike(value: string): string {
@@ -19,7 +19,7 @@ function escapeLike(value: string): string {
  * portal (RLS-scoped to customer_id = auth.uid()) would otherwise show nothing.
  *
  * SECURITY: `email` MUST come from the authenticated Supabase user object
- * (getUser().email) — proof of ownership. Never pass a form-supplied email, or a
+ * (getUser().email), proof of ownership. Never pass a form-supplied email, or a
  * caller could claim strangers' records. `userId` is likewise the auth user id.
  *
  * Idempotent (each call only touches still-unclaimed rows) and silent on failure

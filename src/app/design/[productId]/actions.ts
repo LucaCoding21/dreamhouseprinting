@@ -9,7 +9,7 @@ import type { Json } from "@/lib/db/types";
 const asJson = (v: unknown) => v as unknown as Json;
 const YEAR = 60 * 60 * 24 * 365;
 
-/** Who owns a design — a logged-in customer, or a guest browser by cookie token. */
+/** Who owns a design, a logged-in customer, or a guest browser by cookie token. */
 type DesignOwner = { userId: string } | { guestToken: string };
 
 export interface DesignColorway {
@@ -25,7 +25,7 @@ export interface DesignSubmitInput {
   productId: string;
   /** Customer-given name for the design (collected in the save-your-design modal). */
   name?: string;
-  /** Lead email captured at save time — may differ from the account email. */
+  /** Lead email captured at save time, may differ from the account email. */
   leadEmail?: string;
   colourName: string;
   colourHex?: string;
@@ -35,7 +35,7 @@ export interface DesignSubmitInput {
   colorways: DesignColorway[];
   decorationMethodId: string | null;
   printAreaIds: string[];
-  /** Fabric scene JSON per view. Image srcs must NOT be data URLs — the client
+  /** Fabric scene JSON per view. Image srcs must NOT be data URLs, the client
    *  stages those to Storage and sends `dh-staged:<path>` markers instead (big
    *  photos/PDF pages as data URLs blew the server-action body limit). */
   scenes: Record<string, unknown>;
@@ -53,7 +53,7 @@ export interface DesignSubmitInput {
     /** Colour count the estimate was priced with (artist confirms at proofing). */
     inkColours?: number;
     /** Per-side print spec derived in the designer (real measurement + colour
-     *  count) — pre-fills the admin decoration sheet on order placement. */
+     *  count), pre-fills the admin decoration sheet on order placement. */
     decorationSpots?: {
       view: string;
       location: string;
@@ -169,13 +169,13 @@ export async function saveDraftAction(
       const { id: designId } = await persistDesign(service, { userId: user.id }, input, "draft");
       return { designId };
     }
-    // Guest path — proceed with just an email, identified by a cookie token.
+    // Guest path, proceed with just an email, identified by a cookie token.
     const leadEmail = input.leadEmail?.trim();
     if (!leadEmail) return { error: "Enter your email to continue." };
     const guestToken = await getOrCreateGuestToken();
     const { id: designId, created, mockupUrl } = await persistDesign(service, { guestToken }, input, "draft");
 
-    // Send the "your design is saved" email — only on first save (a new row),
+    // Send the "your design is saved" email, only on first save (a new row),
     // and never let an email failure fail the save the customer just made.
     if (created) {
       try {
@@ -212,7 +212,7 @@ export async function submitDesignAction(
   try {
     const { id: designId } = await persistDesign(service, { userId: user.id }, input, "submitted");
 
-    // Quote path — staff price it later.
+    // Quote path, staff price it later.
     if (input.asQuote) {
       const { data: q, error } = await service
         .from("quotes")

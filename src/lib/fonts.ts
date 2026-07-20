@@ -37,7 +37,7 @@ export const lilitaOne = Lilita_One({
   weight: "400",
 });
 
-// Designer text fonts — self-hosted (next/font) so Fabric can render them on the
+// Designer text fonts, self-hosted (next/font) so Fabric can render them on the
 // <canvas>. We keep the full CSS family string (for previews + Fabric) and the
 // bare primary family name (for document.fonts.load, which needs a single face).
 const anton = Anton({ subsets: ["latin"], weight: "400" });
@@ -58,9 +58,9 @@ const fredoka = Fredoka({ subsets: ["latin"], weight: "600" });
 export interface DesignerFont {
   /** Short human label shown on the picker button. */
   label: string;
-  /** Full CSS font-family value (with fallbacks) — for previews + Fabric. */
+  /** Full CSS font-family value (with fallbacks), for previews + Fabric. */
   css: string;
-  /** Bare primary family name — for document.fonts.load(). */
+  /** Bare primary family name, for document.fonts.load(). */
   family: string;
   /** Weight to render at (single-weight display faces stay 400). */
   weight: number;

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { HelpPrompt } from "@/components/support/HelpPrompt";
 import { RushDatePicker } from "@/components/RushDatePicker";
+import { mapEmbedUrl } from "@/lib/businessSettings";
 import { placeCartOrdersAction } from "./actions";
 
 export interface CartPrefill {
@@ -27,7 +28,13 @@ export interface CartPrefill {
   postal: string;
 }
 
-export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefill: CartPrefill }) {
+export function CartClient({
+  prefill,
+  pickupAddress,
+}: {
+  prefill: CartPrefill;
+  pickupAddress: string | null;
+}) {
   const router = useRouter();
   const { items, count, ready, removeItem, clearCart } = useCart();
   const [contact, setContact] = useState<CartPrefill>(prefill);
@@ -39,13 +46,13 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   const [notice, setNotice] = useState<string | null>(null);
 
   // Each item.total is that design's pre-tax price (goods + setup). Rush is a
-  // request only — the shop quotes the fee when they confirm the order, so it
+  // request only, the shop quotes the fee when they confirm the order, so it
   // never changes this estimate.
   const subtotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
   // Shipping is free on every order (see checkout settings), so the only line
   // between subtotal and the out-the-door number is sales tax. Compute it live
   // from the province the customer types into their address, so the "Estimated
-  // total" is what they'll actually be charged — not just the goods subtotal.
+  // total" is what they'll actually be charged, not just the goods subtotal.
   const province = isProvinceCode(contact.province) ? contact.province : null;
   const tax = calcTax(subtotal, province);
   const grandTotal = subtotal + tax.total;
@@ -99,20 +106,18 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
         return;
       }
       clearCart();
-      if (isLoggedIn) {
-        router.push("/account/orders");
-        return;
-      }
-      // Guests land on the done page. Carry EVERY placed order (number:token,
-      // comma-separated in `orders`) so it can link each to /o/{token}. `order`
-      // keeps the first number for backward compatibility.
+      // Everyone lands on the branded confirmation page, a soft handoff rather
+      // than an abrupt jump into the portal. Carry EVERY placed order as an
+      // `orderNumber:publicToken:orderId` triple (comma-separated in `orders`)
+      // so the done page can link guests to /o/{token} and signed-in customers
+      // to their portal order. `order` keeps the first number for back-compat.
       const params = new URLSearchParams();
       const first = res.placed[0]?.orderNumber;
       if (first) params.set("order", first);
-      const pairs = res.placed
-        .filter((p) => p.orderNumber && p.publicToken)
-        .map((p) => `${p.orderNumber}:${p.publicToken}`);
-      if (pairs.length) params.set("orders", pairs.join(","));
+      const triples = res.placed
+        .filter((p) => p.orderNumber)
+        .map((p) => `${p.orderNumber}:${p.publicToken ?? ""}:${p.orderId ?? ""}`);
+      if (triples.length) params.set("orders", triples.join(","));
       const qs = params.toString();
       router.push(`/checkout/done${qs ? `?${qs}` : ""}`);
     } catch {
@@ -122,7 +127,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
     }
   }
 
-  // Empty cart — warm, on-brand, with the doodle dog.
+  // Empty cart, warm, on-brand, with the doodle dog.
   if (ready && count === 0) {
     return (
       <main className="mx-auto w-full max-w-2xl px-4 py-20 text-center sm:px-6">
@@ -149,7 +154,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-44 pt-8 sm:px-6 lg:pb-56">
-      {/* Back to shop — top-left, where people look to keep browsing */}
+      {/* Back to shop, top-left, where people look to keep browsing */}
       <Link
         href="/shop"
         className="inline-flex items-center gap-1.5 text-sm font-semibold text-dream-purple transition-colors hover:text-dream-ink"
@@ -166,7 +171,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
         </p>
       </header>
 
-      {/* Reassurance strip — three promises, each with its own icon badge so it
+      {/* Reassurance strip, three promises, each with its own icon badge so it
           reads as a highlight rather than fine print */}
       <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
@@ -223,7 +228,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
       </ul>
 
       <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-start">
-        {/* Left — carted designs. Sticky on desktop so the designs stay in view
+        {/* Left, carted designs. Sticky on desktop so the designs stay in view
             while the taller "Send the proof" form scrolls alongside them. */}
         <section className="flex-1 lg:sticky lg:top-6 lg:self-start">
           <SectionHeading n={1}>Your designs</SectionHeading>
@@ -280,7 +285,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
           </div>
         </section>
 
-        {/* Right — contact + request, sticky on desktop */}
+        {/* Right, contact + request, sticky on desktop */}
         <aside className="w-full lg:sticky lg:top-6 lg:w-[440px] lg:shrink-0">
           <div className="overflow-hidden rounded-xl border border-dream-line-strong bg-white shadow-[0_2px_0_0_rgba(27,20,88,0.06)]">
             {/* Lavender header strip */}
@@ -309,12 +314,47 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 </Field>
               </div>
 
-              {/* Fulfillment — segmented Ship / Pickup */}
+              {/* Fulfillment, segmented Ship / Pickup */}
               <p className="mt-6 text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">How you&rsquo;ll get it</p>
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-dream-cream p-1">
                 <ToggleSeg active={fulfillment === "ship"} onClick={() => setFulfillment("ship")}>Ship to me</ToggleSeg>
                 <ToggleSeg active={fulfillment === "pickup"} onClick={() => setFulfillment("pickup")}>Pick up</ToggleSeg>
               </div>
+
+              {/* Pickup panel, shows the shop address + map the moment "Pick up"
+                  is chosen, with the "we still need an address" tip right here so
+                  it reads alongside the choice rather than buried under the form. */}
+              {fulfillment === "pickup" && (
+                <div className="mt-3 rounded-xl border border-dream-line-strong bg-dream-cream/60 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">Pick up from</p>
+                  {pickupAddress ? (
+                    <>
+                      <address className="mt-1.5 whitespace-pre-line font-display text-base font-bold not-italic leading-snug text-dream-ink">
+                        {pickupAddress}
+                      </address>
+                      <div className="mt-3 overflow-hidden rounded-lg border border-dream-line">
+                        <iframe
+                          title="Pickup location map"
+                          src={mapEmbedUrl(pickupAddress)}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          className="block h-44 w-full"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-1.5 text-sm text-dream-ink-soft">
+                      Pickup address shared when your order is confirmed. We&rsquo;ll include it in your proof email.
+                    </p>
+                  )}
+                  <p className="mt-3 flex items-start gap-1.5 text-xs text-dream-muted">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mt-px shrink-0 text-dream-purple">
+                      <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+                    </svg>
+                    <span>We still need an address on file for your order and receipt, even though you&rsquo;ll grab it at the shop.</span>
+                  </p>
+                </div>
+              )}
 
               {/* Address */}
               <div className="mt-3 grid grid-cols-2 gap-3">
@@ -336,13 +376,8 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                   <Input id="c-postal" value={contact.postal} onChange={(e) => set("postal", e.target.value)} placeholder="A1A 1A1" />
                 </Field>
               </div>
-              {fulfillment === "pickup" && (
-                <p className="mt-2 text-xs text-dream-faint">
-                  We still need an address on file for your order. You&rsquo;ll grab it at the shop.
-                </p>
-              )}
 
-              {/* Rush toggle — a clear selectable card so the on/off state reads at a glance */}
+              {/* Rush toggle, a clear selectable card so the on/off state reads at a glance */}
               <label
                 className={cn(
                   "mt-5 flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-colors",
@@ -360,7 +395,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                   }}
                   className="sr-only"
                 />
-                {/* Custom check indicator — fills in when selected */}
+                {/* Custom check indicator, fills in when selected */}
                 <span
                   aria-hidden
                   className={cn(
@@ -392,7 +427,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
                 </div>
               )}
 
-              {/* Order summary — a transparent line-item breakdown so the
+              {/* Order summary, a transparent line-item breakdown so the
                   customer sees the real out-the-door number (goods + free
                   shipping + tax), not just the goods subtotal. Tax is computed
                   live from the province in their address above. */}
@@ -450,7 +485,7 @@ export function CartClient({ isLoggedIn, prefill }: { isLoggedIn: boolean; prefi
   );
 }
 
-/** Numbered step heading — a purple circle badge + Archivo label. */
+/** Numbered step heading, a purple circle badge + Archivo label. */
 function SectionHeading({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <h2 className="flex items-center gap-2.5 font-display text-lg font-extrabold text-dream-ink">

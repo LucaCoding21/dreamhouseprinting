@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Warm, brand-styled card shared across the whole customer order view — proof,
+ * Warm, brand-styled card shared across the whole customer order view, proof,
  * payment, items, summary, history. Deliberately NOT the admin `ui/Card`
  * primitive (that one stays clean for the admin); this carries the storefront's
  * hard-offset shadow + Archivo heading so the customer surface has personality.

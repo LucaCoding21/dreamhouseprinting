@@ -43,7 +43,7 @@ export interface SSProduct {
   color2: string;
   sizeName: string;         // "XS".."5XL"
   sizeCode: string;
-  sizeOrder: string;        // "B0".."B8" — lexical sort = size order
+  sizeOrder: string;        // "B0".."B8", lexical sort = size order
   piecePrice: number;
   customerPrice: number;    // our wholesale cost
   salePrice: number;
@@ -60,7 +60,7 @@ export interface SSSpec {
   brandName: string;
   styleName: string;  // e.g. "3001"
   sizeName: string;   // "XS".."5XL" | "One Size" | "M/L"
-  sizeOrder: string;  // "B0".. — lexical sort = size order
+  sizeOrder: string;  // "B0".., lexical sort = size order
   specName: string;   // "Body Length" | "Chest Width (Laid Flat)" | …
   value: string;      // measurement value, usually inches
 }
@@ -101,7 +101,7 @@ export interface ProductSize {
 export interface SSProductDraft {
   ssStyleId: string;
   ssPartNumber: string;
-  ssStyleName: string;      // human style number, e.g. "5000" — what a printer orders by
+  ssStyleName: string;      // human style number, e.g. "5000", what a printer orders by
   brand: string;
   name: string;
   description: string;

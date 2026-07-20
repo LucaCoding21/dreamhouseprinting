@@ -54,7 +54,7 @@ export default function CartNavButton() {
         )}
       </button>
 
-      {/* Slide-over drawer — portaled to <body> so it escapes the fixed/animated
+      {/* Slide-over drawer, portaled to <body> so it escapes the fixed/animated
           nav header's containing block. Always mounted so it can transition. */}
       {mounted &&
         createPortal(
@@ -116,7 +116,7 @@ export default function CartNavButton() {
             </div>
           ) : (
             <>
-              {/* Items — fills the drawer, scrolls if long */}
+              {/* Items, fills the drawer, scrolls if long */}
               <ul className="flex-1 space-y-3 overflow-y-auto p-5">
                 {items.map((item) => (
                   <li
@@ -152,7 +152,7 @@ export default function CartNavButton() {
                 ))}
               </ul>
 
-              {/* Footer — estimate + CTA, pinned to the bottom */}
+              {/* Footer, estimate + CTA, pinned to the bottom */}
               <div className="border-t border-dream-purple/15 bg-white px-5 py-4">
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wide text-dream-muted">Estimated</span>
@@ -179,7 +179,7 @@ export default function CartNavButton() {
   );
 }
 
-/** Hand-drawn tote/cart — a wobbly bag with two handles, matching the nav's
+/** Hand-drawn tote/cart, a wobbly bag with two handles, matching the nav's
  *  sketched search/close icons. */
 function CartIcon(props: React.SVGProps<SVGSVGElement>) {
   return (

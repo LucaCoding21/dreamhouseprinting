@@ -124,7 +124,7 @@ export type NextActionKind =
   | "awaiting-approval" // proof_ready
   | "upload-new-proof" // changes_requested
   | "verify-etransfer" // customer reported an e-transfer; Julian checks the bank and confirms
-  | "approved-invoice" // approved, unpaid — customer self-serves payment; link email is optional
+  | "approved-invoice" // approved, unpaid, customer self-serves payment; link email is optional
   | "start-production" // approved (already invoiced/paid)
   | "mark-shipped" // in_production | quality_check, ship
   | "ready-for-pickup" // in_production | quality_check, pickup
@@ -233,7 +233,7 @@ export function useProofUpload(orderId: string) {
       const paths = files.map((_, i) => byId.get(`p${i}`)!.path);
       const result = await uploadProofsAction(orderId, paths, lineItemId);
       if (result.error) throw new Error(result.error);
-      // A settled order (paid/completed) records the proof but doesn't email — say so.
+      // A settled order (paid/completed) records the proof but doesn't email, say so.
       toast({
         title: result.note ? "Proof saved" : files.length > 1 ? "Proofs sent to customer" : "Proof sent to customer",
         description: result.note,

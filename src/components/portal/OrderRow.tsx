@@ -73,7 +73,7 @@ export function statusNote(o: OrderRow): string {
   }
 }
 
-/** Icon shape per state — a uniform, quiet lavender tint so the status tag is
+/** Icon shape per state, a uniform, quiet lavender tint so the status tag is
  *  the only colour signal (less visual noise, one thing to read per row). */
 function statusIcon(status: OrderStatus): typeof IconClock {
   switch (status) {
@@ -113,7 +113,7 @@ export function OrderListHeader() {
 /** The shared "order line" used on the dashboard and the My Orders list.
  *
  *  Default ("card"): status tag inline next to the order number, price + date
- *  stacked on the right — the friendly dashboard look.
+ *  stacked on the right, the friendly dashboard look.
  *
  *  `columns` ("table"): on desktop it lays out as aligned columns
  *  (Order / Status / Total / Date) so a list reads like a tidy table under

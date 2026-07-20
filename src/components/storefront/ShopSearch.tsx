@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-/** Catalog search field for the shop hero — pushes to /shop?search=… */
+/** Catalog search field for the shop hero, pushes to /shop?search=… */
 export function ShopSearch() {
   const router = useRouter();
   const params = useSearchParams();

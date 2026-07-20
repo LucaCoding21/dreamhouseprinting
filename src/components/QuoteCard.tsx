@@ -31,7 +31,7 @@ import AnimatedPrice from "./AnimatedPrice";
 // The home page's all-in-one quote card. It starts as the price calculator
 // (phase "calc"); locking in a price swaps the same card into the multi-step
 // request form (phase "form"), carrying the calculator's picks across. There's
-// no separate /quote page — this card owns the whole flow.
+// no separate /quote page, this card owns the whole flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DREAM_LETTERS = ["D", "R", "E", "A", "M"] as const;
@@ -40,7 +40,7 @@ const DEFAULT_LETTER = "#2a1b8a";
 
 // Products the calculator can price. The two headwear SKUs are separate because
 // their prices differ materially (a dad cap runs ~$5/unit over a toque). "other"
-// has no price data — it routes straight into the form for a manual quote.
+// has no price data, it routes straight into the form for a manual quote.
 type CalcProduct = PricedProduct | "other";
 
 const CALC_PRODUCTS: { value: CalcProduct; label: string }[] = [
@@ -130,7 +130,7 @@ async function uploadAttachments(
     configured?: boolean;
     uploads?: { id: string; kind: string; path: string; token: string }[];
   };
-  // Storage not configured (local dev without creds) — submit without files,
+  // Storage not configured (local dev without creds), submit without files,
   // matching the app's graceful-degradation behavior.
   if (!data.configured) return { artwork: [], priceMatch: [] };
 
@@ -185,7 +185,7 @@ function formatPhone(v: string): string {
 
 const FORM_STEPS = [
   { title: "Garment details", subtitle: "Color, sizes, and where the print goes." },
-  { title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS — whatever you've got." },
+  { title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS, whatever you've got." },
   { title: "Wrap it up", subtitle: "How to reach you and when you need it." },
 ] as const;
 
@@ -218,8 +218,8 @@ export default function QuoteCard() {
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   // Preselect the product from a ?product= hint. Two cases:
-  //  1. Landing here from another page (services, etc.) — read it on mount.
-  //  2. Clicking a category link while ALREADY on the home page — Next does a
+  //  1. Landing here from another page (services, etc.), read it on mount.
+  //  2. Clicking a category link while ALREADY on the home page, Next does a
   //     client-side nav that doesn't remount this card, so we also intercept
   //     clicks on any in-page link carrying ?product= and switch to it. This
   //     stays self-contained here instead of touching every link site.
@@ -391,7 +391,7 @@ export default function QuoteCard() {
   const onBack = () => {
     setTouchedNext(false);
     if (step === 0) {
-      // First form step — step back to the calculator.
+      // First form step, step back to the calculator.
       editSelection();
       return;
     }
@@ -595,7 +595,7 @@ export default function QuoteCard() {
                 Add it on the last step for Julian&apos;s price match.
               </p>
 
-              {/* Sticky action bar — keeps the locked-in price and the primary
+              {/* Sticky action bar, keeps the locked-in price and the primary
                   CTA glued to the bottom of the screen through every step.
                   Opaque yellow bg so it cleanly covers fields it floats over.
                   On phones the price and buttons stack (a single squeezed row
@@ -924,7 +924,7 @@ function PriceCard({
       </div>
       <div className="mt-3 flex items-baseline gap-2">
         <div className="font-display text-5xl font-bold leading-none text-black sm:text-6xl tabular-nums">
-          {hasQty ? <AnimatedPrice value={perUnit} /> : "—"}
+          {hasQty ? <AnimatedPrice value={perUnit} /> : "-"}
         </div>
         <div className="font-display text-base font-semibold text-dream-ink/70">
           {hasQty ? "/ item" : ""}
@@ -1279,7 +1279,7 @@ function StepArtwork({
           <div>
             <p className="font-display text-lg font-bold text-dream-ink">Upload Files Here</p>
             <p className="text-xs text-dream-ink-soft">
-              Artwork, mockups, logos — PNG, JPG, PDF, AI, EPS (max 25MB each)
+              Artwork, mockups, logos, PNG, JPG, PDF, AI, EPS (max 25MB each)
             </p>
           </div>
         </button>

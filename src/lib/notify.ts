@@ -8,14 +8,14 @@ import type { OrderStatus } from "@/lib/db/rows";
 
 /**
  * Transactional order notifications (PRD §10.1). The SAME status change that
- * advances the tracker triggers the email — one event, both effects. Templates
+ * advances the tracker triggers the email, one event, both effects. Templates
  * live in the `settings` row keyed 'email_templates' (editable in Admin →
  * Settings); the customer's notification_preferences gate delivery. Degrades to
  * a no-op when Resend isn't configured (local dev).
  *
  * Recipient resolution: the customer's profile email, or `orders.guest_email`
  * for guest orders (customer_id null). Every customer email carries a link to
- * the public order page (/o/{token}) — appended in code so it survives any
+ * the public order page (/o/{token}), appended in code so it survives any
  * template edits in the admin.
  */
 
@@ -99,7 +99,7 @@ export async function sendOrderEmail(
   extraVars: Record<string, string> = {}
 ): Promise<void> {
   const mail = resendClient();
-  if (!mail) return; // not configured — skip silently
+  if (!mail) return; // not configured, skip silently
 
   const service = createSupabaseServiceClient();
   if (!service) return;
@@ -147,7 +147,7 @@ export async function sendOrderEmail(
 
   // Customer-visible comments Julian added, included with the invoice email so
   // the thread the customer sees on their order page also reaches their inbox.
-  // Only staff-authored customer-visible comments — never echo the customer's
+  // Only staff-authored customer-visible comments, never echo the customer's
   // own submitted note (actor "customer") back to them as if from us.
   const customerNotes =
     templateKey === "invoice_sent"
@@ -182,7 +182,7 @@ export async function sendOrderEmail(
   }
 }
 
-/** Status-change wrapper — maps the order status to its template (if any). */
+/** Status-change wrapper, maps the order status to its template (if any). */
 export async function sendOrderStatusEmail(orderId: string, status: OrderStatus): Promise<void> {
   const templateKey = STATUS_TEMPLATE[status];
   if (!templateKey) return; // no email for this status
@@ -218,7 +218,7 @@ export async function sendOrderCommentEmail(orderId: string, comment: string): P
   const orderLink = await publicOrderUrl(order.public_token);
   const orderNumber = order.order_number ?? "";
   const heading = `New update on your order${orderNumber ? ` ${orderNumber}` : ""}`;
-  const bodyText = `Hi ${recipient.name ?? "there"}, we just added a note to your order. Here it is below — and you can always see the latest on your order page.`;
+  const bodyText = `Hi ${recipient.name ?? "there"}, we just added a note to your order. Here it is below, and you can always see the latest on your order page.`;
 
   try {
     await mail.resend.emails.send({
@@ -267,7 +267,7 @@ function bodyToParagraphs(text: string): string {
  * invoice, shipped, …). Matches the home-page brand: lavender ground, white
  * rounded card, Archivo heading, sun-yellow amount card, a raised-purple CTA
  * button, and a footer with the business name + optional mailing address
- * (BUSINESS_ADDRESS env — a real postal address helps deliverability). The body
+ * (BUSINESS_ADDRESS env, a real postal address helps deliverability). The body
  * copy stays admin-editable plain text; this only wraps it, so template edits
  * can never break the layout.
  */
@@ -373,9 +373,9 @@ export async function sendDesignSavedEmail(opts: {
   const html = `
 <div style="margin:0;padding:24px;background:#f4f1fb;font-family:Inter,Helvetica,Arial,sans-serif;color:#1b1458;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;">
-    <tr><td style="font-family:Archivo,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;padding:0 0 12px;">Your design is saved${name ? ` — “${name}”` : ""}</td></tr>
+    <tr><td style="font-family:Archivo,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;padding:0 0 12px;">Your design is saved${name ? `, “${name}”` : ""}</td></tr>
     <tr><td style="font-size:15px;line-height:1.6;padding:0 0 20px;color:#3a3468;">
-      Nice work! We saved your <strong>${product}</strong> design so you can pick up right where you left off. When you're ready, come back and finish — that's where we'll send your proof to approve before anything prints.
+      Nice work! We saved your <strong>${product}</strong> design so you can pick up right where you left off. When you're ready, come back and finish, that's where we'll send your proof to approve before anything prints.
     </td></tr>
     ${mockupBlock}
     <tr><td style="padding:0 0 24px;">
@@ -385,17 +385,17 @@ export async function sendDesignSavedEmail(opts: {
       Or paste this link into your browser:<br />
       <a href="${resumeUrl}" style="color:#7664ff;word-break:break-all;">${resumeUrl}</a>
     </td></tr>
-    <tr><td style="font-size:13px;line-height:1.6;color:#8a84ad;padding:20px 0 0;">— Dreamhouse Printing</td></tr>
+    <tr><td style="font-size:13px;line-height:1.6;color:#8a84ad;padding:20px 0 0;">- Dreamhouse Printing</td></tr>
   </table>
 </div>`.trim();
 
-  const text = `Your design is saved${opts.designName ? ` — "${opts.designName}"` : ""}!
+  const text = `Your design is saved${opts.designName ? `, "${opts.designName}"` : ""}!
 
-We saved your ${opts.productName} design so you can pick up right where you left off. Finish when you're ready — that's where we'll send your proof to approve before anything prints.
+We saved your ${opts.productName} design so you can pick up right where you left off. Finish when you're ready, that's where we'll send your proof to approve before anything prints.
 
 Resume your design: ${resumeUrl}
 
-— Dreamhouse Printing`;
+- Dreamhouse Printing`;
 
   try {
     await mail.resend.emails.send({
@@ -410,7 +410,7 @@ Resume your design: ${resumeUrl}
   }
 }
 
-/** Chip colours per event tone — soft background + strong text, from the dream palette. */
+/** Chip colours per event tone, soft background + strong text, from the dream palette. */
 const STAFF_TONES = {
   purple: { bg: "#eef0ff", fg: "#4a3f9e" },
   success: { bg: "#e3f5ee", fg: "#18966a" },
@@ -428,7 +428,7 @@ export interface StaffNotifyOpts {
 }
 
 /**
- * Branded shell for internal staff notifications — same visual family as the
+ * Branded shell for internal staff notifications, same visual family as the
  * customer emails (lavender ground, white card, Archivo-stack heading) but
  * admin-flavoured: an event chip, a key-facts table, and an "Open in admin"
  * button instead of the public order link. Table-based + inline styles for
@@ -497,7 +497,7 @@ function renderStaffEmailHtml(opts: {
 }
 
 /**
- * Internal notification to Julian (+ CC list) — new orders, proof decisions,
+ * Internal notification to Julian (+ CC list), new orders, proof decisions,
  * payments. Pass `opts.orderId` to enrich the email with an order facts table
  * and an "Open order in admin" button; without opts it still gets the branded
  * staff shell around the plain text. The `text` argument stays the plain-text
@@ -513,7 +513,7 @@ export async function notifyJulian(subject: string, text: string, opts: StaffNot
     .map((s) => s.trim())
     .filter(Boolean);
 
-  // Order context (facts + CTA), best-effort — a lookup failure never blocks the send.
+  // Order context (facts + CTA), best-effort, a lookup failure never blocks the send.
   const facts: { label: string; value: string }[] = [];
   let amount: { label: string; value: string } | null = null;
   let ctaUrl: string | null = null;

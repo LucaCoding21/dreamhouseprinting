@@ -17,7 +17,7 @@ type Topic = (typeof TOPICS)[number]["value"];
 const inputCls =
   "w-full rounded-2xl border border-dream-ink/15 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition hover:border-dream-ink/40 focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20 disabled:opacity-60";
 
-// 12 sun rays around the submit button — same recipe used elsewhere on the site.
+// 12 sun rays around the submit button, same recipe used elsewhere on the site.
 const SUBMIT_RAYS = Array.from({ length: 12 }, (_, i) => {
   const angle = i * 30;
   const rad = (angle * Math.PI) / 180;
@@ -75,7 +75,7 @@ export default function ContactPage() {
         <SiteNav />
       </div>
 
-      {/* Rough-edge filter for sun rays — local copy so this page is self-contained. */}
+      {/* Rough-edge filter for sun rays, local copy so this page is self-contained. */}
       <RoughEdgeFilter />
 
       <Hero />
@@ -278,7 +278,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Coastal Reign — scroll target for the green banner strip (/contact#coastal-reign).
+      {/* Coastal Reign, scroll target for the green banner strip (/contact#coastal-reign).
           scroll-mt clears the fixed mobile nav so the heading isn't tucked under it. */}
       <section
         id="coastal-reign"
@@ -339,7 +339,7 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Before-you-write — small set of pointers so people don't write blind
+// Before-you-write, small set of pointers so people don't write blind
 // ────────────────────────────────────────────────────────────────────────────
 
 function BeforeYouWrite() {

@@ -352,7 +352,7 @@ export function ProductEditor({
               </Field>
               <Field label="Category" hint="Drives where it appears on Shop All.">
                 <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                  <option value="">— Uncategorized —</option>
+                  <option value="">Uncategorized</option>
                   {majors.map((m) => (
                     <optgroup key={m.id} label={m.name}>
                       <option value={m.id}>{m.name} (all)</option>
@@ -408,7 +408,7 @@ export function ProductEditor({
                 })}
               </div>
 
-              {/* Card thumbnail — which colour + which shot shows on Shop All. */}
+              {/* Card thumbnail, which colour + which shot shows on Shop All. */}
               <div className="mt-5 border-t border-dream-line pt-4">
                 <Label>Card thumbnail</Label>
                 <p className="mb-2 text-xs text-dream-muted">
@@ -439,7 +439,7 @@ export function ProductEditor({
                   </div>
                 </div>
 
-                {/* Photo style — only relevant once a specific colour is pinned. */}
+                {/* Photo style, only relevant once a specific colour is pinned. */}
                 {thumbColour && (
                   <div className="mt-3">
                     <div className="inline-flex rounded-lg border border-dream-line p-0.5">
@@ -575,7 +575,7 @@ export function ProductEditor({
                 }
               >
                 <Select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
-                  <option value="">— None (rough blank price only) —</option>
+                  <option value="">None (rough blank price only)</option>
                   {profiles.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -622,7 +622,7 @@ export function ProductEditor({
                               const breaks = previewCurve.breaks[d] ?? [];
                               return (
                                 <td key={d} className="px-3 py-1.5 text-right font-medium text-dream-ink">
-                                  {breaks.length ? formatCAD(tierPriceAt(breaks, q)) : "—"}
+                                  {breaks.length ? formatCAD(tierPriceAt(breaks, q)) : "-"}
                                 </td>
                               );
                             })}

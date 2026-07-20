@@ -84,7 +84,7 @@ function splitName(full: string | null | undefined): { first: string; last: stri
 /**
  * Authorize the current request for a design: it must belong to the logged-in
  * user (customer_id) OR to this browser's guest cookie (guest_token). Returns
- * null when neither matches — the design id alone never grants access.
+ * null when neither matches, the design id alone never grants access.
  */
 export async function resolveCheckoutAuth(designId: string): Promise<CheckoutAuth | null> {
   const service = requireSupabaseServiceClient();
@@ -238,7 +238,7 @@ export async function loadReviewContext(designId: string): Promise<ReviewContext
   if (!base) return null;
   const service = requireSupabaseServiceClient();
 
-  // Already authorized by loadCheckoutContext — safe to fetch by id.
+  // Already authorized by loadCheckoutContext, safe to fetch by id.
   const { data: design } = await service
     .from("designs")
     .select("decoration_method_id, print_area_ids, price_snapshot, product_id")
@@ -261,7 +261,7 @@ export async function loadReviewContext(designId: string): Promise<ReviewContext
     : { data: null };
 
   const printLocations = ((areas ?? []) as { name: string | null; view: string | null }[]).map((a) =>
-    a.name?.trim() ? a.name : a.view ? cap(a.view.replace(/_/g, " ")) : "—",
+    a.name?.trim() ? a.name : a.view ? cap(a.view.replace(/_/g, " ")) : "-",
   );
 
   return {

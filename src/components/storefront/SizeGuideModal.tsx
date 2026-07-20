@@ -48,7 +48,7 @@ export function SizeGuideModal({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" backdropClassName="bg-dream-overlay/50 backdrop-blur-sm">
           <div className="flex items-start justify-between gap-4 p-5 pb-3">
             <div>
               <h2 className="font-display text-lg font-bold text-dream-ink">Size guide</h2>
@@ -116,7 +116,7 @@ function SizeGuideBody({ guide }: { guide: SizeGuide }) {
   );
 }
 
-/** Multi-size numeric grid — scrolls horizontally on overflow instead of clipping. */
+/** Multi-size numeric grid, scrolls horizontally on overflow instead of clipping. */
 function SizeMatrix({ guide }: { guide: SizeGuide }) {
   return (
     <div className="-mx-1 overflow-x-auto rounded-xl border border-dream-line">

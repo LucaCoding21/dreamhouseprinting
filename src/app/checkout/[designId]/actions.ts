@@ -68,7 +68,7 @@ interface StoredSnapshot {
 
 /**
  * Pre-fill the admin decoration sheet (line_items.decorations) from the spec
- * the designer derived — real measured print size + colour count — so the
+ * the designer derived, real measured print size + colour count, so the
  * artist starts from real values instead of blanks. Returns null when the
  * design predates the spec (the sheet then starts empty, as before).
  */
@@ -106,13 +106,13 @@ export interface CheckoutContactInput {
  * Persist the checkout contact + shipping address to the customer's profile so
  * it prefills next time and feeds the Order once it's placed. The Order itself
  * is created later in the funnel (after shipping + payment), so this only writes
- * the profile — abandoning here leaves no half-built order behind.
+ * the profile, abandoning here leaves no half-built order behind.
  */
 export async function saveContactAction(
   input: CheckoutContactInput
 ): Promise<{ ok?: boolean; error?: string }> {
   const auth = await resolveCheckoutAuth(input.designId);
-  if (!auth) return { error: "We couldn’t find your design — please start over." };
+  if (!auth) return { error: "We couldn’t find your design, please start over." };
   const service = requireSupabaseServiceClient();
 
   const fullName = `${input.firstName} ${input.lastName}`.replace(/\s+/g, " ").trim();
@@ -170,7 +170,7 @@ export interface PlaceOrderInput {
   designId: string;
   /** Pickup at the shop vs ship to the saved address (both free). */
   fulfillment: "ship" | "pickup";
-  /** A customer preference, not a hard fee — Julian confirms timing on the proof. */
+  /** A customer preference, not a hard fee, Julian confirms timing on the proof. */
   turnaround: "standard" | "rush";
   /** Customer's requested in-hand date (YYYY-MM-DD), only on a rush. */
   neededBy?: string | null;
@@ -180,14 +180,14 @@ export interface PlaceOrderInput {
  * The end of the checkout funnel: turns the saved design + the profile's
  * contact/address into a real Order (this is where the order number, a plain
  * 1000+ integer, is finally assigned by a DB trigger). Tax is computed from the saved province; shipping is free
- * for now. No payment is taken — the order lands as submitted/unpaid for Julian
+ * for now. No payment is taken, the order lands as submitted/unpaid for Julian
  * to review and proof.
  */
 export async function placeOrderAction(
   input: PlaceOrderInput
 ): Promise<{ orderId?: string; orderNumber?: string; publicToken?: string; isGuest?: boolean; error?: string }> {
   const auth = await resolveCheckoutAuth(input.designId);
-  if (!auth) return { error: "We couldn’t find your design — please start over." };
+  if (!auth) return { error: "We couldn’t find your design, please start over." };
   const service = requireSupabaseServiceClient();
 
   const { data: design } = await service
@@ -391,7 +391,7 @@ export async function placeOrderAction(
   const snapBasis = Number(snap.subtotal ?? 0) + Number(snap.setupTotal ?? 0);
   const serverRepriced = Math.abs(subtotal + setup - snapBasis) > 0.05;
 
-  // Rush is a request, not a fixed surcharge — the shop quotes the real fee when
+  // Rush is a request, not a fixed surcharge, the shop quotes the real fee when
   // they confirm the order, so nothing is added to the customer's total here.
   const rush = 0;
   const province = isProvinceCode(address.prov) ? address.prov : null;
@@ -488,17 +488,17 @@ export async function placeOrderAction(
     detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround, neededBy, guest: auth.isGuest }),
   });
 
-  // Confirmation emails — the done page tells the customer to watch their
+  // Confirmation emails, the done page tells the customer to watch their
   // inbox, and Julian needs to hear about new orders without polling /admin.
   // Never fail the placed order over mail.
   try {
     await sendOrderStatusEmail(order.id, "submitted");
     await notifyJulian(
-      `New order ${order.order_number ?? order.id} — ${formatCAD(total)}`,
+      `New order ${order.order_number ?? order.id}, ${formatCAD(total)}`,
       [
         `${address?.name || "A customer"} placed ${order.order_number ?? "an order"} for ${formatCAD(total)}.`,
         input.turnaround === "rush"
-          ? `RUSH turnaround requested${neededBy ? ` — needed by ${neededBy}` : ""}. Confirm timeline and quote the fee.`
+          ? `RUSH turnaround requested${neededBy ? `, needed by ${neededBy}` : ""}. Confirm timeline and quote the fee.`
           : null,
       ]
         .filter(Boolean)

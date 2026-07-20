@@ -35,7 +35,7 @@ export async function getPricingProfileRows(): Promise<PricingProfileRow[]> {
 }
 
 /**
- * Admin read layer — uses the service client so staff see ALL products (incl.
+ * Admin read layer, uses the service client so staff see ALL products (incl.
  * inactive) and all config. Callers must already be permission-gated.
  */
 

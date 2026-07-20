@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
-// "Brands we print on" — a continuous, auto-scrolling logo strip.
+// "Brands we print on", a continuous, auto-scrolling logo strip.
 //
 // The marquee works by rendering the SAME row of logos twice inside one flex
 // track and animating the track by -50% (see .animate-brand-marquee in

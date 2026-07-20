@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,7 +15,7 @@ import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./typ
 
 /**
  * Customer proof review + approve / request-changes. Shared by the logged-in
- * portal and the public tokenized order page — it takes the decision server
+ * portal and the public tokenized order page, it takes the decision server
  * actions as props (already bound to the order/token by the route) rather than
  * importing them, so the same UI drives both auth modes.
  */
@@ -47,7 +47,8 @@ export function ProofPanel({
   const [requesting, setRequesting] = useState(false);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [zoomed, setZoomed] = useState<string | null>(null);
+  // Lightbox: index into `proofs` of the open image, or null when closed.
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
   const [payDialog, setPayDialog] = useState(false);
 
   // One decision covers the whole set; the primary proof drives status + id.
@@ -55,6 +56,18 @@ export function ProofPanel({
   const decided = proof.status === "approved";
   const changesRequested = proof.status === "changes_requested";
   const multiple = proofs.length > 1;
+
+  // Lightbox keyboard nav: Esc closes, Left/Right flip through the proof set.
+  useEffect(() => {
+    if (zoomIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setZoomIndex(null);
+      else if (e.key === "ArrowLeft") setZoomIndex((i) => (i === null ? i : (i - 1 + proofs.length) % proofs.length));
+      else if (e.key === "ArrowRight") setZoomIndex((i) => (i === null ? i : (i + 1) % proofs.length));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomIndex, proofs.length]);
 
   function approve() {
     start(async () => {
@@ -64,12 +77,12 @@ export function ProofPanel({
         return;
       }
       if (payOnApprove) {
-        // E-transfer configured: let them choose how to pay. The refresh behind
-        // the dialog re-renders the approved state; the dialog itself is client
-        // state and survives it.
+        // E-transfer configured: open the card / e-transfer chooser as part of
+        // THIS same click. No router.refresh() here, a concurrent server
+        // refetch races the dialog opening. We refresh when the chooser closes
+        // (see the dialog's onOpenChange) so the approved state shows then.
         if (etransfer) {
           setPayDialog(true);
-          router.refresh();
           return;
         }
         // Card only: straight into Stripe Checkout. If the session can't be
@@ -103,11 +116,11 @@ export function ProofPanel({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setZoomed(p.image)}
+                onClick={() => setZoomIndex(i)}
                 className="group relative block overflow-hidden rounded-2xl border-2 border-dream-ink/10 bg-dream-bg"
                 aria-label={`View proof ${i + 1} full size`}
               >
-                {/* Proofs arrive at any aspect ratio — fix the width and let the box
+                {/* Proofs arrive at any aspect ratio, fix the width and let the box
                     grow to the image's natural height so there's never a grey band. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.image} alt={`Proof ${i + 1}`} className="block h-auto w-full" />
@@ -250,29 +263,66 @@ export function ProofPanel({
           </div>
         </div>
 
-      {zoomed && (
+      {zoomIndex !== null && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-dream-ink/80 p-4 sm:p-8"
-          onClick={() => setZoomed(null)}
+          onClick={() => setZoomIndex(null)}
           role="dialog"
           aria-modal="true"
         >
           <button
             type="button"
-            onClick={() => setZoomed(null)}
+            onClick={() => setZoomIndex(null)}
             className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-[3px] bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label="Close"
           >
             <IconClose className="h-5 w-5" />
           </button>
+
+          {multiple && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomIndex((i) => (i === null ? i : (i - 1 + proofs.length) % proofs.length));
+                }}
+                className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:left-6"
+                aria-label="Previous proof"
+              >
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M15 5l-7 7 7 7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoomIndex((i) => (i === null ? i : (i + 1) % proofs.length));
+                }}
+                className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:right-6"
+                aria-label="Next proof"
+              >
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
+
           <div className="relative max-h-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={zoomed}
-              alt="Proof, full size"
+              src={proofs[zoomIndex].image}
+              alt={`Proof ${zoomIndex + 1}, full size`}
               width={1400}
               height={1400}
               className="max-h-[85vh] w-auto rounded-lg bg-white object-contain shadow-2xl"
             />
+            {multiple && (
+              <div className="absolute inset-x-0 -bottom-8 text-center text-sm font-semibold text-white/90">
+                {zoomIndex + 1} / {proofs.length}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -280,7 +330,11 @@ export function ProofPanel({
       {etransfer && (
         <PaymentMethodDialog
           open={payDialog}
-          onOpenChange={setPayDialog}
+          onOpenChange={(o) => {
+            setPayDialog(o);
+            // Chooser dismissed after approval, pull the now-approved state in.
+            if (!o) router.refresh();
+          }}
           amountDue={amountDue}
           orderNumber={orderNumber}
           etransfer={etransfer}

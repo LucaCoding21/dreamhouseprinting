@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { cn } from "@/lib/cn";
 
-/** Fullscreen viewer for a proof — image or PDF — so staff can double-check the
+/** Fullscreen viewer for a proof, image or PDF, so staff can double-check the
  *  real artwork at full size before (or after) it goes to the customer. */
 export function ProofLightbox({
   src,

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import ShopReel from "@/components/ShopReel";
 
-// Homepage "Behind the scenes" — mirrors the layout on /about (heading + copy
+// Homepage "Behind the scenes", mirrors the layout on /about (heading + copy
 // top-left, three video reels bottom-right). Reuses the same three shop clips
 // from /public/behind-the-scenes.
 
@@ -27,7 +27,7 @@ export default function BehindTheScenes() {
         <rect width="100%" height="100%" fill="url(#home-bts-scallop)" />
       </svg>
 
-      {/* Decorative sticker — fills the empty top-right corner */}
+      {/* Decorative sticker, fills the empty top-right corner */}
       <Image
         src="/madeinvan/sticker1.png"
         alt=""
@@ -38,7 +38,7 @@ export default function BehindTheScenes() {
       />
 
       <div className="relative mx-auto max-w-[1440px] px-6 md:px-8 lg:px-10">
-        {/* TOP-LEFT — heading + copy */}
+        {/* TOP-LEFT, heading + copy */}
         <div className="max-w-[560px] text-left">
           <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
             Behind the{" "}
@@ -60,7 +60,7 @@ export default function BehindTheScenes() {
           </p>
         </div>
 
-        {/* BOTTOM-RIGHT — video reels */}
+        {/* BOTTOM-RIGHT, video reels */}
         <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-7 lg:mt-16 lg:ml-auto lg:w-[80%] lg:gap-8">
           <ShopReel
             src="/behind-the-scenes/screen-printing-press-vancouver.mp4"

@@ -1,11 +1,10 @@
 import type { OrderStatus } from "@/lib/db/rows";
 
-/** Customer-facing tracker stages (PRD §5.4.1) — the Domino's-style dog journey. */
+/** Customer-facing tracker stages (PRD §5.4.1), the Domino's-style dog journey. */
 export const TRACKER_STAGES = [
   { key: "received", label: "Order received" },
   { key: "proof", label: "Proof ready" },
   { key: "production", label: "In production" },
-  { key: "qc", label: "Quality check" },
   { key: "fulfilment", label: "Shipped / ready" },
   { key: "complete", label: "Complete" },
 ] as const;
@@ -23,14 +22,16 @@ export function statusStageIndex(status: OrderStatus): number {
       return 1;
     case "approved":
     case "in_production":
-      return 2;
+    // "Quality check" was retired as a distinct tracker step; legacy orders
+    // still carrying that status fold into the production stage so progress
+    // renders sensibly (production done, shipping next).
     case "quality_check":
-      return 3;
+      return 2;
     case "shipped":
     case "ready_for_pickup":
-      return 4;
+      return 3;
     case "completed":
-      return 5;
+      return 4;
     default:
       return -1; // draft / on_hold / cancelled
   }

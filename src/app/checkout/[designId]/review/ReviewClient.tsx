@@ -37,7 +37,7 @@ export function ReviewClient({
   const provLabel = isProvinceCode(contact.province) ? provinceName(contact.province) : contact.province;
   const addressLines = [contact.street, `${contact.city}, ${contact.province} ${contact.postal}`.trim(), "Canada"];
 
-  // Rush is a request, not a fixed surcharge — the shop quotes the fee when they
+  // Rush is a request, not a fixed surcharge, the shop quotes the fee when they
   // confirm the order, so it never lands in this estimate.
   const isRush = turnaround === "rush";
   const tax = calcTax(summary.subtotal + summary.setup, province);
@@ -54,7 +54,7 @@ export function ReviewClient({
         return;
       }
       if (res.orderId) {
-        // Guests have no account — send them to a public confirmation page.
+        // Guests have no account, send them to a public confirmation page.
         if (res.isGuest) {
           router.push(`/checkout/done?order=${encodeURIComponent(res.orderNumber ?? "")}`);
         } else {
@@ -80,7 +80,7 @@ export function ReviewClient({
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
           <div className="space-y-4">
             <InfoCard title="Contact information">
-              <p className="font-medium text-dream-ink">{fullName || "—"}</p>
+              <p className="font-medium text-dream-ink">{fullName || "-"}</p>
               {contact.phone && <p>{contact.phone}</p>}
               {contact.email && <p>{contact.email}</p>}
               {contact.company && <p className="text-dream-muted">{contact.company}</p>}
@@ -88,10 +88,10 @@ export function ReviewClient({
 
             <InfoCard title={fulfillment === "pickup" ? "Pickup" : "Shipping address"}>
               {fulfillment === "pickup" ? (
-                <p>Pick up at our shop — we’ll email you when it’s ready.</p>
+                <p>Pick up at our shop, we’ll email you when it’s ready.</p>
               ) : (
                 <>
-                  <p className="font-medium text-dream-ink">{fullName || "—"}</p>
+                  <p className="font-medium text-dream-ink">{fullName || "-"}</p>
                   {addressLines.filter(Boolean).map((l, i) => (
                     <p key={i}>{l}</p>
                   ))}
@@ -101,7 +101,7 @@ export function ReviewClient({
             </InfoCard>
 
             <InfoCard title="Billing address">
-              <p className="font-medium text-dream-ink">{fullName || "—"}</p>
+              <p className="font-medium text-dream-ink">{fullName || "-"}</p>
               {addressLines.filter(Boolean).map((l, i) => (
                 <p key={i}>{l}</p>
               ))}
@@ -200,7 +200,7 @@ export function ReviewClient({
                         {cw.colourHex && (
                           <span className="h-3.5 w-3.5 rounded-full border border-dream-line" style={{ backgroundColor: cw.colourHex }} />
                         )}
-                        {cw.colourName ?? "—"}
+                        {cw.colourName ?? "-"}
                       </span>
                       <span className="text-xs text-dream-muted">
                         {cw.quantity} @ {formatCAD(cw.unitPrice)} ={" "}
@@ -236,7 +236,7 @@ export function ReviewClient({
                         <td className="px-3 py-2">
                           <span className="rounded-md bg-dream-bg px-2 py-0.5 text-xs font-medium">{loc}</span>
                         </td>
-                        <td className="px-3 py-2">{ctx.decorationMethodName ?? "—"}</td>
+                        <td className="px-3 py-2">{ctx.decorationMethodName ?? "-"}</td>
                         <td className="px-3 py-2">
                           <span className="rounded-md bg-dream-lavender-soft px-2 py-0.5 text-xs font-medium text-dream-purple">
                             Full colour

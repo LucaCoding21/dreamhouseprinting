@@ -24,7 +24,7 @@ export default async function ReviewStepPage({
   // YYYY-MM-DD shape so a hand-edited URL can't smuggle junk into the order.
   const neededBy = turnaround === "rush" && /^\d{4}-\d{2}-\d{2}$/.test(sp.neededBy ?? "") ? sp.neededBy! : null;
 
-  // Projected timeline (estimates — Julian confirms the real dates on the proof).
+  // Projected timeline (estimates, Julian confirms the real dates on the proof).
   const today = new Date();
   const lead = ctx.leadTimeDays;
   const mockup = addBusinessDays(today, 1);

@@ -2,7 +2,7 @@ import { roundCents } from "@/lib/money";
 import type { ProductRow, DecorationMethodRow } from "@/lib/db/rows";
 
 /**
- * Platform cost-plus engine (PRD §10.3) — now the FALLBACK, not the primary.
+ * Platform cost-plus engine (PRD §10.3), now the FALLBACK, not the primary.
  * Customer pricing lives in the per-product quantity-break curve
  * (products.pricing_rules.quote, priced by lib/pricing/quote.ts); this engine
  * only prices products without a curve, and supplies garment retail as the

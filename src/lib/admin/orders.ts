@@ -3,7 +3,7 @@ import "server-only";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow, ProfileRow, ProductRow, ProductColourJson } from "@/lib/db/rows";
 
-/** Admin order reads (service client — staff see everything). Callers are permission-gated. */
+/** Admin order reads (service client, staff see everything). Callers are permission-gated. */
 
 export interface AdminOrderListItem {
   order: OrderRow;
@@ -76,7 +76,7 @@ export async function getAdminOrders(): Promise<AdminOrderListItem[]> {
     const iNotes = (order.internal_notes ?? []) as { text?: string }[];
     const latestNote = [...iNotes, ...cNotes].slice(-1)[0]?.text ?? null;
 
-    // Guests have no profile — fall back to the order's guest email + ship-to name.
+    // Guests have no profile, fall back to the order's guest email + ship-to name.
     const ship = (order.shipping_address ?? {}) as { name?: string };
     return {
       order,
@@ -143,7 +143,7 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
       .maybeSingle();
     customer = data ?? null;
   } else {
-    // Guest order — synthesize a contact from the order's guest email + ship-to.
+    // Guest order, synthesize a contact from the order's guest email + ship-to.
     const ship = (order.shipping_address ?? {}) as { name?: string; phone?: string };
     if (order.guest_email || ship.name) {
       customer = { id: "guest", name: ship.name ?? null, email: order.guest_email ?? null, phone: ship.phone ?? null };

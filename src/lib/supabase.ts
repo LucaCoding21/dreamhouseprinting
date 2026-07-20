@@ -4,7 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * Server-side Supabase client using the service role key.
  * NEVER import this into a client component.
  *
- * Returns null when env vars are missing so local dev can still run —
+ * Returns null when env vars are missing so local dev can still run,
  * the API route will log submissions to the console instead.
  */
 let _client: SupabaseClient | null | undefined;

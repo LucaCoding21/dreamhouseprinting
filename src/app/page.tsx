@@ -37,7 +37,7 @@ const LOCAL_BUSINESS_LD = {
     { "@type": "City", name: "North Vancouver" },
   ],
   // Mon–Fri 10am–6pm, closed weekends. Keep in sync with the Google Business
-  // Profile — mismatched hours hurt local trust signals.
+  // Profile, mismatched hours hurt local trust signals.
   openingHoursSpecification: [
     {
       "@type": "OpeningHoursSpecification",
@@ -68,7 +68,7 @@ export default function Home() {
       >
         <p className="mx-auto max-w-[1400px] px-4 py-2 text-center text-[12px] font-bold sm:px-6 sm:text-[15px]">
           {/* Condensed on mobile to avoid an awkward wrap, but still pulls both
-              competitor names (Coastal Reign / Get Bold) — those are the hook. */}
+              competitor names (Coastal Reign / Get Bold), those are the hook. */}
           <span className="sm:hidden">
             We price match Coastal Reign &amp; Get Bold and{" "}
             <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
@@ -138,7 +138,7 @@ export default function Home() {
               className="h-9 w-9 overflow-visible group-hover:animate-bounce"
               style={{ filter: "url(#stroke-rough)" }}
             >
-              {/* Hand-drawn chevron — two subtle bezier curves through the
+              {/* Hand-drawn chevron, two subtle bezier curves through the
                   apex, warped by the same #stroke-rough filter the hamburger
                   uses so it reads as a pen stroke. */}
               <path d="M 5.4 9.3 C 7.6 11, 10 13, 12 14.9 C 14 13, 16.4 11, 18.6 9.3" />

@@ -89,13 +89,13 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
                       <div className="flex items-center gap-3">
                         <Avatar name={r.name ?? r.email ?? undefined} size="sm" />
                         <div>
-                          <div className="font-medium text-dream-ink">{r.name ?? "—"}</div>
-                          <div className="text-xs text-dream-muted">{r.email ?? "—"}</div>
+                          <div className="font-medium text-dream-ink">{r.name ?? "-"}</div>
+                          <div className="text-xs text-dream-muted">{r.email ?? "-"}</div>
                         </div>
                       </div>
                     </TD>
-                    <TD className="text-dream-muted">{r.phone ?? "—"}</TD>
-                    <TD className="text-dream-muted">{r.org ?? "—"}</TD>
+                    <TD className="text-dream-muted">{r.phone ?? "-"}</TD>
+                    <TD className="text-dream-muted">{r.org ?? "-"}</TD>
                     <TD className="font-medium text-dream-ink">{r.orderCount}</TD>
                     <TD className="font-medium text-dream-ink">{formatCAD(r.totalSpent)}</TD>
                   </TR>

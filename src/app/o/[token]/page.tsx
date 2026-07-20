@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
-import { serializeOrderView } from "@/lib/orders/orderView";
+import { serializeOrderView, resolveEtransferOption } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import SiteFooter from "@/components/SiteFooter";
@@ -16,7 +16,6 @@ import type {
   ProofRow,
   OrderActivityRow,
 } from "@/lib/db/rows";
-import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
 import {
   approveProofPublicAction,
   requestProofChangesPublicAction,
@@ -87,19 +86,16 @@ export default async function PublicOrderPage({
           if (refreshed) loaded = refreshed;
         }
       } catch {
-        // Stale/unknown session — render the order as-is.
+        // Stale/unknown session, render the order as-is.
       }
     }
   }
 
   const view = serializeOrderView(loaded);
 
-  const { data: paySetting } = await requireSupabaseServiceClient()
-    .from("settings")
-    .select("value")
-    .eq("key", "payments")
-    .maybeSingle();
-  const etransfer = etransferOption(mergePaymentSettings(paySetting?.value));
+  // Resilient to an unmigrated DB: returns null (card only) if 0015's e-transfer
+  // columns or the payments settings row are missing. Never throws.
+  const etransfer = await resolveEtransferOption(requireSupabaseServiceClient());
 
   return (
     <div className="flex min-h-dvh flex-col bg-dream-cream">

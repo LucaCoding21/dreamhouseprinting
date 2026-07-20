@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 export type PasswordInputProps = Omit<InputProps, "type">;
 
 // Password field with a show/hide toggle. Behaves exactly like <Input type="password" />
-// otherwise — same name/autoComplete/required props flow straight through.
+// otherwise, same name/autoComplete/required props flow straight through.
 export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
   ({ className, ...props }, ref) => {
     const [visible, setVisible] = React.useState(false);

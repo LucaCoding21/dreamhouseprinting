@@ -6,7 +6,7 @@ import type { CategoryRow, ProductRow, DecorationMethodRow } from "./rows";
 /**
  * Catalog read layer for the storefront + designer. Reads through the anon/auth
  * server client, so RLS guarantees only ACTIVE products/categories surface to
- * the public — deactivating in Admin hides everything with no code change (§10.4).
+ * the public, deactivating in Admin hides everything with no code change (§10.4).
  */
 
 export interface ProductFilter {
@@ -107,7 +107,7 @@ export async function getActiveDecorationMethods(): Promise<DecorationMethodRow[
   return data ?? [];
 }
 
-/** Product + its print areas + the decoration methods it allows — everything the designer needs. */
+/** Product + its print areas + the decoration methods it allows, everything the designer needs. */
 export async function getProductForDesign(id: string) {
   const supabase = await createSupabaseServerClient();
   const product = await getProductById(id);

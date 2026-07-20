@@ -85,7 +85,7 @@ export function QuoteRequests({ quotes }: { quotes: QuoteRequestItem[] }) {
                     {q.customerName ?? q.customerEmail ?? "New request"}
                   </div>
                   <div className="truncate text-xs text-dream-muted">
-                    {q.message ?? q.quoteNumber ?? "—"}
+                    {q.message ?? q.quoteNumber ?? "-"}
                   </div>
                 </div>
                 <div className="hidden shrink-0 text-sm font-medium text-dream-ink sm:block">

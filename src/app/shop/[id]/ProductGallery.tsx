@@ -184,7 +184,7 @@ export function ProductGallery({
             <>
               <Image
                 src={main.src}
-                alt={`${name} — ${main.label}`}
+                alt={`${name}, ${main.label}`}
                 fill
                 sizes="(max-width: 1024px) 100vw, 40vw"
                 className="cursor-zoom-in object-contain p-6 transition-transform duration-150 ease-out"
@@ -205,7 +205,7 @@ export function ProductGallery({
 
       {/* Right: details */}
       <div className="flex flex-col gap-7">
-        {/* 1 — Identity: brand/sku, then the product name as the clear primary */}
+        {/* 1, Identity: brand/sku, then the product name as the clear primary */}
         <div>
           {(brand || sku) && (
             <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-dream-muted">
@@ -221,7 +221,7 @@ export function ProductGallery({
           </h1>
         </div>
 
-        {/* 2 — Options: colour + size, grouped tightly with matching labels */}
+        {/* 2, Options: colour + size, grouped tightly with matching labels */}
         <div className="-mt-3 flex flex-col gap-6 border-t border-dream-line pt-7">
         {colours.length > 0 && (
           <div>
@@ -297,8 +297,8 @@ export function ProductGallery({
         )}
 
         {/* Decoration techniques this product offers (admin-toggled per product).
-            Informational only — the customer picks a method later in the
-            designer — so these are styled as passive "available" tags, not the
+            Informational only, the customer picks a method later in the
+            designer, so these are styled as passive "available" tags, not the
             selectable pills used for colour/size above. */}
         {decorationNames && decorationNames.length > 0 && (
           <div className="pb-2">
@@ -362,7 +362,7 @@ export function ProductGallery({
           </div>
         )}
 
-        {/* Collapsible info sections — under the estimated total box */}
+        {/* Collapsible info sections, under the estimated total box */}
         <div>
           <Collapsible title="Product details">
             {(() => {
@@ -406,7 +406,7 @@ export function ProductGallery({
           className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/90 p-4 sm:p-8"
           role="dialog"
           aria-modal="true"
-          aria-label={`${name} — full size`}
+          aria-label={`${name}, full size`}
           onClick={() => setLightboxOpen(false)}
         >
           <button
@@ -417,11 +417,11 @@ export function ProductGallery({
           >
             <span aria-hidden="true" className="text-2xl leading-none">&times;</span>
           </button>
-          {/* Click anywhere (image included) closes — no dead-zones, instant. */}
+          {/* Click anywhere (image included) closes, no dead-zones, instant. */}
           <div className="pointer-events-none relative h-full max-h-[85vh] w-full max-w-4xl">
             <Image
               src={main.src}
-              alt={`${name} — ${main.label}`}
+              alt={`${name}, ${main.label}`}
               fill
               sizes="90vw"
               className="object-contain"

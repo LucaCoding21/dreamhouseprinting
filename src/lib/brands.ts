@@ -1,6 +1,6 @@
 /**
  * Garment brands we stock. `brand` is a short, unambiguous substring matched
- * (ilike) against the stored S&S brand name via /shop?brand=… — see the
+ * (ilike) against the stored S&S brand name via /shop?brand=…, see the
  * `brand` filter in lib/db/catalog.ts. Keep in sync with the seeded catalog.
  * Shared by the nav dropdown (SiteNav) and the /brands index page.
  */

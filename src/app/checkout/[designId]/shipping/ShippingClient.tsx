@@ -32,7 +32,7 @@ export function ShippingClient({
   const [showDateError, setShowDateError] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // A rush must carry a need-by date — that's the whole point of the request.
+  // A rush must carry a need-by date, that's the whole point of the request.
   const rushNeedsDate = turnaround === "rush" && !neededBy;
 
   function goToReview() {
@@ -54,7 +54,7 @@ export function ShippingClient({
         <CheckoutHeader current={1} backHref={`/checkout/${designId}`} backLabel="Back to contact" />
 
         <div className="flex flex-col-reverse gap-8 lg:flex-row lg:items-start">
-          {/* Left — delivery + timeline */}
+          {/* Left, delivery + timeline */}
           <div className="flex-1">
             <section className="rounded-2xl border border-dream-line bg-white p-6">
               <h2 className="font-display text-lg font-bold">Delivery</h2>
@@ -140,7 +140,7 @@ export function ShippingClient({
             <p className="mt-3 text-xs text-dream-faint">{checkout.footnote}</p>
           </div>
 
-          {/* Right — order summary */}
+          {/* Right, order summary */}
           <aside className="w-full lg:w-[360px] lg:shrink-0">
             <OrderSummary summary={summary} province={province} shippingLabel="Free" rush={turnaround === "rush"} />
           </aside>

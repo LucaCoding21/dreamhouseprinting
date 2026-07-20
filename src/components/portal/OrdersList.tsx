@@ -9,7 +9,7 @@ import { OrderListRow, OrderListHeader } from "@/components/portal/OrderRow";
 import type { OrderRow, OrderStatus } from "@/lib/db/rows";
 
 // Customer-facing filter buckets. Colour-free labels grouped by where the order
-// sits in its journey — narrower than the 13 raw statuses so the menu stays short.
+// sits in its journey, narrower than the 13 raw statuses so the menu stays short.
 type FilterKey = "all" | "action" | "active" | "delivered";
 
 const FILTERS: { value: FilterKey; label: string }[] = [
@@ -36,7 +36,7 @@ function orderGroup(status: OrderStatus): FilterKey | null {
     case "completed":
       return "delivered";
     default:
-      return null; // draft / cancelled — not surfaced in the filters
+      return null; // draft / cancelled, not surfaced in the filters
   }
 }
 

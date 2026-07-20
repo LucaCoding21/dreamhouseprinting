@@ -245,7 +245,7 @@ export default function ServicesPage() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Hero — SEO-friendly H1 + description, scalloped bottom edge into Methods
+// Hero, SEO-friendly H1 + description, scalloped bottom edge into Methods
 // ────────────────────────────────────────────────────────────────────────────
 
 function Hero() {
@@ -330,7 +330,7 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Methods (acts as the page hero — owns the H1 + primary CTA)
+// Methods (acts as the page hero, owns the H1 + primary CTA)
 // ────────────────────────────────────────────────────────────────────────────
 
 function Methods() {

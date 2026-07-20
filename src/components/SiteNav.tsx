@@ -93,7 +93,7 @@ export default function SiteNav() {
   }, [menuOpen]);
 
   // The header is `fixed` (out of flow), so a spacer below it reserves its
-  // height. Measure the real header instead of hardcoding — the scribble-button
+  // height. Measure the real header instead of hardcoding, the scribble-button
   // links row renders taller than its raw padding, and the height shifts with
   // breakpoints and the search open/closed state.
   useEffect(() => {
@@ -175,7 +175,7 @@ export default function SiteNav() {
         {/* Row 1: logo · nav links · search · sign-in · CTA */}
         <div className="flex items-center justify-between gap-4 pt-6 pb-6 xl:pt-6 xl:pb-6">
           {/* shrink-0: the logo must never be the flex item that gives way
-              when the row runs tight — it was getting crushed on laptops. */}
+              when the row runs tight, it was getting crushed on laptops. */}
           <Link href="/" className="flex shrink-0 items-center pr-4 2xl:pr-8">
             <Image
               src="/dreamhouse-logo-nav.svg"
@@ -187,7 +187,7 @@ export default function SiteNav() {
             />
           </Link>
 
-          {/* Nav links — desktop only */}
+          {/* Nav links, desktop only */}
           <nav
             aria-label="Main"
             className="hidden items-center justify-center gap-1.5 xl:flex 2xl:gap-3"
@@ -243,7 +243,7 @@ export default function SiteNav() {
           </nav>
 
           <div className="relative flex items-center gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
-            {/* Search slot — reserves the open width at 2xl so toggling never
+            {/* Search slot, reserves the open width at 2xl so toggling never
                 shifts the centered nav links. Below 2xl there's no room to
                 reserve: the open form overlays the icon cluster instead
                 (absolute, anchored to this cluster's right edge). */}
@@ -299,7 +299,7 @@ export default function SiteNav() {
               <AccountIcon className="h-[19px] w-[19px]" />
             </Link>
 
-            {/* Quick Quote CTA — desktop only */}
+            {/* Quick Quote CTA, desktop only */}
             <div className="sun-burst relative hidden xl:inline-block">
               {SUN_RAYS.map((ray, i) => (
                 <span
@@ -325,7 +325,7 @@ export default function SiteNav() {
               </Link>
             </div>
 
-            {/* Hamburger — mobile / tablet only */}
+            {/* Hamburger, mobile / tablet only */}
             <button
               type="button"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -383,7 +383,7 @@ export default function SiteNav() {
       </div>
     </header>
 
-    {/* Full-screen mobile menu — kept OUTSIDE <header> because the header is
+    {/* Full-screen mobile menu, kept OUTSIDE <header> because the header is
         `fixed` with a `transform` (scroll-hide), which would otherwise create
         a containing block and confine this fixed sheet to the header's box.
         Header sits at z-50 above this z-40 sheet so the hamburger stays
@@ -483,7 +483,7 @@ export default function SiteNav() {
   );
 }
 
-/** Hand-drawn magnifying glass — a wobbly circle that overshoots where it
+/** Hand-drawn magnifying glass, a wobbly circle that overshoots where it
  *  closes (a classic sketched cue) so it reads as a doodle, matching the
  *  brand's rough aesthetic. */
 function SketchSearchIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -504,7 +504,7 @@ function SketchSearchIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Hand-drawn chevron — a single wobbly down-stroke for the Brands dropdown
+/** Hand-drawn chevron, a single wobbly down-stroke for the Brands dropdown
  *  cue, matching the sketched aesthetic. */
 function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -523,7 +523,7 @@ function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Hand-drawn close (X) — two gently curved strokes so it looks sketched
+/** Hand-drawn close (X), two gently curved strokes so it looks sketched
  *  rather than geometric. */
 function SketchCloseIcon(props: React.SVGProps<SVGSVGElement>) {
   return (

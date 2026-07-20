@@ -19,7 +19,7 @@ const asJson = (v: unknown) => v as unknown as Json;
 /**
  * Order statuses where a customer proof decision still means something. Outside
  * this set the order has moved on (cancelled, already approved / in production,
- * completed) and the proof is locked — a stale tab must not regress it.
+ * completed) and the proof is locked, a stale tab must not regress it.
  */
 const ACTIONABLE_PROOF_STATUSES = new Set<OrderStatus>([
   "submitted",
@@ -69,7 +69,7 @@ export async function approveProofCore(
     return { error: proofLockedMessage(order.status as OrderStatus) };
   }
 
-  // A proof set (front / back / …) is sent together and reviewed as one — the
+  // A proof set (front / back / …) is sent together and reviewed as one, the
   // decision covers every still-pending proof on the order, not just the tile
   // the customer clicked, so no sibling lingers pending after approval.
   const { data: transitioned, error } = await service
@@ -80,7 +80,7 @@ export async function approveProofCore(
     .select("id");
   if (error) return { error: error.message };
   // No pending proof transitioned (stale tab re-submitting the same decision):
-  // idempotent no-op — leave order status / activity / notifications untouched.
+  // idempotent no-op, leave order status / activity / notifications untouched.
   if (!transitioned || transitioned.length === 0) return { ok: true };
 
   await service.from("orders").update({ status: "approved" }).eq("id", orderId);
@@ -111,7 +111,7 @@ export async function requestProofChangesCore(
 ): Promise<{ ok?: boolean; error?: string }> {
   if (!comment.trim()) return { error: "Tell us what to change." };
 
-  // Same status guard as approveProofCore — don't act on a locked order.
+  // Same status guard as approveProofCore, don't act on a locked order.
   const { data: order, error: orderErr } = await service
     .from("orders")
     .select("status")
@@ -144,7 +144,7 @@ export async function requestProofChangesCore(
 
   const label = await orderLabel(service, orderId);
   await notifyJulian(
-    `Changes requested — ${label}`,
+    `Changes requested, ${label}`,
     `The customer requested changes on order ${label}:\n\n"${comment.trim()}"`,
     { orderId, kicker: "Changes requested", tone: "warn" }
   );

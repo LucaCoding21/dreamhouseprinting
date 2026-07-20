@@ -135,7 +135,7 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
                 {order.invoice_sent_at ? "Re-send payment link" : "Email payment link"}
               </Button>
               <p className="text-[11px] text-dream-faint">
-                Optional — the customer is asked to pay as soon as they approve their proof. This emails the invoice with a
+                Optional, the customer is asked to pay as soon as they approve their proof. This emails the invoice with a
                 payment link (always for the current total). A Customer-visible comment above goes out with it.
               </p>
             </>
@@ -175,7 +175,7 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
       <Card>
         <CardContent className="grid grid-cols-3 gap-3 p-4">
           {[
-            { label: "In hands", value: order.due_date ? fmtDay(order.due_date) : "—" },
+            { label: "In hands", value: order.due_date ? fmtDay(order.due_date) : "-" },
             { label: "Total pieces", value: String(pieces) },
             { label: "Order value", value: formatCAD(total) },
           ].map((s) => (

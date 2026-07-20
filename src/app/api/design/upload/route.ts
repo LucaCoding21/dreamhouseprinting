@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // saved).
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-// Buckets any caller may stage into. `proofs` is staff-only (added below) — it
+// Buckets any caller may stage into. `proofs` is staff-only (added below), it
 // holds Julian's proof images and guests/customers must never mint into it.
 const CUSTOMER_BUCKETS = ["designs", "artwork"];
 // Generous per-identity cap so abuse can't churn signed URLs; see rateLimit.ts.
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supa.auth.getUser();
   // Logged-in customers scope under their user id; guests under their cookie
-  // token (created here on first upload — guest checkout uploads before saving).
+  // token (created here on first upload, guest checkout uploads before saving).
   const ownerPrefix = user ? user.id : `guest/${await getOrCreateGuestToken()}`;
 
   if (!rateLimit(`design-upload:${ownerPrefix}`, MINT_LIMIT, MINT_WINDOW_MS)) {

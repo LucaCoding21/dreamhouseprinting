@@ -65,7 +65,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   });
   if (error) return { error: error.message };
 
-  // Attach any guest orders/designs left under this email — but only once the
+  // Attach any guest orders/designs left under this email, but only once the
   // email is confirmed (auto-confirm sets it immediately; with confirmation
   // required, /auth/confirm runs the claim instead). Claiming an unconfirmed
   // email would let anyone hijack a stranger's guest records by signing up

@@ -13,7 +13,7 @@ import type {
 /**
  * THE customer pricing engine. Mirrors `calculateQuote` in lib/pricing.ts
  * exactly, but reads a per-product curve stored on
- * `products.pricing_rules.quote` instead of the hardcoded tables — so admins
+ * `products.pricing_rules.quote` instead of the hardcoded tables, so admins
  * can tune each product's price/tiers and every surface follows.
  *
  *   per-unit = base price at qty (incl. 1 decoration + 1 location)
@@ -31,7 +31,7 @@ export { MAX_LOCATIONS };
 
 /**
  * Reference quantity the "volume discount" is measured against (the strikethrough
- * "before" price). Anchoring to a small-batch order — not a single unit — keeps
+ * "before" price). Anchoring to a small-batch order, not a single unit, keeps
  * the discount believable and makes it *grow* with quantity (0% at small orders,
  * climbing as you scale), which is the whole point of the panel. The per-unit
  * price itself is unaffected; this only drives the badge + strikethrough.

@@ -64,7 +64,7 @@ export function OrderItemCard({
   embroideryMethod: string | undefined;
   can: Can;
   setupFee: number;
-  /** Live order total — the per-item proof dialog warns before proofing a $0 order. */
+  /** Live order total, the per-item proof dialog warns before proofing a $0 order. */
   orderTotal: number;
   proofsForItem: ProofRow[];
   onPatch: (fn: (it: ItemState) => ItemState) => void;
@@ -127,7 +127,7 @@ export function OrderItemCard({
     setNewSize("");
   }
 
-  // Line-level finishing options — rendered inside the first print's Advanced spec dropdown.
+  // Line-level finishing options, rendered inside the first print's Advanced spec dropdown.
   const finishingSpec = (
     <div className="flex flex-col gap-1.5">
       <div className={LBL}>Finishing</div>
@@ -151,7 +151,7 @@ export function OrderItemCard({
     <Card>
       <CardContent className="p-5">
         <div className="flex flex-col gap-5 lg:flex-row">
-          {/* LEFT — mockups, design + colour, proof controls */}
+          {/* LEFT, mockups, design + colour, proof controls */}
           <div className="flex shrink-0 flex-col gap-3 lg:w-44">
             <div className="flex gap-3 lg:flex-col">
               {mockups.length === 0 ? (
@@ -180,7 +180,7 @@ export function OrderItemCard({
               <span className="inline-flex items-center gap-1.5 text-dream-muted">
                 Colour:
                 <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={{ background: colour.hex ?? "#fff" }} />
-                <span className="font-medium text-dream-ink">{colour.name ?? "—"}</span>
+                <span className="font-medium text-dream-ink">{colour.name ?? "-"}</span>
               </span>
             </div>
 
@@ -218,7 +218,7 @@ export function OrderItemCard({
             )}
           </div>
 
-          {/* MIDDLE — product, sizes, print, notes */}
+          {/* MIDDLE, product, sizes, print, notes */}
           <div className="min-w-0 flex-1 space-y-5">
             <div className="flex items-center gap-2">
               {onMoveUp && onMoveDown && (
@@ -287,7 +287,7 @@ export function OrderItemCard({
               )}
             </div>
 
-            {/* Sizes — one horizontal row of size columns */}
+            {/* Sizes, one horizontal row of size columns */}
             <div>
               <div className={cn(LBL, "mb-2")}>Sizes ({qty} pcs)</div>
               <div className="flex flex-wrap items-start gap-2">
@@ -360,7 +360,7 @@ export function OrderItemCard({
                   extraSpecActive={si === 0 && (item.bagging || item.sewnTags)}
                 />
               ))}
-              {/* No prints on this line — the finishing options still need a home. */}
+              {/* No prints on this line, the finishing options still need a home. */}
               {item.spots.length === 0 && (
                 <div className="rounded-lg border border-dream-line p-3">{finishingSpec}</div>
               )}
@@ -376,7 +376,7 @@ export function OrderItemCard({
               )}
             </div>
 
-            {/* Per-line notes — specific to THIS garment (different items differ) */}
+            {/* Per-line notes, specific to THIS garment (different items differ) */}
             <div className="grid gap-3 sm:grid-cols-3">
               {LINE_NOTE_FIELDS.map((f) => (
                 <div key={f.key} className="space-y-1.5">
@@ -394,7 +394,7 @@ export function OrderItemCard({
 
           </div>
 
-          {/* RIGHT — price */}
+          {/* RIGHT, price */}
           <div className="shrink-0 border-t border-dream-line pt-4 lg:w-48 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
             <div className={cn(LBL, "mb-1")}>Unit price</div>
             <div className="flex items-center gap-2">
@@ -482,7 +482,7 @@ export function OrderItemCard({
   );
 }
 
-/** The S&S blank this garment came from — the brand + style number Julian reorders by. */
+/** The S&S blank this garment came from, the brand + style number Julian reorders by. */
 function SsSource({ product }: { product: OrderProduct }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">

@@ -12,7 +12,7 @@ import { swatchStyle, sortColours, heroColour } from "@/lib/swatch";
 import type { ProductRow } from "@/lib/db/rows";
 
 /**
- * Catalog product card — image, brand, name, "from $X", colour dots. The card
+ * Catalog product card, image, brand, name, "from $X", colour dots. The card
  * links into the product page (overlay <Link>), while the colour dots are real
  * buttons that swap the displayed image to the selected colour without
  * navigating (so they sit above the overlay link, not nested inside it).
@@ -35,7 +35,7 @@ export function ProductCard({
   const extra = colours.length - swatches.length;
 
   // Default the card image to the hero colour (owner's pinned pick, else the
-  // first bold colour) — otherwise every card opens on its blank-looking white
+  // first bold colour), otherwise every card opens on its blank-looking white
   // colorway. selected can be -1 when the hero isn't among the 6 visible dots.
   // Prefer the on-model shot (falls back to flat), honouring the hero's pinned view.
   const hero = heroColour(enabled);
@@ -66,7 +66,7 @@ export function ProductCard({
         className,
       )}
     >
-      {/* Overlay link — covers the whole card; swatches sit above it (z-20). */}
+      {/* Overlay link, covers the whole card; swatches sit above it (z-20). */}
       <Link
         href={href}
         aria-label={product.name}

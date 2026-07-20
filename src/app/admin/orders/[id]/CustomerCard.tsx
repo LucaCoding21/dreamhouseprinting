@@ -125,7 +125,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
                 <Input
                   value={form.contactEmail}
                   disabled={!canEdit || !!customer}
-                  title={customer ? "Login email — the customer manages this" : undefined}
+                  title={customer ? "Login email, the customer manages this" : undefined}
                   onChange={(e) => setF({ contactEmail: e.target.value })}
                 />
               </Labeled>

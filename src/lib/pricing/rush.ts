@@ -1,7 +1,7 @@
 /**
  * Rush turnaround surcharge. A flat 50% fee on the pre-tax job price
  * (goods subtotal + setup fees) applied when the customer picks the rush /
- * ASAP turnaround. Pure module — safe to import on the client (checkout
+ * ASAP turnaround. Pure module, safe to import on the client (checkout
  * summaries) and the server (order placement). Keep this the single source of
  * the rush formula so every surface charges the same amount.
  */

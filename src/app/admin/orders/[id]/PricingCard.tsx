@@ -57,7 +57,7 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
   const discount = resolveDiscount(goods, { discountType, discountValue });
   const total = roundCents(goods - discount + price.shipping + price.tax);
 
-  /** Tax on the discounted base — kept in sync as base amounts or the discount change. */
+  /** Tax on the discounted base, kept in sync as base amounts or the discount change. */
   function taxFor(next: typeof price, disc: number) {
     if (!prov) return next.tax;
     const base = next.subtotal + next.setupFees + next.rush + addons - disc + next.shipping;
@@ -119,7 +119,7 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
           </div>
         )}
 
-        {/* Manual discount — a named flat amount or percentage off the goods (e.g. friends & family). */}
+        {/* Manual discount, a named flat amount or percentage off the goods (e.g. friends & family). */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-sm">
             <Input
@@ -182,7 +182,7 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
             loading={pending}
             onClick={() => {
               // Editing a paid order's pricing needs a deliberate confirm (the
-              // server rejects it otherwise) — a refund/top-up may be owed.
+              // server rejects it otherwise), a refund/top-up may be owed.
               if (order.paid_at && !window.confirm("This order is already paid. Update its pricing anyway?")) return;
               run(
                 () =>

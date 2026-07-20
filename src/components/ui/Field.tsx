@@ -4,7 +4,7 @@ import { Label } from "./Label";
 
 export interface FieldProps extends React.HTMLAttributes<HTMLDivElement> {
   label?: React.ReactNode;
-  /** Error message — shown in red below the control; also a no-op if falsy. */
+  /** Error message, shown in red below the control; also a no-op if falsy. */
   error?: React.ReactNode;
   /** Helper text shown below the control when there is no error. */
   hint?: React.ReactNode;

@@ -8,7 +8,7 @@ import type { OrderRow, LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
 // Explicit column list, kept in lockstep with migration 0014's GRANT SELECT on
 // public.orders to `authenticated`. The staff-only columns (internal_notes,
 // production_notes, hold_note, sales_rep) are NOT granted to the authenticated
-// role, so `select("*")` would fail with a permission error here — select only
+// role, so `select("*")` would fail with a permission error here, select only
 // the customer-safe columns. Service-client reads (admin) keep full access.
 const CUSTOMER_ORDER_COLUMNS =
   "id, order_number, customer_id, organization_id, status, payment_status, " +

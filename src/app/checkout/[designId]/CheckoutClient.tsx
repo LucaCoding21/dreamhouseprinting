@@ -96,7 +96,7 @@ export function CheckoutClient({
         <CheckoutHeader current={0} backHref="/account/designs" backLabel="Back to designs" />
 
         <div className="flex flex-col-reverse gap-8 lg:flex-row lg:items-start">
-          {/* Left — contact + shipping address form */}
+          {/* Left, contact + shipping address form */}
           <div className="flex-1">
             <section className="rounded-2xl border border-dream-line bg-white p-6">
               <h2 className="font-display text-lg font-bold">Contact information</h2>
@@ -156,7 +156,7 @@ export function CheckoutClient({
             <p className="mt-3 text-xs text-dream-faint">{footnote}</p>
           </div>
 
-          {/* Right — order summary (sticky, Stripe-style) */}
+          {/* Right, order summary (sticky, Stripe-style) */}
           <aside className="w-full lg:w-[360px] lg:shrink-0">
             <OrderSummary summary={summary} province={province} />
           </aside>

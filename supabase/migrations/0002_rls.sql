@@ -3,12 +3,12 @@
 --
 -- Model:
 --  - Storefront catalog (categories, decoration_methods, products, print_areas)
---    is world-readable but only for ACTIVE rows — deactivating in Admin hides it
+--    is world-readable but only for ACTIVE rows, deactivating in Admin hides it
 --    everywhere with no code change (§10.4).
 --  - Customers see only their own designs/orders/quotes (or their org's).
 --  - Staff get broad read/write via is_staff().
 --  - Admin mutations also run server-side with the service-role key (bypasses
---    RLS) behind explicit permission checks — RLS here is defense-in-depth.
+--    RLS) behind explicit permission checks, RLS here is defense-in-depth.
 --
 -- Helper functions are SECURITY DEFINER so they read profiles without tripping
 -- RLS recursion.

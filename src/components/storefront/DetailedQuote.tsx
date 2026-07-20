@@ -176,7 +176,7 @@ export function DetailedQuote({
       >
       <div className="overflow-hidden">
       <div className="flex flex-col gap-5 border-t border-dream-line p-5">
-      {/* Decoration — a picker when the product offers a choice, otherwise a
+      {/* Decoration, a picker when the product offers a choice, otherwise a
           static label so customers still see the technique this product gets */}
       <Row label="Decoration">
         {decorations.length > 1 ? (
@@ -221,7 +221,7 @@ export function DetailedQuote({
         </Row>
       </div>
 
-      {/* Quantity — number field + quick-pick presets */}
+      {/* Quantity, number field + quick-pick presets */}
       <Row
         label="Quantity"
         action={
@@ -281,7 +281,7 @@ export function DetailedQuote({
         </div>
       </Row>
 
-      {/* Grounded price summary — the hero of the panel */}
+      {/* Grounded price summary, the hero of the panel */}
       <div className="rounded-xl border border-dream-lavender-soft bg-dream-lavender-mist px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>

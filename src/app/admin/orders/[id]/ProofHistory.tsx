@@ -8,7 +8,7 @@ import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { relativeTime, type Detail } from "./shared";
 import type { ProofRow } from "@/lib/db/rows";
 
-/** Proof send/approval history — an active-work item, lives near the lines. */
+/** Proof send/approval history, an active-work item, lives near the lines. */
 export function ProofHistory({ detail }: { detail: Detail }) {
   const [lightboxProof, setLightboxProof] = useState<ProofRow | null>(null);
 

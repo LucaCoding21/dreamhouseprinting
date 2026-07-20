@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
  * keeps a design's checkout reachable only from the browser that created it
  * (the design id alone is not enough).
  */
-/** Guest cookie name + write options — shared so every setter matches exactly
+/** Guest cookie name + write options, shared so every setter matches exactly
  *  (getOrCreateGuestToken here, plus the design-resume route that restores it on
  *  a fresh device from an emailed link). */
 export const GUEST_COOKIE = "dh_guest";
@@ -18,7 +18,7 @@ export const GUEST_COOKIE_OPTIONS = {
   maxAge: 60 * 60 * 24 * 30, // 30 days
 };
 
-/** Read the guest token (read-only — safe in Server Components / loaders). */
+/** Read the guest token (read-only, safe in Server Components / loaders). */
 export async function getGuestToken(): Promise<string | null> {
   const c = await cookies();
   return c.get(GUEST_COOKIE)?.value ?? null;

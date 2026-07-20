@@ -3,7 +3,7 @@
 /**
  * Lite, client-side cart. Holds saved-design summaries in localStorage so the
  * nav badge and the /cart page need no server round-trip. The real Order is
- * still placed server-side at checkout (one order per carted design — see
+ * still placed server-side at checkout (one order per carted design, see
  * src/app/cart/actions.ts). We store only display fields + the designId; the
  * authoritative design + price live in the database.
  */
@@ -13,9 +13,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const STORAGE_KEY = "dh_cart_v1";
 
 export interface CartItem {
-  /** The saved design's id — the key we place the order against. */
+  /** The saved design's id, the key we place the order against. */
   designId: string;
-  /** The product this design is on — used to reopen it in the designer. */
+  /** The product this design is on, used to reopen it in the designer. */
   productId?: string;
   productName: string;
   /** Short human summary of colours/sizes, e.g. "Aqua · 12 pcs". */
@@ -73,7 +73,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      /* storage full / disabled — cart still works in-memory this session */
+      /* storage full / disabled, cart still works in-memory this session */
     }
   }, []);
 

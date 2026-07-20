@@ -1,6 +1,6 @@
 // Idempotent Supabase setup:
 //  1. Creates the `quote-files` storage bucket
-//  2. Verifies the `submissions` table exists — and if not, prints the SQL
+//  2. Verifies the `submissions` table exists, and if not, prints the SQL
 //     for you to paste into the Supabase SQL editor (the JS SDK cannot run
 //     DDL, so this is the manual part).
 //
@@ -92,7 +92,7 @@ async function main() {
     console.log(`✓ Created private bucket "${BUCKET}".`);
   }
 
-  // 2. Submissions table — schema-check by selecting a known column
+  // 2. Submissions table, schema-check by selecting a known column
   console.log("\n→ Verifying submissions table…");
   const { error: tableErr } = await supabase
     .from("submissions")

@@ -69,7 +69,7 @@ export default async function ShopPage({
         </aside>
 
         <section className="min-w-0 flex-1">
-          {/* Category tiles — 4 majors + an "All Products" catch-all (§3.3.1). */}
+          {/* Category tiles, 4 majors + an "All Products" catch-all (§3.3.1). */}
           <CategoryTiles
             majors={majors}
             activeSlug={category}
@@ -104,7 +104,7 @@ function HeroWave() {
   return (
     <svg
       aria-hidden
-      className="absolute inset-x-0 bottom-0 h-60 w-full text-[#f8f7fd] sm:h-[18rem]"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-60 w-full text-[#f8f7fd] sm:h-[18rem]"
       viewBox="0 0 1440 240"
       fill="none"
       preserveAspectRatio="none"
@@ -112,7 +112,7 @@ function HeroWave() {
       {/* Cream arcs up in a gentle curve over the title on the left (high enough
           to keep the text on cream, no flat plateau), then rolls through a smooth,
           shallow trough and a soft wide hump before settling low on the right
-          (clear of the search). Gentle slopes — no deep or sharp valleys. */}
+          (clear of the search). Gentle slopes, no deep or sharp valleys. */}
       <path
         d="M0 36C220 14 380 8 480 10 600 13 680 24 760 50 830 76 870 108 940 108 1010 108 1040 84 1120 84 1200 84 1245 150 1330 162 1385 168 1418 185 1440 192V240H0Z"
         fill="currentColor"
@@ -164,7 +164,7 @@ async function DefaultView({ sort }: { sort?: string }) {
 }
 
 /* ----------------------------- Filtered view ----------------------------- */
-/* A specific category and/or a search term — server-rendered grid, no tabs.  */
+/* A specific category and/or a search term, server-rendered grid, no tabs.  */
 
 async function FilteredView({
   category,
@@ -221,7 +221,7 @@ async function FilteredView({
           description={
             search
               ? "Try a different search, or browse all products."
-              : "No products in this category right now — check back soon."
+              : "No products in this category right now, check back soon."
           }
           action={
             <Link
@@ -280,7 +280,7 @@ function Tile({
     <Link
       href={href}
       className={cn(
-        // White card — icon centered, label tucked at the bottom.
+        // White card, icon centered, label tucked at the bottom.
         "group flex aspect-[16/10] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 bg-white p-3 transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
         active
           ? "border-dream-purple bg-dream-purple/[0.06] shadow-[0_6px_0_0_rgba(118,100,255,0.18)]"

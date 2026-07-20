@@ -17,7 +17,7 @@ const asJson = (v: unknown) => v as unknown as Json;
 /**
  * Why an order can't be paid right now, or null when it can. Payability is
  * approval-driven (approve-and-pay): once the proof is approved the customer
- * pays self-serve at the CURRENT pricing.total — an explicit invoice email is
+ * pays self-serve at the CURRENT pricing.total, an explicit invoice email is
  * only required for pre-approval payment.
  */
 export function orderPayableError(order: {
@@ -29,12 +29,12 @@ export function orderPayableError(order: {
 }): string | null {
   // paid_at is set by the Stripe path; payment_status alone reaches
   // 'paid_in_full' when Julian records a manual (cash/e-transfer) payment in
-  // admin without minting a Stripe session — either means "don't charge again".
+  // admin without minting a Stripe session, either means "don't charge again".
   if (order.paid_at || order.payment_status === "paid_in_full") return "This order is already paid.";
   if (order.status === "cancelled") return "This order was cancelled.";
   const pricing = (order.pricing ?? {}) as { total?: number };
   if (!(typeof pricing.total === "number" && pricing.total > 0)) {
-    return "This order doesn't have a total yet — we'll email you when it's ready to pay.";
+    return "This order doesn't have a total yet, we'll email you when it's ready to pay.";
   }
   if (!PAYABLE_ORDER_STATUSES.has(order.status as OrderStatus) && !order.invoice_sent_at) {
     return "Payment opens as soon as you approve your proof.";
@@ -58,7 +58,7 @@ const orderTotal = (order: CheckoutOrder): number => {
 };
 
 /**
- * Return a payable Stripe Checkout session URL for the order — reusing the
+ * Return a payable Stripe Checkout session URL for the order, reusing the
  * stored session when it is still open AND its amount matches the current
  * order total (a price edit after invoicing mints a fresh session so the
  * customer can never underpay), else creating and storing a new one.
@@ -79,7 +79,7 @@ export async function ensureCheckoutSession(
       const existing = await stripe.checkout.sessions.retrieve(order.stripe_checkout_session_id);
       // Already paid on this very session but our row never caught up (webhook
       // missed, customer closed the receipt tab): reconcile idempotently and
-      // refuse to mint a fresh payable session — a new one would double-charge.
+      // refuse to mint a fresh payable session, a new one would double-charge.
       // Surfaced as an "already paid" message; every caller already returns
       // `.error` to the user, and a page refresh now shows the paid state.
       if (existing.payment_status === "paid") {
@@ -89,13 +89,13 @@ export async function ensureCheckoutSession(
       if (existing.status === "open" && existing.amount_total === amountCents && existing.url) {
         return { url: existing.url, sessionId: existing.id };
       }
-      // Stale (expired/completed/amount drift) — expire an open mismatch so
+      // Stale (expired/completed/amount drift), expire an open mismatch so
       // the old link in the customer's inbox can't charge the wrong amount.
       if (existing.status === "open") {
         await stripe.checkout.sessions.expire(existing.id).catch(() => {});
       }
     } catch {
-      // Session id not retrievable (deleted test data etc.) — fall through.
+      // Session id not retrievable (deleted test data etc.), fall through.
     }
   }
 
@@ -121,7 +121,7 @@ export async function ensureCheckoutSession(
           quantity: 1,
           price_data: {
             currency: "cad",
-            product_data: { name: `Dreamhouse Printing — Order ${order.order_number ?? order.id}` },
+            product_data: { name: `Dreamhouse Printing, Order ${order.order_number ?? order.id}` },
             unit_amount: amountCents,
           },
         },
@@ -154,7 +154,7 @@ export async function markOrderPaid(
   orderId: string,
   sessionId: string | null,
   source: "webhook" | "reconcile" | "manual",
-  /** Pass false when calling during a page RENDER (reconcile-on-return) — revalidatePath is illegal there. */
+  /** Pass false when calling during a page RENDER (reconcile-on-return), revalidatePath is illegal there. */
   revalidate = true,
   opts: { method?: PaymentMethod; actorName?: string } = {}
 ): Promise<{ ok?: boolean; alreadyPaid?: boolean; error?: string }> {
@@ -256,7 +256,7 @@ export async function reportEtransferCore(
 
 /**
  * Expire the order's OPEN Stripe Checkout session, if any, so a pending payment
- * link can no longer be paid — call this when cancelling an order. Safe to call
+ * link can no longer be paid, call this when cancelling an order. Safe to call
  * when there is no session, it's already closed, or the id is stale: every
  * failure is swallowed (best-effort cleanup).
  */
@@ -271,6 +271,6 @@ export async function expireOpenCheckoutSession(order: {
       await stripe.checkout.sessions.expire(existing.id).catch(() => {});
     }
   } catch {
-    // Session id not retrievable (deleted test data etc.) — nothing to expire.
+    // Session id not retrievable (deleted test data etc.), nothing to expire.
   }
 }

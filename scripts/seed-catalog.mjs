@@ -6,7 +6,7 @@
  * normalized product draft, upserts the products row (by ss_style_id), assigns
  * a major category + subcategory, sets a sensible markup, (re)writes a default
  * front print area so the product opens cleanly in the designer, and marks it
- * active — with one featured product per major category for the storefront's
+ * active, with one featured product per major category for the storefront's
  * Top-5 row and category tiles.
  *
  * Idempotent: re-running refreshes S&S-owned fields + config + print area in
@@ -16,7 +16,7 @@
  * MIRRORS src/lib/ss/transform.ts (colour/size/photo normalization) and the
  * importStyleAction insert shape in src/app/admin/products/actions.ts. That
  * module is `server-only` TS and can't be imported into a plain Node script, so
- * the logic is duplicated here ON PURPOSE — if transform.ts changes its colour/
+ * the logic is duplicated here ON PURPOSE, if transform.ts changes its colour/
  * size/photo shape or the products insert columns change, update this too.
  *
  * Usage:
@@ -182,7 +182,7 @@ async function buildProductDraft(styleId) {
 // The position envelope's PIXEL aspect must match maxWidthIn:maxHeightIn so
 // inch measurements are uniform on both axes. S&S CDN colour images are all
 // 500×625 (aspect A = 0.8), so:  height = width × A × maxHeightIn / maxWidthIn.
-// (The designer aspect-corrects at runtime anyway — lib/design/printArea — so a
+// (The designer aspect-corrects at runtime anyway, lib/design/printArea, so a
 // drifted box degrades gracefully; these defaults start out exact.) Widths are
 // calibrated to the garment's real-world scale in the S&S photos so a 12″ print
 // looks 12″ on the mockup.
@@ -269,7 +269,7 @@ async function main() {
         console.log(`✗ UNRESOLVED  ${tag}`);
         continue;
       }
-      const resolvedLabel = `${style.brandName} ${style.styleName} (#${style.styleID}) "${style.title}" — ${style.baseCategory}`;
+      const resolvedLabel = `${style.brandName} ${style.styleName} (#${style.styleID}) "${style.title}", ${style.baseCategory}`;
       if (DRY) {
         console.log(`• ${tag.padEnd(24)} → ${resolvedLabel}`);
         ok++;

@@ -42,7 +42,7 @@ export function OrderSummary({
   summary: CheckoutSummary;
   province: ProvinceCode | null;
   shippingLabel?: React.ReactNode;
-  /** Whether the customer requested a rush. No fixed surcharge — the rush fee is
+  /** Whether the customer requested a rush. No fixed surcharge, the rush fee is
    *  quoted by the shop when they confirm the order, so it never changes this total. */
   rush?: boolean;
 }) {
@@ -82,7 +82,7 @@ export function OrderSummary({
                   {cw.colourHex && (
                     <span className="inline-block h-3 w-3 rounded-full border border-dream-line" style={{ backgroundColor: cw.colourHex }} />
                   )}
-                  {cw.colourName ?? "—"} · {cw.quantity} {cw.quantity === 1 ? "item" : "items"}
+                  {cw.colourName ?? "-"} · {cw.quantity} {cw.quantity === 1 ? "item" : "items"}
                 </p>
                 {cw.sizeBreakdown.length > 0 && (
                   <p className="mt-0.5 text-[11px] text-dream-faint">

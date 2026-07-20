@@ -24,7 +24,7 @@ function friendlySsError(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   console.error("[S&S]", raw);
   if (/not configured|SS_ACCOUNT|SS_API_KEY/i.test(raw)) {
-    return "S&S Activewear isn't connected yet — add SS_ACCOUNT and SS_API_KEY to the environment.";
+    return "S&S Activewear isn't connected yet, add SS_ACCOUNT and SS_API_KEY to the environment.";
   }
   return "Couldn't reach S&S Activewear. Try again in a minute.";
 }
@@ -251,7 +251,7 @@ export async function syncProductAction(id: string): Promise<{ ok?: boolean; err
     });
     const sizes = draft.sizes.map((s) => ({ ...s, enabled: prevSizes.get(s.name) ?? true }));
 
-    // Note: name & description are deliberately NOT updated — they may be
+    // Note: name & description are deliberately NOT updated, they may be
     // admin-edited. Only refresh the S&S-owned media/price/inventory fields.
     const { error } = await supabase
       .from("products")

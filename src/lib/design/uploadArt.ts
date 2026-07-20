@@ -1,7 +1,7 @@
 // Client-side artwork intake for the designer: validates size/type, reads
 // renderable images to a data URL, and rasterizes the first page of a PDF so it
 // can be placed on the Fabric canvas. The *original* file is still uploaded as
-// the print-ready source — this only produces the on-canvas preview.
+// the print-ready source, this only produces the on-canvas preview.
 
 // Matches the server cap in /api/design/upload and the `artwork` bucket limit.
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
@@ -41,9 +41,9 @@ export function classifyFile(file: File): FileKind {
     };
   }
   if (type.includes("tiff") || e === "tiff" || e === "tif") {
-    return { kind: "unsupported", message: "TIFF files can't be previewed — please upload a PNG, JPG, SVG, or PDF." };
+    return { kind: "unsupported", message: "TIFF files can't be previewed, please upload a PNG, JPG, SVG, or PDF." };
   }
-  return { kind: "unsupported", message: "That file type can't be previewed — please upload a PNG, JPG, SVG, or PDF." };
+  return { kind: "unsupported", message: "That file type can't be previewed, please upload a PNG, JPG, SVG, or PDF." };
 }
 
 /** Read a browser-renderable image file to a data URL. */
@@ -59,7 +59,7 @@ export function readImageDataUrl(file: File): Promise<string> {
 /** Rasterize page 1 of a PDF to a PNG data URL. Returns the render + total page count. */
 export async function renderPdfFirstPage(file: File): Promise<{ dataUrl: string; numPages: number }> {
   const pdfjs = await import("pdfjs-dist");
-  // Bundled worker (offline-safe, version-matched) — resolved by Turbopack.
+  // Bundled worker (offline-safe, version-matched), resolved by Turbopack.
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
     "pdfjs-dist/build/pdf.worker.min.mjs",
     import.meta.url,
@@ -69,7 +69,7 @@ export async function renderPdfFirstPage(file: File): Promise<{ dataUrl: string;
   const pdf = await pdfjs.getDocument({ data }).promise;
   try {
     const page = await pdf.getPage(1);
-    // Scale so the longest side lands near 1600px — crisp for preview + mockup,
+    // Scale so the longest side lands near 1600px, crisp for preview + mockup,
     // without exploding memory on a large-format artboard.
     const unit = page.getViewport({ scale: 1 });
     const scale = Math.min(3, 1600 / Math.max(unit.width, unit.height));

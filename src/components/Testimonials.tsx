@@ -60,7 +60,7 @@ export default function Testimonials() {
               </p>
 
               <p className="mt-6 font-display text-[13px] font-bold uppercase tracking-wide text-dream-ink">
-                — {t.name}
+               , {t.name}
               </p>
             </article>
           ))}

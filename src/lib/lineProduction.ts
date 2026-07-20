@@ -1,5 +1,5 @@
 /**
- * Per-line-item production status — tracks each garment's progress through the
+ * Per-line-item production status, tracks each garment's progress through the
  * shop independently of the order status and of the other lines. Different items
  * in one order can legitimately be at different stages (e.g. one shirt printed,
  * another still queued). Stored on line_items.decorations.productionStatus.

@@ -1,4 +1,4 @@
-// Dreamhouse UI primitives — barrel export.
+// Dreamhouse UI primitives, barrel export.
 // Clean SaaS look: white cards on a light ground, subtle borders, purple accent.
 
 export { Button } from "./Button";

@@ -107,7 +107,7 @@ export function AdminSidebar({
 
   // Collapsed state is remembered per browser so it survives navigation and
   // reloads. Start expanded and sync from storage on mount (avoids an SSR
-  // hydration mismatch — the brief expand-then-collapse is imperceptible).
+  // hydration mismatch, the brief expand-then-collapse is imperceptible).
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "1");
@@ -118,7 +118,7 @@ export function AdminSidebar({
       try {
         window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
       } catch {
-        /* storage disabled — collapse still works for the session */
+        /* storage disabled, collapse still works for the session */
       }
       return next;
     });

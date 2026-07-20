@@ -33,7 +33,7 @@ export async function generateMetadata({
     title: `${product.name} | Dreamhouse Printing`,
     description:
       product.description ??
-      `Customize the ${product.name} — pick a colour, add your art, and we'll print it.`,
+      `Customize the ${product.name}, pick a colour, add your art, and we'll print it.`,
   };
 }
 
@@ -63,7 +63,7 @@ export default async function ProductDetailPage({
     (c) => c.id === product.category_id || c.id === product.subcategory_id,
   );
 
-  // "You might also like" — other active products, current one removed.
+  // "You might also like", other active products, current one removed.
   const related = (await getActiveProducts({ sort: "featured", limit: 6 }))
     .filter((p) => p.id !== product.id)
     .slice(0, 5);
@@ -170,7 +170,7 @@ export default async function ProductDetailPage({
       {/* Value props */}
       <ValueProps />
 
-      {/* Help nudge — a person to ask before committing to a custom job */}
+      {/* Help nudge, a person to ask before committing to a custom job */}
       <HelpPrompt
         title="Have a question about this product?"
         body="Not sure on sizing, colours, or artwork? Ask us before you order. A real person will help."

@@ -2,10 +2,10 @@ import type { ProductType } from "@/lib/formTypes";
 import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pricing model — Julian's real quick-quote prices (2026-05-28)
+// Pricing model, Julian's real quick-quote prices (2026-05-28)
 //
 // These are FINAL customer-facing prices, not costs. They're Coastal Reign's
-// rates minus 10%, with markup already baked in — charge them directly, no
+// rates minus 10%, with markup already baked in, charge them directly, no
 // additional multiplier. Source of truth: our_pricing.csv (base) and
 // our_pricing_addons.csv (extras) in the repo root.
 //
@@ -20,7 +20,7 @@ import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 // headwear is embroidery-only.
 //
 // Embroidery on apparel always equals that garment's screen-print price plus a
-// fixed universal premium (~$47/unit at qty 1, shrinking to ~$4.4 at volume) —
+// fixed universal premium (~$47/unit at qty 1, shrinking to ~$4.4 at volume),
 // confirmed identical across all four apparel SKUs.
 //
 // Still NOT collected by the quick quote (in our_pricing_addons.csv for the
@@ -127,7 +127,7 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
       [250, 10.89], [300, 10.63], [350, 10.4], [500, 9.75], [750, 9.31], [1000, 9.28],
     ],
   },
-  // Solid 12in Cuffed Beanie (SP12) — embroidery only
+  // Solid 12in Cuffed Beanie (SP12), embroidery only
   toque: {
     embroidery: [
       [1, 109.55], [2, 62.18], [3, 46.38], [5, 33.75], [10, 24.27], [12, 22.69],
@@ -136,7 +136,7 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
       [250, 14.34], [300, 14.02], [350, 13.72], [500, 12.87], [750, 12.31], [1000, 12.28],
     ],
   },
-  // Yupoong Classic Dad Cap (6245CM) — embroidery only
+  // Yupoong Classic Dad Cap (6245CM), embroidery only
   "dad-cap": {
     embroidery: [
       [1, 116.55], [2, 69.17], [3, 53.37], [5, 40.74], [10, 31.26], [12, 29.69],
@@ -147,16 +147,16 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
   },
 };
 
-// Extra screen-print colours — TOTAL per-unit surcharge over the 1 colour the
+// Extra screen-print colours, TOTAL per-unit surcharge over the 1 colour the
 // base price already includes (not stacked). Indexed by colour count; 4+ is a
 // plateau. Embroidery is priced by location, not colour, so this never applies
 // to headwear or to embroidered apparel. (Measured at qty ~50; CR waives the
 // colour upcharge at very low quantities, so this slightly over-estimates there
-// — acceptable for an estimate that rounds up.)
+//, acceptable for an estimate that rounds up.)
 //
 // TODO: this is a flat table (qty ~50). The real per-colour upcharge scales with
 // quantity (≈$0 under ~12 units, ~$1.30 at 50, ~$0.68 at 250). It's left flat on
-// purpose — see CLAUDE.md philosophy + it errs high, which protects margin.
+// purpose, see CLAUDE.md philosophy + it errs high, which protects margin.
 // REVISIT (make quantity-aware) if large multi-colour orders start bouncing off
 // the estimate; you'd want to capture more colour data points first.
 export const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
@@ -168,7 +168,7 @@ export const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
 };
 
 // Per-unit surcharge for EACH print/embroidery location beyond the first (the
-// base price already includes one). Adds linearly — a 3rd location costs the
+// base price already includes one). Adds linearly, a 3rd location costs the
 // same as the 2nd. Drops with quantity as setup amortizes. Values are CR −10%.
 export const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
   screen: [

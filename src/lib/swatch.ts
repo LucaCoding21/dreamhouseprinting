@@ -97,7 +97,7 @@ export function sortColours<T extends { name: string; hex: string }>(colours: T[
 }
 
 /**
- * A colour that reads as "blank" on the white product card — pure whites and the
+ * A colour that reads as "blank" on the white product card, pure whites and the
  * palest naturals. Used so cards don't all default to their white colorway (a
  * white shirt on a white card looks like an empty tile).
  */
@@ -125,7 +125,7 @@ export function heroColour<
 
 /**
  * Build the swatch background. Two-tone colours ("Natural/Black") render as a
- * diagonal split — body colour on one half, trim colour on the other.
+ * diagonal split, body colour on one half, trim colour on the other.
  */
 export function swatchStyle(c: { name: string; hex: string | null }): React.CSSProperties {
   const base = c.hex || "#ddd";

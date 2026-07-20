@@ -18,12 +18,14 @@ import type { DecorationMethodRow } from "@/lib/db/rows";
 import type { CheckoutSettings } from "@/lib/checkoutSettings";
 import type { AddonSettings } from "@/lib/addonSettings";
 import type { PaymentSettings } from "@/lib/paymentSettings";
+import type { BusinessSettings } from "@/lib/businessSettings";
 import {
   updateDecorationMethodAction,
   updateEmailTemplatesAction,
   updateCheckoutSettingsAction,
   updateAddonSettingsAction,
   updatePaymentSettingsAction,
+  updateBusinessSettingsAction,
   type EmailTemplateMap,
 } from "./actions";
 
@@ -47,9 +49,10 @@ interface SettingsClientProps {
   checkout: CheckoutSettings;
   addons: AddonSettings;
   payments: PaymentSettings;
+  business: BusinessSettings;
 }
 
-export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout, addons, payments }: SettingsClientProps) {
+export function SettingsClient({ decorationMethods, staff, emailTemplates, checkout, addons, payments, business }: SettingsClientProps) {
   return (
     <div>
       <AdminHeader title="Settings" />
@@ -72,8 +75,9 @@ export function SettingsClient({ decorationMethods, staff, emailTemplates, check
             <AddonsTab settings={addons} />
           </TabsContent>
 
-          <TabsContent value="checkout" className="mt-4">
+          <TabsContent value="checkout" className="mt-4 space-y-6">
             <CheckoutTab settings={checkout} />
+            <PickupAddressCard settings={business} />
           </TabsContent>
 
           <TabsContent value="payments" className="mt-4">
@@ -378,6 +382,56 @@ function CheckoutTab({ settings }: { settings: CheckoutSettings }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Pickup address                                                     */
+/* ------------------------------------------------------------------ */
+
+function PickupAddressCard({ settings }: { settings: BusinessSettings }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [pending, start] = useTransition();
+  const [address, setAddress] = useState(settings.pickupAddress);
+
+  function save() {
+    start(async () => {
+      const res = await updateBusinessSettingsAction({ pickupAddress: address.trim() });
+      if (res.error) toast({ title: "Failed", description: res.error, variant: "error" });
+      else {
+        toast({ title: "Pickup address saved", variant: "success" });
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Pickup address</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-dream-muted">
+          Shown at checkout when a customer chooses to pick up, with an embedded map. Leave blank to keep the exact
+          address private until you confirm the order.
+        </p>
+        <Field label="Shop / pickup address" htmlFor="biz-pickup-address">
+          <Textarea
+            id="biz-pickup-address"
+            rows={3}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="123 Main St, Vancouver, BC V6A 1A1"
+          />
+        </Field>
+        <div className="flex justify-end">
+          <Button variant="primary" loading={pending} onClick={save}>
+            Save pickup address
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Payments                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -475,9 +529,9 @@ function StaffTab({ staff }: { staff: StaffRow[] }) {
           {staff.map((s) => (
             <TR key={s.id}>
               <TD>
-                <span className="font-medium text-dream-ink">{s.name ?? "—"}</span>
+                <span className="font-medium text-dream-ink">{s.name ?? "-"}</span>
               </TD>
-              <TD className="text-dream-muted">{s.email ?? "—"}</TD>
+              <TD className="text-dream-muted">{s.email ?? "-"}</TD>
               <TD>
                 <Badge variant={s.role === "staff_admin" ? "purple" : "info"}>
                   {s.role.replace(/_/g, " ")}

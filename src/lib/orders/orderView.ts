@@ -1,15 +1,46 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { STATUS_META, statusStageIndex, TRACKER_STAGES } from "@/lib/orderStatus";
+import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
 import type { OrderStatus } from "@/lib/db/rows";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow } from "@/lib/db/rows";
+import type { Database } from "@/lib/db/types";
 import type {
   OrderViewOrder,
   OrderViewLineItem,
   OrderViewProof,
   OrderViewActivityEntry,
   OrderViewMessage,
+  OrderViewEtransfer,
 } from "@/components/orders/types";
+
+/**
+ * Resolve the customer-facing Interac e-Transfer option for an order page, or
+ * null when it must not be offered. Deliberately defensive so both order pages
+ * render on an unmigrated database:
+ *
+ * e-Transfer needs migration 0015's `orders.payment_method` /
+ * `orders.etransfer_reported_at` columns to record a report or a payment. If
+ * those columns are absent (0015 not applied), selecting one errors, so we
+ * probe first and treat e-transfer as DISABLED (card-only) rather than offering
+ * a path whose "I've sent it" / mark-paid writes would fail at runtime. Any
+ * failure reading the columns or the `payments` settings row degrades to null.
+ * Never throws.
+ */
+export async function resolveEtransferOption(
+  service: SupabaseClient<Database>,
+): Promise<OrderViewEtransfer | null> {
+  try {
+    const probe = await service.from("orders").select("etransfer_reported_at").limit(1);
+    if (probe.error) return null; // 0015 columns missing, offer card only.
+    const { data, error } = await service.from("settings").select("value").eq("key", "payments").maybeSingle();
+    if (error) return null;
+    return etransferOption(mergePaymentSettings(data?.value));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Turn the raw order/line-item/design/proof/activity rows into the plain,
@@ -127,7 +158,7 @@ export interface OrderViewSerialized {
   latestMessage: OrderViewMessage | null;
 }
 
-/** The design's first mockup URL — front view preferred when the view is identifiable. */
+/** The design's first mockup URL, front view preferred when the view is identifiable. */
 function designMockup(design: DesignRow): string | null {
   const mockups = (design.mockup_images ?? []) as { view?: string; url?: string | null }[];
   const front = mockups.find((m) => m.url && /front/i.test(m.view ?? ""));
@@ -142,7 +173,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
   const designsById = new Map(designs.map((d) => [d.id, d]));
   // Tracks which design_ids have already had their designed line item resolved,
   // so the fallback (design.colour missing) can pin the mockup to the FIRST line
-  // item for that design — placeOrderAction inserts colourways in order, the
+  // item for that design, placeOrderAction inserts colourways in order, the
   // designed colour first.
   const fallbackClaimed = new Set<string>();
 
@@ -159,7 +190,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       return normColour(designedColour) === normColour(colourName) ? mockup : null;
     }
 
-    // Fallback: no designed colour recorded — treat the first line item for this
+    // Fallback: no designed colour recorded, treat the first line item for this
     // design as the designed one.
     if (fallbackClaimed.has(designId)) return null;
     fallbackClaimed.add(designId);

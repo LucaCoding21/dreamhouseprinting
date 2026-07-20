@@ -26,7 +26,7 @@ export function DecorationSpotRow({
   onRemove: () => void;
   /** Extra line-level finishing controls rendered inside the Advanced spec area (first spot only). */
   extraSpec?: ReactNode;
-  /** Whether any extraSpec option is set — factors into auto-open + the "has advanced" dot. */
+  /** Whether any extraSpec option is set, factors into auto-open + the "has advanced" dot. */
   extraSpecActive?: boolean;
 }) {
   const hasAdvanced = spot.pantones.length > 0 || spot.puff || spot.spotProcess || !!extraSpecActive;
@@ -42,7 +42,7 @@ export function DecorationSpotRow({
         <div className="w-40">
           <div className={cn(LBL, "mb-1")}>Type</div>
           <Select value={spot.type} disabled={!canEdit} onChange={(e) => onPatch({ type: e.target.value })}>
-            <option value="">—</option>
+            <option value="">-</option>
             {methodOptions.map((m) => (
               <option key={m} value={m}>
                 {m}
