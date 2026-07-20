@@ -33,11 +33,11 @@ export function MeasureHelpDot() {
           </DialogHeader>
 
           <div className="max-h-[70vh] overflow-y-auto px-5 pb-5">
-            {/* Annotated example: order 1006's full back, stored as 11.6 x 13.9 in. */}
+            {/* Annotated example: order 1008's front, stored as 11.7 x 10.8 in. */}
             <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-lg border border-dream-line bg-white">
               <Image
-                src="/admin/measure-example-1006.png"
-                alt="Shirt mockup with a number overlapping a photo, annotated with the measured bounding box"
+                src="/admin/measure-example-1008.png"
+                alt="Shirt mockup with three lines of text, annotated with the measured bounding box"
                 width={960}
                 height={1200}
                 className="w-full"
@@ -45,34 +45,34 @@ export function MeasureHelpDot() {
               <svg viewBox="0 0 960 1200" className="absolute inset-0 h-full w-full" aria-hidden>
                 {/* Bounding box around ALL elements together */}
                 <rect
-                  x="312"
-                  y="290"
-                  width="352"
-                  height="442"
+                  x="256"
+                  y="334"
+                  width="448"
+                  height="394"
                   fill="none"
                   stroke="#7664ff"
                   strokeWidth="5"
                   strokeDasharray="14 10"
                 />
                 {/* Width arrow under the box */}
-                <line x1="324" y1="794" x2="652" y2="794" stroke="#1b1458" strokeWidth="6" />
-                <path d="M314 794l26 -14v28z" fill="#1b1458" />
-                <path d="M662 794l-26 -14v28z" fill="#1b1458" />
-                <line x1="312" y1="744" x2="312" y2="782" stroke="#1b1458" strokeWidth="4" />
-                <line x1="664" y1="744" x2="664" y2="782" stroke="#1b1458" strokeWidth="4" />
-                <rect x="363" y="818" width="250" height="56" rx="12" fill="#ffffff" stroke="#1b1458" strokeWidth="3" />
-                <text x="488" y="858" textAnchor="middle" fontSize="38" fontWeight="700" fill="#1b1458">
-                  Width 11.6&#8243;
+                <line x1="268" y1="790" x2="692" y2="790" stroke="#1b1458" strokeWidth="6" />
+                <path d="M258 790l26 -14v28z" fill="#1b1458" />
+                <path d="M702 790l-26 -14v28z" fill="#1b1458" />
+                <line x1="256" y1="740" x2="256" y2="778" stroke="#1b1458" strokeWidth="4" />
+                <line x1="704" y1="740" x2="704" y2="778" stroke="#1b1458" strokeWidth="4" />
+                <rect x="355" y="814" width="250" height="56" rx="12" fill="#ffffff" stroke="#1b1458" strokeWidth="3" />
+                <text x="480" y="854" textAnchor="middle" fontSize="38" fontWeight="700" fill="#1b1458">
+                  Width 11.7&#8243;
                 </text>
                 {/* Height arrow beside the box */}
-                <line x1="726" y1="302" x2="726" y2="720" stroke="#1b1458" strokeWidth="6" />
-                <path d="M726 292l-14 26h28z" fill="#1b1458" />
-                <path d="M726 730l-14 -26h28z" fill="#1b1458" />
-                <line x1="676" y1="290" x2="714" y2="290" stroke="#1b1458" strokeWidth="4" />
-                <line x1="676" y1="732" x2="714" y2="732" stroke="#1b1458" strokeWidth="4" />
-                <rect x="600" y="482" width="260" height="56" rx="12" fill="#ffffff" stroke="#1b1458" strokeWidth="3" />
-                <text x="730" y="522" textAnchor="middle" fontSize="38" fontWeight="700" fill="#1b1458">
-                  Height 13.9&#8243;
+                <line x1="766" y1="346" x2="766" y2="716" stroke="#1b1458" strokeWidth="6" />
+                <path d="M766 336l-14 26h28z" fill="#1b1458" />
+                <path d="M766 726l-14 -26h28z" fill="#1b1458" />
+                <line x1="716" y1="334" x2="754" y2="334" stroke="#1b1458" strokeWidth="4" />
+                <line x1="716" y1="728" x2="754" y2="728" stroke="#1b1458" strokeWidth="4" />
+                <rect x="640" y="500" width="260" height="56" rx="12" fill="#ffffff" stroke="#1b1458" strokeWidth="3" />
+                <text x="770" y="540" textAnchor="middle" fontSize="38" fontWeight="700" fill="#1b1458">
+                  Height 10.8&#8243;
                 </text>
               </svg>
             </div>
@@ -81,9 +81,9 @@ export function MeasureHelpDot() {
               <p>
                 <strong className="font-semibold">One box around everything on that side.</strong>{" "}
                 Width runs from the leftmost edge of any element to the rightmost edge; height runs
-                from the highest point to the lowest. In this example the number and the photo
-                measure together as one 11.6&#8243; &#215; 13.9&#8243; print, even though each
-                element is smaller on its own. A rotated element counts by its tilted footprint.
+                from the highest point to the lowest. In this example the three lines of text
+                measure together as one 11.7&#8243; &#215; 10.8&#8243; print, even though each line
+                is smaller on its own. A rotated element counts by its tilted footprint.
               </p>
               <p>
                 <strong className="font-semibold">It is not the print area.</strong> The printable

@@ -42,7 +42,7 @@ export default async function MyDesignsPage() {
       {list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-dream-line bg-dream-lavender-soft/40 px-6 py-16 text-center">
           <Image
-            src="/how it works/3dog.png"
+            src="/how-it-works/3dog.png"
             alt=""
             width={120}
             height={120}

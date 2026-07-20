@@ -26,11 +26,11 @@ const STEPS: Step[] = [
     title: "Tell us what you need",
     description:
       "Pick your products and upload your art, you'll get a quick instant quote",
-    blob: "/how it works/1blob.svg",
+    blob: "/how-it-works/1blob.svg",
     blobWidth: 255,
     blobHeight: 310,
     blobRotate: -12,
-    dog: "/how it works/step-1-upload-design.webp",
+    dog: "/how-it-works/step-1-upload-design.webp",
     dogAlt: "Dog sitting next to a folded shirt and paw-print food bowl",
     dogWidth: "500px",
     dogOffsetX: "30px",
@@ -40,10 +40,10 @@ const STEPS: Step[] = [
     title: "We send you a proof",
     description:
       "We'll double check your timeline, stock, and print to make sure it's ready to go. If it looks good, you're all good to pay!",
-    blob: "/how it works/2blob.svg",
+    blob: "/how-it-works/2blob.svg",
     blobWidth: 317,
     blobHeight: 255,
-    dog: "/how it works/step-2-proof-review.webp",
+    dog: "/how-it-works/step-2-proof-review.webp",
     dogAlt: "Dog peeking out of a canvas tote bag with rolled artwork",
     dogWidth: "450px",
     dogOffsetY: "24px",
@@ -52,10 +52,10 @@ const STEPS: Step[] = [
     n: 3,
     title: "Printing begins",
     description: "Once you approve, we get to screenprinting your order in house.",
-    blob: "/how it works/3blob.svg",
+    blob: "/how-it-works/3blob.svg",
     blobWidth: 322,
     blobHeight: 299,
-    dog: "/how it works/step-3-printing.webp",
+    dog: "/how-it-works/step-3-printing.webp",
     dogAlt: "Dog giving an approving thumbs up",
     dogWidth: "520px",
     dogOffsetY: "30px",
@@ -65,10 +65,10 @@ const STEPS: Step[] = [
     title: "It's at your door",
     description:
       "Printed, packed and shipped, or grab it in Vancouver!",
-    blob: "/how it works/1blob.svg",
+    blob: "/how-it-works/1blob.svg",
     blobWidth: 255,
     blobHeight: 310,
-    dog: "/how it works/step-4-delivered.webp",
+    dog: "/how-it-works/step-4-delivered.webp",
     dogAlt: "Dog trotting with a shopping bag marked with a paw print",
     dogWidth: "510px",
   },
@@ -113,7 +113,7 @@ export default function HowItWorks() {
           ].map(({ i, width, left, top, rotate }) => (
             <Image
               key={i}
-              src={`/how it works/strokes/stroke${i}.png`}
+              src={`/how-it-works/strokes/stroke${i}.png`}
               alt=""
               aria-hidden="true"
               width={300}

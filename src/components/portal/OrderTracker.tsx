@@ -10,8 +10,8 @@ import { cn } from "@/lib/cn";
  */
 const STAGE_DOGS: Record<number, string> = {
   0: "/order-received-dog.webp", // Order received
-  1: "/how it works/step-2-proof-review.webp", // Proof ready
-  2: "/how it works/step-3-printing.webp", // In production
+  1: "/how-it-works/step-2-proof-review.webp", // Proof ready
+  2: "/how-it-works/step-3-printing.webp", // In production
   3: "/delivery-status-dog.webp", // Shipped / ready
   4: "/delivered-status-dog.webp", // Complete
 };
@@ -138,7 +138,7 @@ export function OrderTracker({
               <img src={dog} alt="" className={cn("relative w-auto object-contain", STAGE_DOG_SIZE[clamped] ?? DEFAULT_DOG_SIZE)} />
             ) : (
               <Image
-                src="/how it works/3dog.png"
+                src="/how-it-works/3dog.png"
                 alt=""
                 width={72}
                 height={70}
