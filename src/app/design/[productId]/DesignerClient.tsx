@@ -122,7 +122,10 @@ function imageForView(colour: ProductColourJson | undefined, view: View): string
   if (!colour) return null;
   const img = colour.images;
   if (view === "back") return img.back ?? img.front;
-  if (view === "sleeve") return img.side ?? img.front;
+  // Sleeve NEVER falls back to the front image: a front photo behind sleeve art
+  // would be misleading. No side photo -> null (the sleeve slot shows a
+  // placeholder card instead of a fake garment).
+  if (view === "sleeve") return img.side ?? null;
   return img.front;
 }
 
@@ -199,18 +202,27 @@ export function DesignerClient(props: Props) {
   const histories = useRef<Record<string, object[]>>({});
   const futures = useRef<Record<string, object[]>>({});
 
-  // Editable views, front/back only. Sleeve is intentionally excluded: we have
-  // no true sleeve mockup, so instead of an editable canvas (which would show a
-  // misleading front image) we route sleeve requests to a "message us" handoff.
-  const views = useMemo(() => {
-    const set = new Set<View>(props.printAreas.map((p) => normView(p.view)));
-    return (["front", "back"] as View[]).filter((v) => set.has(v));
-  }, [props.printAreas]);
-  // Whether this product is configured for sleeve printing (drives the handoff).
-  const hasSleeve = useMemo(
+  // Sleeve is a live designable view only when the product has a sleeve print
+  // area AND at least one colourway ships a real S&S "side" photo to design
+  // against. Without a side photo we never fake it on the front image, we hand
+  // the sleeve off to a human instead (see the handoff card below). When only
+  // SOME colours have a side photo, the sleeve view stays but shows a friendly
+  // placeholder on the colours that don't (art is kept in state either way).
+  const hasSleeveArea = useMemo(
     () => props.printAreas.some((p) => normView(p.view) === "sleeve"),
     [props.printAreas]
   );
+  const anyColourHasSide = useMemo(
+    () => props.colours.some((c) => !!c.images?.side),
+    [props.colours]
+  );
+  const sleeveEnabled = hasSleeveArea && anyColourHasSide;
+  const views = useMemo(() => {
+    const set = new Set<View>(props.printAreas.map((p) => normView(p.view)));
+    const base = (["front", "back"] as View[]).filter((v) => set.has(v));
+    if (sleeveEnabled) base.push("sleeve");
+    return base;
+  }, [props.printAreas, sleeveEnabled]);
 
   const edit = props.initialDesign ?? null;
   const [colourName, setColourName] = useState(
@@ -329,6 +341,10 @@ export function DesignerClient(props: Props) {
   const artworkFiles = useRef<{ id: string; file: File }[]>([]);
 
   const colour = props.colours.find((c) => c.name === colourName);
+  // Does the current garment colour ship a side photo? Drives the sleeve canvas
+  // vs. placeholder swap. The sleeve view stays mounted either way, so art on it
+  // is preserved across colour swaps.
+  const currentColourHasSide = !!colour?.images?.side;
   const method = priceableMethods.find((m) => m.id === methodId) ?? null;
   const printAreaForView = (v: View) => props.printAreas.find((p) => normView(p.view) === v);
   const specForView = (v: View): PrintAreaSpec | null => {
@@ -597,10 +613,11 @@ export function DesignerClient(props: Props) {
     stageRefs.current[v]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }
 
-  /** Switch single/both view mode, picking a zoom that fits. */
+  /** Switch single/both view mode, picking a zoom that fits. Three canvases
+   *  (front + back + sleeve) need a smaller zoom to sit side by side than two. */
   function setMode(m: "single" | "both") {
     setViewMode(m);
-    setZoom(m === "both" ? 0.75 : 1);
+    setZoom(m === "both" ? (views.length >= 3 ? 0.55 : 0.75) : 1);
   }
 
   /** In single mode, show one side and make it the tool target. */
@@ -1721,15 +1738,17 @@ export function DesignerClient(props: Props) {
               )}
             </div>
 
-            {/* Sleeve (and other special placements) aren't in the online
-                designer, hand those off to a real person instead of faking a
-                mockup. */}
+            {/* Placements the online designer can't cover (tags, inside labels,
+                and sleeves on products without a sleeve area) are handed off to a
+                real person instead of faking a mockup. When sleeves ARE live the
+                copy narrows to the truly custom asks. */}
             <div className="mt-5 rounded-2xl border border-dream-line bg-dream-cream/50 p-4">
               <h3 className="font-display text-sm font-bold text-dream-ink">
-                Want it on the sleeve{hasSleeve ? "" : " or somewhere else"}?
+                Want it {sleeveEnabled ? "somewhere custom" : "on the sleeve or somewhere else"}?
               </h3>
               <p className="mt-1.5 text-xs leading-relaxed text-dream-muted">
-                The designer covers front and back. For sleeves, tags, or anything custom, message us and we&apos;ll send you a proof.
+                The designer covers {sleeveEnabled ? "front, back, and sleeve" : "front and back"}. For{" "}
+                {sleeveEnabled ? "tags, inside labels, or other custom spots" : "sleeves, tags, or anything custom"}, message us and we&apos;ll send you a proof.
               </p>
               <Link
                 href="/contact"
@@ -1760,7 +1779,7 @@ export function DesignerClient(props: Props) {
               {views.length <= 1
                 ? "Design preview"
                 : viewMode === "both"
-                  ? "Front & back"
+                  ? views.length >= 3 ? "All sides" : "Front & back"
                   : activeView
                     ? `Editing the ${VIEW_LABEL[activeView].toLowerCase()}`
                     : "Pick a side to edit"}
@@ -1871,6 +1890,33 @@ export function DesignerClient(props: Props) {
                         </div>
                       </div>
                     )}
+
+                    {/* Sleeve without a side photo for THIS colour: a friendly
+                        placeholder over the (still-mounted) canvas. Any sleeve art
+                        stays in the canvas instance, so switching to a colour that
+                        has a side photo brings it right back. */}
+                    {v === "sleeve" && !currentColourHasSide && (
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-2xl bg-dream-cream p-6 text-center">
+                        <div className="grid h-11 w-11 place-items-center rounded-full bg-white ring-1 ring-dream-line">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dream-purple" aria-hidden>
+                            <path d="M3 3l18 18" /><path d="M21 15V5a2 2 0 0 0-2-2H9" /><path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14" /><path d="M8.5 8.5a1 1 0 1 0 0 .01" /><path d="M21 15l-5-5-4 4" />
+                          </svg>
+                        </div>
+                        <h3 className="font-display text-sm font-bold text-dream-ink">No sleeve photo for this colour</h3>
+                        <p className="max-w-[15rem] text-xs leading-relaxed text-dream-muted">
+                          Your sleeve art is saved. We&apos;ll place it for you, or message us and we&apos;ll mock it up.
+                        </p>
+                        <Link
+                          href="/contact"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-0.5 inline-flex items-center gap-1 font-display text-xs font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+                        >
+                          Message us
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -1884,17 +1930,27 @@ export function DesignerClient(props: Props) {
               <div className={cn(GLASS, "pointer-events-auto inline-flex items-center gap-1 p-1.5")}>
                 {views.map((v) => {
                   const on = viewMode === "single" && v === activeView;
+                  // Sleeve on a colour with no side photo: keep the pill but flag
+                  // that this colour will use the placeholder handoff.
+                  const sleeveNoPhoto = v === "sleeve" && !currentColourHasSide;
                   return (
                     <button
                       key={v}
                       onClick={() => showSide(v)}
                       aria-pressed={on}
+                      title={sleeveNoPhoto ? "No sleeve photo for this colour, we place it for you" : undefined}
                       className={cn(
-                        "rounded-full px-4 py-2 text-[13px] font-bold transition-colors",
+                        "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold transition-colors",
                         on ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
                       )}
                     >
                       {VIEW_LABEL[v]}
+                      {sleeveNoPhoto && (
+                        <span
+                          aria-hidden
+                          className={cn("h-1.5 w-1.5 rounded-full", on ? "bg-white/80" : "bg-dream-sun")}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -1907,7 +1963,7 @@ export function DesignerClient(props: Props) {
                     viewMode === "both" ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
                   )}
                 >
-                  See both
+                  {views.length >= 3 ? "See all" : "See both"}
                 </button>
               </div>
             )}
