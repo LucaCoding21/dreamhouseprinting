@@ -20,11 +20,19 @@ export interface QuoteRequestItem {
   thumbnail: string | null;
 }
 
+// Same preview cap as the order queues. There's no separate quotes page to
+// send people to, so the overflow expands in place instead of deep-linking.
+const QUOTE_PREVIEW = 7;
+
 export function QuoteRequests({ quotes }: { quotes: QuoteRequestItem[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [, start] = useTransition();
+
+  const visible = expanded ? quotes : quotes.slice(0, QUOTE_PREVIEW);
+  const hidden = quotes.length - visible.length;
 
   function runConvert(quoteId: string) {
     setPendingId(quoteId);
@@ -65,7 +73,7 @@ export function QuoteRequests({ quotes }: { quotes: QuoteRequestItem[] }) {
         </div>
       ) : (
         <ul className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface">
-          {quotes.map((q) => {
+          {visible.map((q) => {
             const busy = pendingId === q.id;
             return (
               <li key={q.id} className="flex items-center gap-3 px-4 py-3">
@@ -114,6 +122,17 @@ export function QuoteRequests({ quotes }: { quotes: QuoteRequestItem[] }) {
               </li>
             );
           })}
+          {(hidden > 0 || expanded) && (
+            <li>
+              <button
+                type="button"
+                onClick={() => setExpanded((e) => !e)}
+                className="w-full px-4 py-2.5 text-left text-sm font-medium text-dream-purple transition-colors hover:bg-dream-bg"
+              >
+                {hidden > 0 ? `Show all ${quotes.length} requests` : "Show fewer"}
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </section>

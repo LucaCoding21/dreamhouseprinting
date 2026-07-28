@@ -146,20 +146,25 @@ interface Queue {
   items: AdminOrderListItem[];
 }
 
+// A queue is a to-do preview, not a list. Needs proof alone can run 40 orders
+// deep, so every card caps its rows and hands the rest to /admin/orders, where
+// the same set has filters, sorting and the full table.
+const QUEUE_PREVIEW = 7;
+
 function QueueCard({ queue }: { queue: Queue }) {
-  const rows = queue.items.slice(0, 5);
+  const total = queue.items.length;
+  const rows = queue.items.slice(0, QUEUE_PREVIEW);
+  const hidden = total - rows.length;
+  const tabHref = `/admin/orders?tab=${queue.tab}`;
   return (
     <section id={`q-${queue.key}`} className="rounded-xl border border-dream-line bg-dream-surface">
       <div className="flex items-center justify-between gap-2 border-b border-dream-line px-4 py-3">
         <div className="flex items-center gap-2">
           <h2 className="font-display text-base font-bold text-dream-ink">{queue.title}</h2>
-          <Badge variant={queue.items.length ? "purple" : "neutral"}>{queue.items.length}</Badge>
+          <Badge variant={total ? "purple" : "neutral"}>{total}</Badge>
         </div>
-        <Link
-          href={`/admin/orders?tab=${queue.tab}`}
-          className="text-xs font-medium text-dream-purple hover:underline"
-        >
-          View all
+        <Link href={tabHref} className="text-xs font-medium text-dream-purple hover:underline">
+          {hidden > 0 ? `View all ${total}` : "View all"}
         </Link>
       </div>
       {rows.length === 0 ? (
@@ -197,6 +202,17 @@ function QueueCard({ queue }: { queue: Queue }) {
             );
           })}
         </ul>
+      )}
+      {hidden > 0 && (
+        <Link
+          href={tabHref}
+          className="flex items-center justify-between gap-2 border-t border-dream-line px-4 py-2.5 text-sm font-medium text-dream-purple transition-colors hover:bg-dream-bg"
+        >
+          <span>
+            {hidden} more {hidden === 1 ? "order" : "orders"} in this queue
+          </span>
+          <span className="text-xs font-semibold uppercase tracking-wide">View all {total}</span>
+        </Link>
       )}
     </section>
   );
