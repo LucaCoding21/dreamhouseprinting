@@ -73,8 +73,19 @@ export function CompactItemRow({
             </span>
           )}
           {sizeSummary}
+          {it.supplier && (
+            <>
+              <span className="mx-1.5 text-dream-faint">·</span>
+              {it.supplier}
+            </>
+          )}
         </div>
       </div>
+      {it.fulfilled && (
+        <Badge variant="success" className="shrink-0">
+          Fulfilled
+        </Badge>
+      )}
       <Badge variant={LINE_PRODUCTION_META[it.productionStatus].badge} className="shrink-0">
         {LINE_PRODUCTION_META[it.productionStatus].label}
       </Badge>

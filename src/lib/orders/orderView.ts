@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { STATUS_META, statusStageIndex, TRACKER_STAGES } from "@/lib/orderStatus";
 import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
+import { normalizeAdjustments } from "@/lib/orders/pricingMath";
 import type { OrderStatus } from "@/lib/db/rows";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow } from "@/lib/db/rows";
 import type { Database } from "@/lib/db/types";
@@ -203,7 +204,11 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
       order_number: order.order_number,
       status: order.status as OrderStatus,
       due_date: order.due_date,
-      pricing: (order.pricing ?? {}) as { total?: number; subtotal?: number; setupFees?: number; rush?: number; addons?: number; shipping?: number; tax?: number; discount?: number; discountLabel?: string },
+      pricing: {
+        ...((order.pricing ?? {}) as OrderViewOrder["pricing"]),
+        // Normalized so a hand-edited jsonb row can't break the summary rows.
+        adjustments: normalizeAdjustments(((order.pricing ?? {}) as { adjustments?: unknown }).adjustments),
+      },
       invoice_sent_at: order.invoice_sent_at,
       invoice_amount: order.invoice_amount,
       paid_at: order.paid_at,

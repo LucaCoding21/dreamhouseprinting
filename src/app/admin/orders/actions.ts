@@ -18,7 +18,17 @@ import { priceFromCurve, defaultDecoration } from "@/lib/pricing/quote";
 import type { LineProductionStatus } from "@/lib/lineProduction";
 import { mergeAddonSettings, lineAddonTotal } from "@/lib/addonSettings";
 import { resolveDiscount, type DiscountType } from "@/lib/pricing/discount";
-import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
+import { calcTax } from "@/lib/pricing/tax";
+import { isBackwardStatus } from "@/lib/orderStatus";
+import {
+  adjustmentsTotal,
+  cleanAdjustments,
+  normalizeAdjustments,
+  orderTotal,
+  resolveTaxProvince,
+  taxableBase,
+  type PriceAdjustment,
+} from "@/lib/orders/pricingMath";
 
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
 const asJson = (v: unknown) => v as unknown as Json;
@@ -60,7 +70,13 @@ async function applyStatus(
   if (status !== "on_hold" && prevStatus === "on_hold") patch.hold_note = null;
   const { error } = await service.from("orders").update(patch).eq("id", orderId);
   if (error) return error.message;
-  await logActivity(service, orderId, "status_change", { from: prevStatus, to: status });
+  // A step BACKWARDS (e.g. shipped -> production for a reprint) gets its own
+  // activity entry on top of the normal status_change, so the reversal is easy
+  // to spot in the log. status_reverted is admin-only (it is not in the
+  // customer-visible activity allowlist).
+  const backwards = isBackwardStatus(prevStatus, status);
+  await logActivity(service, orderId, "status_change", { from: prevStatus, to: status, backwards });
+  if (backwards) await logActivity(service, orderId, "status_reverted", { from: prevStatus, to: status });
   await sendOrderStatusEmail(orderId, status);
   return null;
 }
@@ -265,6 +281,8 @@ export async function updateOrderPricingAction(
     discountValue?: number;
     discountLabel?: string;
     discount?: number;
+    /** Named discounts (negative) and fees (positive), any number of rows. */
+    adjustments?: PriceAdjustment[];
   },
   /** Required to edit a PAID order's pricing, the UI confirms first. */
   confirmed = false
@@ -277,6 +295,10 @@ export async function updateOrderPricingAction(
   if (pricing.discountValue !== undefined) parts.push(pricing.discountValue);
   if (parts.some((n) => !Number.isFinite(n) || n < 0)) {
     return { error: "Pricing values must be zero or greater." };
+  }
+  // Adjustments are the one signed field: a fee is positive, a discount negative.
+  if ((pricing.adjustments ?? []).some((a) => !Number.isFinite(Number(a?.amount)))) {
+    return { error: "Every discount or fee needs a number." };
   }
 
   const { data: order } = await service.from("orders").select("paid_at").eq("id", orderId).single();
@@ -291,7 +313,17 @@ export async function updateOrderPricingAction(
     discountType: pricing.discountType,
     discountValue: pricing.discountValue,
   });
-  const total = round2(goods - discount + pricing.shipping + pricing.tax);
+  const adjustments = cleanAdjustments(pricing.adjustments ?? []);
+  const total = orderTotal({
+    subtotal: pricing.subtotal,
+    setupFees: pricing.setupFees,
+    rush: pricing.rush,
+    addons: pricing.addons,
+    discount,
+    adjustments: adjustmentsTotal(adjustments),
+    shipping: pricing.shipping,
+    tax: pricing.tax,
+  });
   const next = {
     subtotal: pricing.subtotal,
     setupFees: pricing.setupFees,
@@ -303,6 +335,7 @@ export async function updateOrderPricingAction(
     discountValue: pricing.discountValue,
     discountLabel: pricing.discountLabel,
     discount,
+    adjustments,
     total,
   };
 
@@ -399,6 +432,14 @@ export interface LineItemDecorations {
   internalNotes?: string;
   /** Info for the shipping label (e.g. gate code, delivery instructions). */
   shippingNotes?: string;
+  /**
+   * Line ops, tracked per garment because one order's lines can come from
+   * different suppliers and land on different days.
+   * `fulfilled`: the blanks for this line are in hand.
+   * `supplier`: who the blanks were bought from (see SUPPLIER_OPTIONS).
+   */
+  fulfilled?: boolean;
+  supplier?: string;
   /** Manual queue order within the order (lower = higher up). */
   position?: number;
   /**
@@ -425,7 +466,7 @@ const sumSizes = (sq: Record<string, number>) =>
 async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServiceClient>, orderId: string) {
   const [{ data: items }, { data: order }, { data: addonRow }] = await Promise.all([
     service.from("line_items").select("unit_price, size_quantities, decorations").eq("order_id", orderId),
-    service.from("orders").select("pricing, shipping_address").eq("id", orderId).single(),
+    service.from("orders").select("pricing, shipping_address, fulfillment_method").eq("id", orderId).single(),
     service.from("settings").select("value").eq("key", "addons").maybeSingle(),
   ]);
   const pricing = (order?.pricing ?? {}) as {
@@ -436,6 +477,7 @@ async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServic
     discountType?: DiscountType;
     discountValue?: number;
     discountLabel?: string;
+    adjustments?: unknown;
   };
   const addonSettings = mergeAddonSettings(addonRow?.value);
   const subtotal = round2(
@@ -456,13 +498,18 @@ async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServic
   const discountValue = pricing.discountValue;
   const discountLabel = pricing.discountLabel;
   const discount = resolveDiscount(subtotal + setupFees + rush + addons, { discountType, discountValue });
+  // Manual discount/fee rows survive an auto-recompute untouched.
+  const adjustments = normalizeAdjustments(pricing.adjustments);
+  const adjTotal = adjustmentsTotal(adjustments);
   // Re-derive tax from the shipping province on the recomputed base (matches the
   // PricingCard live formula) so an item edit can't leave a stale tax the customer
-  // then pays. Unknown province keeps whatever tax was there before.
-  const shipProv = (order?.shipping_address as { prov?: string } | null)?.prov;
-  const prov = isProvinceCode(shipProv) ? shipProv : null;
-  const taxBase = Math.max(subtotal + setupFees + rush + addons - discount + shipping, 0);
-  const tax = prov ? calcTax(taxBase, prov).total : pricing.tax ?? 0;
+  // then pays. Pickup or an unreadable province falls back to the shop's province.
+  const prov = resolveTaxProvince({
+    prov: (order?.shipping_address as { prov?: string } | null)?.prov,
+    fulfillmentMethod: order?.fulfillment_method,
+  }).code;
+  const base = { subtotal, setupFees, rush, addons, discount, adjustments: adjTotal, shipping };
+  const tax = calcTax(taxableBase(base), prov).total;
   const next = {
     subtotal,
     setupFees,
@@ -474,7 +521,8 @@ async function syncOrderPricing(service: ReturnType<typeof requireSupabaseServic
     discountValue,
     discountLabel,
     discount,
-    total: round2(subtotal + setupFees + rush + addons - discount + shipping + tax),
+    adjustments,
+    total: orderTotal({ ...base, tax }),
   };
   await service.from("orders").update({ pricing: asJson(next) }).eq("id", orderId);
   return next;

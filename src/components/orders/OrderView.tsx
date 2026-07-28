@@ -162,6 +162,17 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
             {!!pricing.discount && (
               <Row label={pricing.discountLabel?.trim() || "Discount"} value={`−${formatCAD(pricing.discount)}`} accent />
             )}
+            {/* Each named discount or fee gets its own line, no silent lumping. */}
+            {(pricing.adjustments ?? [])
+              .filter((a) => a.amount !== 0)
+              .map((a) => (
+                <Row
+                  key={a.id}
+                  label={a.label.trim() || (a.amount < 0 ? "Discount" : "Fee")}
+                  value={`${a.amount < 0 ? "−" : ""}${formatCAD(Math.abs(a.amount))}`}
+                  accent={a.amount < 0}
+                />
+              ))}
             {!!pricing.shipping && <Row label="Shipping" value={formatCAD(pricing.shipping)} />}
             {!!pricing.tax && <Row label="Tax" value={formatCAD(pricing.tax)} />}
           </div>

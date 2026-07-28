@@ -92,6 +92,8 @@ export function OrderItemsSection({
         productionNotes: dec.productionNotes ?? "",
         internalNotes: dec.internalNotes ?? "",
         shippingNotes: dec.shippingNotes ?? "",
+        fulfilled: !!dec.fulfilled,
+        supplier: dec.supplier ?? "",
         priceSuggestion: dec.priceSuggestion ?? null,
       };
     });
@@ -144,6 +146,8 @@ export function OrderItemsSection({
               productionNotes: it.productionNotes,
               internalNotes: it.internalNotes,
               shippingNotes: it.shippingNotes,
+              fulfilled: it.fulfilled,
+              supplier: it.supplier,
               position: idx,
               priceSuggestion: it.priceSuggestion,
             },
@@ -206,6 +210,15 @@ export function OrderItemsSection({
             {collapsed.size >= items.length ? "Expand all" : "Collapse all"}
           </button>
         )}
+        {/* Every artwork and mockup on the order, stacked on one printable page. */}
+        <a
+          href={`/admin/orders/${order.id}/artwork`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm font-medium text-dream-purple hover:underline"
+        >
+          All artwork on one page
+        </a>
         <div className="ml-auto flex items-center gap-3">
           {itemsDirty && (
             <>

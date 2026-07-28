@@ -52,29 +52,55 @@ export function DecorationSpotRow({
             {spot.type && !methodOptions.includes(spot.type) && <option value={spot.type}>{spot.type}</option>}
           </Select>
         </div>
-        <div className="w-24">
+        {/* Measurements are inches to 3 decimals at most (e.g. 14.325), so the
+            boxes are sized for about seven characters, not a full-width field. */}
+        <div className="w-[4.75rem]">
           <div className={cn(LBL, "mb-1 flex items-center gap-1")}>
             Width
             <MeasureHelpDot />
           </div>
           <div className="flex items-center gap-1">
-            <Input value={spot.widthIn} disabled={!canEdit} onChange={(e) => onPatch({ widthIn: e.target.value })} />
+            <Input
+              value={spot.widthIn}
+              inputMode="decimal"
+              maxLength={7}
+              disabled={!canEdit}
+              onChange={(e) => onPatch({ widthIn: e.target.value })}
+              className="min-w-0 flex-1 px-1.5 text-center"
+            />
             <span className="text-xs text-dream-muted">in</span>
           </div>
         </div>
-        <div className="w-24">
+        <div className="w-[4.75rem]">
           <div className={cn(LBL, "mb-1 flex items-center gap-1")}>
             Height
             <MeasureHelpDot />
           </div>
           <div className="flex items-center gap-1">
-            <Input value={spot.heightIn} disabled={!canEdit} onChange={(e) => onPatch({ heightIn: e.target.value })} />
+            <Input
+              value={spot.heightIn}
+              inputMode="decimal"
+              maxLength={7}
+              disabled={!canEdit}
+              onChange={(e) => onPatch({ heightIn: e.target.value })}
+              className="min-w-0 flex-1 px-1.5 text-center"
+            />
             <span className="text-xs text-dream-muted">in</span>
           </div>
         </div>
-        <div className="w-24">
+        <div className="w-[4.5rem]">
           <div className={cn(LBL, "mb-1")}># Colours</div>
-          <Input value={spot.colours} disabled={!canEdit} onChange={(e) => onPatch({ colours: e.target.value })} />
+          {/* A count, so two characters is the ceiling. The designer can also
+              pre-fill a word ("Full colour"), which stays editable in full. */}
+          <Input
+            value={spot.colours}
+            inputMode="numeric"
+            maxLength={/^~?\d*$/.test(spot.colours) ? 3 : undefined}
+            title={spot.colours || undefined}
+            disabled={!canEdit}
+            onChange={(e) => onPatch({ colours: e.target.value })}
+            className="px-1.5 text-center"
+          />
         </div>
         {canEdit && (
           <button

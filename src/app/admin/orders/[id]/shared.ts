@@ -73,11 +73,19 @@ export interface ItemState {
   productionNotes: string;
   internalNotes: string;
   shippingNotes: string;
+  /** Blanks for this line are in hand (ordered and received). */
+  fulfilled: boolean;
+  /** Where the blanks are coming from; "" until Julian picks one. */
+  supplier: string;
   /** Stale-price nudge from a product swap; null once applied or dismissed. */
   priceSuggestion: { unit: number; qty: number } | null;
 }
 
 export const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
+
+/** Blank suppliers Julian buys from. Stored as the plain label on the line. */
+export const SUPPLIER_OPTIONS = ["S&S Activewear", "SanMar", "Alphabroder", "Stormtech", "Other"];
+
 export const PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"];
 
 /** Tiny uppercase field label, matching the wireframe. */

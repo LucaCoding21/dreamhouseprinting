@@ -11,11 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { STATUS_META } from "@/lib/orderStatus";
+import { STATUS_META, isBackwardStatus } from "@/lib/orderStatus";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/db/rows";
 import { setOrderStatusAction, addOrderNoteAction, sendInvoiceAction, setTrackingAction } from "../actions";
 import { EtransferVerify } from "./EtransferVerify";
 import { ProofReviewDialog } from "./ProofReviewDialog";
+import { OrderTopSummary } from "./OrderTopSummary";
+import { StatusChangeConfirm } from "./StatusChangeConfirm";
 import { fmtDay, nextAction, useOrderAction, type Can, type Detail } from "./shared";
 
 const PRE_APPROVAL = new Set<string>(["draft", "submitted", "in_review", "proof_ready", "changes_requested"]);
@@ -37,6 +39,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
   const [approveConfirm, setApproveConfirm] = useState(false);
   const [approveReason, setApproveReason] = useState("");
   const [shipOpen, setShipOpen] = useState(false);
+  const [backTo, setBackTo] = useState<OrderStatus | null>(null);
   const [tracking, setTracking] = useState(order.shipping_tracking ?? "");
 
   // Approve on the customer's behalf, recording WHY as an internal note (paper
@@ -63,14 +66,22 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
     .filter((p) => p.status === "changes_requested" && p.change_request_comment)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
+  function applyStatusMove(target: OrderStatus, confirmed = false) {
+    run(() => setOrderStatusAction(order.id, target, confirmed), "Status updated", () => {
+      setJumpOpen(false);
+      setBackTo(null);
+    });
+  }
+
   function goToStatus(target: OrderStatus, confirmed = false) {
     if (target === status) return;
-    const targetIdx = ORDER_STATUSES.indexOf(target);
-    const currentIdx = ORDER_STATUSES.indexOf(status);
-    if (targetIdx >= 0 && currentIdx >= 0 && targetIdx < currentIdx && !["on_hold", "cancelled"].includes(target)) {
-      if (!window.confirm(`Move backwards to “${STATUS_META[target].label}”?`)) return;
+    // Backwards means a reprint or a redo, so it gets a real confirmation
+    // (emails go out exactly as they do for a forward move).
+    if (isBackwardStatus(status, target)) {
+      setBackTo(target);
+      return;
     }
-    run(() => setOrderStatusAction(order.id, target, confirmed), "Status updated", () => setJumpOpen(false));
+    applyStatusMove(target, confirmed);
   }
 
   function putOnHold() {
@@ -148,8 +159,8 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         </div>
       </div>
 
-      {/* Row 2, identity + status */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* Row 2, identity + status + the money/stage summary, all above the fold */}
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="font-display text-3xl font-bold text-dream-ink">Order {order.order_number ?? ""}</h1>
@@ -167,6 +178,8 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             )}
           </div>
         </div>
+
+        <OrderTopSummary order={order} />
       </div>
 
       {order.hold_note && (
@@ -188,6 +201,16 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         customerName={who}
         isReplacement={status === "changes_requested" || status === "proof_ready"}
         orderTotal={total}
+      />
+
+      {/* Backward move confirm, shared with the stage stepper */}
+      <StatusChangeConfirm
+        open={backTo !== null}
+        onOpenChange={(o) => !o && setBackTo(null)}
+        from={status}
+        to={backTo}
+        pending={pending}
+        onConfirm={() => backTo && applyStatusMove(backTo)}
       />
 
       {/* Jump-to-status dialog */}

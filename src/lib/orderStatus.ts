@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/lib/db/rows";
+import { ORDER_STATUSES, type OrderStatus } from "@/lib/db/rows";
 
 /** Customer-facing tracker stages (PRD §5.4.1), the Domino's-style dog journey. */
 export const TRACKER_STAGES = [
@@ -35,6 +35,37 @@ export function statusStageIndex(status: OrderStatus): number {
     default:
       return -1; // draft / on_hold / cancelled
   }
+}
+
+/**
+ * The status a tracker stage maps back to, so the admin stepper can be clicked
+ * to move an order to that stage. The fulfilment stage splits by how the order
+ * leaves the shop.
+ */
+const STAGE_STATUS: Record<Exclude<TrackerStageKey, "fulfilment">, OrderStatus> = {
+  received: "submitted",
+  proof: "proof_ready",
+  production: "in_production",
+  complete: "completed",
+};
+
+export function stageTargetStatus(stage: TrackerStageKey, fulfillmentMethod?: string | null): OrderStatus {
+  if (stage === "fulfilment") return fulfillmentMethod === "pickup" ? "ready_for_pickup" : "shipped";
+  return STAGE_STATUS[stage];
+}
+
+/**
+ * Is moving from -> to a step BACKWARDS through the normal lifecycle (e.g.
+ * production back to proof for a reprint)? Holds and cancellations sit outside
+ * the line, so moves into or out of them are never counted as backwards.
+ */
+export function isBackwardStatus(from: string | null | undefined, to: OrderStatus): boolean {
+  if (!from || from === to) return false;
+  const offLine = new Set<string>(["on_hold", "cancelled"]);
+  if (offLine.has(from) || offLine.has(to)) return false;
+  const i = ORDER_STATUSES.indexOf(from as OrderStatus);
+  const j = ORDER_STATUSES.indexOf(to);
+  return i >= 0 && j >= 0 && j < i;
 }
 
 interface StatusMeta {

@@ -9,6 +9,7 @@ import { OrderStatusStrip } from "./OrderStatusStrip";
 import { PricingCard } from "./PricingCard";
 import { CustomerCard } from "./CustomerCard";
 import { OrderReference } from "./OrderReference";
+import { CustomerLinkFooter } from "./CustomerLinkFooter";
 import { fmtWhen, relativeTime, type Can, type Detail, type StoredAddress } from "./shared";
 
 export function OrderDetailClient({
@@ -43,7 +44,7 @@ export function OrderDetailClient({
 
       {/* ── Reference: status, contact, payment, totals, one-time info, kept at the bottom ── */}
       <section className="space-y-6 border-t border-dream-line pt-8">
-        <OrderStatusStrip detail={detail} />
+        <OrderStatusStrip detail={detail} canEdit={can.edit} />
 
         <div className="grid items-start gap-6 lg:grid-cols-3">
           <CustomerCard detail={detail} canEdit={can.edit} />
@@ -80,6 +81,8 @@ export function OrderDetailClient({
             </Card>
           </details>
         )}
+
+        <CustomerLinkFooter publicToken={order.public_token} />
       </section>
     </div>
   );

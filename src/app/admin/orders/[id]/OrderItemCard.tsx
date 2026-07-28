@@ -19,7 +19,7 @@ import { ReorderArrows } from "./ReorderArrows";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { ProofLightbox, fileKind } from "./ProofLightbox";
-import { LBL, SIZE_ORDER, itemQty, sizeRank, type Can, type ItemState, type OrderProduct } from "./shared";
+import { LBL, SIZE_ORDER, SUPPLIER_OPTIONS, itemQty, sizeRank, type Can, type ItemState, type OrderProduct } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
 
@@ -271,7 +271,7 @@ export function OrderItemCard({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               {product?.ss_style_name ? (
                 <SsSource product={product} />
               ) : (
@@ -285,25 +285,75 @@ export function OrderItemCard({
                   onChanged={onProductChanged}
                 />
               )}
+
+              {/* Line ops: where the blanks come from and whether they're in hand. */}
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-1.5">
+                  <span className={LBL}>Supplier</span>
+                  <Select
+                    value={item.supplier}
+                    disabled={!can.edit}
+                    title="Where the blanks for this line are coming from"
+                    onChange={(e) => onPatch((p) => ({ ...p, supplier: e.target.value }))}
+                    className="h-8 w-40 py-0 leading-none"
+                  >
+                    <option value="">Not set</option>
+                    {SUPPLIER_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                    {item.supplier && !SUPPLIER_OPTIONS.includes(item.supplier) && (
+                      <option value={item.supplier}>{item.supplier}</option>
+                    )}
+                  </Select>
+                </label>
+                <button
+                  type="button"
+                  disabled={!can.edit}
+                  aria-pressed={item.fulfilled}
+                  title={item.fulfilled ? "Blanks are in hand" : "Mark the blanks for this line as received"}
+                  onClick={() => onPatch((p) => ({ ...p, fulfilled: !p.fulfilled }))}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    item.fulfilled
+                      ? "border-transparent bg-dream-success-soft text-dream-success"
+                      : "border-dream-line bg-white text-dream-muted hover:border-dream-purple hover:text-dream-purple",
+                    !can.edit && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  {item.fulfilled ? (
+                    <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden>
+                      <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  ) : (
+                    <span className="h-3.5 w-3.5 rounded-full border border-current" aria-hidden />
+                  )}
+                  {item.fulfilled ? "Fulfilled" : "Mark fulfilled"}
+                </button>
+              </div>
             </div>
 
             {/* Sizes, one horizontal row of size columns */}
             <div>
               <div className={cn(LBL, "mb-2")}>Sizes ({qty} pcs)</div>
-              <div className="flex flex-wrap items-start gap-2">
+              <div className="flex flex-wrap items-start gap-1.5">
                 {displaySizes.map((s) => {
                   const q = qtyOf(s);
                   return (
-                    <div key={s} className="w-16">
+                    // Narrow, centred boxes: a size run is 1-3 digits per size,
+                    // wide inputs just push the run off the card.
+                    <div key={s} className="w-11">
                       <div className="mb-1 text-center text-xs font-semibold uppercase text-dream-muted">{s}</div>
                       <Input
                         type="number"
+                        inputMode="numeric"
                         min={0}
                         value={q === 0 ? "" : q}
                         placeholder="0"
                         disabled={!can.edit}
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
-                        className="h-9 px-1.5 text-center"
+                        className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
                       {can.edit && !isStandard(s) && (
                         <button
