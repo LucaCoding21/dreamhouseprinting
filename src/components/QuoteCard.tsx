@@ -4,13 +4,18 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HEARD_ABOUT_OPTIONS,
-  PRINT_COLOR_OPTIONS,
+  PRINT_COLOR_CHOICES,
   PRINT_LOCATIONS,
   SIZE_KEYS,
+  defaultPrints,
   emptyFormData,
+  nextPrint,
+  printColorLabel,
+  printLocationLabel,
   sumSizes,
   type PrintLocation,
   type PrintMethod,
+  type PrintSpec,
   type ProductType,
   type QuoteFormData,
   type SizeBreakdown,
@@ -18,12 +23,12 @@ import {
 } from "@/lib/formTypes";
 import {
   AVAILABLE_DECORATIONS,
-  calculateQuote,
+  calculateQuoteForPrints,
   DECORATION,
-  MAX_LOCATIONS,
   roundDisplayPrice,
   type Decoration,
   type PricedProduct,
+  type PrintPriceLine,
 } from "@/lib/pricing";
 import AnimatedPrice from "./AnimatedPrice";
 
@@ -199,9 +204,11 @@ export default function QuoteCard() {
   const [calcProduct, setCalcProduct] = useState<CalcProduct>("t-shirts");
   const [quantity, setQuantity] = useState("50");
   const [useCustomQty, setUseCustomQty] = useState(false);
-  const [printColors, setPrintColors] = useState("1");
   const [decoration, setDecoration] = useState<Decoration>("screen");
-  const [locations, setLocations] = useState(1);
+  // The explicit list of prints (location + that print's own colour count).
+  // One piece of state shared by both phases: the calculator and the form step
+  // edit the same list, so the price never disagrees with what's on screen.
+  const [prints, setPrints] = useState<PrintSpec[]>(defaultPrints);
 
   // Form state.
   const [step, setStep] = useState<StepIndex>(0);
@@ -279,15 +286,18 @@ export default function QuoteCard() {
   }, [priced, decoration]);
 
   const isScreen = priced !== null && effDecoration === "screen";
-  const colorCount = isScreen ? parseColorCount(printColors) : 0;
+  // The hoodie diagram tints one letter per colour, so it follows the busiest
+  // print in the list.
+  const colorCount = prints.reduce((max, p) => Math.max(max, p.colors), 0);
   const qtyNum = Math.max(0, parseInt(quantity, 10) || 0);
   const quote = priced
-    ? calculateQuote(priced, qtyNum, colorCount, effDecoration, locations)
+    ? calculateQuoteForPrints(priced, qtyNum, prints, effDecoration)
     : null;
   const perUnit = quote?.available ? quote.perUnit : 0;
+  const calcLines = quote?.available ? quote.lines : [];
 
-  // "other" isn't a real SKU, so the form keeps the product + colors pickers;
-  // priced products lock them (shown in the summary banner instead).
+  // "other" isn't a real SKU, so the form keeps the product picker; priced
+  // products lock it (it's shown in the summary banner instead).
   const productLocked = calcProduct !== "other";
 
   // In the form phase the quantity is still editable (Total quantity field /
@@ -297,50 +307,26 @@ export default function QuoteCard() {
     ? Math.max(0, parseInt(data.quantity, 10) || 0)
     : sumSizes(data.sizes);
   const effectiveQty = formQty > 0 ? formQty : qtyNum;
-  // In the form, the user can change print locations directly, so the live
-  // price follows how many they've picked (at least 1).
-  const formLocations = Math.max(1, data.printLocations.length);
+  // The form edits the same prints list, so its price is the same calculation
+  // against the live quantity.
   const formQuote = priced
-    ? calculateQuote(priced, effectiveQty, colorCount, effDecoration, formLocations)
+    ? calculateQuoteForPrints(priced, effectiveQty, prints, effDecoration)
     : null;
   const formPerUnit = formQuote?.available ? formQuote.perUnit : 0;
+  const formLines = formQuote?.available ? formQuote.lines : [];
 
   const update = <K extends keyof QuoteFormData>(key: K, value: QuoteFormData[K]) =>
     setData((d) => ({ ...d, [key]: value }));
 
-  const toggleLocation = (loc: PrintLocation) => {
-    setData((d) => ({
-      ...d,
-      printLocations: d.printLocations.includes(loc)
-        ? d.printLocations.filter((l) => l !== loc)
-        : [...d.printLocations, loc],
-    }));
-  };
-
   const lockIn = () => {
     const mapped = TO_FORM[calcProduct];
-    const colorStr = isScreen
-      ? colorCount >= 4
-        ? "4+"
-        : String(Math.max(1, colorCount))
-      : "1";
     // Carry the chosen decoration into the form's print method (priced products
     // only; "other" keeps the form's "not-sure" default).
     const printMethod: PrintMethod = priced ? effDecoration : mapped.printMethod;
-    // Pre-fill the form's print-location checkboxes to match the count the
-    // calculator priced (first N locations), unless the user already has some.
-    const prefillLocations = PRINT_LOCATIONS.slice(0, Math.max(1, locations)).map(
-      (l) => l.value,
-    );
     setData((d) => ({
       ...d,
       productType: mapped.productType,
       printMethod,
-      printColors: productLocked ? colorStr : d.printColors,
-      printLocations:
-        productLocked && d.printLocations.length === 0
-          ? prefillLocations
-          : d.printLocations,
       quantity: String(qtyNum),
       sizesLater: true,
     }));
@@ -367,8 +353,7 @@ export default function QuoteCard() {
         const total = sumSizes(data.sizes);
         if (total <= 0) errs.sizes = "Enter at least one size count.";
       }
-      if (!data.printColors) errs.printColors = "How many print colors?";
-      if (data.printLocations.length === 0) errs.printLocations = "Pick at least one print location.";
+      if (prints.length === 0) errs.prints = "Add at least one print.";
     }
     if (step === 2) {
       if (!data.name.trim()) errs.name = "We need a name to put on your quote.";
@@ -377,7 +362,7 @@ export default function QuoteCard() {
       if (!data.phone.trim()) errs.phone = "Phone is required.";
     }
     return errs;
-  }, [step, data]);
+  }, [step, data, prints]);
 
   const canAdvance = Object.keys(stepErrors).length === 0;
 
@@ -435,10 +420,18 @@ export default function QuoteCard() {
       const effectiveQuantity = data.sizesLater
         ? data.quantity
         : String(sumSizes(data.sizes));
-      const payload: QuoteFormData = { ...data, quantity: effectiveQuantity };
+      // The prints list lives outside `data` (both phases edit it), so fold it
+      // into the payload here. The API derives print_locations + print_colors
+      // from it.
+      const payload: QuoteFormData = {
+        ...data,
+        quantity: effectiveQuantity,
+        prints,
+      };
 
       // Snapshot of the on-screen estimate so Julian sees exactly the price the
-      // customer was shown, plus the inputs behind it ("why").
+      // customer was shown, plus the inputs behind it ("why"), now including
+      // the per-print breakdown.
       const displayPerUnit = roundDisplayPrice(formPerUnit);
       const submitQty = Number(effectiveQuantity) || effectiveQty;
       const estimate = {
@@ -446,10 +439,20 @@ export default function QuoteCard() {
         product: CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Custom",
         sku: priced ?? null,
         decoration: priced ? effDecoration : null,
-        colors: isScreen ? colorCount : null,
-        locations: priced ? formLocations : null,
+        colors: isScreen && prints.length > 0 ? prints[0].colors : null,
+        locations: priced ? prints.length : null,
         quantity: submitQty,
         perUnit: displayPerUnit,
+        perUnitExact: Number(formPerUnit.toFixed(2)),
+        prints: formLines.map((line) => ({
+          location: line.location,
+          label: printLocationLabel(line.location),
+          colors: line.colors,
+          perUnit: Number(line.perUnit.toFixed(2)),
+          base: Number(line.base.toFixed(2)),
+          locationSurcharge: Number(line.locationSurcharge.toFixed(2)),
+          colourSurcharge: Number(line.colourSurcharge.toFixed(2)),
+        })),
         total: displayPerUnit * submitQty,
       };
 
@@ -508,14 +511,12 @@ export default function QuoteCard() {
               setQuantity={setQuantity}
               useCustomQty={useCustomQty}
               setUseCustomQty={setUseCustomQty}
-              printColors={printColors}
-              setPrintColors={setPrintColors}
               decoration={effDecoration}
               setDecoration={setDecoration}
               availableDecos={availableDecos}
-              locations={locations}
-              setLocations={setLocations}
-              isScreen={isScreen}
+              prints={prints}
+              setPrints={setPrints}
+              lines={calcLines}
               colorCount={colorCount}
               perUnit={perUnit}
               qtyNum={qtyNum}
@@ -543,11 +544,14 @@ export default function QuoteCard() {
                       showProductGrid={!productLocked}
                     />
                     <StepPrint
-                      data={data}
-                      update={update}
-                      toggleLocation={toggleLocation}
+                      prints={prints}
+                      setPrints={setPrints}
+                      lines={formLines}
+                      decoration={data.printMethod === "embroidery" ? "embroidery" : "screen"}
+                      productLabel={
+                        CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Item"
+                      }
                       errors={touchedNext ? stepErrors : {}}
-                      showColors={!productLocked}
                     />
                   </div>
                 )}
@@ -625,10 +629,14 @@ export default function QuoteCard() {
                         : ""}
                       {effectiveQty} {CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "items"}
                       {priced ? ` · ${effDecoration === "embroidery" ? "embroidery" : "screen print"}` : ""}
-                      {isScreen && colorCount > 0
-                        ? ` · ${colorCount} ${colorCount === 1 ? "color" : "colors"}`
+                      {priced && prints.length > 0
+                        ? ` · ${prints.length} ${prints.length === 1 ? "print" : "prints"}`
                         : ""}
-                      {priced && formLocations > 1 ? ` · ${formLocations} locations` : ""}
+                      {isScreen && prints.length === 1
+                        ? ` · ${printColorLabel(prints[0].colors)} ${
+                            prints[0].colors === 1 ? "color" : "colors"
+                          }`
+                        : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -678,14 +686,12 @@ function Calculator({
   setQuantity,
   useCustomQty,
   setUseCustomQty,
-  printColors,
-  setPrintColors,
   decoration,
   setDecoration,
   availableDecos,
-  locations,
-  setLocations,
-  isScreen,
+  prints,
+  setPrints,
+  lines,
   colorCount,
   perUnit,
   qtyNum,
@@ -698,14 +704,12 @@ function Calculator({
   setQuantity: (q: string) => void;
   useCustomQty: boolean;
   setUseCustomQty: (b: boolean) => void;
-  printColors: string;
-  setPrintColors: (c: string) => void;
   decoration: Decoration;
   setDecoration: (d: Decoration) => void;
   availableDecos: Decoration[];
-  locations: number;
-  setLocations: (n: number) => void;
-  isScreen: boolean;
+  prints: PrintSpec[];
+  setPrints: (p: PrintSpec[]) => void;
+  lines: PrintPriceLine[];
   colorCount: number;
   perUnit: number;
   qtyNum: number;
@@ -716,7 +720,8 @@ function Calculator({
     screen: "Screen print",
     embroidery: "Embroidery",
   };
-  const locationWord = decoration === "embroidery" ? "Embroidery" : "Print";
+  const productLabel =
+    CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Item";
   return (
     <>
       <div className="text-center">
@@ -756,35 +761,14 @@ function Calculator({
             </PillField>
           )}
 
-          {isScreen && (
-            <PillField label="Print colors">
-              {["1", "2", "3", "4", "5+"].map((n) => {
-                const value = n === "5+" ? "5" : n;
-                return (
-                  <PillButton
-                    key={n}
-                    active={printColors === value}
-                    onClick={() => setPrintColors(value)}
-                  >
-                    {n}
-                  </PillButton>
-                );
-              })}
-            </PillField>
-          )}
-
           {!isContact && (
-            <PillField label={`${locationWord} locations`}>
-              {Array.from({ length: MAX_LOCATIONS }, (_, i) => i + 1).map((n) => (
-                <PillButton
-                  key={n}
-                  active={locations === n}
-                  onClick={() => setLocations(n)}
-                >
-                  {n}
-                </PillButton>
-              ))}
-            </PillField>
+            <PrintsEditor
+              prints={prints}
+              setPrints={setPrints}
+              lines={lines}
+              decoration={decoration}
+              productLabel={productLabel}
+            />
           )}
 
           <div>
@@ -824,6 +808,7 @@ function Calculator({
           <PriceCard
             perUnit={perUnit}
             quantity={qtyNum}
+            printCount={prints.length}
             isContact={isContact}
             onLockIn={onLockIn}
           />
@@ -844,10 +829,161 @@ function PillField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function parseColorCount(value: string): number {
-  const n = parseInt(value, 10);
-  if (Number.isNaN(n)) return 0;
-  return Math.max(0, Math.min(DREAM_LETTERS.length, n));
+/* ---------- Prints editor (shared by the calculator and the form) ---------- */
+
+// Builds the "how this adds up" line under one print row. The first print
+// carries the garment + its decoration; every print after it adds the
+// extra-location surcharge plus its own colour surcharge.
+function printLineText(
+  line: PrintPriceLine,
+  productLabel: string,
+  colourNoun: string,
+): string {
+  const bits: string[] = [
+    line.base > 0 ? `${productLabel.toLowerCase()} + this print` : "extra location",
+  ];
+  if (line.colourSurcharge > 0)
+    bits.push(`${colourNoun} +$${line.colourSurcharge.toFixed(2)}`);
+  else if (line.colors > 1) bits.push(`${colourNoun} included`);
+  const sign = line.base > 0 ? "" : "+ ";
+  return `${sign}$${line.perUnit.toFixed(2)} / item (${bits.join(", ")})`;
+}
+
+function PrintsEditor({
+  prints,
+  setPrints,
+  lines,
+  decoration,
+  productLabel,
+  strong = false,
+  error,
+}: {
+  prints: PrintSpec[];
+  setPrints: (p: PrintSpec[]) => void;
+  lines: PrintPriceLine[];
+  decoration: Decoration;
+  productLabel: string;
+  strong?: boolean;
+  error?: string;
+}) {
+  const colourLabel = decoration === "embroidery" ? "Thread colors" : "Ink colors";
+  const colourNoun = decoration === "embroidery" ? "thread colors" : "colors";
+  const used = prints.map((p) => p.location);
+  const canAdd = prints.length < PRINT_LOCATIONS.length;
+
+  const setAt = (index: number, patch: Partial<PrintSpec>) =>
+    setPrints(prints.map((p, i) => (i === index ? { ...p, ...patch } : p)));
+  const removeAt = (index: number) =>
+    setPrints(prints.filter((_, i) => i !== index));
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <span
+          className={
+            strong
+              ? "text-sm font-semibold text-dream-ink"
+              : "font-display text-[13px] font-bold text-dream-ink"
+          }
+        >
+          Prints
+        </span>
+        <span className="text-[11px] text-dream-ink/55">
+          One row per print, each with its own colors
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {prints.map((print, i) => {
+          const line = lines[i];
+          return (
+            <div
+              key={i}
+              className={`rounded-2xl border-2 bg-white px-3 py-3 ${
+                strong ? "border-dream-ink/80" : "border-dream-ink/15"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-dream-purple font-display text-[11px] font-bold text-white">
+                  {i + 1}
+                </span>
+                <select
+                  value={print.location}
+                  onChange={(e) =>
+                    setAt(i, { location: e.target.value as PrintLocation })
+                  }
+                  aria-label={`Print ${i + 1} location`}
+                  className="min-w-0 flex-1 rounded-full border border-dream-ink/20 bg-dream-cream px-3 py-2 font-display text-[13px] font-semibold text-dream-ink outline-none transition focus:border-dream-purple"
+                >
+                  {PRINT_LOCATIONS.map((loc) => (
+                    <option
+                      key={loc.value}
+                      value={loc.value}
+                      disabled={loc.value !== print.location && used.includes(loc.value)}
+                    >
+                      {loc.label}
+                    </option>
+                  ))}
+                </select>
+                {prints.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeAt(i)}
+                    aria-label={`Remove print ${i + 1}`}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dream-ink/20 bg-white text-dream-ink/60 transition hover:border-dream-ink/50 hover:text-dream-ink"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-dream-ink/55">
+                  {colourLabel}
+                </span>
+                {PRINT_COLOR_CHOICES.map((n) => (
+                  <PillButton
+                    key={n}
+                    compact
+                    active={print.colors === n}
+                    onClick={() => setAt(i, { colors: n })}
+                  >
+                    {printColorLabel(n)}
+                  </PillButton>
+                ))}
+              </div>
+
+              {line && (
+                <p className="mt-2 text-[11px] font-semibold text-dream-ink/60 tabular-nums">
+                  {printLineText(line, productLabel, colourNoun)}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setPrints([...prints, nextPrint(prints)])}
+        disabled={!canAdd}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-dashed border-dream-ink/40 bg-white px-4 py-2 font-display text-[13px] font-semibold text-dream-ink transition hover:border-dream-ink/70 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Add another print
+      </button>
+      {!canAdd && (
+        <span className="ml-2 text-[11px] text-dream-ink/50">
+          That&apos;s every location we print.
+        </span>
+      )}
+      {error && <span className="mt-1 block text-xs font-medium text-red-700">{error}</span>}
+    </div>
+  );
 }
 
 function HoodieDiagram({ colorCount }: { colorCount: number }) {
@@ -885,11 +1021,13 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
 function PriceCard({
   perUnit,
   quantity,
+  printCount,
   isContact,
   onLockIn,
 }: {
   perUnit: number;
   quantity: number;
+  printCount: number;
   isContact: boolean;
   onLockIn: () => void;
 }) {
@@ -934,6 +1072,12 @@ function PriceCard({
         <div className="mt-1.5 text-sm font-semibold text-dream-ink/70 tabular-nums">
           ≈ ${(roundDisplayPrice(perUnit) * quantity).toLocaleString()} total
           <span className="font-normal text-dream-ink/50"> for {quantity} pieces</span>
+        </div>
+      )}
+      {hasQty && printCount > 0 && (
+        <div className="mt-1 text-[11px] font-medium text-dream-ink/55 tabular-nums">
+          {printCount > 1 ? `${printCount} prints adding up to ` : ""}$
+          {perUnit.toFixed(2)} / item before rounding
         </div>
       )}
       {!hasQty && (
@@ -1164,80 +1308,33 @@ const PRODUCT_GRID: { value: ProductType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+// The form phase edits the exact same prints list the calculator does, so the
+// running estimate in the sticky bar always matches what's on screen.
 function StepPrint({
-  data,
-  update,
-  toggleLocation,
+  prints,
+  setPrints,
+  lines,
+  decoration,
+  productLabel,
   errors,
-  showColors,
 }: {
-  data: QuoteFormData;
-  update: <K extends keyof QuoteFormData>(k: K, v: QuoteFormData[K]) => void;
-  toggleLocation: (loc: PrintLocation) => void;
+  prints: PrintSpec[];
+  setPrints: (p: PrintSpec[]) => void;
+  lines: PrintPriceLine[];
+  decoration: Decoration;
+  productLabel: string;
   errors: Record<string, string>;
-  showColors: boolean;
 }) {
   return (
-    <div className="space-y-5">
-      {showColors && (
-        <Field label="Number of print colors" error={errors.printColors}>
-          <div className="flex gap-2">
-            {PRINT_COLOR_OPTIONS.map((opt) => {
-              const selected = data.printColors === opt;
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => update("printColors", opt)}
-                  className={`flex-1 rounded-2xl border-2 py-3 font-display text-lg font-bold transition ${
-                    selected
-                      ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
-                      : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-      )}
-
-      <Field label="Print locations" error={errors.printLocations}>
-        <div className="grid grid-cols-2 gap-2">
-          {PRINT_LOCATIONS.map((loc) => {
-            const selected = data.printLocations.includes(loc.value);
-            return (
-              <button
-                key={loc.value}
-                type="button"
-                onClick={() => toggleLocation(loc.value)}
-                className={`flex items-center gap-2 rounded-2xl border-2 px-3 py-3 text-left font-medium transition ${
-                  selected
-                    ? "border-dream-ink bg-dream-purple text-white shadow-[0_3px_0_0_rgba(27,20,88,0.9)]"
-                    : "border-dream-ink/80 bg-white text-dream-ink hover:bg-dream-cream"
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 items-center justify-center rounded border-2 ${
-                    selected
-                      ? "border-white bg-white text-dream-purple"
-                      : "border-dream-ink/70 bg-transparent"
-                  }`}
-                >
-                  {selected && (
-                    <svg viewBox="0 0 20 20" className="h-3 w-3" fill="currentColor">
-                      <path d="M7.7 13.3 4.4 10l-1.4 1.4 4.7 4.7 10-10-1.4-1.4z" />
-                    </svg>
-                  )}
-                </span>
-                <span className="text-sm">{loc.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-    </div>
+    <PrintsEditor
+      prints={prints}
+      setPrints={setPrints}
+      lines={lines}
+      decoration={decoration}
+      productLabel={productLabel}
+      strong
+      error={errors.prints}
+    />
   );
 }
 
@@ -1558,16 +1655,22 @@ function PillButton({
   active,
   onClick,
   children,
+  compact = false,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`min-w-[44px] rounded-full px-4 py-2 font-display text-[13px] font-semibold transition ${
+      className={`rounded-full font-display font-semibold transition ${
+        compact
+          ? "min-w-[34px] px-2.5 py-1 text-[12px]"
+          : "min-w-[44px] px-4 py-2 text-[13px]"
+      } ${
         active
           ? "bg-dream-purple text-white"
           : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"

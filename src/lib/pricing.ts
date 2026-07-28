@@ -1,4 +1,4 @@
-import type { ProductType } from "@/lib/formTypes";
+import type { PrintLocation, PrintSpec, ProductType } from "@/lib/formTypes";
 import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,11 +195,94 @@ export type PriceQuote =
   | { available: true; perUnit: number; total: number }
   | { available: false };
 
-// The single pricing entry point.
+// Per-unit surcharge for a screen print with this many colours. The base price
+// already covers one colour, so 1 colour adds nothing. 5+ is the plateau.
+export function colourSurchargeFor(colors: number): number {
+  return EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colors, 1), 5)] ?? 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-print pricing
+//
+// The quick quote asks for an explicit LIST of prints (each with its own
+// location AND its own colour count) instead of "how many locations" plus one
+// global colour count, because that made a multi-print job impossible to read.
+// The garment's base price already includes ONE decoration in ONE location, so
+// the first print in the list carries the base and every print after it adds
+// the extra-location surcharge. Screen colours are charged per print (each
+// print burns its own screens); embroidery is priced per location, so colours
+// never add there.
+//
+//   per-unit = base(product, decoration, qty)
+//            + Σ colourSurcharge(print.colors)              [screen print only]
+//            + (prints − 1) × extraLocation(decoration, qty)
+//
+// One print reduces to base + colourSurcharge(colors), i.e. exactly what
+// calculateQuote() returns at locations = 1, so single-print prices are
+// unchanged. calculateQuote() itself now runs through this same engine (see
+// below) so the two can never drift apart.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** What one print adds to the per-unit price, in the order it was added. */
+export type PrintPriceLine = {
+  location: PrintLocation;
+  colors: number;
+  /** Garment + first decoration. Only the first print carries it; 0 after that. */
+  base: number;
+  /** Extra-location surcharge. 0 on the first print, its location is in the base. */
+  locationSurcharge: number;
+  /** Extra-colour surcharge for this print's own colour count (screen only). */
+  colourSurcharge: number;
+  /** base + locationSurcharge + colourSurcharge. */
+  perUnit: number;
+};
+
+export type PrintsQuote =
+  | { available: true; perUnit: number; total: number; lines: PrintPriceLine[] }
+  | { available: false; lines: PrintPriceLine[] };
+
+export function calculateQuoteForPrints(
+  product: PricedProduct,
+  qty: number,
+  prints: PrintSpec[],
+  decoration: Decoration = DECORATION[product],
+): PrintsQuote {
+  if (qty <= 0 || prints.length === 0) return { available: false, lines: [] };
+
+  const breaks = BASE_PRICE[product][decoration];
+  if (!breaks) return { available: false, lines: [] };
+
+  const base = priceAtQty(breaks, qty);
+  const perExtraLocation = priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], qty);
+
+  const lines: PrintPriceLine[] = prints.map((print, i) => {
+    const colourSurcharge =
+      decoration === "screen" ? colourSurchargeFor(print.colors) : 0;
+    const lineBase = i === 0 ? base : 0;
+    const locationSurcharge = i === 0 ? 0 : perExtraLocation;
+    return {
+      location: print.location,
+      colors: print.colors,
+      base: lineBase,
+      locationSurcharge,
+      colourSurcharge,
+      perUnit: lineBase + locationSurcharge + colourSurcharge,
+    };
+  });
+
+  const perUnit = lines.reduce((sum, l) => sum + l.perUnit, 0);
+  return { available: true, perUnit, total: perUnit * qty, lines };
+}
+
+// The legacy pricing entry point, kept for callers that only know a location
+// COUNT and a single colour count.
 //   • decoration defaults to the product's default (screen for apparel,
 //     embroidery for headwear). Unavailable combos return { available:false }.
 //   • colors is ignored for embroidery.
 //   • locations defaults to 1; each extra adds the location surcharge.
+// Expressed through calculateQuoteForPrints: the colour count applies to the
+// first print and the extra locations are 1-colour prints (which surcharge $0),
+// which reproduces the old base + colourSurcharge + (n−1)×location math exactly.
 export function calculateQuote(
   product: PricedProduct,
   qty: number,
@@ -207,26 +290,17 @@ export function calculateQuote(
   decoration: Decoration = DECORATION[product],
   locations = 1,
 ): PriceQuote {
-  if (qty <= 0) return { available: false };
-
-  const breaks = BASE_PRICE[product][decoration];
-  if (!breaks) return { available: false };
-
-  const base = priceAtQty(breaks, qty);
-
-  const colourSurcharge =
-    decoration === "screen"
-      ? EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colors, 1), 5)] ?? 0
-      : 0;
-
-  const extraLocations = Math.max(0, locations - 1);
-  const locationSurcharge =
-    extraLocations > 0
-      ? extraLocations * priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], qty)
-      : 0;
-
-  const perUnit = base + colourSurcharge + locationSurcharge;
-  return { available: true, perUnit, total: perUnit * qty };
+  const count = Number.isFinite(locations)
+    ? Math.min(Math.max(1, Math.floor(locations)), 20)
+    : 1;
+  const prints: PrintSpec[] = Array.from({ length: count }, (_, i) => ({
+    // Location is display-only here, the caller only gave us a count.
+    location: "front-center",
+    colors: i === 0 ? colors : 1,
+  }));
+  const quote = calculateQuoteForPrints(product, qty, prints, decoration);
+  if (!quote.available) return { available: false };
+  return { available: true, perUnit: quote.perUnit, total: quote.total };
 }
 
 // Maps the form's coarser ProductType onto a priced SKU. Everything maps 1:1

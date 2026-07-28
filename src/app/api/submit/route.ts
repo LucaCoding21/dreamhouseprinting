@@ -6,8 +6,16 @@ import {
   getSupabaseAdmin,
 } from "@/lib/supabase";
 import {
+  PRINT_LOCATIONS,
   SIZE_KEYS,
+  clampPrintColors,
+  printColorLabel,
+  printLocationLabel,
+  printLocationValues,
+  summarizePrints,
   type GarmentBrand,
+  type PrintLocation,
+  type PrintSpec,
   type QuoteFormData,
   type SizeBreakdown,
   type SizeKey,
@@ -19,6 +27,17 @@ export const maxDuration = 60;
 
 type UploadedFile = { name: string; url: string; path: string };
 
+// One print's contribution to the per-item estimate, as shown to the customer.
+type EstimatePrintLine = {
+  location: string;
+  label: string;
+  colors: number;
+  perUnit: number;
+  base: number;
+  locationSurcharge: number;
+  colourSurcharge: number;
+};
+
 // Snapshot of the on-screen estimate the customer saw (sent by the client).
 type QuoteEstimate = {
   available: boolean;
@@ -29,6 +48,10 @@ type QuoteEstimate = {
   locations: number | null;
   quantity: number;
   perUnit: number;
+  /** Sum of the print lines, before the display rounding. */
+  perUnitExact: number;
+  /** Per-print breakdown, so the estimate shows its work. */
+  prints: EstimatePrintLine[];
   total: number;
 };
 
@@ -36,6 +59,28 @@ function parseEstimate(raw: unknown): QuoteEstimate | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  const lines: EstimatePrintLine[] = Array.isArray(o.prints)
+    ? o.prints.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const p = item as Record<string, unknown>;
+        const location = typeof p.location === "string" ? p.location : "";
+        if (!location) return [];
+        return [
+          {
+            location,
+            label:
+              typeof p.label === "string" && p.label
+                ? p.label
+                : printLocationLabel(location),
+            colors: clampPrintColors(num(p.colors)),
+            perUnit: num(p.perUnit),
+            base: num(p.base),
+            locationSurcharge: num(p.locationSurcharge),
+            colourSurcharge: num(p.colourSurcharge),
+          },
+        ];
+      })
+    : [];
   return {
     available: o.available === true,
     product: typeof o.product === "string" ? o.product : "Custom",
@@ -48,6 +93,8 @@ function parseEstimate(raw: unknown): QuoteEstimate | null {
     locations: typeof o.locations === "number" ? o.locations : null,
     quantity: num(o.quantity),
     perUnit: num(o.perUnit),
+    perUnitExact: num(o.perUnitExact),
+    prints: lines,
     total: num(o.total),
   };
 }
@@ -147,25 +194,65 @@ function renderEmailHtml(
       ? `${priceMatchLinkHtml}${priceMatch.length > 0 ? priceMatchFilesHtml : ""}`
       : '<span style="color:#8a7bff;">None</span>';
 
+  // The prints the customer built, one line each, in the order they added them.
+  const printsHtml =
+    data.prints.length === 0
+      ? '<span style="color:#8a7bff;">None</span>'
+      : data.prints
+          .map((p, i) => {
+            const count = clampPrintColors(p.colors);
+            const noun = count === 1 ? "colour" : "colours";
+            return `<div style="padding:1px 0;">${i + 1}. ${esc(
+              printLocationLabel(p.location),
+            )} &nbsp;·&nbsp; ${printColorLabel(count)} ${noun}</div>`;
+          })
+          .join("");
+
   // Quote estimate box, the price the customer saw, plus the "why" breakdown.
   let estimateHtml = "";
   if (estimate && estimate.available) {
     const decoLabel =
       estimate.decoration === "embroidery" ? "Embroidery" : "Screen print";
+    const printCount = estimate.prints.length || estimate.locations || 1;
     const parts = [
       `${estimate.quantity} × ${esc(estimate.product)}`,
       decoLabel,
+      `${printCount} print${printCount === 1 ? "" : "s"}`,
     ];
-    if (estimate.decoration === "screen" && estimate.colors)
-      parts.push(`${estimate.colors} colour${estimate.colors === 1 ? "" : "s"}`);
-    parts.push(
-      `${estimate.locations ?? 1} location${(estimate.locations ?? 1) === 1 ? "" : "s"}`,
-    );
+    // Per-print money breakdown, so a multi-print job shows its work: the
+    // first line is garment + first print, the rest are add-ons.
+    const lineRows = estimate.prints
+      .map((line) => {
+        const noun = line.colors === 1 ? "colour" : "colours";
+        const sign = line.base > 0 ? "" : "+ ";
+        return `<tr>
+            <td style="padding:2px 0;color:#4a3f9e;font-size:13px;">${esc(line.label)}, ${printColorLabel(line.colors)} ${noun}</td>
+            <td style="padding:2px 0;color:#1b1458;font-size:13px;text-align:right;white-space:nowrap;">${sign}$${line.perUnit.toFixed(2)} / item</td>
+          </tr>`;
+      })
+      .join("");
+    const breakdownHtml =
+      lineRows === ""
+        ? ""
+        : `<table style="width:100%;border-collapse:collapse;margin:8px 0 0;">
+            <tbody>${lineRows}
+              <tr><td colspan="2" style="padding:4px 0 0;"><hr style="border:none;border-top:1px solid #e6dcae;"/></td></tr>
+              <tr>
+                <td style="padding:3px 0;color:#4a3f9e;font-size:13px;font-weight:700;">Per item</td>
+                <td style="padding:3px 0;color:#1b1458;font-size:13px;font-weight:700;text-align:right;white-space:nowrap;">$${(estimate.perUnitExact || estimate.perUnit).toFixed(2)}${
+                  estimate.perUnitExact && estimate.perUnitExact !== estimate.perUnit
+                    ? ` (shown as $${estimate.perUnit.toLocaleString()})`
+                    : ""
+                }</td>
+              </tr>
+            </tbody>
+          </table>`;
     estimateHtml = `
     <div style="padding:18px 24px;background:#fff7d6;border-bottom:1px solid #eee;">
       <p style="margin:0 0 4px;color:#4a3f9e;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Quote shown to customer</p>
       <p style="margin:0;color:#1b1458;font-size:24px;font-weight:800;">$${estimate.perUnit.toLocaleString()} / item &nbsp;·&nbsp; $${estimate.total.toLocaleString()} total</p>
       <p style="margin:6px 0 0;color:#4a3f9e;font-size:14px;">${esc(parts.join(" · "))}</p>
+      ${breakdownHtml}
       <p style="margin:8px 0 0;color:#8a7bff;font-size:11px;">This is our best guess at the pricing for your order. We will review everything and get you back a final quote asap!</p>
     </div>`;
   } else {
@@ -199,8 +286,10 @@ function renderEmailHtml(
         ${row("Quantity", data.quantity)}
         ${row("Sizes", sizesLine)}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
-        ${row("Print colors", data.printColors)}
-        ${row("Print locations", data.printLocations.join(", "))}
+        <tr>
+          <td style="padding:6px 12px;color:#4a3f9e;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;vertical-align:top;">Prints</td>
+          <td style="padding:6px 12px;color:#1b1458;font-size:15px;">${printsHtml}</td>
+        </tr>
         ${row("Print method", data.printMethod)}
         <tr><td colspan="2" style="padding:8px 12px;"><hr style="border:none;border-top:1px solid #eee;"/></td></tr>
         ${row("Needed by", data.neededBy || "-")}
@@ -264,11 +353,45 @@ async function sendEmail(
   return { skipped: false };
 }
 
+const VALID_PRINT_LOCATIONS = new Set<string>(PRINT_LOCATIONS.map((l) => l.value));
+
+/**
+ * Read the prints list (location + that print's own colour count). Falls back
+ * to the pre-"add a print" shape (printLocations[] + one printColors string)
+ * so a cached older client still submits cleanly.
+ */
+function printsIn(o: Record<string, unknown>): PrintSpec[] {
+  const out: PrintSpec[] = [];
+  if (Array.isArray(o.prints)) {
+    for (const item of o.prints) {
+      if (!item || typeof item !== "object") continue;
+      const p = item as Record<string, unknown>;
+      const loc = typeof p.location === "string" ? p.location : "";
+      if (!VALID_PRINT_LOCATIONS.has(loc)) continue;
+      out.push({
+        location: loc as PrintLocation,
+        colors: clampPrintColors(Number(p.colors)),
+      });
+    }
+  }
+  if (out.length > 0) return out;
+
+  const legacyLocations = Array.isArray(o.printLocations)
+    ? o.printLocations.map(String).filter((l) => VALID_PRINT_LOCATIONS.has(l))
+    : [];
+  const legacyColors = clampPrintColors(parseInt(String(o.printColors ?? ""), 10));
+  return legacyLocations.map((location, i) => ({
+    location: location as PrintLocation,
+    // Old payloads carried one global colour count; it belongs to the first
+    // print, which is how that number was priced.
+    colors: i === 0 ? legacyColors : 1,
+  }));
+}
+
 function validatePayload(raw: unknown): QuoteFormData | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const str = (v: unknown) => (typeof v === "string" ? v : "");
-  const arr = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
   const bool = (v: unknown) => v === true;
   const sizesIn = (v: unknown): SizeBreakdown => {
     if (!v || typeof v !== "object") return {};
@@ -296,8 +419,7 @@ function validatePayload(raw: unknown): QuoteFormData | null {
     sizes: sizesIn(o.sizes),
     sizesLater: bool(o.sizesLater),
     quantity: str(o.quantity).trim(),
-    printColors: str(o.printColors),
-    printLocations: arr(o.printLocations) as QuoteFormData["printLocations"],
+    prints: printsIn(o),
     printMethod: (str(o.printMethod) || "not-sure") as QuoteFormData["printMethod"],
     designDescription: str(o.designDescription).trim(),
     neededBy: str(o.neededBy),
@@ -330,6 +452,23 @@ export async function POST(request: Request) {
     // Optional estimate snapshot (the price the customer saw). Best-effort.
     const estimate: QuoteEstimate | null = parseEstimate(body.estimate);
 
+    // What lands in quote_estimate: the estimate plus the full prints
+    // structure. Priced jobs carry the per-print money breakdown; unpriced
+    // ones ("Other", or a client that sent no estimate) still record what the
+    // customer asked to print.
+    const quoteEstimate = {
+      ...(estimate ?? { available: false }),
+      prints:
+        estimate && estimate.prints.length > 0
+          ? estimate.prints
+          : data.prints.map((p) => ({
+              location: p.location,
+              label: printLocationLabel(p.location),
+              colors: p.colors,
+            })),
+      printsSummary: summarizePrints(data.prints),
+    };
+
     const artworkRefs = parseUploadedRefs(body.artwork, "artwork");
     const priceMatchRefs = parseUploadedRefs(body.priceMatch, "price-match");
 
@@ -351,8 +490,12 @@ export async function POST(request: Request) {
           garment_color: data.garmentColor,
           sizes: hasSizes ? data.sizes : null,
           quantity: Number(data.quantity) || null,
-          print_colors: data.printColors,
-          print_locations: data.printLocations,
+          // Schema unchanged: print_colors stays a text summary
+          // ("Front center: 2 colours, Back center: 1 colour") and
+          // print_locations stays a text[] of the distinct locations. The full
+          // prints structure rides along in quote_estimate.
+          print_colors: summarizePrints(data.prints) || "-",
+          print_locations: printLocationValues(data.prints),
           print_method: data.printMethod,
           design_description: data.designDescription || null,
           needed_by: data.neededBy || null,
@@ -361,7 +504,7 @@ export async function POST(request: Request) {
           heard_about: data.heardAbout || null,
           estimated_per_unit: estimate?.available ? estimate.perUnit : null,
           estimated_total: estimate?.available ? estimate.total : null,
-          quote_estimate: estimate ?? null,
+          quote_estimate: quoteEstimate,
         })
         .select("id")
         .single();
