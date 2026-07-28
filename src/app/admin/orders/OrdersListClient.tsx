@@ -72,7 +72,16 @@ function inHands(due: string | null): { label: string; urgent: boolean } {
   return { label: `${days}d left`, urgent: days <= 3 };
 }
 
-export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab?: string }) {
+export function OrdersListClient({
+  rows,
+  initialTab,
+  headerAction,
+}: {
+  rows: Row[];
+  initialTab?: string;
+  /** Rendered in the sticky header (the "New order" button). */
+  headerAction?: React.ReactNode;
+}) {
   const router = useRouter();
   const [tab, setTab] = useState(
     initialTab && TABS.some((t) => t.key === initialTab) ? initialTab : "all"
@@ -90,7 +99,7 @@ export function OrdersListClient({ rows, initialTab }: { rows: Row[]; initialTab
 
   return (
     <div>
-      <AdminHeader title="Orders" />
+      <AdminHeader title="Orders">{headerAction}</AdminHeader>
       <div className="px-8 py-6">
         {/* Stat cards */}
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">

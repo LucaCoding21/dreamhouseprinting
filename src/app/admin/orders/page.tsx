@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { getAdminOrders } from "@/lib/admin/orders";
 import { OrdersListClient } from "./OrdersListClient";
@@ -36,5 +37,18 @@ export default async function AdminOrdersPage({
     mockups: o.mockups.slice(0, 3),
     latestNote: o.latestNote,
   }));
-  return <OrdersListClient rows={rows} initialTab={tab} />;
+  return (
+    <OrdersListClient
+      rows={rows}
+      initialTab={tab}
+      headerAction={
+        <Link
+          href="/admin/orders/new"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-dream-purple px-4 font-display text-sm font-medium text-white shadow-sm transition-colors hover:bg-dream-purple-dark"
+        >
+          New order
+        </Link>
+      }
+    />
+  );
 }
