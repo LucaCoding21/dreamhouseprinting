@@ -55,7 +55,7 @@ const CLOSED_STATUSES = ["shipped", "ready_for_pickup", "completed", "cancelled"
 
 const TABS: { key: string; label: string; match: (r: Row) => boolean }[] = [
   { key: "all", label: "All", match: () => true },
-  { key: "new", label: "New", match: (r) => r.status === "submitted" || r.status === "in_review" },
+  { key: "new", label: "Creating mockup", match: (r) => r.status === "submitted" || r.status === "in_review" },
   { key: "proofing", label: "Pending approval", match: (r) => r.status === "proof_ready" },
   { key: "declined", label: "Mockup declined", match: (r) => r.status === "changes_requested" },
   { key: "rush", label: "Rush orders", match: (r) => r.isRush && !CLOSED_STATUSES.includes(r.status) },
@@ -88,11 +88,13 @@ export function OrdersListClient({
   );
 
   const count = (m: (r: Row) => boolean) => rows.filter(m).length;
+  const tabMatch = (key: string) => TABS.find((t) => t.key === key)!.match;
+  // Each card counts exactly what its tab shows, so clicking never changes the number.
   const stats = [
-    { label: "Open orders", value: rows.filter((r) => !["completed", "cancelled"].includes(r.status)).length },
-    { label: "Awaiting approval", value: count((r) => r.status === "proof_ready" || r.status === "changes_requested") },
-    { label: "In production", value: count((r) => ["approved", "in_production", "quality_check"].includes(r.status)) },
-    { label: "Shipped", value: count((r) => ["shipped", "ready_for_pickup"].includes(r.status)) },
+    { label: "Open orders", tab: "all", value: rows.filter((r) => !["completed", "cancelled"].includes(r.status)).length },
+    { label: "Awaiting approval", tab: "proofing", value: count(tabMatch("proofing")) },
+    { label: "In production", tab: "production", value: count(tabMatch("production")) },
+    { label: "Shipped", tab: "shipped", value: count(tabMatch("shipped")) },
   ];
 
   const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r));
@@ -104,10 +106,20 @@ export function OrdersListClient({
         {/* Stat cards */}
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
           {stats.map((s) => (
-            <div key={s.label} className="rounded-xl border border-dream-line bg-dream-surface p-4">
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setTab(s.tab)}
+              className={cn(
+                "rounded-xl border p-4 text-left transition-colors",
+                tab === s.tab
+                  ? "border-dream-purple bg-dream-surface ring-1 ring-dream-purple"
+                  : "border-dream-line bg-dream-surface hover:border-dream-purple/50"
+              )}
+            >
               <div className="font-display text-3xl font-bold text-dream-ink">{s.value}</div>
               <div className="text-sm text-dream-muted">{s.label}</div>
-            </div>
+            </button>
           ))}
         </div>
 
