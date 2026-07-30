@@ -30,7 +30,7 @@ export function DecorationSpotRow({
   /** Whether any extraSpec option is set, factors into auto-open + the "has advanced" dot. */
   extraSpecActive?: boolean;
 }) {
-  const hasAdvanced = spot.pantones.length > 0 || spot.puff || spot.spotProcess || !!extraSpecActive;
+  const hasAdvanced = spot.puff || spot.spotProcess || !!extraSpecActive;
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
 
   return (
@@ -102,6 +102,43 @@ export function DecorationSpotRow({
             className="px-1.5 text-center"
           />
         </div>
+        {/* Pantones live on the main row (used constantly), not in Advanced spec. */}
+        <div className="max-w-md">
+          <div className={cn(LBL, "mb-1")}>Pantones</div>
+          <div className="flex min-h-10 flex-wrap items-center gap-1.5">
+            {spot.pantones.map((code, pi) => (
+              <span key={pi} className="flex items-center gap-0.5">
+                <Input
+                  value={code}
+                  disabled={!canEdit}
+                  placeholder="e.g. 7676 C"
+                  onChange={(e) => onPatch({ pantones: spot.pantones.map((c, i) => (i === pi ? e.target.value : c)) })}
+                  className="h-9 w-24 px-1.5 text-sm"
+                />
+                {canEdit && (
+                  <button
+                    type="button"
+                    aria-label="Remove Pantone colour"
+                    className="px-0.5 text-dream-faint hover:text-dream-danger"
+                    onClick={() => onPatch({ pantones: spot.pantones.filter((_, i) => i !== pi) })}
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            ))}
+            {canEdit && (
+              <button
+                type="button"
+                className="whitespace-nowrap text-sm text-dream-purple hover:underline"
+                onClick={() => onPatch({ pantones: [...spot.pantones, ""] })}
+              >
+                + Pantone
+              </button>
+            )}
+            {!canEdit && spot.pantones.length === 0 && <span className="text-xs italic text-dream-faint">-</span>}
+          </div>
+        </div>
         {canEdit && (
           <button
             type="button"
@@ -148,43 +185,6 @@ export function DecorationSpotRow({
             </div>
 
             {extraSpec}
-
-            <div>
-              <div className={cn(LBL, "mb-1.5")}>Pantone colours</div>
-              {spot.pantones.length === 0 && <p className="text-xs italic text-dream-faint">No colours yet</p>}
-              <div className="flex flex-col items-start gap-2">
-                {spot.pantones.map((code, pi) => (
-                  <span key={pi} className="flex items-center gap-1">
-                    <Input
-                      value={code}
-                      disabled={!canEdit}
-                      placeholder="Pantone code"
-                      onChange={(e) => onPatch({ pantones: spot.pantones.map((c, i) => (i === pi ? e.target.value : c)) })}
-                      className="h-8 w-40 text-sm"
-                    />
-                    {canEdit && (
-                      <button
-                        type="button"
-                        aria-label="Remove colour"
-                        className="text-dream-faint hover:text-dream-danger"
-                        onClick={() => onPatch({ pantones: spot.pantones.filter((_, i) => i !== pi) })}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </span>
-                ))}
-                {canEdit && (
-                  <button
-                    type="button"
-                    className="text-sm text-dream-purple hover:underline"
-                    onClick={() => onPatch({ pantones: [...spot.pantones, ""] })}
-                  >
-                    + Add colour
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
         )}
       </div>
