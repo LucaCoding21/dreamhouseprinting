@@ -36,18 +36,19 @@ import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
 
 /**
- * Per-line notes, Julian's taxonomy: Customer notes are what the customer
- * asked for (prefilled from the designer note, echoed on their order page);
- * everything else is staff-only. Keys are storage keys and never change, so
- * old internal data can't leak into the customer-visible field.
+ * Per-line notes, Julian's taxonomy. Customer notes is the INBOUND record of
+ * what the customer submitted in the designer (prefilled at placement,
+ * editable to tidy). Nothing typed here reaches the customer: their order page
+ * echoes the note exactly as THEY submitted it (design snapshot), and
+ * shop-to-customer messaging goes through the Comments composer below.
  */
 const LINE_NOTE_FIELDS: {
   key: "customerNotes" | "productionNotes" | "shippingNotes";
   label: string;
   placeholder: string;
-  customerVisible?: boolean;
+  fromCustomer?: boolean;
 }[] = [
-  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for", customerVisible: true },
+  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for", fromCustomer: true },
   { key: "productionNotes", label: "Production notes", placeholder: "Manufacturing, e.g. black shirt needs a white underbase" },
   { key: "shippingNotes", label: "Shipping notes", placeholder: "For the shipping label, e.g. gate code" },
 ];
@@ -571,9 +572,12 @@ export function OrderItemCard({
                 <div key={f.key} className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className={LBL}>{f.label}</span>
-                    {f.customerVisible ? (
-                      <span className="rounded bg-dream-sun-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-warn">
-                        Customer sees this
+                    {f.fromCustomer ? (
+                      <span
+                        title="What they submitted with the order. Edits here stay internal; reply via a Customer comment."
+                        className="rounded bg-dream-info-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-info"
+                      >
+                        From the customer
                       </span>
                     ) : (
                       <span className="rounded bg-dream-line px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-muted">

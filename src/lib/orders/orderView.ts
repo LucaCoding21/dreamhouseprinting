@@ -192,13 +192,16 @@ const normColour = (s: string | null | undefined) => (s ?? "").trim().toLowerCas
 
 export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
   const { order, lineItems, designs, proofs, activity } = input;
-  // Customer notes live per line (decorations.customerNotes, the field staff
-  // label "Customer notes"). Legacy orders stored one note at
+  // The customer sees their note exactly as THEY submitted it: the immutable
+  // copy in the design's price snapshot. The admin's per-line
+  // decorations.customerNotes is an editable INTERNAL record prefilled from the
+  // same note, deliberately never serialized here, so tidying it can't push
+  // words into the customer's mouth. Legacy orders stored one note at
   // orders.production_notes.customer; fall back there so old orders keep it.
-  const lineNotes = [
+  const submittedNotes = [
     ...new Set(
-      lineItems
-        .map((li) => ((((li.decorations ?? {}) as { customerNotes?: unknown }).customerNotes as string) ?? "").toString().trim())
+      designs
+        .map((d) => ((((d.price_snapshot ?? {}) as { customerNote?: unknown }).customerNote as string) ?? "").toString().trim())
         .filter(Boolean),
     ),
   ];
@@ -206,7 +209,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
     input.customerNote !== undefined
       ? (input.customerNote?.trim() || null)
       : customerNoteFrom(order.production_notes);
-  const customerNote = lineNotes.length > 0 ? lineNotes.join("\n\n") : legacyNote;
+  const customerNote = submittedNotes.length > 0 ? submittedNotes.join("\n\n") : legacyNote;
 
   const designsById = new Map(designs.map((d) => [d.id, d]));
   // Tracks which design_ids have already had their designed line item resolved,
