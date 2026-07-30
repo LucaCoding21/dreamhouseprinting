@@ -19,6 +19,13 @@ import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./typ
  * actions as props (already bound to the order/token by the route) rather than
  * importing them, so the same UI drives both auth modes.
  */
+
+/** Signed Storage URLs keep the original filename before the ?token, so the
+ *  extension is a reliable PDF signal. */
+function isPdf(src: string): boolean {
+  return /\.pdf(\?|#|$)/i.test(src);
+}
+
 export function ProofPanel({
   proofs,
   onApprove,
@@ -120,10 +127,21 @@ export function ProofPanel({
                 className="group relative block overflow-hidden rounded-2xl border-2 border-dream-ink/10 bg-dream-bg"
                 aria-label={`View proof ${i + 1} full size`}
               >
-                {/* Proofs arrive at any aspect ratio, fix the width and let the box
-                    grow to the image's natural height so there's never a grey band. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.image} alt={`Proof ${i + 1}`} className="block h-auto w-full" />
+                {isPdf(p.image) ? (
+                  /* PDFs can't render as <img>, show a labelled document tile. */
+                  <span className="flex h-40 w-full flex-col items-center justify-center gap-1.5 text-dream-muted">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-9 w-9" aria-hidden>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <path d="M14 2v6h6" />
+                    </svg>
+                    <span className="text-xs font-semibold">PDF proof</span>
+                  </span>
+                ) : (
+                  /* Proofs arrive at any aspect ratio, fix the width and let the box
+                      grow to the image's natural height so there's never a grey band. */
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={p.image} alt={`Proof ${i + 1}`} className="block h-auto w-full" />
+                )}
                 <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-dream-ink/70 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-dream-purple/85">
                   <IconZoom className="h-3.5 w-3.5" />
                   {multiple ? `View ${i + 1}` : "View full size"}
@@ -311,13 +329,21 @@ export function ProofPanel({
           )}
 
           <div className="relative max-h-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            <Image
-              src={proofs[zoomIndex].image}
-              alt={`Proof ${zoomIndex + 1}, full size`}
-              width={1400}
-              height={1400}
-              className="max-h-[85vh] w-auto rounded-lg bg-white object-contain shadow-2xl"
-            />
+            {isPdf(proofs[zoomIndex].image) ? (
+              <iframe
+                src={proofs[zoomIndex].image}
+                title={`Proof ${zoomIndex + 1}, full size`}
+                className="h-[85vh] w-[85vw] max-w-4xl rounded-lg bg-white shadow-2xl"
+              />
+            ) : (
+              <Image
+                src={proofs[zoomIndex].image}
+                alt={`Proof ${zoomIndex + 1}, full size`}
+                width={1400}
+                height={1400}
+                className="max-h-[85vh] w-auto rounded-lg bg-white object-contain shadow-2xl"
+              />
+            )}
             {multiple && (
               <div className="absolute inset-x-0 -bottom-8 text-center text-sm font-semibold text-white/90">
                 {zoomIndex + 1} / {proofs.length}

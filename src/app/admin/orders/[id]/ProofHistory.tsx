@@ -31,7 +31,18 @@ export function ProofHistory({ detail }: { detail: Detail }) {
                   title="View fullscreen"
                   className="group relative h-12 w-12 shrink-0 overflow-hidden rounded bg-dream-bg"
                 >
-                  {p.image && <Image src={p.image} alt="" width={48} height={48} className="h-full w-full object-contain" />}
+                  {p.image &&
+                    (fileKind(p.image) === "pdf" ? (
+                      <span className="flex h-full w-full flex-col items-center justify-center text-dream-muted">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5" aria-hidden>
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <path d="M14 2v6h6" />
+                        </svg>
+                        <span className="text-[9px] font-semibold">PDF</span>
+                      </span>
+                    ) : (
+                      <Image src={p.image} alt="" width={48} height={48} className="h-full w-full object-contain" />
+                    ))}
                   <span className="absolute inset-0 flex items-center justify-center bg-dream-ink/50 opacity-0 transition-opacity group-hover:opacity-100">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-white" aria-hidden>
                       <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />

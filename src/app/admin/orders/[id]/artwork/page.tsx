@@ -108,7 +108,8 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
       colourHex: null,
       tiles: officials.map((m, i) => ({
         key: `official-${i}`,
-        kind: "image",
+        // PDF proofs can't render as <img>, list them as downloadable files.
+        kind: /\.pdf(\?|#|$)/i.test(m.path ?? m.url ?? "") ? "file" : "image",
         label: `Proof ${i + 1}`,
         src: m.url ?? null,
         href: m.url ?? null,

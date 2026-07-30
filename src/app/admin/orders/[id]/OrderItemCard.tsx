@@ -199,7 +199,7 @@ export function OrderItemCard({
                 )}
                 <div className="flex flex-wrap items-center gap-3">
                   <Button variant="secondary" size="sm" onClick={() => setProofOpen(true)}>
-                    {latestProof ? "Send new proof" : "Upload proof"}
+                    {latestProof ? "Add new proof" : "Upload proof"}
                   </Button>
                   {latestProof?.image && (
                     <button
