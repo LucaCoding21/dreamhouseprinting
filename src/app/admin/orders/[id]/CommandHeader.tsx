@@ -35,6 +35,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
   const total = pricing.total ?? 0;
 
   const [jumpOpen, setJumpOpen] = useState(false);
+  const [sendConfirm, setSendConfirm] = useState(false);
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
   const [approveConfirm, setApproveConfirm] = useState(false);
   const [approveReason, setApproveReason] = useState("");
@@ -60,6 +61,10 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       },
     );
   }
+
+  // Proofs filed on the order but not yet in front of the customer. They go
+  // out all at once via "Send for approval" (status -> proof_ready).
+  const pendingProofs = detail.proofs.filter((p) => p.status === "pending").length;
 
   // Latest change request (for the changes_requested callout).
   const latestChange = detail.proofs
@@ -200,8 +205,42 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         orderNumber={order.order_number}
         customerName={who}
         isReplacement={status === "changes_requested" || status === "proof_ready"}
-        orderTotal={total}
       />
+
+      {/* Send-for-approval confirm: the one moment the customer gets emailed. */}
+      <Dialog open={sendConfirm} onOpenChange={setSendConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send this order for approval?</DialogTitle>
+            <DialogDescription>
+              {who} gets one email with {pendingProofs === 1 ? "the proof" : `all ${pendingProofs} proofs`} and is asked to
+              approve and pay {total > 0 ? formatCAD(total) : ""} in one step. Make sure every line is checked and finalized
+              first.
+            </DialogDescription>
+          </DialogHeader>
+          {total <= 0 && (
+            <p className="mx-5 rounded-lg border border-dream-warn/30 bg-dream-warn-soft px-3 py-2 text-xs text-dream-warn">
+              This order has no total yet. The customer can approve but not pay, so set the pricing before sending.
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={pending}
+              onClick={() =>
+                run(() => setOrderStatusAction(order.id, "proof_ready"), "Sent to customer for approval", () =>
+                  setSendConfirm(false),
+                )
+              }
+            >
+              Send for approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Backward move confirm, shared with the stage stepper */}
       <StatusChangeConfirm
@@ -353,12 +392,28 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "upload-proof":
         return (
           <div className="flex flex-wrap items-center gap-4">
-            <Button variant="primary" size="lg" disabled={!can.proofs} onClick={pickProof} className="min-w-48">
-              Upload proof
-            </Button>
-            <p className="text-sm text-dream-muted">
-              Sends an approval email, the customer approves &amp; pays in one step, so double-check pricing first
-            </p>
+            {pendingProofs > 0 ? (
+              <>
+                <Button variant="primary" size="lg" loading={pending} onClick={() => setSendConfirm(true)} className="min-w-48">
+                  Send for approval
+                </Button>
+                <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
+                  Upload another proof
+                </Button>
+                <p className="text-sm text-dream-muted">
+                  {pendingProofs === 1 ? "1 proof is" : `${pendingProofs} proofs are`} on the order, nothing emailed yet
+                </p>
+              </>
+            ) : (
+              <>
+                <Button variant="primary" size="lg" disabled={!can.proofs} onClick={pickProof} className="min-w-48">
+                  Upload proof
+                </Button>
+                <p className="text-sm text-dream-muted">
+                  Uploads just save to the order. The whole order goes to the customer when you send it for approval.
+                </p>
+              </>
+            )}
             <Button variant="ghost" className="ml-auto" onClick={() => setApproveConfirm(true)}>
               Looks good, skip proof
             </Button>
@@ -389,7 +444,26 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                 Customer asked: “{latestChange.change_request_comment}”
               </div>
             )}
-            <HeroButton label="Upload new proof" disabled={!can.proofs} onClick={pickProof} />
+            {pendingProofs > 0 ? (
+              <div className="flex flex-wrap items-center gap-4">
+                <Button variant="primary" size="lg" loading={pending} onClick={() => setSendConfirm(true)} className="min-w-48">
+                  Send for approval
+                </Button>
+                <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
+                  Upload another proof
+                </Button>
+                <p className="text-sm text-dream-muted">
+                  {pendingProofs === 1 ? "1 new proof is" : `${pendingProofs} new proofs are`} on the order, nothing emailed yet
+                </p>
+              </div>
+            ) : (
+              <HeroButton
+                label="Upload new proof"
+                caption="Uploads just save to the order, send it for approval when it's ready"
+                disabled={!can.proofs}
+                onClick={pickProof}
+              />
+            )}
           </div>
         );
       case "verify-etransfer":

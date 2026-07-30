@@ -50,10 +50,12 @@ export async function resolveEtransferOption(
  * through here so the customer-facing shape is identical.
  */
 
-/** Activity types the customer is allowed to see in their timeline. */
+/** Activity types the customer is allowed to see in their timeline.
+ *  proof_uploaded is deliberately absent: uploads are internal drafts now, the
+ *  customer hears about proofs when the order is sent for approval
+ *  (status_change to proof_ready). */
 const CUSTOMER_ACTIVITY_TYPES = new Set([
   "status_change",
-  "proof_uploaded",
   "proof_approved",
   "changes_requested",
   "invoice_sent",
@@ -68,8 +70,6 @@ function activityText(type: string, detail: Record<string, unknown>): string {
       const label = STATUS_META[to as OrderStatus]?.label ?? to.replace(/_/g, " ");
       return `Status updated to ${label}`;
     }
-    case "proof_uploaded":
-      return "A new proof was uploaded for your review";
     case "proof_approved":
       return "You approved the proof";
     case "changes_requested": {
@@ -227,12 +227,17 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
         mockup: lineMockup(li.design_id, colour.name ?? null),
       };
     }),
-    proofs: proofs.map((p) => ({
-      id: p.id,
-      image: p.image,
-      status: p.status,
-      change_request_comment: p.change_request_comment,
-    })),
+    // Pending proofs are drafts until the admin sends the order for approval
+    // (status proof_ready). Decided proofs (approved / changes requested) stay
+    // visible as history regardless of where the order has moved since.
+    proofs: proofs
+      .filter((p) => p.status !== "pending" || order.status === "proof_ready")
+      .map((p) => ({
+        id: p.id,
+        image: p.image,
+        status: p.status,
+        change_request_comment: p.change_request_comment,
+      })),
     activity: buildActivity(order, activity),
     stageDates: buildStageDates(order, activity),
     latestMessage: latestMessage(order),

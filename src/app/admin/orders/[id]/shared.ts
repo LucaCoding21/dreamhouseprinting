@@ -241,9 +241,9 @@ export function useProofUpload(orderId: string) {
       const paths = files.map((_, i) => byId.get(`p${i}`)!.path);
       const result = await uploadProofsAction(orderId, paths, lineItemId);
       if (result.error) throw new Error(result.error);
-      // A settled order (paid/completed) records the proof but doesn't email, say so.
+      // Uploading only files the proof; sending for approval is its own action.
       toast({
-        title: result.note ? "Proof saved" : files.length > 1 ? "Proofs sent to customer" : "Proof sent to customer",
+        title: files.length > 1 ? "Proofs saved to order" : "Proof saved to order",
         description: result.note,
         variant: "success",
       });

@@ -744,10 +744,11 @@ export async function changeLineItemProductAction(
 }
 
 /**
- * Upload an official mockup/proof (already staged in the proofs bucket). On a
- * live order it moves to proof_ready and emails the approve-and-pay CTA; on a
- * settled order (paid/completed) it just files the proof without touching status
- * or emailing; on a cancelled order it's refused.
+ * Upload an official mockup/proof (already staged in the proofs bucket). This
+ * only FILES the proof on the order: no status change and no customer email.
+ * The whole order goes out at once via the explicit "Send for approval" action
+ * (setOrderStatusAction -> proof_ready), after everything is checked and
+ * finalized. Uploading onto a cancelled order is refused.
  */
 export async function uploadProofsAction(
   orderId: string,
@@ -759,20 +760,16 @@ export async function uploadProofsAction(
   const profile = await getProfile();
 
   const paths = proofPaths.filter(Boolean);
-  if (paths.length === 0) return { error: "No proof files to send." };
+  if (paths.length === 0) return { error: "No proof files selected." };
 
   const { data: order } = await service
     .from("orders")
-    .select("official_mockups, status, paid_at")
+    .select("official_mockups, status")
     .eq("id", orderId)
     .single();
-  // Never send a proof onto a cancelled order.
   if (order?.status === "cancelled") {
-    return { error: "This order was cancelled, reopen it before sending a proof." };
+    return { error: "This order was cancelled, reopen it before adding a proof." };
   }
-  // A paid or completed order is settled: still record the proof on file, but
-  // don't reset its status or re-fire the approve-and-pay email (they already paid).
-  const settled = !!order?.paid_at || order?.status === "completed";
 
   // Sign every uploaded file (front / back / …); a single unsignable file
   // fails the whole batch so the customer never gets a partial proof set.
@@ -794,28 +791,21 @@ export async function uploadProofsAction(
   );
   if (pErr) return { error: pErr.message };
 
-  // Append all to official mockups; advance status only on an unsettled order.
   const mockups = (order?.official_mockups ?? []) as { url: string; path: string }[];
-  const patch: OrderUpdate = { official_mockups: asJson([...mockups, ...signed]) };
-  if (!settled) {
-    patch.status = "proof_ready";
-    // Direct status write bypasses applyStatus, clear a stale hold note here too.
-    if (order?.status === "on_hold") patch.hold_note = null;
-  }
-  await service.from("orders").update(patch).eq("id", orderId);
+  await service
+    .from("orders")
+    .update({ official_mockups: asJson([...mockups, ...signed]) } satisfies OrderUpdate)
+    .eq("id", orderId);
 
-  await logActivity(service, orderId, "proof_uploaded", { count: signed.length, settled });
-  if (settled) {
-    revalidateOrder(orderId);
-    return {
-      ok: true,
-      note: "Proof saved to the order. The customer wasn't emailed because this order is already settled.",
-    };
-  }
-  // One email for the whole set, the proof page shows every image.
-  await sendOrderStatusEmail(orderId, "proof_ready");
+  await logActivity(service, orderId, "proof_uploaded", { count: signed.length });
   revalidateOrder(orderId);
-  return { ok: true };
+  // On an order already open for approval the new file is visible to the
+  // customer immediately; everywhere else it waits for "Send for approval".
+  const note =
+    order?.status === "proof_ready"
+      ? "Proof added. This order is already with the customer, so they can see it right away."
+      : "Proof saved to the order. Nothing is emailed until you send the order for approval.";
+  return { ok: true, note };
 }
 
 /**

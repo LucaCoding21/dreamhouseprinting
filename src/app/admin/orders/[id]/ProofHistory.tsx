@@ -19,7 +19,7 @@ export function ProofHistory({ detail }: { detail: Detail }) {
       </CardHeader>
       <CardContent>
         {detail.proofs.length === 0 ? (
-          <p className="text-sm text-dream-muted">No proofs sent yet.</p>
+          <p className="text-sm text-dream-muted">No proofs yet.</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {detail.proofs.map((p) => (
@@ -39,8 +39,12 @@ export function ProofHistory({ detail }: { detail: Detail }) {
                   </span>
                 </button>
                 <div className="min-w-0 flex-1">
-                  <Badge variant={p.status === "approved" ? "success" : p.status === "changes_requested" ? "warn" : "info"}>
-                    {p.status.replace(/_/g, " ")}
+                  <Badge variant={p.status === "approved" ? "success" : p.status === "changes_requested" ? "warn" : p.status === "pending" && detail.order.status !== "proof_ready" ? "neutral" : "info"}>
+                    {p.status === "pending"
+                      ? detail.order.status === "proof_ready"
+                        ? "awaiting approval"
+                        : "not sent yet"
+                      : p.status.replace(/_/g, " ")}
                   </Badge>
                   {p.change_request_comment && <p className="mt-1 text-xs text-dream-warn">“{p.change_request_comment}”</p>}
                 </div>

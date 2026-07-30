@@ -15,10 +15,10 @@ interface Selected {
 }
 
 /**
- * Review-before-send gate for proofs. Picking a file no longer fires the
- * customer email instantly, instead the chosen artwork is shown large (with a
- * fullscreen check) alongside who it'll be emailed to, and only "Send to
- * customer" uploads + notifies. Preview is the exact local file, so it's WYSIWYG.
+ * Proof upload dialog. Uploading only FILES the proof on the order (no email,
+ * no status change); the whole order goes to the customer at once via the
+ * explicit "Send for approval" action once everything is checked and finalized.
+ * Preview is the exact local file, so it's WYSIWYG.
  */
 export function ProofReviewDialog({
   orderId,
@@ -29,7 +29,6 @@ export function ProofReviewDialog({
   customerName,
   contextLabel,
   isReplacement,
-  orderTotal,
 }: {
   orderId: string;
   lineItemId?: string;
@@ -41,8 +40,6 @@ export function ProofReviewDialog({
   contextLabel?: string;
   /** changes_requested / re-proof, tweaks the copy. */
   isReplacement?: boolean;
-  /** Current order total, approving triggers approve-and-pay, so warn when it's $0. */
-  orderTotal?: number;
 }) {
   const { uploading, uploadProofs } = useProofUpload(orderId);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,13 +92,13 @@ export function ProofReviewDialog({
       <Dialog open={open} onOpenChange={close}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{isReplacement ? "Send a new proof" : "Review proof before sending"}</DialogTitle>
+            <DialogTitle>{isReplacement ? "Add a new proof" : "Add proof to order"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 px-5">
             {/* Who it's going to, confirm the right order before sending. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-dream-bg px-3 py-2 text-sm">
-              <span className="text-dream-muted">Emails</span>
+              <span className="text-dream-muted">For</span>
               <span className="font-semibold text-dream-ink">{customerName}</span>
               <span className="text-dream-faint">·</span>
               <span className="text-dream-muted">Order</span>
@@ -113,13 +110,6 @@ export function ProofReviewDialog({
                 </>
               )}
             </div>
-
-            {orderTotal !== undefined && orderTotal <= 0 && (
-              <p className="rounded-lg border border-dream-warn/30 bg-dream-warn-soft px-3 py-2 text-xs text-dream-warn">
-                This order has no total yet. Approving the proof asks the customer to pay right away, so set the pricing
-                before sending, otherwise they can approve but not pay.
-              </p>
-            )}
 
             {selected.length === 0 ? (
               <button
@@ -215,8 +205,9 @@ export function ProofReviewDialog({
                   </button>
                 </div>
 
-                <p className="rounded-lg border border-dream-warn/30 bg-dream-warn-soft px-3 py-2 text-xs text-dream-warn">
-                  The customer gets one email to approve {selected.length === 1 ? "this image" : `all ${selected.length} images`}. Double-check they&apos;re the right artwork and order.
+                <p className="rounded-lg bg-dream-bg px-3 py-2 text-xs text-dream-muted">
+                  Nothing is emailed yet. Proofs pile up on the order, and the customer sees the whole set at once when you
+                  send the order for approval.
                 </p>
               </div>
             )}
@@ -239,7 +230,7 @@ export function ProofReviewDialog({
               Cancel
             </Button>
             <Button variant="primary" loading={uploading} disabled={selected.length === 0} onClick={send}>
-              {selected.length > 1 ? `Send ${selected.length} to customer` : "Send to customer"}
+              {selected.length > 1 ? `Save ${selected.length} to order` : "Save to order"}
             </Button>
           </DialogFooter>
         </DialogContent>
