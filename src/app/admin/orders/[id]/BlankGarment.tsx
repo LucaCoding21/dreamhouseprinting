@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
+import { ProofLightbox } from "./ProofLightbox";
 import { type OrderProduct } from "./shared";
 import type { ProductColourJson } from "@/lib/db/rows";
 
@@ -36,8 +35,9 @@ function sanitize(s: string): string {
 
 /**
  * The exact S&S blank garment for a line, the customer's colour with no art.
- * Compact button that opens a modal of the front/back/side blanks, each
- * downloadable, so admin can pull the exact garment (e.g. the exact red shirt).
+ * Always-visible thumbnail row (no popup), sits above the big mockup like the
+ * old Coastal Reign rail. Click a thumb to view full size, hover for a named
+ * download, so admin can pull the exact garment (e.g. the exact red shirt).
  */
 export function BlankGarment({
   product,
@@ -46,7 +46,7 @@ export function BlankGarment({
   product: OrderProduct | undefined;
   colour: { name?: string; hex?: string | null };
 }) {
-  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<{ view: View; url: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   if (!product) return null;
@@ -84,52 +84,46 @@ export function BlankGarment({
   }
 
   return (
-    <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="w-full justify-center gap-1.5">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <circle cx="8.5" cy="9.5" r="1.5" />
-          <path d="M21 15l-5-5L5 21" />
-        </svg>
-        View supplier blanks
-      </Button>
+    <div>
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-dream-muted">Supplier blanks</p>
+      <div className="flex flex-wrap gap-1.5">
+        {views.map(({ view, url }) => (
+          <span key={view} className="group relative">
+            <button
+              type="button"
+              onClick={() => setPreview({ view, url })}
+              title={`${matched.name} ${view} blank, click to view full size`}
+              className="block h-12 w-12 overflow-hidden rounded-lg border border-dream-line bg-dream-bg transition-colors hover:border-dream-purple"
+            >
+              <Image src={url} alt={`${matched.name} ${view} blank`} width={48} height={48} className="h-full w-full object-contain" />
+            </button>
+            <button
+              type="button"
+              aria-label={`Download ${view} blank`}
+              onClick={() => download(url, view)}
+              className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-dream-ink/85 p-1 text-white group-hover:block"
+            >
+              {busy === url ? (
+                <span className="block h-3 w-3 animate-spin rounded-full border border-white border-t-transparent" aria-hidden />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden>
+                  <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+                </svg>
+              )}
+            </button>
+          </span>
+        ))}
+      </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Supplier blank: {styleLabel}</DialogTitle>
-          </DialogHeader>
-          <div className="px-5 pb-5">
-            <p className="mb-4 inline-flex items-center gap-1.5 text-sm text-dream-muted">
-              Colour:
-              <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={{ background: matched.hex ?? "#fff" }} />
-              <span className="font-medium text-dream-ink">{matched.name}</span>
-            </p>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {views.map(({ view, url }) => (
-                <figure key={view} className="space-y-2">
-                  <div className="aspect-square overflow-hidden rounded-xl border border-dream-line bg-dream-bg">
-                    <Image src={url} alt={`${matched.name} ${view} blank`} width={400} height={400} className="h-full w-full object-contain" />
-                  </div>
-                  <figcaption className="text-center text-sm font-medium capitalize text-dream-ink">{view}</figcaption>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full justify-center gap-1.5"
-                    loading={busy === url}
-                    onClick={() => download(url, view)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
-                      <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
-                    </svg>
-                    Download
-                  </Button>
-                </figure>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      {preview && (
+        <ProofLightbox
+          src={preview.url}
+          kind="image"
+          title={`${styleLabel} · ${matched.name} ${preview.view}`}
+          open={!!preview}
+          onOpenChange={(o) => !o && setPreview(null)}
+        />
+      )}
+    </div>
   );
 }

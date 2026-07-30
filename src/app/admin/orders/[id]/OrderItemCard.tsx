@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { LINE_PRODUCTION_STATUSES, LINE_PRODUCTION_META, type LineProductionStatus } from "@/lib/lineProduction";
-import { LineArtwork } from "./LineArtwork";
+import { Chevron, LineArtwork } from "./LineArtwork";
 import { BlankGarment } from "./BlankGarment";
 import { ChangeProductDialog } from "./ChangeProductDialog";
 import { ReorderArrows } from "./ReorderArrows";
@@ -79,6 +79,8 @@ export function OrderItemCard({
   const [newSize, setNewSize] = useState("");
   const [proofOpen, setProofOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [mockupsOpen, setMockupsOpen] = useState(false);
+  const [mockupPreview, setMockupPreview] = useState<{ view: string; url: string | null } | null>(null);
   const mockups = ((design?.mockup_images ?? []) as { view: string; url: string | null }[]).filter((m) => m.url);
   const colour = (lineItem?.colour ?? {}) as { name?: string; hex?: string | null };
   const qty = itemQty(item);
@@ -148,29 +150,27 @@ export function OrderItemCard({
     <Card>
       <CardContent className="p-5">
         <div className="flex flex-col gap-5 lg:flex-row">
-          {/* LEFT, mockups, design + colour, proof controls */}
+          {/* LEFT, supplier blanks on top, primary mockup, proof controls, artwork dropdowns */}
           <div className="flex shrink-0 flex-col gap-3 lg:w-44">
-            <div className="flex gap-3 lg:flex-col">
-              {mockups.length === 0 ? (
-                <div className="flex h-32 w-32 items-center justify-center rounded-lg border border-dream-line bg-dream-bg text-xs text-dream-faint">
-                  No mockup
-                </div>
-              ) : (
-                mockups.map((m) => (
-                  <figure key={m.view} className="w-32 rounded-xl border border-dream-line p-2">
-                    <figcaption className="mb-1 text-xs font-medium capitalize text-dream-ink">{m.view}</figcaption>
-                    <div className="h-28 w-full overflow-hidden rounded-lg bg-dream-bg">
-                      <Image src={m.url!} alt={`${m.view} mockup`} width={112} height={112} className="h-full w-full object-contain" />
-                    </div>
-                    {m.url && (
-                      <a href={m.url} target="_blank" rel="noreferrer" className="mt-1 block text-center text-xs text-dream-purple hover:underline">
-                        View full
-                      </a>
-                    )}
-                  </figure>
-                ))
-              )}
-            </div>
+            <BlankGarment product={product} colour={colour} />
+
+            {mockups.length === 0 ? (
+              <div className="flex h-32 w-32 items-center justify-center rounded-lg border border-dream-line bg-dream-bg text-xs text-dream-faint">
+                No mockup
+              </div>
+            ) : (
+              <figure className="rounded-xl border border-dream-line p-2">
+                <figcaption className="mb-1 text-xs font-medium capitalize text-dream-ink">{mockups[0].view}</figcaption>
+                <button
+                  type="button"
+                  onClick={() => setMockupPreview(mockups[0])}
+                  title="Click to view full size"
+                  className="block h-32 w-full overflow-hidden rounded-lg bg-dream-bg"
+                >
+                  <Image src={mockups[0].url!} alt={`${mockups[0].view} mockup`} width={160} height={160} className="h-full w-full object-contain" />
+                </button>
+              </figure>
+            )}
 
             <div className="space-y-1 text-sm">
               {design?.name && <div className="font-medium text-dream-ink">“{design.name}”</div>}
@@ -179,11 +179,6 @@ export function OrderItemCard({
                 <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={{ background: colour.hex ?? "#fff" }} />
                 <span className="font-medium text-dream-ink">{colour.name ?? "-"}</span>
               </span>
-            </div>
-
-            <div className="space-y-2">
-              <LineArtwork design={design} />
-              <BlankGarment product={product} colour={colour} />
             </div>
 
             {can.proofs && (
@@ -213,6 +208,39 @@ export function OrderItemCard({
                 </div>
               </div>
             )}
+
+            {/* Raw customer artwork + all mockup views, CR-style dropdowns. */}
+            <div className="space-y-2 border-t border-dream-line pt-3">
+              <LineArtwork design={design} />
+              {mockups.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setMockupsOpen((o) => !o)}
+                    className="flex items-center gap-1 text-sm font-medium text-dream-ink transition-colors hover:text-dream-purple"
+                  >
+                    Mockups ({mockups.length})
+                    <Chevron open={mockupsOpen} />
+                  </button>
+                  {mockupsOpen && (
+                    <div className="mt-2 grid grid-cols-3 gap-1.5">
+                      {mockups.map((m) => (
+                        <button
+                          key={m.view}
+                          type="button"
+                          onClick={() => setMockupPreview(m)}
+                          title={`${m.view} mockup, click to view full size`}
+                          className="flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
+                        >
+                          <Image src={m.url!} alt={`${m.view} mockup`} width={56} height={56} className="min-h-0 w-full flex-1 object-contain" />
+                          <span className="text-[9px] font-medium capitalize text-dream-muted">{m.view}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* MIDDLE, product, sizes, print, notes */}
@@ -522,6 +550,15 @@ export function OrderItemCard({
         title={`Proof: ${item.productName || "item"}`}
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
+      />
+    )}
+    {mockupPreview?.url && (
+      <ProofLightbox
+        src={mockupPreview.url}
+        kind="image"
+        title={`${mockupPreview.view} mockup`}
+        open={!!mockupPreview}
+        onOpenChange={(o) => !o && setMockupPreview(null)}
       />
     )}
     </>

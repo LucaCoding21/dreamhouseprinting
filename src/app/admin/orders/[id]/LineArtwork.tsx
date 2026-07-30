@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
+import { ProofLightbox } from "./ProofLightbox";
 import {
-  asColour,
   asSceneMap,
   asSourceFiles,
   collectPieces,
@@ -21,18 +19,19 @@ import {
 import type { DesignRow } from "@/lib/db/rows";
 
 /**
- * Per-line artwork viewer, a "View artwork" button that opens a modal with the
- * customer's original uploads and every design piece (image / sticker / text),
- * each downloadable, ready to drop into a proof. One design per line.
+ * Per-line raw artwork, an inline "Raw images (N)" dropdown in the left rail
+ * (Coastal Reign style): expand to small thumbnails of the customer's original
+ * uploads and every design piece (image / sticker / text). Click a thumb to
+ * view it full size, hover for a download. One design per line.
  */
 export function LineArtwork({ design }: { design: DesignRow | undefined }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState<Piece | null>(null);
   const [renderingKey, setRenderingKey] = useState<string | null>(null);
 
   if (!design) return null;
   const slug = designSlug(design.name);
-  const colour = asColour(design.colour);
   const sourceFiles = asSourceFiles(design.source_artwork_files);
   const pieces = collectPieces(asSceneMap(design.scene_definition));
   if (pieces.length === 0 && sourceFiles.length === 0) return null;
@@ -104,126 +103,107 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
     }
   }
 
+  const count = pieces.length + sourceFiles.length;
+  const download = (piece: Piece) => {
+    if (piece.kind === "image") void downloadImage(piece);
+    else if (piece.kind === "sticker") void downloadSticker(piece);
+    else void downloadText(piece);
+  };
+
   return (
-    <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)} className="w-full justify-center gap-1.5">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
-          <path d="M12 19l7-7 3 3-7 7-3-3z" />
-          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-          <path d="M2 2l7.586 7.586" />
-          <circle cx="11" cy="11" r="2" />
-        </svg>
-        View artwork
-      </Button>
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-sm font-medium text-dream-ink transition-colors hover:text-dream-purple"
+      >
+        Raw images ({count})
+        <Chevron open={open} />
+      </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Artwork: {design.name ?? "Untitled design"}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-[70vh] space-y-6 overflow-y-auto px-5 pb-5">
-            {colour && (
-              <p className="inline-flex items-center gap-1.5 text-sm text-dream-muted">
-                Colour:
-                <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={{ backgroundColor: colour.hex }} />
-                <span className="font-medium text-dream-ink">{colour.name}</span>
-              </p>
-            )}
-
-            {sourceFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-dream-muted">Original uploads</p>
-                <div className="flex flex-wrap gap-2">
-                  {sourceFiles.map((file, i) =>
-                    file.url ? (
-                      <a
-                        key={`${file.path}-${i}`}
-                        href={file.url}
-                        download={file.name}
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-dream-line bg-dream-bg px-3 py-1.5 text-xs text-dream-ink transition-colors hover:border-dream-purple hover:bg-dream-lavender-soft"
-                      >
-                        <DownloadIcon className="h-3.5 w-3.5 shrink-0 text-dream-purple" />
-                        <span className="truncate">{file.name}</span>
-                      </a>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <div className="grid grid-cols-3 gap-1.5">
+            {pieces.map((piece) => (
+              <span key={`${design.id}-${piece.key}`} className="group relative">
+                <button
+                  type="button"
+                  title={
+                    piece.kind === "text"
+                      ? `Text "${piece.text ?? ""}" (${viewLabel(piece.view)}), click to render + download`
+                      : `${piece.kind === "sticker" ? "Sticker" : "Image"} (${viewLabel(piece.view)}), click to view full size`
+                  }
+                  onClick={() => (piece.src ? setPreview(piece) : download(piece))}
+                  className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
+                >
+                  {piece.kind === "text" ? (
+                    renderingKey === piece.key ? (
+                      <span className="block h-4 w-4 animate-spin rounded-full border border-dream-purple border-t-transparent" aria-hidden />
                     ) : (
-                      <span
-                        key={`${file.path}-${i}`}
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-dashed border-dream-line px-3 py-1.5 text-xs text-dream-muted"
-                        title="Download link unavailable"
-                      >
-                        <span className="truncate">{file.name}</span>
+                      <span className="line-clamp-3 text-center font-display text-[10px] font-bold leading-tight" style={{ color: piece.fill }}>
+                        {piece.text}
                       </span>
-                    ),
+                    )
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={piece.src} alt={viewLabel(piece.view)} className="max-h-full max-w-full object-contain" />
                   )}
-                </div>
-              </div>
-            )}
-
-            {pieces.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-dream-muted">Design pieces</p>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-3">
-                  {pieces.map((piece) => (
-                    <PieceTile
-                      key={`${design.id}-${piece.key}`}
-                      piece={piece}
-                      rendering={renderingKey === piece.key}
-                      onDownload={() => {
-                        if (piece.kind === "image") void downloadImage(piece);
-                        else if (piece.kind === "sticker") void downloadSticker(piece);
-                        else void downloadText(piece);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Download this artwork"
+                  onClick={() => download(piece)}
+                  className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-dream-ink/85 p-1 text-white group-hover:block"
+                >
+                  <DownloadIcon className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+
+          {sourceFiles.map((file, i) =>
+            file.url ? (
+              <a
+                key={`${file.path}-${i}`}
+                href={file.url}
+                download={file.name}
+                className="flex max-w-full items-center gap-1.5 rounded-lg border border-dream-line bg-dream-bg px-2 py-1.5 text-xs text-dream-ink transition-colors hover:border-dream-purple hover:bg-dream-lavender-soft"
+              >
+                <DownloadIcon className="h-3.5 w-3.5 shrink-0 text-dream-purple" />
+                <span className="truncate">{file.name}</span>
+              </a>
+            ) : (
+              <span
+                key={`${file.path}-${i}`}
+                className="flex max-w-full items-center gap-1.5 rounded-lg border border-dashed border-dream-line px-2 py-1.5 text-xs text-dream-muted"
+                title="Download link unavailable"
+              >
+                <span className="truncate">{file.name}</span>
+              </span>
+            ),
+          )}
+        </div>
+      )}
+
+      {preview?.src && (
+        <ProofLightbox
+          src={preview.src}
+          kind="image"
+          title={`${design.name ?? "Design"} · ${viewLabel(preview.view)}`}
+          open={!!preview}
+          onOpenChange={(o) => !o && setPreview(null)}
+        />
+      )}
+    </div>
   );
 }
 
-interface PieceTileProps {
-  piece: Piece;
-  rendering: boolean;
-  onDownload: () => void;
-}
-
-function PieceTile({ piece, rendering, onDownload }: PieceTileProps) {
-  const label = piece.kind === "image" ? "Image" : piece.kind === "sticker" ? "Sticker" : `"${piece.text ?? ""}"`;
-
+/** Small chevron for the collapsible rail sections. */
+export function Chevron({ open }: { open: boolean }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-dream-line bg-dream-surface">
-      <div className="relative flex aspect-square items-center justify-center bg-dream-bg p-2">
-        {piece.kind === "text" ? (
-          <div className="line-clamp-3 text-center font-display text-base font-bold leading-tight" style={{ color: piece.fill }}>
-            {piece.text}
-          </div>
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={piece.src} alt={label} className="max-h-full max-w-full object-contain" />
-        )}
-        {piece.kind === "sticker" && (
-          <span className="absolute right-1.5 top-1.5 rounded bg-dream-ink/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
-            SVG
-          </span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-2">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-dream-ink" title={label}>
-            {label}
-          </p>
-          <p className="text-[10px] uppercase tracking-wide text-dream-muted">{viewLabel(piece.view)}</p>
-        </div>
-        <Button size="sm" variant="secondary" className="w-full" loading={rendering} onClick={onDownload}>
-          {!rendering && <DownloadIcon className="h-3.5 w-3.5" />}
-          Download
-        </Button>
-      </div>
-    </div>
+    <svg viewBox="0 0 16 16" fill="none" className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} aria-hidden>
+      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

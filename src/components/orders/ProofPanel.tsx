@@ -124,12 +124,12 @@ export function ProofPanel({
                 key={p.id}
                 type="button"
                 onClick={() => setZoomIndex(i)}
-                className="group relative block overflow-hidden rounded-2xl border-2 border-dream-ink/10 bg-dream-bg"
+                className="group relative block w-full overflow-hidden rounded-2xl border-2 border-dream-ink/10 bg-dream-bg"
                 aria-label={`View proof ${i + 1} full size`}
               >
                 {isPdf(p.image) ? (
                   /* PDFs can't render as <img>, show a labelled document tile. */
-                  <span className="flex h-40 w-full flex-col items-center justify-center gap-1.5 text-dream-muted">
+                  <span className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 text-dream-muted">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-9 w-9" aria-hidden>
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <path d="M14 2v6h6" />
