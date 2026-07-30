@@ -50,7 +50,7 @@ export default function BrandStrip() {
   return (
     <section
       aria-label="Trusted by brands like these"
-      className="border-t border-dream-ink/10 bg-white pb-16 pt-8 sm:pb-24 sm:pt-12"
+      className="border-t border-dream-ink/10 bg-white pb-8 pt-8 sm:pb-12 sm:pt-12"
     >
       <p className="mb-12 text-center font-display text-[13px] font-medium uppercase text-dream-ink/40 sm:mb-16 sm:text-sm">
         Trusted by brands like these

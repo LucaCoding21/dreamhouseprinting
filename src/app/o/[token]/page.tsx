@@ -113,7 +113,10 @@ export default async function PublicOrderPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-5 py-8 lg:px-8">
+      {/* space-y-4 (was 6) sets the rhythm for every OrderView section too: it
+          renders siblings with no wrapper, so the host page owns the spacing.
+          pt-6 still clears the header, which is in normal flow above. */}
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-4 px-5 pb-10 pt-6 lg:px-8">
         {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
 
         <OrderView

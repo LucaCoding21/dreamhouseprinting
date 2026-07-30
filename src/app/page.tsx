@@ -80,16 +80,20 @@ export default function Home() {
         </p>
       </Link>
 
-      <section className="mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
-        <div className="grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
-          <div className="-mt-[84px] order-2 text-center sm:mt-0 lg:order-none lg:pl-10 lg:pt-12 lg:text-left">
-            <h1 className="pt-14 font-display font-extrabold text-[30px] leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
+      {/* home-hero-* classes hook the short-viewport fit rules in globals.css:
+          they only tighten the vertical rhythm once the window is under ~900px
+          tall, so the CTA pair and the "See how it works" cue stay on screen in
+          a windowed browser. Tall screens render exactly as authored here. */}
+      <section className="home-hero mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
+        <div className="home-hero-grid grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
+          <div className="home-hero-copy -mt-[84px] order-2 text-center sm:mt-0 lg:order-none lg:pl-10 lg:pt-12 lg:text-left">
+            <h1 className="home-hero-title pt-14 font-display font-extrabold text-[30px] leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
               We do quality custom Screen printing and Embroidery right here in Vancouver.
             </h1>
-            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto lg:mt-8 lg:mx-0 lg:text-[17px]">
+            <p className="home-hero-sub mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto lg:mt-8 lg:mx-0 lg:text-[17px]">
               Premium custom apparel for Vancouver businesses, teams, and brands. Upload your design, get a quote in minutes. Thanks for coming by!
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+            <div className="home-hero-actions mt-10 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
               {/* Mobile/tablet: single primary CTA pointing at the instant
                   quote calculator on this page. Desktop keeps the original
                   two buttons (Start designing → /shop + outline Get a quick quote). */}
@@ -114,12 +118,12 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
+          <div className="home-hero-media relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
             <HeroImage />
           </div>
         </div>
 
-        <div className="mt-12 flex justify-center lg:mt-24">
+        <div className="home-hero-scroll mt-12 flex justify-center lg:mt-24">
           <a
             href="#how-it-works"
             className="group flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"

@@ -176,6 +176,88 @@ body {
   background-attachment: fixed;
 }
 
+/* ---------------------------------------------------------------------------
+   Home hero, short-viewport fit
+   ---------------------------------------------------------------------------
+   The hero is authored for a tall window. In a windowed browser (Julian's
+   usual setup) the nav + headline + copy + buttons + the "See how it works"
+   cue no longer fit, and the CTAs fall below the fold. These rules only fire
+   under 900px of viewport height and only ever SHRINK vertical rhythm, so
+   nothing changes on screens where the hero already fits.
+
+   Every value is a clamp whose upper bound is the authored value at 900px tall
+   and whose lower bound holds around 550px tall, interpolated with svh in
+   between (svh, not vh/dvh: it is the worst-case height and it does not shift
+   while a mobile browser bar collapses). Browsers without svh simply keep the
+   authored Tailwind values.
+   --------------------------------------------------------------------------- */
+@media (max-height: 900px) and (min-width: 1024px) {
+  .home-hero {
+    padding-bottom: 0;
+  }
+  /* Hand the copy more of the row: the headline is long, and at a smaller type
+     size a narrow column wraps it into five or six lines, which costs more
+     height than the type size saves. */
+  .home-hero-grid {
+    grid-template-columns: 1.25fr 1fr;
+  }
+  .home-hero-copy {
+    padding-top: clamp(0px, calc(13.7svh - 75px), 48px);
+  }
+  .home-hero-title {
+    padding-top: clamp(8px, calc(13.7svh - 67px), 56px);
+    font-size: clamp(34px, calc(7.4svh - 7px), 60px);
+  }
+  .home-hero-sub {
+    margin-top: clamp(8px, calc(6.9svh - 30px), 32px);
+  }
+  .home-hero-actions {
+    margin-top: clamp(12px, calc(8svh - 32px), 40px);
+  }
+  /* Capping the width (not the height) keeps the art's aspect ratio, so the
+     photo shrinks instead of letterboxing, and the 1.35 upscale inside scales
+     with it. */
+  .home-hero-media {
+    max-width: clamp(300px, calc(62.9svh - 46px), 520px);
+  }
+  .home-hero-scroll {
+    margin-top: clamp(20px, calc(21.7svh - 99px), 96px);
+  }
+}
+
+/* Stacked (mobile / tablet) layout: the art sits above the copy, so it is the
+   main thing standing between the fold and the CTA. It shrinks harder here. */
+@media (max-height: 900px) and (max-width: 1023px) {
+  .home-hero-media {
+    max-width: clamp(180px, calc(68.6svh - 197px), 420px);
+  }
+  .home-hero-title {
+    padding-top: clamp(4px, calc(13.7svh - 71px), 56px);
+  }
+  .home-hero-sub {
+    margin-top: clamp(8px, calc(2.3svh - 5px), 16px);
+  }
+  .home-hero-actions {
+    margin-top: clamp(12px, calc(8svh - 32px), 40px);
+  }
+  .home-hero-actions a {
+    padding-block: clamp(10px, calc(2.9svh - 6px), 20px);
+  }
+  .home-hero-scroll {
+    margin-top: clamp(12px, calc(10.3svh - 45px), 48px);
+  }
+}
+@media (max-height: 900px) and (max-width: 639px) {
+  .home-hero-title {
+    font-size: clamp(22px, calc(2.3svh + 9px), 30px);
+  }
+}
+@media (max-height: 900px) and (min-width: 640px) and (max-width: 1023px) {
+  .home-hero-title {
+    font-size: clamp(26px, calc(4svh + 4px), 40px);
+  }
+}
+
 /* Hand-drawn rough-edge pill, background/border drawn on ::before so the
    SVG turbulence filter only distorts the shape, not the text inside. */
 .rough-pill {

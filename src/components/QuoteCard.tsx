@@ -775,7 +775,7 @@ function Calculator({
             <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">
               Quantity
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
                 <PillButton
                   key={n}
@@ -788,21 +788,28 @@ function Calculator({
                   {n}
                 </PillButton>
               ))}
-              <PillButton active={useCustomQty} onClick={() => setUseCustomQty(true)}>
-                Custom
-              </PillButton>
-            </div>
-            {useCustomQty && (
+              {/* Custom quantity lives in the same wrap group as the presets so
+                  it reads as one more choice instead of a separate field.
+                  Typing here takes over from the pills; picking a pill again
+                  clears it (value is only bound while useCustomQty is on). */}
               <input
                 type="number"
                 min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder="How many?"
-                autoFocus
-                className="mt-2 w-32 rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
+                inputMode="numeric"
+                value={useCustomQty ? quantity : ""}
+                onChange={(e) => {
+                  setUseCustomQty(true);
+                  setQuantity(e.target.value);
+                }}
+                placeholder="Custom"
+                aria-label="Custom quantity"
+                className={`w-[104px] rounded-full border bg-white px-4 py-2 font-display text-[13px] font-semibold text-dream-ink transition placeholder:text-dream-ink/45 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+                  useCustomQty
+                    ? "border-dream-purple ring-1 ring-dream-purple"
+                    : "border-dream-ink/15 hover:border-dream-ink/40"
+                }`}
               />
-            )}
+            </div>
           </div>
 
           <PriceCard
