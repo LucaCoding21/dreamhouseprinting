@@ -140,12 +140,34 @@ function latestMessage(order: OrderRow): OrderViewMessage | null {
   return latest;
 }
 
+/**
+ * Pull the customer-facing note out of an `orders.production_notes` blob.
+ *
+ * ONLY the `customer` key is ever read here. `inventory` and `printer` are
+ * internal staff fields and must never be serialized to a customer, so nothing
+ * else in this module touches them.
+ */
+export function customerNoteFrom(raw: unknown): string | null {
+  const note = ((raw ?? {}) as { customer?: unknown }).customer;
+  if (typeof note !== "string") return null;
+  return note.trim() || null;
+}
+
 export interface OrderViewInput {
   order: OrderRow;
   lineItems: LineItemRow[];
   designs: DesignRow[];
   proofs: ProofRow[];
   activity: OrderActivityRow[];
+  /**
+   * The customer-visible production note, when the caller had to read it
+   * separately. The portal loads orders with the authenticated role, which is
+   * not granted the staff-only `production_notes` column (migration 0014), so
+   * it fetches the note with the service client and passes it in here. The
+   * public /o route selects the whole row, so it can leave this undefined and
+   * let the row supply it.
+   */
+  customerNote?: string | null;
 }
 
 export interface OrderViewSerialized {
@@ -170,6 +192,10 @@ const normColour = (s: string | null | undefined) => (s ?? "").trim().toLowerCas
 
 export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
   const { order, lineItems, designs, proofs, activity } = input;
+  const customerNote =
+    input.customerNote !== undefined
+      ? (input.customerNote?.trim() || null)
+      : customerNoteFrom(order.production_notes);
 
   const designsById = new Map(designs.map((d) => [d.id, d]));
   // Tracks which design_ids have already had their designed line item resolved,
@@ -209,6 +235,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
         // Normalized so a hand-edited jsonb row can't break the summary rows.
         adjustments: normalizeAdjustments(((order.pricing ?? {}) as { adjustments?: unknown }).adjustments),
       },
+      customerNote,
       invoice_sent_at: order.invoice_sent_at,
       invoice_amount: order.invoice_amount,
       paid_at: order.paid_at,

@@ -38,6 +38,8 @@ import {
   nextCurveBreak,
   priceFromCurve,
 } from "@/lib/pricing/quote";
+import { rushTierFee, type RushTier } from "@/lib/pricing/decorationPricing";
+import { RushDatePicker } from "@/components/RushDatePicker";
 import { fmtDate, inHandsWindow } from "@/lib/turnaround";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { swatchStyle } from "@/lib/swatch";
@@ -52,7 +54,9 @@ import {
 import type { ProductColourJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
 type View = "front" | "back" | "sleeve";
-type Tool = "colour" | "upload" | "text" | "clipart";
+type Tool = "colour" | "upload" | "text" | "clipart" | "notes";
+/** Rush request: nothing asked for, a target date, or a "just sooner" tier. */
+type RushMode = "none" | "date" | "sooner";
 
 interface PrintAreaLite {
   id: string;
@@ -82,6 +86,12 @@ export interface InitialDesign {
   extraColorways: { colourName: string; sizeQty: Record<string, number> }[];
   /** Per-view Fabric canvas JSON, loaded into each canvas once its garment is ready. */
   scenes: Record<string, object>;
+  /** Note the customer left last time ("Leave a note"). */
+  customerNote: string | null;
+  /** Requested in-hand date from the "Pick a date" rush option. */
+  neededBy: string | null;
+  /** Rush tier the customer had chosen, matched back to a live tier by days. */
+  rush: { days: number; pct: number } | null;
 }
 
 interface Props {
@@ -102,6 +112,10 @@ interface Props {
   sizes: { name: string; inStock: boolean }[];
   printAreas: PrintAreaLite[];
   methods: MethodLite[];
+  /** "I just want it sooner" options from Settings, Pricing. Empty hides them. */
+  rushTiers: RushTier[];
+  /** Standard production time in business days, shown next to the rush tiers. */
+  standardDays: number;
   isLoggedIn: boolean;
   accountEmail: string | null;
   startAsQuote: boolean;
@@ -286,9 +300,23 @@ export function DesignerClient(props: Props) {
   // URLs) never re-run it. `pending` guards duplicate in-flight analyses.
   const analysisCache = useRef(new Map<string, ColourAnalysis>());
   const pendingAnalyses = useRef(new Set<string>());
-  // Rush delivery is disabled for now, the toggle was removed from the review
-  // screen. Kept as a const so the pricing/snapshot plumbing stays intact.
-  const rush = false;
+  // "Leave a note": free text the customer can add anywhere in the flow. Saved
+  // with the design (price_snapshot.customerNote) and copied onto the order as
+  // its customer production note at placement.
+  const [customerNote, setCustomerNote] = useState(edit?.customerNote ?? "");
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
+  // Rush request, ONE box on the review screen: either a target date (no
+  // automatic fee, we confirm the timeline) or one of the admin-configured
+  // tiers, whose percentage surcharge lands in the live estimate.
+  const [rushMode, setRushMode] = useState<RushMode>(
+    edit?.rush ? "sooner" : edit?.neededBy ? "date" : "none"
+  );
+  const [rushDate, setRushDate] = useState<string | null>(edit?.neededBy ?? null);
+  const [rushTierId, setRushTierId] = useState<string | null>(
+    // Match the saved tier back to a live one by turnaround, so editing a design
+    // after Julian retunes the tiers keeps a sensible selection (or none).
+    edit?.rush ? props.rushTiers.find((t) => t.days === edit.rush!.days)?.id ?? null : null
+  );
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
   // Views where some artwork spills past the dashed print box. Purely a friendly
   // heads-up, never blocks ordering (a human rechecks every design at proofing).
@@ -455,11 +483,17 @@ export function DesignerClient(props: Props) {
   );
 
   const grandSubtotal = roundCents(pricedColorways.reduce((s, c) => s + c.lineTotal, 0));
+  // The chosen "just sooner" tier (null on a date request or no rush at all).
+  // Its fee is a flat percentage of the pre-tax job, recomputed live so the
+  // estimate always matches what the server charges at placement.
+  const rushTier = rushMode === "sooner" ? props.rushTiers.find((t) => t.id === rushTierId) ?? null : null;
+  const rushAmount = rushTier ? rushTierFee(grandSubtotal, jobPrice.setupTotal, rushTier.pct) : 0;
   const breakdown = {
     unitPrice: jobPrice.unitPrice,
     subtotal: grandSubtotal,
     setupTotal: jobPrice.setupTotal,
-    total: roundCents(grandSubtotal + jobPrice.setupTotal),
+    rush: rushAmount,
+    total: roundCents(grandSubtotal + jobPrice.setupTotal + rushAmount),
   };
   // Pre-discount unit price + savings for the headline estimate box (matches
   // the instant-estimate box on the product page, incl. its qty-12 anchor).
@@ -611,6 +645,15 @@ export function DesignerClient(props: Props) {
   function focusView(v: View) {
     setActiveView(v);
     stageRefs.current[v]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+
+  /** Open the "Leave a note" panel and drop the cursor in it. Every note
+   *  affordance routes through here, these used to be "Message us" links that
+   *  bounced the customer out of the designer into the contact form. */
+  function openNotes() {
+    setTool("notes");
+    setLeftOpen(true);
+    requestAnimationFrame(() => noteRef.current?.focus());
   }
 
   /** Switch single/both view mode, picking a zoom that fits. Three canvases
@@ -1183,7 +1226,11 @@ export function DesignerClient(props: Props) {
           setupTotal: breakdown.setupTotal,
           total: breakdown.total,
           quantity,
-          rush,
+          // Rush: the chosen tier (days + pct + the fee it added), or a bare
+          // requested date, which carries no automatic fee.
+          ...(rushTier ? { rush: { days: rushTier.days, pct: rushTier.pct, fee: rushAmount } } : {}),
+          ...(rushMode === "date" && rushDate ? { neededBy: rushDate } : {}),
+          ...(customerNote.trim() ? { customerNote: customerNote.trim() } : {}),
           inkColours,
           // Per-side print spec (real measurement + colour count), pre-fills
           // the admin decoration sheet so the artist starts from real values.
@@ -1398,6 +1445,36 @@ export function DesignerClient(props: Props) {
                 </button>
               );
             })}
+            {/* Notes, where "Message us" used to send people off to the contact
+                form. The note travels with the design instead. */}
+            <button
+              onClick={openNotes}
+              aria-pressed={tool === "notes"}
+              className={cn(
+                "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
+                tool === "notes" && "h-14 w-14 rounded-lg bg-dream-ink pt-1.5 shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+              )}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn("h-5 w-5", tool === "notes" ? "text-white" : "text-dream-ink")}
+                aria-hidden
+              >
+                <path d="M4 4.5h16v10.5l-4 4.5H4z" />
+                <path d="M8 9h8M8 13h5" />
+              </svg>
+              <span className={cn("font-semibold", tool === "notes" ? "text-[10px] text-white" : "text-[11px] text-dream-ink")}>
+                Notes
+              </span>
+              {customerNote.trim() && (
+                <span aria-hidden className="-mt-1 h-1.5 w-1.5 rounded-full bg-dream-sun" />
+              )}
+            </button>
             <div className="hidden lg:block lg:flex-1" />
             <Link
               href="/contact"
@@ -1736,6 +1813,10 @@ export function DesignerClient(props: Props) {
                 </>
                 </div>
               )}
+
+              {tool === "notes" && (
+                <NoteCard value={customerNote} onChange={setCustomerNote} textareaRef={noteRef} />
+              )}
             </div>
 
             {/* Placements the online designer can't cover (tags, inside labels,
@@ -1748,17 +1829,16 @@ export function DesignerClient(props: Props) {
               </h3>
               <p className="mt-1.5 text-xs leading-relaxed text-dream-muted">
                 The designer covers {sleeveEnabled ? "front, back, and sleeve" : "front and back"}. For{" "}
-                {sleeveEnabled ? "tags, inside labels, or other custom spots" : "sleeves, tags, or anything custom"}, message us and we&apos;ll send you a proof.
+                {sleeveEnabled ? "tags, inside labels, or other custom spots" : "sleeves, tags, or anything custom"}, leave us a note and we&apos;ll send you a proof.
               </p>
-              <Link
-                href="/contact"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={openNotes}
                 className="mt-3 inline-flex items-center gap-1.5 font-display text-xs font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
               >
-                Message us
+                Leave a note
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-              </Link>
+              </button>
             </div>
 
             <input
@@ -1906,17 +1986,16 @@ export function DesignerClient(props: Props) {
                         </div>
                         <h3 className="font-display text-sm font-bold text-dream-ink">No sleeve photo for this colour</h3>
                         <p className="max-w-[15rem] text-xs leading-relaxed text-dream-muted">
-                          Your sleeve art is saved. We&apos;ll place it for you, or message us and we&apos;ll mock it up.
+                          Your sleeve art is saved. We&apos;ll place it for you, or leave a note and we&apos;ll mock it up.
                         </p>
-                        <Link
-                          href="/contact"
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={openNotes}
                           className="mt-0.5 inline-flex items-center gap-1 font-display text-xs font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
                         >
-                          Message us
+                          Leave a note
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                        </Link>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2257,6 +2336,22 @@ export function DesignerClient(props: Props) {
                     <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
                     <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
                   </div>
+                  {/* Rush surcharge, only when a "just sooner" tier is picked. A
+                      requested date carries no automatic fee. */}
+                  {rushTier && rushAmount > 0 && (
+                    <>
+                      <div className="mt-1.5 flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-dream-purple-dark/80">
+                          Rush (+{rushTier.pct}%, {rushTier.days} business days)
+                        </span>
+                        <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(rushAmount)}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-3 border-t border-dream-lavender-soft pt-2.5">
+                        <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated total before tax</span>
+                        <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.total)}</span>
+                      </div>
+                    </>
+                  )}
                   <p className="mt-1.5 text-xs font-medium leading-relaxed text-dream-muted">
                     Free shipping. Tax is added at checkout, and final pricing is confirmed on your proof before you pay.
                   </p>
@@ -2276,6 +2371,86 @@ export function DesignerClient(props: Props) {
                     </p>
                   </div>
                 </div>
+
+                {/* Rush request, ONE box. Two mutually exclusive asks: a target
+                    date (no automatic fee, we confirm and quote it) or one of
+                    the priced "sooner" tiers, whose fee joins the estimate. */}
+                <div className="mt-6 rounded-2xl border border-dream-line bg-white px-5 py-5">
+                  <h3 className="font-display text-lg font-bold leading-tight text-dream-ink">Request a rush</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-dream-muted">
+                    We&apos;ll do our best to accommodate requested rushes.
+                  </p>
+                  <div className="mt-4 space-y-2.5">
+                    <RushChoice
+                      title="Pick a date"
+                      selected={rushMode === "date"}
+                      onSelect={() => {
+                        setRushMode(rushMode === "date" ? "none" : "date");
+                        setRushTierId(null);
+                      }}
+                    >
+                      <div className="mt-3">
+                        <RushDatePicker value={rushDate} autoOpen onChange={setRushDate} />
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+                        Our team will confirm the timeline and quote any rush fee.
+                      </p>
+                    </RushChoice>
+
+                    {/* Priced options only exist when Julian has rush tiers
+                        configured; with none, the date request is the whole box. */}
+                    {props.rushTiers.length > 0 && (
+                      <RushChoice
+                        title="I just want it sooner"
+                        selected={rushMode === "sooner"}
+                        onSelect={() => {
+                          setRushMode(rushMode === "sooner" ? "none" : "sooner");
+                          setRushDate(null);
+                        }}
+                      >
+                        <>
+                          <div className="mt-3 space-y-2">
+                            {props.rushTiers.map((t) => {
+                              const on = rushTierId === t.id;
+                              const fee = rushTierFee(breakdown.subtotal, breakdown.setupTotal, t.pct);
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  onClick={() => setRushTierId(on ? null : t.id)}
+                                  aria-pressed={on}
+                                  className={cn(
+                                    "flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors",
+                                    on
+                                      ? "border-dream-purple bg-dream-lavender-mist"
+                                      : "border-dream-line bg-white hover:border-dream-purple/50"
+                                  )}
+                                >
+                                  <span className="font-display text-sm font-bold text-dream-ink">
+                                    {t.days} business days
+                                  </span>
+                                  <span className="flex shrink-0 items-center gap-2">
+                                    <span className="text-xs font-semibold text-dream-muted">+{t.pct}%</span>
+                                    <span className="rounded-full bg-dream-sun px-2.5 py-0.5 font-display text-xs font-extrabold text-dream-ink">
+                                      +{formatCAD(fee)}
+                                    </span>
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+                            Standard: {props.standardDays} business days.
+                          </p>
+                        </>
+                      </RushChoice>
+                    )}
+                  </div>
+                </div>
+
+                {/* The customer's note, shown here too so they can see it is
+                    attached to what they're about to send. */}
+                <NoteCard value={customerNote} onChange={setCustomerNote} className="mt-6 bg-white" />
 
                 {/* Reassurance, the risk-reducers a first-time custom buyer
                     weighs right at the decision point. "Pay after approval" is
@@ -2436,6 +2611,85 @@ export function DesignerClient(props: Props) {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * "Leave a note", Julian's replacement for the old "Message us" links. Rendered
+ * in the left tool panel (with the focusable ref) and again on the review screen
+ * so the customer sees the note is attached to what they're sending. The text is
+ * saved with the design and lands on the order as its customer note.
+ */
+function NoteCard({
+  value,
+  onChange,
+  textareaRef,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-2xl border border-dream-line bg-dream-cream/50 p-4", className)}>
+      <h3 className="font-display text-base font-bold text-dream-ink">Leave a note</h3>
+      <p className="mt-1.5 text-xs leading-relaxed text-dream-muted">
+        Have some notes about this order? Leave us a note and we&apos;ll do our best to accommodate your request.
+      </p>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={5}
+        maxLength={2000}
+        placeholder="Print size, exact placement, a deadline, anything we should know…"
+        className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-sm leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-dream-faint focus:border-dream-purple"
+      />
+      <p className="mt-2 text-xs text-dream-faint">Saved with your design and sent to our team with your order.</p>
+    </div>
+  );
+}
+
+/** One of the two mutually exclusive rush asks. Selecting it reveals its own
+ *  controls; selecting the other (or clicking it again) closes it. */
+function RushChoice({
+  title,
+  selected,
+  onSelect,
+  children,
+}: {
+  title: string;
+  selected: boolean;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border px-4 py-3.5 transition-colors",
+        selected ? "border-dream-purple bg-dream-lavender-mist/50" : "border-dream-line bg-white"
+      )}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={selected}
+        className="flex w-full items-center gap-3 text-left"
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors",
+            selected ? "border-dream-purple" : "border-dream-line-strong"
+          )}
+        >
+          {selected && <span className="h-2.5 w-2.5 rounded-full bg-dream-purple" />}
+        </span>
+        <span className="font-display text-sm font-bold text-dream-ink">{title}</span>
+      </button>
+      {selected && children}
     </div>
   );
 }

@@ -54,8 +54,11 @@ export function ReviewClient({
         return;
       }
       if (res.orderId) {
-        // Guests have no account, send them to a public confirmation page.
-        if (res.isGuest) {
+        // The public order page renders for guests and signed-in customers
+        // alike, so both land straight on the order they just submitted.
+        if (res.publicToken) {
+          router.push(`/o/${res.publicToken}`);
+        } else if (res.isGuest) {
           router.push(`/checkout/done?order=${encodeURIComponent(res.orderNumber ?? "")}`);
         } else {
           router.push(`/account/orders/${res.orderId}?placed=1`);
@@ -268,7 +271,7 @@ export function ReviewClient({
               disabled={busy}
               className="inline-flex items-center justify-center rounded-full bg-dream-purple px-10 py-3.5 font-display text-base font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition-transform active:translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? "Submitting…" : "Submit"}
+              {busy ? "Submitting…" : "Submit order"}
             </button>
           </div>
         </div>

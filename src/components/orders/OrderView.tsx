@@ -149,6 +149,15 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                 );
               })}
             </ul>
+
+            {/* What the customer told us, kept with the order so they can see
+                the note they left is attached (and what staff edited it to). */}
+            {order.customerNote && (
+              <div className="mt-4 rounded-2xl border border-dream-line bg-dream-cream/40 p-4">
+                <p className="font-display text-sm font-bold text-dream-ink">Your notes</p>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm text-dream-muted">{order.customerNote}</p>
+              </div>
+            )}
           </div>
         </section>
 

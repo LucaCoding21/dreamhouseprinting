@@ -10,9 +10,6 @@ export interface PlaceCartInput {
   designIds: string[];
   contact: Omit<CheckoutContactInput, "designId">;
   fulfillment: "ship" | "pickup";
-  turnaround: "standard" | "rush";
-  /** Customer's requested in-hand date (YYYY-MM-DD), only on a rush. */
-  neededBy?: string | null;
 }
 
 export interface PlaceCartResult {
@@ -25,6 +22,11 @@ export interface PlaceCartResult {
  * per-design checkout actions. Contact/address is collected once on /cart and
  * written for every design before its order is placed. Each design that fails
  * is reported back so the cart can keep the unsubmitted ones.
+ *
+ * Rush and the customer's note are NOT collected here: both are per-design asks
+ * made in the designer and stored in the design's price snapshot, which
+ * placeOrderAction reads. That keeps a two-design cart from forcing one rush
+ * choice onto both jobs.
  */
 export async function placeCartOrdersAction(input: PlaceCartInput): Promise<PlaceCartResult> {
   const placed: PlaceCartResult["placed"] = [];
@@ -39,8 +41,6 @@ export async function placeCartOrdersAction(input: PlaceCartInput): Promise<Plac
     const order = await placeOrderAction({
       designId,
       fulfillment: input.fulfillment,
-      turnaround: input.turnaround,
-      neededBy: input.neededBy,
     });
     if (order.error) {
       failed.push({ designId, error: order.error });

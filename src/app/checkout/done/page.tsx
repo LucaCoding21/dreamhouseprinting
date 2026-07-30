@@ -44,11 +44,13 @@ export default async function CheckoutDonePage({
   // Fall back to the legacy single `order` number if no triples were passed.
   const headerNumber = first?.number ?? order ?? null;
 
-  // Where the primary CTA points. Signed-in customers go to their portal order
-  // (or list); guests to the public order page keyed by the shareable token.
+  // Where each order link points: the public order page, which renders for
+  // guests AND signed-in customers, so one link works for everybody (and can be
+  // shared with a teammate). The portal route is only a fallback for older links
+  // that carry an id but no token.
   function orderHref(o: PlacedOrder): string | null {
-    if (isLoggedIn && o.id) return `/account/orders/${o.id}`;
     if (o.token) return `/o/${o.token}`;
+    if (isLoggedIn && o.id) return `/account/orders/${o.id}`;
     return null;
   }
 

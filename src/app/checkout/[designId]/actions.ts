@@ -5,6 +5,8 @@ import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
 import { roundCents, formatCAD } from "@/lib/money";
 import { sendOrderStatusEmail, notifyJulian } from "@/lib/notify";
 import { calcPrice } from "@/lib/pricing/platform";
+import { rushFee } from "@/lib/pricing/rush";
+import { rushTierFee } from "@/lib/pricing/decorationPricing";
 import {
   curveForProduct,
   priceFromCurve,
@@ -56,6 +58,13 @@ interface StoredSnapshot {
   quantity?: number;
   /** Colour count the designer priced with (provisional; artist confirms). */
   inkColours?: number;
+  /** Rush request. New designs store the chosen tier; designs saved before rush
+   *  tiers existed carry the legacy flat-rush boolean. */
+  rush?: boolean | { days?: number; pct?: number; fee?: number } | null;
+  /** Requested in-hand date (YYYY-MM-DD) from the designer's "Pick a date". */
+  neededBy?: string | null;
+  /** Free-text note the customer left in the designer. */
+  customerNote?: string | null;
   decorationSpots?: {
     view?: string;
     location?: string;
@@ -170,11 +179,17 @@ export interface PlaceOrderInput {
   designId: string;
   /** Pickup at the shop vs ship to the saved address (both free). */
   fulfillment: "ship" | "pickup";
-  /** A customer preference, not a hard fee, Julian confirms timing on the proof. */
-  turnaround: "standard" | "rush";
+  /**
+   * Legacy per-design checkout funnel only. The rush ask now lives in the
+   * designer and travels in the design's price snapshot, so the cart no longer
+   * sends this. "rush" here still means "requested, fee quoted on the proof".
+   */
+  turnaround?: "standard" | "rush";
   /** Customer's requested in-hand date (YYYY-MM-DD), only on a rush. */
   neededBy?: string | null;
 }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * The end of the checkout funnel: turns the saved design + the profile's
@@ -391,37 +406,61 @@ export async function placeOrderAction(
   const snapBasis = Number(snap.subtotal ?? 0) + Number(snap.setupTotal ?? 0);
   const serverRepriced = Math.abs(subtotal + setup - snapBasis) > 0.05;
 
-  // Rush is a request, not a fixed surcharge, the shop quotes the real fee when
-  // they confirm the order, so nothing is added to the customer's total here.
-  const rush = 0;
+  // Rush. The designer's "I just want it sooner" tiers carry a real percentage
+  // surcharge, recomputed here off the SERVER subtotal (never the client's fee)
+  // so a tampered snapshot can only change which tier was asked for, not the
+  // math. A bare requested date adds nothing, the shop quotes that on the proof.
+  // Designs saved before rush tiers existed carry the legacy flat-rush boolean,
+  // still honoured at the old 50% rate.
+  const snapRush = snap.rush ?? null;
+  const rushTier =
+    snapRush && typeof snapRush === "object" && Number(snapRush.pct) > 0
+      ? { days: Math.max(0, Math.round(Number(snapRush.days) || 0)), pct: Number(snapRush.pct) }
+      : null;
+  const rush = rushTier
+    ? rushTierFee(subtotal, setup, rushTier.pct)
+    : rushFee(subtotal, setup, snapRush === true);
   const province = isProvinceCode(address.prov) ? address.prov : null;
-  const tax = calcTax(subtotal + setup, province).total;
+  const tax = calcTax(subtotal + setup + rush, province).total;
   const shipping = 0;
-  const total = roundCents(subtotal + setup + shipping + tax);
+  const total = roundCents(subtotal + setup + rush + shipping + tax);
 
   const lead = product?.lead_time_days ?? 7;
   const due = new Date();
   due.setDate(due.getDate() + lead);
 
-  // On a rush, the customer's picked need-by date IS the order's target date, so
-  // it drives due_date (falling back to the lead-time projection). Only trust a
+  // The customer's picked need-by date IS the order's target date, so it drives
+  // due_date (falling back to the lead-time projection). It can come from the
+  // designer (price snapshot) or the legacy funnel's rush step. Only trust a
   // well-formed YYYY-MM-DD so a tampered request can't write garbage.
-  const neededBy =
-    input.turnaround === "rush" && /^\d{4}-\d{2}-\d{2}$/.test(input.neededBy ?? "") ? input.neededBy! : null;
+  const neededBy = ISO_DATE.test(input.neededBy ?? "")
+    ? input.neededBy!
+    : ISO_DATE.test(snap.neededBy ?? "")
+      ? snap.neededBy!
+      : null;
+  const rushRequested = input.turnaround === "rush" || !!rushTier || !!neededBy;
   const dueDate = neededBy ?? due.toISOString().slice(0, 10);
 
   const notes: { at: string; actor: string; text: string }[] = [];
-  if (input.turnaround === "rush") {
-    notes.push({
-      at: new Date().toISOString(),
-      actor: "customer",
-      // Rendered where notes use whitespace-pre-wrap, so the newline bullets
-      // display as a scannable list rather than a run-on sentence.
-      text: neededBy
-        ? `Rush turnaround requested:\n• Needs it by ${neededBy}\n• Confirm the timeline\n• Quote the rush fee`
-        : "Rush turnaround requested:\n• Confirm the timeline\n• Quote the rush fee",
-    });
+  if (rushRequested) {
+    // Rendered where notes use whitespace-pre-wrap, so the newline bullets
+    // display as a scannable list rather than a run-on sentence.
+    const lines = [
+      rushTier
+        ? `Rush requested: ${rushTier.days} business days (+${rushTier.pct}%, ${formatCAD(rush)})`
+        : "Rush turnaround requested:",
+      neededBy ? `• Needs it by ${neededBy}` : null,
+      "• Confirm the timeline",
+      rushTier ? null : "• Quote the rush fee",
+    ].filter(Boolean);
+    notes.push({ at: new Date().toISOString(), actor: "customer", text: lines.join("\n") });
   }
+
+  // The customer's own note travels to the order's customer production note,
+  // where staff read and can edit it, and where the customer sees it echoed back
+  // on their order page. Nothing else writes production_notes at creation, so
+  // the internal inventory / printer keys stay untouched (and unset).
+  const customerNote = (snap.customerNote ?? "").trim();
 
   const { data: order, error: orderErr } = await service
     .from("orders")
@@ -441,9 +480,10 @@ export async function placeOrderAction(
       }),
       due_date: dueDate,
       fulfillment_method: input.fulfillment,
-      shipping_method: input.turnaround,
+      shipping_method: rushRequested ? "rush" : "standard",
       shipping_address: input.fulfillment === "ship" ? asJson(address) : null,
       customer_notes: asJson(notes),
+      ...(customerNote ? { production_notes: asJson({ customer: customerNote }) } : {}),
     })
     .select("id, order_number, public_token")
     .single();
@@ -485,7 +525,14 @@ export async function placeOrderAction(
     actor_id: auth.userId,
     actor_name: "Customer",
     type: "order_created",
-    detail: asJson({ via: "checkout", fulfillment: input.fulfillment, turnaround: input.turnaround, neededBy, guest: auth.isGuest }),
+    detail: asJson({
+      via: "checkout",
+      fulfillment: input.fulfillment,
+      turnaround: rushRequested ? "rush" : "standard",
+      rushTier,
+      neededBy,
+      guest: auth.isGuest,
+    }),
   });
 
   // Confirmation emails, the done page tells the customer to watch their
@@ -497,9 +544,12 @@ export async function placeOrderAction(
       `New order ${order.order_number ?? order.id}, ${formatCAD(total)}`,
       [
         `${address?.name || "A customer"} placed ${order.order_number ?? "an order"} for ${formatCAD(total)}.`,
-        input.turnaround === "rush"
-          ? `RUSH turnaround requested${neededBy ? `, needed by ${neededBy}` : ""}. Confirm timeline and quote the fee.`
-          : null,
+        rushTier
+          ? `RUSH: ${rushTier.days} business days, +${rushTier.pct}% (${formatCAD(rush)}) already on the total${neededBy ? `, needed by ${neededBy}` : ""}. Confirm the timeline.`
+          : rushRequested
+            ? `RUSH turnaround requested${neededBy ? `, needed by ${neededBy}` : ""}. Confirm timeline and quote the fee.`
+            : null,
+        customerNote ? `Customer note: ${customerNote}` : null,
       ]
         .filter(Boolean)
         .join("\n\n"),

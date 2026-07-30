@@ -12,7 +12,6 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { HelpPrompt } from "@/components/support/HelpPrompt";
-import { RushDatePicker } from "@/components/RushDatePicker";
 import { mapEmbedUrl } from "@/lib/businessSettings";
 import { placeCartOrdersAction } from "./actions";
 
@@ -39,15 +38,13 @@ export function CartClient({
   const { items, count, ready, removeItem, clearCart } = useCart();
   const [contact, setContact] = useState<CartPrefill>(prefill);
   const [fulfillment, setFulfillment] = useState<"ship" | "pickup">("ship");
-  const [rush, setRush] = useState(false);
-  const [neededBy, setNeededBy] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Each item.total is that design's pre-tax price (goods + setup). Rush is a
-  // request only, the shop quotes the fee when they confirm the order, so it
-  // never changes this estimate.
+  // Each item.total is that design's pre-tax price (goods + setup + any rush
+  // tier the customer picked in the designer), so this subtotal already carries
+  // whatever rush was requested per design.
   const subtotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
   // Shipping is free on every order (see checkout settings), so the only line
   // between subtotal and the out-the-door number is sales tax. Compute it live
@@ -71,19 +68,12 @@ export function CartClient({
       setError("Enter a valid email.");
       return;
     }
-    if (rush && !neededBy) {
-      setError("Please pick the day you need your rush order by.");
-      return;
-    }
-
     setBusy(true);
     try {
       const res = await placeCartOrdersAction({
         designIds: items.map((i) => i.designId),
         contact,
         fulfillment,
-        turnaround: rush ? "rush" : "standard",
-        neededBy: rush ? neededBy : null,
       });
       // Drop every successfully placed design from the cart.
       res.placed.forEach((p) => removeItem(p.designId));
@@ -97,8 +87,8 @@ export function CartClient({
         const placedNums = res.placed.map((p) => p.orderNumber).filter(Boolean).join(", ");
         setNotice(
           res.placed.length === 1
-            ? `Order ${placedNums} is in. We’ll email your proof.`
-            : `${res.placed.length} orders placed (${placedNums}). We’ll email your proofs.`
+            ? `Order request placed (${placedNums}). We’ll email your proof.`
+            : `${res.placed.length} order requests placed (${placedNums}). We’ll email your proofs.`
         );
         setError(
           `${res.failed.length} ${res.failed.length === 1 ? "design" : "designs"} couldn’t be sent and ${res.failed.length === 1 ? "is" : "are"} still in your cart. Please try again.`
@@ -106,11 +96,19 @@ export function CartClient({
         return;
       }
       clearCart();
-      // Everyone lands on the branded confirmation page, a soft handoff rather
-      // than an abrupt jump into the portal. Carry EVERY placed order as an
+      // One order: go straight to its public order page, which renders for
+      // guests and signed-in customers alike, so the customer lands on the thing
+      // they just created instead of a confirmation interstitial.
+      const only = res.placed.length === 1 ? res.placed[0] : null;
+      if (only?.publicToken) {
+        router.push(`/o/${only.publicToken}`);
+        return;
+      }
+      // Several orders (or no token to link to): the branded confirmation page
+      // lists them. Carry EVERY placed order as an
       // `orderNumber:publicToken:orderId` triple (comma-separated in `orders`)
-      // so the done page can link guests to /o/{token} and signed-in customers
-      // to their portal order. `order` keeps the first number for back-compat.
+      // so the done page can link each one. `order` keeps the first number for
+      // back-compat.
       const params = new URLSearchParams();
       const first = res.placed[0]?.orderNumber;
       if (first) params.set("order", first);
@@ -377,55 +375,9 @@ export function CartClient({
                 </Field>
               </div>
 
-              {/* Rush toggle, a clear selectable card so the on/off state reads at a glance */}
-              <label
-                className={cn(
-                  "mt-5 flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-colors",
-                  rush
-                    ? "border-dream-purple bg-dream-lavender-mist"
-                    : "border-dream-line bg-white hover:border-dream-purple/50 hover:bg-dream-lavender-mist/40",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={rush}
-                  onChange={(e) => {
-                    setRush(e.target.checked);
-                    if (!e.target.checked) setNeededBy(null);
-                  }}
-                  className="sr-only"
-                />
-                {/* Custom check indicator, fills in when selected */}
-                <span
-                  aria-hidden
-                  className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                    rush ? "border-dream-purple bg-dream-purple text-white" : "border-dream-line-strong bg-white",
-                  )}
-                >
-                  {rush && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  )}
-                </span>
-                <span className="flex-1">
-                  <span className="font-display text-sm font-bold text-dream-ink">Request a rush</span>
-                  <span className="mt-0.5 block text-xs text-dream-muted">
-                    Bump to the front of the queue. We&rsquo;ll discuss any additional fee when we confirm your order.
-                  </span>
-                </span>
-              </label>
-
-              {rush && (
-                <div className="mt-3 rounded-xl border border-dream-purple/30 bg-dream-lavender-mist/50 p-4">
-                  <p className="text-sm font-semibold text-dream-ink">What day do you need it in hand?</p>
-                  <p className="mt-0.5 text-xs text-dream-muted">Pick your target date so we can confirm whether we can hit it.</p>
-                  <div className="mt-3">
-                    <RushDatePicker value={neededBy} autoOpen onChange={setNeededBy} />
-                  </div>
-                </div>
-              )}
+              {/* No rush box here on purpose: rush is a per-design ask made in
+                  the designer's "Request a rush" card, and its fee is already in
+                  each item's price below. */}
 
               {/* Order summary, a transparent line-item breakdown so the
                   customer sees the real out-the-door number (goods + free
@@ -470,7 +422,7 @@ export function CartClient({
                 disabled={busy || count === 0}
                 className="rough-pill rough-pill-filled mt-4 flex w-full items-center justify-center px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
-                {busy ? "Sending…" : `Request ${count === 1 ? "this design" : "these designs"}`}
+                {busy ? "Submitting…" : count === 1 ? "Submit order" : "Submit orders"}
               </button>
               <p className="mt-3 text-center text-xs leading-relaxed text-dream-faint">
                 No payment now. Our team reviews &amp; cleans up your artwork, then emails a proof to approve.

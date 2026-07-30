@@ -4,7 +4,7 @@ import { getMyOrder } from "@/lib/db/orders";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
-import { serializeOrderView, resolveEtransferOption } from "@/lib/orders/orderView";
+import { serializeOrderView, resolveEtransferOption, customerNoteFrom } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import { ReorderButton } from "./ReorderButton";
@@ -52,12 +52,17 @@ export default async function OrderDetailPage({
   // PostgREST. Ownership is already proven: getMyOrder above returns null under
   // RLS unless this user may see the order, so reading its activity with the
   // service client is safe. serializeOrderView emits only customer-safe types.
+  // production_notes is staff-only too (not granted to `authenticated`), so the
+  // customer-visible note is read here with the service client and passed in.
+  // Only the `customer` key is extracted, the internal keys never leave this
+  // function.
   const activityClient = requireSupabaseServiceClient();
-  const [{ data: activity }, etransfer] = await Promise.all([
+  const [{ data: activity }, etransfer, { data: noteRow }] = await Promise.all([
     activityClient.from("order_activity").select("*").eq("order_id", order.id).order("created_at", { ascending: false }),
     // Resilient to an unmigrated DB: null (card only) if 0015's e-transfer columns
     // or the payments settings row are missing. Never throws.
     resolveEtransferOption(activityClient),
+    activityClient.from("orders").select("production_notes").eq("id", order.id).maybeSingle(),
   ]);
 
   const view = serializeOrderView({
@@ -66,10 +71,13 @@ export default async function OrderDetailPage({
     designs,
     proofs,
     activity: (activity ?? []) as OrderActivityRow[],
+    customerNote: customerNoteFrom(noteRow?.production_notes),
   });
 
+  // space-y-4 (was 6) also sets the gaps inside OrderView, which renders its
+  // sections as bare siblings so the host page owns the vertical rhythm.
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
 
       {placed && (
@@ -78,7 +86,7 @@ export default async function OrderDetailPage({
         </div>
       )}
 
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <Link
           href="/account/orders"
           className="group inline-flex items-center gap-1.5 text-sm font-medium text-dream-muted transition-colors hover:text-dream-ink"

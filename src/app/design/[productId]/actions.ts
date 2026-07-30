@@ -49,7 +49,16 @@ export interface DesignSubmitInput {
     setupTotal: number;
     total: number;
     quantity: number;
-    rush?: boolean;
+    /** Rush request. New designs store the chosen tier ({days, pct, fee});
+     *  designs saved before rush tiers existed carry the legacy flat-rush
+     *  boolean, which placeOrderAction still understands. */
+    rush?: boolean | { days: number; pct: number; fee: number };
+    /** Requested in-hand date (YYYY-MM-DD) from the "Pick a date" rush option.
+     *  A date alone adds no fee, the shop confirms the timeline. */
+    neededBy?: string | null;
+    /** Free-text note the customer left in the designer ("Leave a note").
+     *  Copied to orders.production_notes.customer when the order is placed. */
+    customerNote?: string | null;
     /** Colour count the estimate was priced with (artist confirms at proofing). */
     inkColours?: number;
     /** Per-side print spec derived in the designer (real measurement + colour

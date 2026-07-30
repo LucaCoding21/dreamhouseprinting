@@ -25,6 +25,13 @@ export interface OrderViewOrder {
     /** Named discounts (negative) and fees (positive) added by admin. */
     adjustments?: { id: string; label: string; amount: number }[];
   };
+  /**
+   * The note the customer left with their design, mirrored into the order's
+   * `production_notes.customer` and editable by staff. This is the ONLY
+   * production-note key that ever reaches the client, the inventory / printer
+   * keys are internal and stay on the server (see serializeOrderView).
+   */
+  customerNote: string | null;
   invoice_sent_at: string | null;
   invoice_amount: number | null;
   paid_at: string | null;
