@@ -7,6 +7,11 @@ import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSett
 import { mergeAddonSettings, type AddonSettings } from "@/lib/addonSettings";
 import { mergePaymentSettings, type PaymentSettings } from "@/lib/paymentSettings";
 import { mergeBusinessSettings, type BusinessSettings } from "@/lib/businessSettings";
+import {
+  mergeDecorationPricing,
+  DECORATION_PRICING_SETTINGS_KEY,
+  type DecorationPricingSettings,
+} from "@/lib/pricing/decorationPricing";
 import type { Json, Database } from "@/lib/db/types";
 
 type DecorationMethodUpdate = Database["public"]["Tables"]["decoration_methods"]["Update"];
@@ -117,6 +122,26 @@ export async function updateBusinessSettingsAction(
   revalidatePath("/admin/settings");
   // The cart's pickup panel reads this at render time.
   revalidatePath("/cart");
+  return { ok: true };
+}
+
+export async function updateDecorationPricingAction(
+  settings: DecorationPricingSettings
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("settings.manage");
+  const service = requireSupabaseServiceClient();
+
+  // Normalize through the merge so a bad row can't corrupt live pricing.
+  const clean = mergeDecorationPricing(settings);
+  const { error } = await service
+    .from("settings")
+    .upsert({ key: DECORATION_PRICING_SETTINGS_KEY, value: asJson(clean) }, { onConflict: "key" });
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/settings");
+  // These charges feed the admin order editor and the designer's live estimate.
+  revalidatePath("/admin/orders", "layout");
+  revalidatePath("/design", "layout");
   return { ok: true };
 }
 

@@ -4,6 +4,10 @@ import { mergeCheckoutSettings } from "@/lib/checkoutSettings";
 import { mergeAddonSettings } from "@/lib/addonSettings";
 import { mergePaymentSettings } from "@/lib/paymentSettings";
 import { mergeBusinessSettings } from "@/lib/businessSettings";
+import {
+  mergeDecorationPricing,
+  DECORATION_PRICING_SETTINGS_KEY,
+} from "@/lib/pricing/decorationPricing";
 import type { DecorationMethodRow, ProfileRow, SettingRow } from "@/lib/db/rows";
 import { SettingsClient } from "./SettingsClient";
 
@@ -22,7 +26,20 @@ export default async function AdminSettingsPage() {
     requirePermission("settings.manage"),
     service.from("decoration_methods").select("*").order("display_order"),
     service.from("profiles").select("*").in("role", ["staff", "staff_admin"]),
-    service.from("settings").select("*").in("key", ["shipping", "tax", "email_templates", "shop", "checkout", "addons", "payments", "business"]),
+    service
+      .from("settings")
+      .select("*")
+      .in("key", [
+        "shipping",
+        "tax",
+        "email_templates",
+        "shop",
+        "checkout",
+        "addons",
+        "payments",
+        "business",
+        DECORATION_PRICING_SETTINGS_KEY,
+      ]),
   ]);
 
   const decorationMethods = (methods ?? []) as DecorationMethodRow[];
@@ -51,6 +68,9 @@ export default async function AdminSettingsPage() {
   const businessRow = settingRows.find((s) => s.key === "business");
   const business = mergeBusinessSettings(businessRow?.value);
 
+  const decorationPricingRow = settingRows.find((s) => s.key === DECORATION_PRICING_SETTINGS_KEY);
+  const decorationPricing = mergeDecorationPricing(decorationPricingRow?.value);
+
   return (
     <SettingsClient
       decorationMethods={decorationMethods}
@@ -60,6 +80,7 @@ export default async function AdminSettingsPage() {
       addons={addons}
       payments={payments}
       business={business}
+      decorationPricing={decorationPricing}
     />
   );
 }
