@@ -479,6 +479,11 @@ export interface LineItemDecorations {
   priceConfirmed: boolean;
   /** Per-line production tracking (independent of the order status). */
   productionStatus?: LineProductionStatus;
+  /**
+   * What the customer asked for, prefilled from their designer note at order
+   * placement. The ONE per-line note the customer can see on their order page.
+   */
+  customerNotes?: string;
   /** Manufacturing instructions for this line (e.g. white underbase on darks). */
   productionNotes?: string;
   /** Private team notes, never shown to the customer. */

@@ -35,12 +35,24 @@ import {
 import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
 
-/** The three kinds of per-line notes (ticket: production / internal / shipping). */
-const LINE_NOTE_FIELDS: { key: "productionNotes" | "internalNotes" | "shippingNotes"; label: string; placeholder: string }[] = [
+/**
+ * Per-line notes, Julian's taxonomy: Customer notes are what the customer
+ * asked for (prefilled from the designer note, echoed on their order page);
+ * everything else is staff-only. Keys are storage keys and never change, so
+ * old internal data can't leak into the customer-visible field.
+ */
+const LINE_NOTE_FIELDS: {
+  key: "customerNotes" | "productionNotes" | "shippingNotes";
+  label: string;
+  placeholder: string;
+  customerVisible?: boolean;
+}[] = [
+  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for", customerVisible: true },
   { key: "productionNotes", label: "Production notes", placeholder: "Manufacturing, e.g. black shirt needs a white underbase" },
-  { key: "internalNotes", label: "Internal notes", placeholder: "Private for the team. The customer never sees this" },
   { key: "shippingNotes", label: "Shipping notes", placeholder: "For the shipping label, e.g. gate code" },
 ];
+// internalNotes ("My notes") was dropped from the row per Julian; the storage
+// key still round-trips through ItemState so any old data is preserved.
 
 export function OrderItemCard({
   item,
@@ -105,10 +117,11 @@ export function OrderItemCard({
   const latestProof = proofsForItem[0];
 
   // Show the full standard size run as fillable slots, plus any non-standard
-  // sizes already on the line (case-insensitive match against SIZE_ORDER).
-  const isStandard = (s: string) => SIZE_ORDER.includes(s.toUpperCase());
-  const customSizes = item.sizes.map(([s]) => s).filter((s) => !isStandard(s));
-  const displaySizes = [...SIZE_ORDER, ...customSizes];
+  // Only the sizes actually on the line get a column (a tote shouldn't show
+  // nine empty apparel sizes). Standard sizes not on the line become small
+  // "+XS" pills so any of them is one click away.
+  const displaySizes = item.sizes.map(([s]) => s).sort((a, b) => sizeRank(a) - sizeRank(b));
+  const missingStandard = SIZE_ORDER.filter((s) => !item.sizes.some(([k]) => k.toUpperCase() === s));
   const qtyOf = (s: string) => item.sizes.find(([k]) => k.toUpperCase() === s.toUpperCase())?.[1] ?? 0;
 
   /* ------------------------------ auto-repricing ------------------------------
@@ -154,6 +167,13 @@ export function OrderItemCard({
 
   const removeSize = (s: string) =>
     patchPriced((p) => ({ ...p, sizes: p.sizes.filter(([k]) => k.toUpperCase() !== s.toUpperCase()) }));
+
+  const addSizeColumn = (s: string) =>
+    patchPriced((p) =>
+      p.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase())
+        ? p
+        : { ...p, sizes: [...p.sizes, [s, 0] as [string, number]].sort(([a], [b]) => sizeRank(a) - sizeRank(b)) },
+    );
 
   /** Spot fields that move the price: the method, the colour count, the size. */
   const PRICED_SPOT_KEYS: (keyof DecorationSpot)[] = ["type", "colours", "widthIn", "heightIn"];
@@ -431,12 +451,18 @@ export function OrderItemCard({
               <div className="flex flex-wrap items-start gap-1.5">
                 {displaySizes.map((s) => {
                   const q = qtyOf(s);
-                  const onLine = item.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase());
                   return (
                     // Narrow, centred boxes: a size run is 1-3 digits per size,
-                    // wide inputs just push the run off the card.
-                    <div key={s} className="w-11">
-                      <div className="mb-1 text-center text-xs font-semibold uppercase text-dream-muted">{s}</div>
+                    // wide inputs just push the run off the card. Long custom
+                    // names ("One size") get a wider column; the label never
+                    // wraps so every input sits on the same baseline.
+                    <div key={s} className={cn(s.length > 4 ? "w-16" : "w-11")}>
+                      <div
+                        title={s}
+                        className="mb-1 h-4 truncate whitespace-nowrap text-center text-xs font-semibold uppercase leading-4 text-dream-muted"
+                      >
+                        {s}
+                      </div>
                       <Input
                         type="number"
                         inputMode="numeric"
@@ -447,26 +473,40 @@ export function OrderItemCard({
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
                         className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
-                      {/* Every size on the line can be dropped, not just the
-                          non-standard ones. Empty standard slots keep a spacer so
-                          the run stays on one baseline. */}
-                      {can.edit &&
-                        (onLine ? (
-                          <button
-                            type="button"
-                            aria-label={`Remove size ${s}`}
-                            title={`Remove size ${s}`}
-                            className="mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
-                            onClick={() => removeSize(s)}
-                          >
-                            ×
-                          </button>
-                        ) : (
-                          <div className="mt-1 h-4" aria-hidden />
-                        ))}
+                      {can.edit && (
+                        <button
+                          type="button"
+                          aria-label={`Remove size ${s}`}
+                          title={`Remove size ${s}`}
+                          tabIndex={-1}
+                          className="mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                          onClick={() => removeSize(s)}
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                   );
                 })}
+                {can.edit && missingStandard.length > 0 && (
+                  <div>
+                    <div className="mb-1 h-4" aria-hidden />
+                    <div className="flex h-9 flex-wrap items-center gap-1">
+                      {missingStandard.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => addSizeColumn(s)}
+                          title={`Add size ${s}`}
+                          tabIndex={-1}
+                          className="rounded-md border border-dashed border-dream-line px-1.5 py-1 text-[10px] font-bold uppercase leading-none text-dream-faint transition-colors hover:border-dream-purple hover:text-dream-purple"
+                        >
+                          +{s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {can.edit && (
                   <div className="w-24">
                     <div className="mb-1 text-center text-[10px] font-semibold uppercase text-dream-faint">Eg. S or M</div>
@@ -529,7 +569,18 @@ export function OrderItemCard({
             <div className="grid gap-3 sm:grid-cols-3">
               {LINE_NOTE_FIELDS.map((f) => (
                 <div key={f.key} className="space-y-1.5">
-                  <div className={LBL}>{f.label}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={LBL}>{f.label}</span>
+                    {f.customerVisible ? (
+                      <span className="rounded bg-dream-sun-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-warn">
+                        Customer sees this
+                      </span>
+                    ) : (
+                      <span className="rounded bg-dream-line px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-muted">
+                        Internal
+                      </span>
+                    )}
+                  </div>
                   <Textarea
                     rows={2}
                     value={item[f.key]}

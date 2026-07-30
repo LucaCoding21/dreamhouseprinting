@@ -6,7 +6,6 @@ import { OrderTimeline } from "./OrderTimeline";
 import { OrderItemsSection } from "./OrderItemsSection";
 import { ProofHistory } from "./ProofHistory";
 import { OrderStatusStrip } from "./OrderStatusStrip";
-import { ProductionNotes } from "./ProductionNotes";
 import { PricingCard } from "./PricingCard";
 import { CustomerCard } from "./CustomerCard";
 import { OrderReference } from "./OrderReference";
@@ -42,8 +41,6 @@ export function OrderDetailClient({
       {/* Active-work context that lives alongside the lines */}
       <ProofHistory detail={detail} />
       <OrderTimeline order={order} orderId={order.id} canEdit={can.edit} />
-      {/* Remount when the stored notes change so a save can't be clobbered by stale state. */}
-      <ProductionNotes key={JSON.stringify(order.production_notes)} order={order} canEdit={can.edit} />
 
       {/* ── Reference: status, contact, payment, totals, one-time info, kept at the bottom ── */}
       <section className="space-y-6 border-t border-dream-line pt-8">

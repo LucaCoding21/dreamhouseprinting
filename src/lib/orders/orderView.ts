@@ -192,10 +192,21 @@ const normColour = (s: string | null | undefined) => (s ?? "").trim().toLowerCas
 
 export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
   const { order, lineItems, designs, proofs, activity } = input;
-  const customerNote =
+  // Customer notes live per line (decorations.customerNotes, the field staff
+  // label "Customer notes"). Legacy orders stored one note at
+  // orders.production_notes.customer; fall back there so old orders keep it.
+  const lineNotes = [
+    ...new Set(
+      lineItems
+        .map((li) => ((((li.decorations ?? {}) as { customerNotes?: unknown }).customerNotes as string) ?? "").toString().trim())
+        .filter(Boolean),
+    ),
+  ];
+  const legacyNote =
     input.customerNote !== undefined
       ? (input.customerNote?.trim() || null)
       : customerNoteFrom(order.production_notes);
+  const customerNote = lineNotes.length > 0 ? lineNotes.join("\n\n") : legacyNote;
 
   const designsById = new Map(designs.map((d) => [d.id, d]));
   // Tracks which design_ids have already had their designed line item resolved,

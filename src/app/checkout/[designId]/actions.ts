@@ -456,10 +456,10 @@ export async function placeOrderAction(
     notes.push({ at: new Date().toISOString(), actor: "customer", text: lines.join("\n") });
   }
 
-  // The customer's own note travels to the order's customer production note,
-  // where staff read and can edit it, and where the customer sees it echoed back
-  // on their order page. Nothing else writes production_notes at creation, so
-  // the internal inventory / printer keys stay untouched (and unset).
+  // The customer's own note travels to each line's customerNotes (the one
+  // per-line note field staff label "Customer notes" and the customer sees
+  // echoed on their order page). Old orders carried it at
+  // orders.production_notes.customer; the serializer still falls back there.
   const customerNote = (snap.customerNote ?? "").trim();
 
   const { data: order, error: orderErr } = await service
@@ -483,7 +483,6 @@ export async function placeOrderAction(
       shipping_method: rushRequested ? "rush" : "standard",
       shipping_address: input.fulfillment === "ship" ? asJson(address) : null,
       customer_notes: asJson(notes),
-      ...(customerNote ? { production_notes: asJson({ customer: customerNote }) } : {}),
     })
     .select("id, order_number, public_token")
     .single();
@@ -493,7 +492,10 @@ export async function placeOrderAction(
   // unit + the same pre-filled decoration spec (measured size + colour count
   // from the designer). Setup is a single shared fee on the first line so the
   // line totals sum to the order's subtotal + setup.
-  const decorations = decorationsFromSnapshot(snap);
+  const baseDecorations = decorationsFromSnapshot(snap);
+  const decorations = customerNote
+    ? { ...(baseDecorations ?? { spots: [] }), customerNotes: customerNote }
+    : baseDecorations;
   const lineRows = colorways.map((cw, i) => ({
     order_id: order.id,
     product_id: design.product_id,

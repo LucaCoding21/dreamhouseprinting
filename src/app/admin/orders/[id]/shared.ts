@@ -83,6 +83,7 @@ export interface ItemState {
   sewnTags: boolean;
   priceConfirmed: boolean;
   productionStatus: LineProductionStatus;
+  customerNotes: string;
   productionNotes: string;
   internalNotes: string;
   shippingNotes: string;

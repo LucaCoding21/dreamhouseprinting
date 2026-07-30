@@ -17,6 +17,9 @@ export function MeasureHelpDot() {
       <button
         type="button"
         aria-label="What do width and height measure?"
+        // Mouse-only: keyboard flow must go Location, Type, Width, Height,
+        // Colours without stopping on the help dot.
+        tabIndex={-1}
         onClick={() => setOpen(true)}
         className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-dream-line text-[9px] font-bold text-dream-muted transition-colors hover:bg-dream-purple hover:text-white"
       >
