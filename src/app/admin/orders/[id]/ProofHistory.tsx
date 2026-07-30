@@ -59,7 +59,21 @@ export function ProofHistory({ detail }: { detail: Detail }) {
                   </Badge>
                   {p.change_request_comment && <p className="mt-1 text-xs text-dream-warn">“{p.change_request_comment}”</p>}
                 </div>
-                <div className="shrink-0 text-xs text-dream-faint">{relativeTime(p.created_at)}</div>
+                <div className="flex shrink-0 flex-col items-end gap-0.5">
+                  {p.image && (
+                    // New tab: the real file opens in the browser's own viewer
+                    // (PDFs included) and the order page keeps its place.
+                    <a
+                      href={p.image}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-xs font-medium text-dream-purple hover:underline"
+                    >
+                      View proof
+                    </a>
+                  )}
+                  <span className="text-xs text-dream-faint">{relativeTime(p.created_at)}</span>
+                </div>
               </div>
             ))}
           </div>

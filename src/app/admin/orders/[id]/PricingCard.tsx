@@ -63,6 +63,13 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
   const [discountLabel, setDiscountLabel] = useState<string>(stored.discountLabel ?? "");
   const [adjustments, setAdjustments] = useState<PriceAdjustment[]>(() => normalizeAdjustments(stored.adjustments));
 
+  // Save pricing greys out until something in the card actually changed. The
+  // baseline is the card's mount state (the card remounts when the stored
+  // pricing changes) and resets after a successful save.
+  const editable = JSON.stringify({ price, discountType, discountValue, discountLabel, adjustments });
+  const [savedSnap, setSavedSnap] = useState(editable);
+  const dirty = editable !== savedSnap;
+
   // Tax follows the ship-to province; pickup and unreadable provinces fall back
   // to the shop's own province rather than charging nothing.
   const taxProv = resolveTaxProvince({
@@ -282,8 +289,10 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
         {can.pricing && (
           <Button
             variant="secondary"
-            className="mt-2 w-full"
+            className="mt-2 w-full disabled:pointer-events-auto disabled:cursor-not-allowed"
             loading={pending}
+            disabled={!dirty}
+            title={dirty ? "Save the pricing changes" : "No changes to save"}
             onClick={() => {
               // Editing a paid order's pricing needs a deliberate confirm (the
               // server rejects it otherwise), a refund/top-up may be owed.
@@ -304,7 +313,8 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
                     },
                     !!order.paid_at
                   ),
-                "Pricing saved"
+                "Pricing saved",
+                () => setSavedSnap(editable)
               );
             }}
           >

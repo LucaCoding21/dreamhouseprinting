@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,8 +18,20 @@ import { ChangeProductDialog } from "./ChangeProductDialog";
 import { ReorderArrows } from "./ReorderArrows";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
-import { ProofLightbox, fileKind } from "./ProofLightbox";
-import { LBL, SIZE_ORDER, SUPPLIER_OPTIONS, itemQty, sizeRank, type Can, type ItemState, type OrderProduct } from "./shared";
+import { ProofLightbox } from "./ProofLightbox";
+import { curveForProduct } from "@/lib/pricing/quote";
+import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing";
+import {
+  LBL,
+  SIZE_ORDER,
+  SUPPLIER_OPTIONS,
+  itemQty,
+  sizeRank,
+  suggestLineUnitPrice,
+  type Can,
+  type ItemState,
+  type OrderProduct,
+} from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
 
@@ -42,6 +54,8 @@ export function OrderItemCard({
   embroideryMethod,
   can,
   setupFee,
+  pricingSettings,
+  siblingQty,
   proofsForItem,
   onPatch,
   onRemove,
@@ -63,6 +77,10 @@ export function OrderItemCard({
   embroideryMethod: string | undefined;
   can: Can;
   setupFee: number;
+  /** Admin-tuned decoration surcharges, so a reprice matches the shop's quote. */
+  pricingSettings: DecorationPricingSettings;
+  /** Pieces on the OTHER lines sharing this line's design, for combined-qty tiers. */
+  siblingQty: number;
   proofsForItem: ProofRow[];
   onPatch: (fn: (it: ItemState) => ItemState) => void;
   onRemove: () => void;
@@ -78,7 +96,6 @@ export function OrderItemCard({
 }) {
   const [newSize, setNewSize] = useState("");
   const [proofOpen, setProofOpen] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [mockupsOpen, setMockupsOpen] = useState(false);
   const [mockupPreview, setMockupPreview] = useState<{ view: string; url: string | null } | null>(null);
   const mockups = ((design?.mockup_images ?? []) as { view: string; url: string | null }[]).filter((m) => m.url);
@@ -94,8 +111,40 @@ export function OrderItemCard({
   const displaySizes = [...SIZE_ORDER, ...customSizes];
   const qtyOf = (s: string) => item.sizes.find(([k]) => k.toUpperCase() === s.toUpperCase())?.[1] ?? 0;
 
+  /* ------------------------------ auto-repricing ------------------------------
+   * Quantities, colour counts and the number of prints all move the curve price,
+   * so an edit to any of them refills the unit price from the product's customer
+   * curve. The field stays editable: typing over it drops the "auto" chip and the
+   * typed number is what saves. Nothing is recomputed on mount, so a stored
+   * (possibly hand-agreed) price is never clobbered just by opening the order.
+   */
+  const curve = useMemo(() => (product ? curveForProduct(product) : null), [product]);
+
+  /** Curve price for a line's CURRENT state (combined qty across the design's lines). */
+  const priceFor = (it: ItemState) =>
+    suggestLineUnitPrice(curve, it.spots, siblingQty + itemQty(it), pricingSettings);
+
+  /** Apply a state patch, then refill the price from the curve when it can. */
+  const patchPriced = (fn: (it: ItemState) => ItemState) =>
+    onPatch((prev) => {
+      const next = fn(prev);
+      if (!can.pricing) return next;
+      const suggestion = priceFor(next);
+      if (!suggestion) return next;
+      return {
+        ...next,
+        unitPrice: suggestion.unit.toFixed(2),
+        autoPrice: { unit: suggestion.unit, qty: suggestion.qty },
+        // The stale-price nudge from a product swap is answered by this reprice.
+        priceSuggestion: null,
+      };
+    });
+
+  /** What the curve says right now, for the one-time-fee hint under the price. */
+  const liveSuggestion = priceFor(item);
+
   const setSizeQty = (s: string, val: number) =>
-    onPatch((p) => {
+    patchPriced((p) => {
       const has = p.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase());
       const sizes: [string, number][] = has
         ? p.sizes.map(([k, v]) => (k.toUpperCase() === s.toUpperCase() ? [k, val] : [k, v]))
@@ -103,17 +152,31 @@ export function OrderItemCard({
       return { ...p, sizes };
     });
 
-  const patchSpot = (si: number, patch: Partial<DecorationSpot>) =>
-    onPatch((it) => ({ ...it, spots: it.spots.map((s, i) => (i === si ? { ...s, ...patch } : s)) }));
+  const removeSize = (s: string) =>
+    patchPriced((p) => ({ ...p, sizes: p.sizes.filter(([k]) => k.toUpperCase() !== s.toUpperCase()) }));
+
+  /** Spot fields that move the price: the method, the colour count, the size. */
+  const PRICED_SPOT_KEYS: (keyof DecorationSpot)[] = ["type", "colours", "widthIn", "heightIn"];
+
+  const patchSpot = (si: number, patch: Partial<DecorationSpot>) => {
+    const apply = (it: ItemState): ItemState => ({
+      ...it,
+      spots: it.spots.map((s, i) => (i === si ? { ...s, ...patch } : s)),
+    });
+    const priced = Object.keys(patch).some((k) => PRICED_SPOT_KEYS.includes(k as keyof DecorationSpot));
+    return priced ? patchPriced(apply) : onPatch(apply);
+  };
 
   const addSpot = (type: string) =>
-    onPatch((it) => ({
+    patchPriced((it) => ({
       ...it,
       spots: [
         ...it.spots,
         { location: "", type, widthIn: "", heightIn: "", colours: "", pantones: [], puff: false, spotProcess: false },
       ],
     }));
+
+  const removeSpot = (si: number) => patchPriced((p) => ({ ...p, spots: p.spots.filter((_, i) => i !== si) }));
 
   function addSize() {
     const s = newSize.trim().toUpperCase();
@@ -197,13 +260,16 @@ export function OrderItemCard({
                     {latestProof ? "Add new proof" : "Upload proof"}
                   </Button>
                   {latestProof?.image && (
-                    <button
-                      type="button"
-                      onClick={() => setLightboxOpen(true)}
+                    // New tab, so the real file (PDF included) opens in the
+                    // browser's own viewer and the order page stays put.
+                    <a
+                      href={latestProof.image}
+                      target="_blank"
+                      rel="noopener"
                       className="text-sm text-dream-purple hover:underline"
                     >
                       View proof
-                    </button>
+                    </a>
                   )}
                 </div>
               </div>
@@ -365,6 +431,7 @@ export function OrderItemCard({
               <div className="flex flex-wrap items-start gap-1.5">
                 {displaySizes.map((s) => {
                   const q = qtyOf(s);
+                  const onLine = item.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase());
                   return (
                     // Narrow, centred boxes: a size run is 1-3 digits per size,
                     // wide inputs just push the run off the card.
@@ -380,16 +447,23 @@ export function OrderItemCard({
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
                         className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
-                      {can.edit && !isStandard(s) && (
-                        <button
-                          type="button"
-                          aria-label={`Remove size ${s}`}
-                          className="mx-auto mt-1 block text-dream-faint hover:text-dream-danger"
-                          onClick={() => onPatch((p) => ({ ...p, sizes: p.sizes.filter(([k]) => k !== s) }))}
-                        >
-                          ×
-                        </button>
-                      )}
+                      {/* Every size on the line can be dropped, not just the
+                          non-standard ones. Empty standard slots keep a spacer so
+                          the run stays on one baseline. */}
+                      {can.edit &&
+                        (onLine ? (
+                          <button
+                            type="button"
+                            aria-label={`Remove size ${s}`}
+                            title={`Remove size ${s}`}
+                            className="mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                            onClick={() => removeSize(s)}
+                          >
+                            ×
+                          </button>
+                        ) : (
+                          <div className="mt-1 h-4" aria-hidden />
+                        ))}
                     </div>
                   );
                 })}
@@ -430,7 +504,7 @@ export function OrderItemCard({
                   methodOptions={methodOptions}
                   canEdit={can.edit}
                   onPatch={(patch) => patchSpot(si, patch)}
-                  onRemove={() => onPatch((p) => ({ ...p, spots: p.spots.filter((_, i) => i !== si) }))}
+                  onRemove={() => removeSpot(si)}
                   extraSpec={si === 0 ? finishingSpec : undefined}
                   extraSpecActive={si === 0 && (item.bagging || item.sewnTags)}
                 />
@@ -477,10 +551,28 @@ export function OrderItemCard({
               <Input
                 value={item.unitPrice}
                 disabled={!can.pricing}
-                onChange={(e) => onPatch((p) => ({ ...p, unitPrice: e.target.value }))}
+                // Typing a price by hand wins: the auto chip drops off and the
+                // number is left alone until the next pricing-relevant edit.
+                onChange={(e) => onPatch((p) => ({ ...p, unitPrice: e.target.value, autoPrice: null }))}
                 className="h-9 w-24"
               />
+              {item.autoPrice && (
+                <span
+                  title="Recalculated from this product's price tiers. Type over it to override."
+                  className="rounded-full bg-dream-lavender-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dream-purple"
+                >
+                  Auto
+                </span>
+              )}
             </div>
+            {item.autoPrice && (
+              <p className="mt-1 text-[11px] text-dream-faint">
+                Price updated for {item.autoPrice.qty} piece{item.autoPrice.qty === 1 ? "" : "s"}.
+              </p>
+            )}
+            {liveSuggestion?.setupNote && (
+              <p className="mt-1 text-[11px] text-dream-muted">{liveSuggestion.setupNote}</p>
+            )}
             <div className="mt-1 text-sm text-dream-muted">× {qty} units</div>
             <div className="mt-4 border-t border-dream-line pt-4">
               <div className="font-display text-xl font-bold text-dream-ink">{formatCAD(unit * qty + setupFee)}</div>
@@ -541,15 +633,6 @@ export function OrderItemCard({
         customerName={customerName}
         contextLabel={item.productName || undefined}
         isReplacement={!!latestProof}
-      />
-    )}
-    {latestProof?.image && (
-      <ProofLightbox
-        src={latestProof.image}
-        kind={fileKind(latestProof.image)}
-        title={`Proof: ${item.productName || "item"}`}
-        open={lightboxOpen}
-        onOpenChange={setLightboxOpen}
       />
     )}
     {mockupPreview?.url && (

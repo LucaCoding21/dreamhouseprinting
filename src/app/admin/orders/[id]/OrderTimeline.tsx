@@ -21,7 +21,9 @@ export function OrderTimeline({
 }) {
   const { pending, run } = useOrderAction();
   const [note, setNote] = useState("");
-  const [vis, setVis] = useState<"internal" | "customer">("customer");
+  // Internal by default: a customer comment emails them, so sending one has to
+  // be a deliberate pick rather than the thing that happens if you don't look.
+  const [vis, setVis] = useState<"internal" | "customer">("internal");
 
   const feed = useMemo(() => {
     const internal = ((order.internal_notes ?? []) as unknown as Note[]).map((n) => ({ ...n, vis: "internal" as const }));

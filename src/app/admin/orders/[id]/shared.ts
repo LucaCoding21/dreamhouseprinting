@@ -4,9 +4,16 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { formatCAD } from "@/lib/money";
+import { defaultDecoration, priceFromCurve } from "@/lib/pricing/quote";
+import {
+  embroiderySizeSurcharge,
+  type DecorationPricingSettings,
+} from "@/lib/pricing/decorationPricing";
 import { uploadProofsAction } from "../actions";
 import type { DecorationSpot } from "../actions";
 import type { LineProductionStatus } from "@/lib/lineProduction";
+import type { Json } from "@/lib/db/types";
 import type {
   OrderRow,
   LineItemRow,
@@ -16,6 +23,8 @@ import type {
   ProfileRow,
   OrderStatus,
   ProductColourJson,
+  ProductQuoteCurveJson,
+  QuoteDecoration,
 } from "@/lib/db/rows";
 
 export interface OrderProduct {
@@ -26,6 +35,8 @@ export interface OrderProduct {
   ss_style_id: string | null;
   /** Per-colour S&S blank images, for pulling the exact blank garment per line. */
   colours: ProductColourJson[] | null;
+  /** Customer price curve (`pricing_rules.quote`), the source for line repricing. */
+  pricing_rules: Json | null;
 }
 
 export interface Detail {
@@ -36,6 +47,8 @@ export interface Detail {
   products: OrderProduct[];
   proofs: ProofRow[];
   activity: OrderActivityRow[];
+  /** Admin-tuned decoration surcharges (settings key "decoration_pricing"). */
+  decorationPricing: DecorationPricingSettings;
 }
 
 export interface Can {
@@ -79,6 +92,12 @@ export interface ItemState {
   supplier: string;
   /** Stale-price nudge from a product swap; null once applied or dismissed. */
   priceSuggestion: { unit: number; qty: number } | null;
+  /**
+   * The unit price on this line was just recomputed from the product's curve
+   * after a pricing-relevant edit (sizes, colours, prints). Display-only, so the
+   * admin can see the number is suggested; typing over the price clears it.
+   */
+  autoPrice?: { unit: number; qty: number } | null;
 }
 
 export const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
@@ -121,6 +140,88 @@ export function relativeTime(iso: string): string {
 }
 
 export const itemQty = (it: ItemState) => it.sizes.reduce((a, [, q]) => a + (q > 0 ? q : 0), 0);
+
+/* ------------------------- line price recalculation ------------------------- */
+
+export interface LinePriceSuggestion {
+  /** Suggested per-unit price, rounded to cents. */
+  unit: number;
+  /** Quantity the tier was read at (combined across the lines sharing the design). */
+  qty: number;
+  /** Curve axis the price came off. */
+  decoration: QuoteDecoration;
+  /** One-time fees that are configured but deliberately NOT in the unit price. */
+  setupNote: string | null;
+}
+
+/** A colour count typed by hand or pre-filled by the designer ("~3", "Full colour"). */
+function spotColours(raw: string): number {
+  const n = parseInt(raw.replace(/^~/, ""), 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+/**
+ * What this line should cost per piece, off the product's customer curve:
+ *
+ *   unit = priceFromCurve(curve, { qty: combined quantity across every line on
+ *          the order sharing this design, colours: the largest colour count
+ *          across the line's prints, locations: number of prints, decoration })
+ *        + the embroidery size adder for each embroidery print
+ *
+ * Screen setup and embroidery digitizing are ONE-TIME fees, so they never touch
+ * the per-piece price; they come back as `setupNote` for the admin to add to the
+ * order's setup fees by hand. Both default to 0 (amortized into the curve), so
+ * the note normally does not appear at all.
+ *
+ * Returns null when the product has no curve, or the curve cannot price this
+ * config, in which case the stored price is left exactly as it is.
+ */
+export function suggestLineUnitPrice(
+  curve: ProductQuoteCurveJson | null,
+  spots: DecorationSpot[],
+  qty: number,
+  settings: DecorationPricingSettings,
+): LinePriceSuggestion | null {
+  if (!curve || qty <= 0) return null;
+
+  const embroiderySpots = spots.filter((s) => /embroider/i.test(s.type));
+  const decoration: QuoteDecoration =
+    embroiderySpots.length > 0 && curve.breaks.embroidery?.length
+      ? "embroidery"
+      : curve.breaks.screen?.length
+        ? "screen"
+        : defaultDecoration(curve);
+  const colours = Math.max(1, ...spots.map((s) => spotColours(s.colours)));
+  const locations = Math.max(1, spots.length);
+
+  const result = priceFromCurve(curve, { qty, colours, locations, decoration }, settings);
+  if (!result.available) return null;
+
+  const sizeAdder = embroiderySpots.reduce(
+    (sum, s) => sum + embroiderySizeSurcharge(parseFloat(s.widthIn) || 0, parseFloat(s.heightIn) || 0, settings),
+    0,
+  );
+
+  const oneTime: string[] = [];
+  if (decoration === "screen" && settings.screen.setupPerScreen > 0) {
+    const screens = colours * locations;
+    oneTime.push(
+      `${formatCAD(settings.screen.setupPerScreen * screens)} of screen setup (${screens} screen${screens === 1 ? "" : "s"})`,
+    );
+  }
+  if (decoration === "embroidery" && settings.embroidery.digitizationFee > 0) {
+    oneTime.push(`${formatCAD(settings.embroidery.digitizationFee)} of digitizing`);
+  }
+
+  return {
+    unit: Math.round((result.perUnit + sizeAdder) * 100) / 100,
+    qty,
+    decoration,
+    setupNote: oneTime.length
+      ? `${oneTime.join(" and ")} is not in this price. Add it under Setup fees if you charge it.`
+      : null,
+  };
+}
 
 /**
  * What does this order need from Julian right now? Drives the command header's

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/DropdownMenu";
@@ -13,14 +14,34 @@ import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { STATUS_META, isBackwardStatus } from "@/lib/orderStatus";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/db/rows";
-import { setOrderStatusAction, addOrderNoteAction, sendInvoiceAction, setTrackingAction } from "../actions";
+import {
+  setOrderStatusAction,
+  sendForApprovalAction,
+  addOrderNoteAction,
+  sendInvoiceAction,
+  setTrackingAction,
+} from "../actions";
 import { EtransferVerify } from "./EtransferVerify";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { OrderTopSummary } from "./OrderTopSummary";
 import { StatusChangeConfirm } from "./StatusChangeConfirm";
-import { fmtDay, nextAction, useOrderAction, type Can, type Detail } from "./shared";
+import { fmtDay, relativeTime, nextAction, useOrderAction, type Can, type Detail } from "./shared";
 
 const PRE_APPROVAL = new Set<string>(["draft", "submitted", "in_review", "proof_ready", "changes_requested"]);
+
+/**
+ * Activity that means the ORDER changed, so a proof already with the customer is
+ * now out of date. "order_edited" is the generic marker; the rest are the
+ * specific edit logs the order actions write today.
+ */
+const EDIT_ACTIVITY = new Set<string>([
+  "order_edited",
+  "proof_uploaded",
+  "items_updated",
+  "item_removed",
+  "product_changed",
+  "price_edit",
+]);
 
 export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; who: string }) {
   const { order } = detail;
@@ -36,6 +57,8 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
 
   const [jumpOpen, setJumpOpen] = useState(false);
   const [sendConfirm, setSendConfirm] = useState(false);
+  /** "Send for approval" with no customer email; Julian passes the link on himself. */
+  const [sendSilent, setSendSilent] = useState(false);
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
   const [approveConfirm, setApproveConfirm] = useState(false);
   const [approveReason, setApproveReason] = useState("");
@@ -70,6 +93,46 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
   const latestChange = detail.proofs
     .filter((p) => p.status === "changes_requested" && p.change_request_comment)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+  // When did the customer last get this order for approval, and has it been
+  // edited since? Sends are either the move to proof_ready or an explicit
+  // (re)send logged as approval_sent.
+  const { lastSentAt, lastEditAt } = useMemo(() => {
+    let sent: string | null = null;
+    let edit: string | null = null;
+    for (const a of detail.activity) {
+      const to = (a.detail as { to?: string } | null)?.to;
+      const isSend = a.type === "approval_sent" || (a.type === "status_change" && to === "proof_ready");
+      if (isSend && (!sent || a.created_at > sent)) sent = a.created_at;
+      if (EDIT_ACTIVITY.has(a.type) && (!edit || a.created_at > edit)) edit = a.created_at;
+    }
+    return { lastSentAt: sent, lastEditAt: edit };
+  }, [detail.activity]);
+
+  // The customer is looking at a stale version: flag it hard at the top of the
+  // page. Only while the order is still open for approval, and only with a proof
+  // on file to send. changes_requested doesn't need the banner, its hero action
+  // already IS "Send for approval".
+  const changedSinceSend =
+    status === "proof_ready" && pendingProofs > 0 && !!lastSentAt && !!lastEditAt && lastEditAt > lastSentAt;
+  const alreadySent = status === "proof_ready";
+
+  function openSend(silent: boolean) {
+    setSendSilent(silent);
+    setSendConfirm(true);
+  }
+
+  function sendForApproval() {
+    const silent = sendSilent;
+    run(
+      () => sendForApprovalAction(order.id, { silent }),
+      silent ? "Order updated, no email sent" : alreadySent ? "Sent to the customer again" : "Sent to customer for approval",
+      () => {
+        setSendConfirm(false);
+        setSendSilent(false);
+      },
+    );
+  }
 
   function applyStatusMove(target: OrderStatus, confirmed = false) {
     run(() => setOrderStatusAction(order.id, target, confirmed), "Status updated", () => {
@@ -193,9 +256,30 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         </div>
       )}
 
-      {/* Row 3, hero action */}
+      {/* Row 3, hero action (with the stale-proof callout above it when it applies) */}
       {can.edit && (
-        <div className="border-t border-dream-line pt-5">{renderHero()}</div>
+        <div className="border-t border-dream-line pt-5">
+          {changedSinceSend && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-dream-warn/40 bg-dream-warn-soft px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-dream-warn">Order changed since it was sent for approval</p>
+                <p className="mt-0.5 text-sm text-dream-warn">
+                  {who} is looking at the old version. Last edit {relativeTime(lastEditAt!)}, last sent{" "}
+                  {relativeTime(lastSentAt!)}.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="primary" onClick={() => openSend(false)}>
+                  Send for approval
+                </Button>
+                <Button variant="ghost" onClick={() => openSend(true)}>
+                  Send without email
+                </Button>
+              </div>
+            </div>
+          )}
+          {renderHero()}
+        </div>
       )}
 
       <ProofReviewDialog
@@ -207,19 +291,44 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         isReplacement={status === "changes_requested" || status === "proof_ready"}
       />
 
-      {/* Send-for-approval confirm: the one moment the customer gets emailed. */}
-      <Dialog open={sendConfirm} onOpenChange={setSendConfirm}>
+      {/* Send-for-approval confirm: the one moment the customer gets emailed,
+          unless the silent box is ticked. Shared by the first send and every re-send. */}
+      <Dialog
+        open={sendConfirm}
+        onOpenChange={(o) => {
+          setSendConfirm(o);
+          if (!o) setSendSilent(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send this order for approval?</DialogTitle>
+            <DialogTitle>{alreadySent ? "Send this order for approval again?" : "Send this order for approval?"}</DialogTitle>
             <DialogDescription>
-              {who} gets one email with {pendingProofs === 1 ? "the proof" : `all ${pendingProofs} proofs`} and is asked to
-              approve and pay {total > 0 ? formatCAD(total) : ""} in one step. Make sure every line is checked and finalized
-              first.
+              {sendSilent ? (
+                <>
+                  Nothing is emailed. The order stays open for approval with{" "}
+                  {pendingProofs === 1 ? "the proof" : `all ${pendingProofs} proofs`} on it, so you can send {who} the order
+                  link yourself.
+                </>
+              ) : (
+                <>
+                  {who} gets one email with {pendingProofs === 1 ? "the proof" : `all ${pendingProofs} proofs`} and is asked
+                  to approve and pay {total > 0 ? formatCAD(total) : ""} in one step. Make sure every line is checked and
+                  finalized first.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
-          {total <= 0 && (
-            <p className="mx-5 rounded-lg border border-dream-warn/30 bg-dream-warn-soft px-3 py-2 text-xs text-dream-warn">
+          <div className="px-5">
+            <Checkbox
+              id="send-silent"
+              checked={sendSilent}
+              onChange={(e) => setSendSilent(e.target.checked)}
+              label="Don't email the customer, I'll send them the link"
+            />
+          </div>
+          {!sendSilent && total <= 0 && (
+            <p className="mx-5 mt-3 rounded-lg border border-dream-warn/30 bg-dream-warn-soft px-3 py-2 text-xs text-dream-warn">
               This order has no total yet. The customer can approve but not pay, so set the pricing before sending.
             </p>
           )}
@@ -227,16 +336,8 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             <Button variant="ghost" onClick={() => setSendConfirm(false)}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              loading={pending}
-              onClick={() =>
-                run(() => setOrderStatusAction(order.id, "proof_ready"), "Sent to customer for approval", () =>
-                  setSendConfirm(false),
-                )
-              }
-            >
-              Send for approval
+            <Button variant="primary" loading={pending} onClick={sendForApproval}>
+              {sendSilent ? "Send without email" : alreadySent ? "Send again" : "Send for approval"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -394,11 +495,8 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
           <div className="flex flex-wrap items-center gap-4">
             {pendingProofs > 0 ? (
               <>
-                <Button variant="primary" size="lg" loading={pending} onClick={() => setSendConfirm(true)} className="min-w-48">
+                <Button variant="primary" size="lg" loading={pending} onClick={() => openSend(false)} className="min-w-48">
                   Send for approval
-                </Button>
-                <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
-                  Upload another proof
                 </Button>
                 <p className="text-sm text-dream-muted">
                   {pendingProofs === 1 ? "1 proof is" : `${pendingProofs} proofs are`} on the order, nothing emailed yet
@@ -427,6 +525,12 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             </Badge>
             <p className="text-sm text-dream-muted">They&rsquo;ll be asked to pay the current total the moment they approve</p>
             <div className="ml-auto flex flex-wrap gap-2">
+              {/* The banner above already offers this when the order changed. */}
+              {!changedSinceSend && pendingProofs > 0 && (
+                <Button variant="secondary" onClick={() => openSend(false)}>
+                  Send for approval again
+                </Button>
+              )}
               <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
                 Upload new proof
               </Button>
@@ -446,11 +550,8 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             )}
             {pendingProofs > 0 ? (
               <div className="flex flex-wrap items-center gap-4">
-                <Button variant="primary" size="lg" loading={pending} onClick={() => setSendConfirm(true)} className="min-w-48">
+                <Button variant="primary" size="lg" loading={pending} onClick={() => openSend(false)} className="min-w-48">
                   Send for approval
-                </Button>
-                <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
-                  Upload another proof
                 </Button>
                 <p className="text-sm text-dream-muted">
                   {pendingProofs === 1 ? "1 new proof is" : `${pendingProofs} new proofs are`} on the order, nothing emailed yet

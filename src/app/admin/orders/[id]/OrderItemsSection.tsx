@@ -8,6 +8,7 @@ import { OrderItemCard } from "./OrderItemCard";
 import { CompactItemRow } from "./CompactItemRow";
 import {
   capitalize,
+  itemQty,
   sizeRank,
   useOrderAction,
   type Can,
@@ -168,6 +169,24 @@ export function OrderItemsSection({
     );
   }
 
+  // Curve tiers price on the COMBINED quantity of every line that shares a
+  // design (a two-colourway job of 15 + 15 pieces is priced as 30), which is how
+  // the designer priced it at placement. Lines with no design price on their own
+  // quantity. Read off the LIVE item state so an edit on one colourway is
+  // reflected the moment its sibling is repriced.
+  const designIdByItem = useMemo(
+    () => new Map(detail.lineItems.map((li) => [li.id, li.design_id])),
+    [detail.lineItems],
+  );
+  const siblingQty = (id: string) => {
+    const designId = designIdByItem.get(id) ?? null;
+    if (!designId) return 0;
+    return items.reduce(
+      (sum, other) => (other.id !== id && designIdByItem.get(other.id) === designId ? sum + itemQty(other) : sum),
+      0,
+    );
+  };
+
   const proofsByItem = useMemo(() => {
     const m = new Map<string, Detail["proofs"]>();
     for (const p of detail.proofs) {
@@ -227,7 +246,16 @@ export function OrderItemsSection({
               </Button>
             </>
           )}
-          <Button variant="primary" disabled={!can.edit || !itemsDirty} loading={pending} onClick={saveItems}>
+          {/* Greyed out until something actually changed. pointer-events stay on
+              so the disabled state reads as not-allowed instead of dead. */}
+          <Button
+            variant="primary"
+            disabled={!can.edit || !itemsDirty}
+            loading={pending}
+            title={itemsDirty ? "Save the line edits" : "No changes to save"}
+            className="disabled:pointer-events-auto disabled:cursor-not-allowed"
+            onClick={saveItems}
+          >
             Save changes
           </Button>
         </div>
@@ -274,6 +302,8 @@ export function OrderItemsSection({
                 embroideryMethod={embroideryMethod}
                 can={can}
                 setupFee={setupById.get(it.id) ?? 0}
+                pricingSettings={detail.decorationPricing}
+                siblingQty={siblingQty(it.id)}
                 proofsForItem={proofsByItem.get(it.id) ?? []}
                 onPatch={(fn) => patchItem(it.id, fn)}
                 onRemove={() => removeItem(it.id)}

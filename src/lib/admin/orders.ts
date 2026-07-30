@@ -91,7 +91,10 @@ export async function getAdminOrders(): Promise<AdminOrderListItem[]> {
 }
 
 /** The S&S source fields a line item's garment resolves to (for reordering blanks). */
-export type OrderProduct = Pick<ProductRow, "id" | "name" | "brand" | "ss_style_name" | "ss_style_id"> & {
+export type OrderProduct = Pick<
+  ProductRow,
+  "id" | "name" | "brand" | "ss_style_name" | "ss_style_id" | "pricing_rules"
+> & {
   /** Per-colour S&S CDN blank images, so admin can pull the exact blank garment for a line. */
   colours: ProductColourJson[] | null;
 };
@@ -131,7 +134,12 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
       ? supabase.from("designs").select("*").in("id", designIds)
       : Promise.resolve({ data: [] }),
     productIds.length
-      ? supabase.from("products").select("id, name, brand, ss_style_name, ss_style_id, colours").in("id", productIds)
+      ? // pricing_rules carries the customer price curve, which the order editor
+        // reprices lines from when sizes / colours / prints change.
+        supabase
+          .from("products")
+          .select("id, name, brand, ss_style_name, ss_style_id, colours, pricing_rules")
+          .in("id", productIds)
       : Promise.resolve({ data: [] }),
   ]);
   const designs = (designsRes.data ?? []) as DesignRow[];

@@ -120,6 +120,8 @@ const ACTIVITY_META: Record<string, { label: string; tone: string; icon: string 
   details_updated: { label: "Details updated", tone: "bg-dream-line text-dream-muted", icon: "pencil" },
   items_updated: { label: "Items updated", tone: "bg-dream-line text-dream-muted", icon: "tag" },
   item_removed: { label: "Item removed", tone: "bg-dream-danger-soft text-dream-danger", icon: "pencil" },
+  order_edited: { label: "Order edited", tone: "bg-dream-line text-dream-muted", icon: "pencil" },
+  approval_sent: { label: "Sent for approval", tone: "bg-dream-info-soft text-dream-info", icon: "send" },
 };
 
 function ActivityIcon({ name }: { name: string }) {

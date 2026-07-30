@@ -58,12 +58,17 @@ function revalidateOrder(id: string) {
   revalidatePath("/account");
 }
 
-/** Apply a status transition: update, clear stale hold note, log, email. Returns an error string or null. */
+/**
+ * Apply a status transition: update, clear stale hold note, log, email. Returns
+ * an error string or null. `silent` does everything except the customer email
+ * (Julian sometimes sends the link himself).
+ */
 async function applyStatus(
   service: ReturnType<typeof requireSupabaseServiceClient>,
   orderId: string,
   status: OrderStatus,
-  prevStatus: string | null | undefined
+  prevStatus: string | null | undefined,
+  options: { silent?: boolean } = {}
 ): Promise<string | null> {
   const patch: OrderUpdate = { status };
   // Leaving a hold clears its note.
@@ -77,7 +82,7 @@ async function applyStatus(
   const backwards = isBackwardStatus(prevStatus, status);
   await logActivity(service, orderId, "status_change", { from: prevStatus, to: status, backwards });
   if (backwards) await logActivity(service, orderId, "status_reverted", { from: prevStatus, to: status });
-  await sendOrderStatusEmail(orderId, status);
+  if (!options.silent) await sendOrderStatusEmail(orderId, status);
   return null;
 }
 
@@ -85,7 +90,9 @@ export async function setOrderStatusAction(
   orderId: string,
   status: OrderStatus,
   /** Required to cancel a PAID order (a refund may be owed), the UI confirms first. */
-  confirmed = false
+  confirmed = false,
+  /** `silent`: change everything and log it, but send the customer no email. */
+  options: { silent?: boolean } = {}
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
@@ -110,7 +117,7 @@ export async function setOrderStatusAction(
     return { error: "This order is already paid. Confirm the cancellation, a refund may be owed." };
   }
 
-  const err = await applyStatus(service, orderId, status, prev?.status);
+  const err = await applyStatus(service, orderId, status, prev?.status, { silent: options.silent });
   if (err) return { error: err };
 
   // Cancelling kills any open payment link so a stale Stripe tab can't complete.
@@ -120,6 +127,52 @@ export async function setOrderStatusAction(
 
   revalidateOrder(orderId);
   return { ok: true };
+}
+
+/**
+ * Put the order in front of the customer for approval, the first time or again
+ * after an edit. When the order is already Proof ready the status can't move,
+ * so this re-fires the same approval email; from anywhere else it is the normal
+ * move to proof_ready. `silent` does everything (status, activity, revalidate)
+ * except the email, for when Julian sends the customer the link himself.
+ */
+export async function sendForApprovalAction(
+  orderId: string,
+  options: { silent?: boolean } = {}
+): Promise<{ ok?: boolean; error?: string; resent?: boolean }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  const silent = options.silent === true;
+
+  const { data: prev } = await service.from("orders").select("status").eq("id", orderId).single();
+  if (!prev) return { error: "Order not found." };
+  if (prev.status === "cancelled") {
+    return { error: "This order was cancelled, reopen it before sending it for approval." };
+  }
+
+  // No proof waiting means nothing to review, don't ask for an approval on air.
+  const { count } = await service
+    .from("proofs")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderId)
+    .eq("status", "pending");
+  if (!count) return { error: "Upload a proof before sending this order for approval." };
+
+  const resent = prev.status === "proof_ready";
+  if (resent) {
+    if (!silent) await sendOrderStatusEmail(orderId, "proof_ready");
+  } else {
+    const err = await applyStatus(service, orderId, "proof_ready", prev.status, { silent });
+    if (err) return { error: err };
+  }
+
+  // approval_sent is admin-only (deliberately NOT in the customer-visible
+  // activity allowlist). It is also the marker the "changed since you sent it"
+  // banner compares later edits against.
+  await logActivity(service, orderId, "approval_sent", { again: resent, silent, emailed: !silent });
+
+  revalidateOrder(orderId);
+  return { ok: true, resent };
 }
 
 /** Statuses from which saving a tracking number auto-advances a ship order to "shipped". */
@@ -341,7 +394,7 @@ export async function updateOrderPricingAction(
 
   const { error } = await service.from("orders").update({ pricing: asJson(next) }).eq("id", orderId);
   if (error) return { error: error.message };
-  await logActivity(service, orderId, "price_edit", { total });
+  await logActivity(service, orderId, "order_edited", { message: "Pricing updated", total });
   revalidateOrder(orderId);
   return { ok: true };
 }
@@ -567,10 +620,25 @@ export async function updateLineItemsAction(
     if (error) return { error: error.message };
   }
 
+  // Saving lines always resyncs the order totals, so the Pricing card and the
+  // customer's invoice follow the new quantities/prices without a second save.
   const pricing = await syncOrderPricing(service, orderId);
-  await logActivity(service, orderId, "items_updated", { count: items.length, total: pricing.total });
+  await logActivity(service, orderId, "order_edited", {
+    message: editedLinesMessage(items),
+    count: items.length,
+    total: pricing.total,
+  });
   revalidateOrder(orderId);
   return { ok: true };
+}
+
+/** "Line updated: Jersey Tee" for the admin activity log. */
+function editedLinesMessage(items: LineItemPatch[]): string {
+  const names = items.map((i) => i.productName.trim()).filter(Boolean);
+  if (names.length === 0) return `${items.length} line${items.length === 1 ? "" : "s"} updated`;
+  if (names.length === 1) return `Line updated: ${names[0]}`;
+  const shown = names.slice(0, 3).join(", ");
+  return `Lines updated: ${shown}${names.length > 3 ? ` and ${names.length - 3} more` : ""}`;
 }
 
 export async function deleteLineItemAction(
@@ -886,6 +954,7 @@ export async function updateProductionNotesAction(
   };
   const { error } = await service.from("orders").update({ production_notes: asJson(clean) }).eq("id", orderId);
   if (error) return { error: error.message };
+  await logActivity(service, orderId, "order_edited", { message: "Production notes updated" });
   revalidateOrder(orderId);
   return { ok: true };
 }

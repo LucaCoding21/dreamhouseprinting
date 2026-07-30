@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -33,6 +33,31 @@ export function DecorationSpotRow({
   const hasAdvanced = spot.puff || spot.spotProcess || !!extraSpecActive;
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
 
+  // Typing a spec is Width, Height, Colours, in that order. The "?" help dots
+  // and the Pantone buttons sit between those inputs in the DOM, so the jump is
+  // wired explicitly and everything in between is mouse-only (tabIndex -1).
+  const widthRef = useRef<HTMLInputElement>(null);
+  const heightRef = useRef<HTMLInputElement>(null);
+  const coloursRef = useRef<HTMLInputElement>(null);
+
+  function tabTo(e: KeyboardEvent<HTMLInputElement>, forward: HTMLInputElement | null, back: HTMLInputElement | null) {
+    if (e.key !== "Tab") return;
+    const target = e.shiftKey ? back : forward;
+    if (!target) return;
+    e.preventDefault();
+    target.focus();
+    target.select();
+  }
+
+  /** Colour counts are 1 to 8 screens/threads; words like "Full colour" step from 1. */
+  const stepColours = (delta: number) => {
+    const n = parseInt(spot.colours.replace(/^~/, ""), 10);
+    const from = Number.isFinite(n) && n > 0 ? n : delta > 0 ? 0 : 2;
+    onPatch({ colours: String(Math.min(8, Math.max(1, from + delta))) });
+  };
+  const colourCount = parseInt(spot.colours.replace(/^~/, ""), 10);
+  const numericColours = Number.isFinite(colourCount) ? colourCount : null;
+
   return (
     <div className="space-y-3 rounded-lg border border-dream-line p-3">
       <div className="flex flex-wrap items-end gap-3">
@@ -61,11 +86,13 @@ export function DecorationSpotRow({
           </div>
           <div className="flex items-center gap-1">
             <Input
+              ref={widthRef}
               value={spot.widthIn}
               inputMode="decimal"
               maxLength={7}
               disabled={!canEdit}
               onChange={(e) => onPatch({ widthIn: e.target.value })}
+              onKeyDown={(e) => tabTo(e, heightRef.current, null)}
               className="min-w-0 flex-1 px-1.5 text-center"
             />
             <span className="text-xs text-dream-muted">in</span>
@@ -78,29 +105,42 @@ export function DecorationSpotRow({
           </div>
           <div className="flex items-center gap-1">
             <Input
+              ref={heightRef}
               value={spot.heightIn}
               inputMode="decimal"
               maxLength={7}
               disabled={!canEdit}
               onChange={(e) => onPatch({ heightIn: e.target.value })}
+              onKeyDown={(e) => tabTo(e, coloursRef.current, widthRef.current)}
               className="min-w-0 flex-1 px-1.5 text-center"
             />
             <span className="text-xs text-dream-muted">in</span>
           </div>
         </div>
-        <div className="w-[4.5rem]">
+        <div className="w-[5.75rem]">
           <div className={cn(LBL, "mb-1")}># Colours</div>
           {/* A count, so two characters is the ceiling. The designer can also
-              pre-fill a word ("Full colour"), which stays editable in full. */}
-          <Input
-            value={spot.colours}
-            inputMode="numeric"
-            maxLength={/^~?\d*$/.test(spot.colours) ? 3 : undefined}
-            title={spot.colours || undefined}
-            disabled={!canEdit}
-            onChange={(e) => onPatch({ colours: e.target.value })}
-            className="px-1.5 text-center"
-          />
+              pre-fill a word ("Full colour"), which stays editable in full. The
+              steppers are for the common case: nudging 1 to 8 without typing. */}
+          <div className="flex items-center gap-1">
+            <Input
+              ref={coloursRef}
+              value={spot.colours}
+              inputMode="numeric"
+              maxLength={/^~?\d*$/.test(spot.colours) ? 3 : undefined}
+              title={spot.colours || undefined}
+              disabled={!canEdit}
+              onChange={(e) => onPatch({ colours: e.target.value })}
+              onKeyDown={(e) => tabTo(e, null, heightRef.current)}
+              className="min-w-0 flex-1 px-1.5 text-center"
+            />
+            {canEdit && (
+              <span className="flex shrink-0 flex-col">
+                <ColourStep dir="up" disabled={numericColours !== null && numericColours >= 8} onClick={() => stepColours(1)} />
+                <ColourStep dir="down" disabled={numericColours !== null && numericColours <= 1} onClick={() => stepColours(-1)} />
+              </span>
+            )}
+          </div>
         </div>
         {/* Pantones live on the main row (used constantly), not in Advanced spec. */}
         <div className="max-w-md">
@@ -119,6 +159,8 @@ export function DecorationSpotRow({
                   <button
                     type="button"
                     aria-label="Remove Pantone colour"
+                    // Mouse-only, so Tab runs Width, Height, Colours.
+                    tabIndex={-1}
                     className="px-0.5 text-dream-faint hover:text-dream-danger"
                     onClick={() => onPatch({ pantones: spot.pantones.filter((_, i) => i !== pi) })}
                   >
@@ -130,6 +172,7 @@ export function DecorationSpotRow({
             {canEdit && (
               <button
                 type="button"
+                tabIndex={-1}
                 className="whitespace-nowrap text-sm text-dream-purple hover:underline"
                 onClick={() => onPatch({ pantones: [...spot.pantones, ""] })}
               >
@@ -143,6 +186,7 @@ export function DecorationSpotRow({
           <button
             type="button"
             aria-label={`Remove decoration ${index + 1}`}
+            tabIndex={-1}
             className="mb-2 ml-auto rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
             onClick={onRemove}
           >
@@ -189,5 +233,36 @@ export function DecorationSpotRow({
         )}
       </div>
     </div>
+  );
+}
+
+/** Half-height chevron button, stacked into a compact spinner beside # Colours. */
+function ColourStep({
+  dir,
+  disabled,
+  onClick,
+}: {
+  dir: "up" | "down";
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      tabIndex={-1}
+      aria-label={dir === "up" ? "One more colour" : "One less colour"}
+      title={dir === "up" ? "One more colour" : "One less colour"}
+      onClick={onClick}
+      className={cn(
+        "flex h-[18px] w-5 items-center justify-center border border-dream-line bg-white text-dream-muted transition-colors",
+        dir === "up" ? "rounded-t-md" : "-mt-px rounded-b-md",
+        disabled ? "cursor-not-allowed opacity-40" : "hover:border-dream-purple hover:text-dream-purple",
+      )}
+    >
+      <svg viewBox="0 0 16 16" fill="none" className={cn("h-3 w-3", dir === "down" && "rotate-180")} aria-hidden>
+        <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   );
 }

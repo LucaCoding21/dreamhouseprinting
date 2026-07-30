@@ -4,6 +4,11 @@ import {
   EXTRA_LOCATION_SURCHARGE,
   MAX_LOCATIONS,
 } from "@/lib/pricing";
+import {
+  extraLocationSurcharge,
+  screenColourSurcharge,
+  type DecorationPricingSettings,
+} from "@/lib/pricing/decorationPricing";
 import { garmentRetailUnit, type PricingInput } from "@/lib/pricing/platform";
 import type {
   ProductQuoteCurveJson,
@@ -65,7 +70,9 @@ export function defaultDecoration(curve: ProductQuoteCurveJson): QuoteDecoration
 
 export function priceFromCurve(
   curve: ProductQuoteCurveJson,
-  input: QuoteInput
+  input: QuoteInput,
+  /** Admin-tuned surcharges (settings key "decoration_pricing"). Omitted = the historical hardcoded tables. */
+  settings?: DecorationPricingSettings
 ): QuoteResult {
   const { qty, colours, locations, decoration } = input;
   const breaks = curve.breaks[decoration];
@@ -78,12 +85,17 @@ export function priceFromCurve(
     const base = priceAtQty(rows, q);
     const colourSurcharge =
       decoration === "screen"
-        ? EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colours, 1), 5)] ?? 0
+        ? settings
+          ? screenColourSurcharge(colours, settings)
+          : EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colours, 1), 5)] ?? 0
         : 0;
     const extraLocations = Math.max(0, Math.min(locations, MAX_LOCATIONS) - 1);
     const locationSurcharge =
       extraLocations > 0
-        ? extraLocations * priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], q)
+        ? extraLocations *
+          (settings
+            ? extraLocationSurcharge(decoration, q, settings)
+            : priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], q))
         : 0;
     return base + colourSurcharge + locationSurcharge;
   };
