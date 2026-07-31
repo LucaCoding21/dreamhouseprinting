@@ -182,7 +182,7 @@ export interface OrderViewSerialized {
 }
 
 /** The design's first mockup URL, front view preferred when the view is identifiable. */
-function designMockup(design: DesignRow): string | null {
+export function designMockup(design: DesignRow): string | null {
   const mockups = (design.mockup_images ?? []) as { view?: string; url?: string | null }[];
   const front = mockups.find((m) => m.url && /front/i.test(m.view ?? ""));
   return front?.url ?? mockups.find((m) => m.url)?.url ?? null;

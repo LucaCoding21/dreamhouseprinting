@@ -119,22 +119,29 @@ export function CartClient({
         return;
       }
       clearCart();
-      // One order: go straight to its public order page, which renders for
-      // guests and signed-in customers alike, so the customer lands on the thing
-      // they just created instead of a confirmation interstitial.
-      const only = res.placed.length === 1 ? res.placed[0] : null;
-      if (only?.publicToken) {
-        router.push(`/o/${only.publicToken}`);
+      // Land on the real order, never on a confirmation interstitial. The public
+      // order page renders for guests and signed-in customers alike, so the
+      // customer arrives at the thing they just created.
+      //
+      // A multi-design cart still places one order per design, so the extras ride
+      // along as `?also=` tokens and the order page banners them. The page
+      // resolves each token against the database, so only tokens go in the URL.
+      const first = res.placed[0];
+      if (first?.publicToken) {
+        const rest = res.placed
+          .slice(1)
+          .map((p) => p.publicToken)
+          .filter(Boolean);
+        const suffix = rest.length ? `?also=${rest.join(",")}` : "";
+        router.push(`/o/${first.publicToken}${suffix}`);
         return;
       }
-      // Several orders (or no token to link to): the branded confirmation page
-      // lists them. Carry EVERY placed order as an
-      // `orderNumber:publicToken:orderId` triple (comma-separated in `orders`)
-      // so the done page can link each one. `order` keeps the first number for
-      // back-compat.
+      // No token to link to (shouldn't happen: the DB trigger mints one). Fall
+      // back to the branded confirmation page, which lists every placed order as
+      // an `orderNumber:publicToken:orderId` triple in `orders`. `order` keeps
+      // the first number for back-compat.
       const params = new URLSearchParams();
-      const first = res.placed[0]?.orderNumber;
-      if (first) params.set("order", first);
+      if (first?.orderNumber) params.set("order", first.orderNumber);
       const triples = res.placed
         .filter((p) => p.orderNumber)
         .map((p) => `${p.orderNumber}:${p.publicToken ?? ""}:${p.orderId ?? ""}`);
