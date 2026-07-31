@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getProfile, getUser } from "@/lib/auth";
+import { getProfile, getUser, isStaff } from "@/lib/auth";
 import { claimGuestRecords } from "@/lib/claim";
 import { PortalSidebar } from "@/components/portal/PortalSidebar";
 import { PortalTopbar } from "@/components/portal/PortalTopbar";
@@ -10,6 +10,12 @@ export const metadata = { title: "My Account | Dreamhouse Printing" };
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
   if (!profile) redirect("/login?next=/account");
+
+  // Staff have no customer portal, see accountHomePath. This is the one
+  // chokepoint every /account route passes through, so it catches the nav icon,
+  // login redirects, bookmarks and old email links alike. It runs before any
+  // portal data is fetched or rendered, so there is no flash of the wrong UI.
+  if (isStaff(profile)) redirect("/admin");
 
   // Self-heal: attach any guest orders/designs missed by the auth-time claim.
   // Cheap idempotent UPDATEs scoped to still-unclaimed rows. Email is taken from

@@ -45,8 +45,22 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   return data ?? null;
 });
 
-export function isStaff(profile: Profile | null): boolean {
+/** Just the role, so callers that selected only that column can pass it. */
+export type RoleOnly = Pick<Profile, "role">;
+
+export function isStaff(profile: RoleOnly | null): boolean {
   return profile?.role === "staff" || profile?.role === "staff_admin";
+}
+
+/**
+ * Where "my account" lives for a given user. Staff do not get a customer
+ * portal: the shop IS their job, so the admin is their account. Anything that
+ * would drop a signed-in person into /account routes through here instead of
+ * hardcoding the path, and the /account layout enforces it as a backstop for
+ * bookmarks and email links.
+ */
+export function accountHomePath(profile: RoleOnly | null): string {
+  return isStaff(profile) ? "/admin" : "/account";
 }
 
 export function hasPermission(profile: Profile | null, flag: StaffPermission): boolean {

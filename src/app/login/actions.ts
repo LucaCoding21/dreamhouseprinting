@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { claimGuestRecords } from "@/lib/claim";
+import { accountHomePath, type RoleOnly } from "@/lib/auth";
 
 export interface AuthState {
   error?: string;
@@ -22,11 +23,31 @@ async function requestOrigin(): Promise<string> {
   return host ? `${proto}://${host}` : "";
 }
 
+/** The path we send a user to when they didn't ask for anywhere in particular. */
+const DEFAULT_NEXT = "/account";
+
 function safeNext(next: FormDataEntryValue | null): string {
   const n = typeof next === "string" ? next : "";
   // Only allow same-site relative paths. Reject protocol-relative ("//host") and
   // any backslash, which browsers normalise to "/" ("/\evil.com" -> "//evil.com").
-  return n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : "/account";
+  return n.startsWith("/") && !n.startsWith("//") && !n.includes("\\") ? n : DEFAULT_NEXT;
+}
+
+/**
+ * Resolve where to land after authenticating. A `next` the user actually asked
+ * for always wins (they clicked a link to get here); only the default is
+ * re-pointed, so staff land in the admin instead of a portal they don't have.
+ *
+ * The role is read against the id we just authenticated rather than through
+ * getProfile(), so it does not depend on the fresh session cookie being
+ * readable again within this same request. Any failure falls back to the
+ * customer default, and the /account layout still redirects staff on arrival.
+ */
+async function landingPath(next: string, userId: string): Promise<string> {
+  if (next !== DEFAULT_NEXT) return next;
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();
+  return accountHomePath(data as RoleOnly | null);
 }
 
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -43,7 +64,7 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   // Attach any guest orders/designs left under this now-verified email.
   if (data.user?.email) await claimGuestRecords(data.user.id, data.user.email);
 
-  redirect(next);
+  redirect(data.user ? await landingPath(next, data.user.id) : next);
 }
 
 export async function signUpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
