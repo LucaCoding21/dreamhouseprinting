@@ -49,6 +49,14 @@ export function OrderItemsSection({
   const productById = useMemo(() => new Map(detail.products.map((p) => [p.id, p])), [detail.products]);
   const methodOptions = Object.values(methodNames);
   const embroideryMethod = methodOptions.find((m) => /embroider/i.test(m));
+  // "Add print" used to pass methodOptions[0], i.e. whatever decoration method
+  // happened to sort first by display_order. That is Embroidery, so the button
+  // added an embroidery spot: it priced the line on the embroidery curve and
+  // made ink colours free. Look the method up by name, like embroidery does.
+  const printMethod =
+    methodOptions.find((m) => /screen/i.test(m)) ??
+    methodOptions.find((m) => !/embroider/i.test(m)) ??
+    methodOptions[0];
 
   const initItems = (): ItemState[] => {
     // Honour the saved manual queue order; legacy lines fall back to insertion order.
@@ -302,6 +310,7 @@ export function OrderItemsSection({
                 orderNumber={order.order_number}
                 methodOptions={methodOptions}
                 embroideryMethod={embroideryMethod}
+                printMethod={printMethod}
                 can={can}
                 setupFee={setupById.get(it.id) ?? 0}
                 pricingSettings={detail.decorationPricing}

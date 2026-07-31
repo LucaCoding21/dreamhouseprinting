@@ -10,6 +10,7 @@ import { ssImageUrl } from "@/lib/ss/client";
 import type { Json, Database } from "@/lib/db/types";
 import type { PricingProfileRow, ProductRow } from "@/lib/db/rows";
 import { buildProductPricingRules } from "@/lib/admin/pricing";
+import { pickProfileForStyle, hasQuoteCurve } from "@/lib/admin/priceListMatch";
 
 type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
 
@@ -67,6 +68,18 @@ export async function importStyleAction(styleId: number): Promise<{ productId?: 
   try {
     const draft = await buildProductDraft(styleId);
 
+    // Every product gets a price list the moment it exists. A product without
+    // one used to price through a cost-plus fallback that could quote far below
+    // cost, so the fix is to make "no price" unreachable rather than to handle
+    // it. Staff can change the list in the editor; they can never end up with
+    // none. Falls back to the first list if nothing matches, so even an
+    // unrecognised category is priced.
+    const { data: allProfiles } = await supabase.from("pricing_profiles").select("*");
+    const profileRow = pickProfileForStyle(
+      (allProfiles ?? []) as PricingProfileRow[],
+      `${draft.name} ${draft.baseCategory ?? ""}`,
+    );
+
     // Default allowed decoration methods = all active methods (admin narrows later).
     const { data: methods } = await supabase
       .from("decoration_methods")
@@ -91,6 +104,18 @@ export async function importStyleAction(styleId: number): Promise<{ productId?: 
         stock_status: draft.stockStatus,
         markup_type: "percent",
         markup_value: 100,
+        pricing_rules: asJson(
+          buildProductPricingRules(
+            {
+              wholesale_cost: draft.wholesaleCost,
+              base_price: null,
+              markup_type: "percent",
+              markup_value: 100,
+              pricing_rules: null,
+            } as Pick<ProductRow, "wholesale_cost" | "base_price" | "markup_type" | "markup_value" | "pricing_rules">,
+            profileRow,
+          ),
+        ),
         allowed_decoration_method_ids: allowed,
         lead_time_days: 7,
         is_active: false, // staff activate after configuring category + print areas
@@ -281,6 +306,16 @@ export async function setProductFlagsAction(
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("products.manage");
   const supabase = requireSupabaseServiceClient();
+
+  // Going live requires a price. Nothing else in the system checks this, and
+  // an active product with no curve is exactly the case the deleted cost-plus
+  // fallback used to paper over with a near-free number.
+  if (flags.isActive) {
+    const { data: row } = await supabase.from("products").select("pricing_rules").eq("id", id).maybeSingle();
+    if (!hasQuoteCurve(row?.pricing_rules)) {
+      return { error: "Pick a price list for this product before making it live." };
+    }
+  }
 
   const patch: ProductUpdate = {};
   if (flags.isActive !== undefined) patch.is_active = flags.isActive;

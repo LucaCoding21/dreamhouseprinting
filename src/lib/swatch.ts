@@ -126,15 +126,26 @@ export function heroColour<
 /**
  * Build the swatch background. Two-tone colours ("Natural/Black") render as a
  * diagonal split, body colour on one half, trim colour on the other.
+ *
+ * The stored hex IS the body colour: suppliers encode only the body, so every
+ * colourway of the Q-Tees tote ("Natural/ Black", "Natural/ Navy", "Natural/
+ * Natural") carries the same #ddd5c1. So trust the hex for the body half and
+ * derive ONLY the trim from the name. Deriving both used to paint the body from
+ * the name map instead (#e7dcc4 for "natural"), which put two different creams
+ * next to each other: the split swatches disagreed with the solid one.
  */
 export function swatchStyle(c: { name: string; hex: string | null }): React.CSSProperties {
   const base = c.hex || "#ddd";
   const parts = c.name.split("/").map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 2) {
-    const a = nameToHex(parts[0]) ?? base;
-    const b = nameToHex(parts[1]) ?? base;
-    if (a !== b) {
-      return { background: `linear-gradient(135deg, ${a} 0 50%, ${b} 50% 100%)` };
+    const bodyByName = nameToHex(parts[0]);
+    const trim = nameToHex(parts[1]);
+    const body = c.hex || bodyByName || base;
+    // Two-tone only when we can actually name the trim AND it differs from the
+    // body. Compare on the name-derived body so "Natural/ Natural" stays solid
+    // rather than splitting into two near-identical creams.
+    if (trim && trim.toLowerCase() !== (bodyByName ?? body).toLowerCase()) {
+      return { background: `linear-gradient(135deg, ${body} 0 50%, ${trim} 50% 100%)` };
     }
   }
   return { backgroundColor: base };

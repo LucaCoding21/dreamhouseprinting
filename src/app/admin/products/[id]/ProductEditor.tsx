@@ -25,6 +25,7 @@ import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, Produc
 import { InfoTip } from "@/components/ui/InfoTip";
 import { updateProductAction, syncProductAction, setProductFlagsAction } from "../actions";
 import { PrintAreaEditor } from "./PrintAreaEditor";
+import { swatchStyle } from "@/lib/swatch";
 
 type Colour = ProductColourJson & { enabled?: boolean; primary?: boolean };
 type Size = ProductSizeJson & { enabled?: boolean };
@@ -400,7 +401,7 @@ export function ProductEditor({
                     >
                       <span
                         className="h-4 w-4 rounded-full border border-dream-line-strong"
-                        style={{ backgroundColor: c.hex }}
+                        style={swatchStyle(c)}
                       />
                       {c.name}
                     </button>

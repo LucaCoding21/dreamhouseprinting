@@ -34,6 +34,7 @@ import {
 } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { LineItemRow, DesignRow, ProofRow } from "@/lib/db/rows";
+import { swatchStyle } from "@/lib/swatch";
 
 /**
  * Per-line notes, Julian's taxonomy. Customer notes is the INBOUND record of
@@ -65,6 +66,7 @@ export function OrderItemCard({
   orderNumber,
   methodOptions,
   embroideryMethod,
+  printMethod,
   can,
   setupFee,
   pricingSettings,
@@ -88,6 +90,7 @@ export function OrderItemCard({
   orderNumber: string | null;
   methodOptions: string[];
   embroideryMethod: string | undefined;
+  printMethod: string | undefined;
   can: Can;
   setupFee: number;
   /** Admin-tuned decoration surcharges, so a reprice matches the shop's quote. */
@@ -153,9 +156,6 @@ export function OrderItemCard({
         priceSuggestion: null,
       };
     });
-
-  /** What the curve says right now, for the one-time-fee hint under the price. */
-  const liveSuggestion = priceFor(item);
 
   const setSizeQty = (s: string, val: number) =>
     patchPriced((p) => {
@@ -260,7 +260,7 @@ export function OrderItemCard({
               {design?.name && <div className="font-medium text-dream-ink">“{design.name}”</div>}
               <span className="inline-flex items-center gap-1.5 text-dream-muted">
                 Colour:
-                <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={{ background: colour.hex ?? "#fff" }} />
+                <span className="h-3.5 w-3.5 rounded-full border border-dream-line-strong" style={swatchStyle({ name: colour.name ?? "", hex: colour.hex ?? null })} />
                 <span className="font-medium text-dream-ink">{colour.name ?? "-"}</span>
               </span>
             </div>
@@ -556,7 +556,7 @@ export function OrderItemCard({
               )}
               {can.edit && (
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => addSpot(methodOptions[0] ?? "")}>
+                  <Button variant="secondary" size="sm" onClick={() => addSpot(printMethod ?? methodOptions[0] ?? "")}>
                     Add print
                   </Button>
                   <Button variant="secondary" size="sm" onClick={() => addSpot(embroideryMethod ?? methodOptions[0] ?? "")}>
@@ -620,14 +620,8 @@ export function OrderItemCard({
                 </span>
               )}
             </div>
-            {item.autoPrice && (
-              <p className="mt-1 text-[11px] text-dream-faint">
-                Price updated for {item.autoPrice.qty} piece{item.autoPrice.qty === 1 ? "" : "s"}.
-              </p>
-            )}
-            {liveSuggestion?.setupNote && (
-              <p className="mt-1 text-[11px] text-dream-muted">{liveSuggestion.setupNote}</p>
-            )}
+            {/* No "Priced for N pcs" line: the x N below already says it, and the
+                Auto chip above already says the price came from the tiers. */}
             <div className="mt-1 text-sm text-dream-muted">× {qty} units</div>
             <div className="mt-4 border-t border-dream-line pt-4">
               <div className="font-display text-xl font-bold text-dream-ink">{formatCAD(unit * qty + setupFee)}</div>

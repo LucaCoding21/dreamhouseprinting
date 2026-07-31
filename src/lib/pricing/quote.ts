@@ -50,6 +50,14 @@ export interface QuoteInput {
   decoration: QuoteDecoration;
 }
 
+/** One print on the garment: its own colour count, and its own technique. */
+export interface QuotePrint {
+  /** Ink colours in THIS print. Ignored for embroidery (thread colours are free). */
+  colours: number;
+  /** Defaults to the job's decoration when a print doesn't name its own. */
+  decoration?: QuoteDecoration;
+}
+
 export interface QuoteResult {
   /** Final per-unit price at this quantity/config. */
   perUnit: number;
@@ -66,6 +74,70 @@ export interface QuoteResult {
 /** Resolve the curve's default decoration if the requested one isn't offered. */
 export function defaultDecoration(curve: ProductQuoteCurveJson): QuoteDecoration {
   return curve.decorations[0] ?? "screen";
+}
+
+/**
+ * Price a job as a LIST OF PRINTS rather than one colour count for the garment.
+ *
+ *   perUnit = base tier at qty, on the first print's decoration
+ *           + that print's colour surcharge
+ *           + for every later print: its own extra-location rate
+ *                                  + its own colour surcharge
+ *
+ * Julian charges each print separately (confirmed 2026-07-31), so a 3-colour
+ * front and a 2-colour back pays for both, not just the busiest one. It also
+ * lets one job mix techniques: an embroidered chest and a printed back are each
+ * charged at their own rate instead of forcing the whole job onto one curve.
+ *
+ * A single print is identical to priceFromCurve, so nothing shifts for the
+ * common case. Embroidery stitch-size charges are NOT included here; they are
+ * per-print physical measurements that only the admin sheet has (see
+ * suggestLineUnitPrice).
+ */
+export function priceFromCurveForPrints(
+  curve: ProductQuoteCurveJson,
+  input: { qty: number; prints: QuotePrint[]; decoration: QuoteDecoration },
+  settings?: DecorationPricingSettings
+): QuoteResult {
+  const { qty, decoration } = input;
+  // No prints yet: quote the bare garment at its base tier.
+  const prints = input.prints.length > 0 ? input.prints : [{ colours: 1 }];
+
+  /** Narrow a print's technique to one the curve actually prices. */
+  const decoFor = (p: QuotePrint): QuoteDecoration => {
+    const wanted = p.decoration ?? decoration;
+    if (curve.breaks[wanted]?.length) return wanted;
+    return curve.breaks[decoration]?.length ? decoration : defaultDecoration(curve);
+  };
+
+  const perUnitAt = (q: number): number | null => {
+    const first = decoFor(prints[0]);
+    const base = priceFromCurve(curve, { qty: q, colours: prints[0].colours, locations: 1, decoration: first }, settings);
+    if (!base.available) return null;
+    let unit = base.perUnit;
+    // Cap the chargeable prints the same way priceFromCurve caps locations.
+    const extra = prints.slice(1, MAX_LOCATIONS);
+    for (const p of extra) {
+      const d = decoFor(p);
+      unit += settings
+        ? extraLocationSurcharge(d, q, settings)
+        : priceAtQty(EXTRA_LOCATION_SURCHARGE[d], q);
+      if (d === "screen") {
+        unit += settings
+          ? screenColourSurcharge(p.colours, settings)
+          : EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(p.colours, 1), 5)] ?? 0;
+      }
+    }
+    return unit;
+  };
+
+  const perUnit = perUnitAt(qty);
+  if (perUnit == null) return { perUnit: 0, total: 0, anchorPerUnit: 0, discountPct: 0, available: false };
+  const anchorPerUnit = perUnitAt(ANCHOR_QTY) ?? perUnit;
+  const discountPct =
+    anchorPerUnit > 0 && perUnit < anchorPerUnit ? Math.round((1 - perUnit / anchorPerUnit) * 100) : 0;
+
+  return { perUnit, total: perUnit * qty, anchorPerUnit, discountPct, available: true };
 }
 
 export function priceFromCurve(

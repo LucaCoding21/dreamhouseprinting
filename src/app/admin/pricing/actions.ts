@@ -14,7 +14,6 @@ export interface ProfileTierInput {
 export interface ProfileInput {
   name: string;
   decorations: QuoteDecoration[];
-  setup: Partial<Record<QuoteDecoration, number>>;
   tiers: Partial<Record<QuoteDecoration, ProfileTierInput[]>>;
 }
 
@@ -43,7 +42,7 @@ async function afterProfileWrite(row: PricingProfileRow): Promise<number> {
   return recompiled;
 }
 
-/** Update a profile's name / setup / tiers, then reflow every product using it. */
+/** Update a profile's name / decorations / tiers, then reflow every product using it. */
 export async function updatePricingProfileAction(
   id: string,
   input: ProfileInput
@@ -52,11 +51,6 @@ export async function updatePricingProfileAction(
   const supabase = requireSupabaseServiceClient();
 
   const decorations = input.decorations.filter((d): d is QuoteDecoration => d === "screen" || d === "embroidery");
-  const setup: Record<string, number> = {};
-  for (const d of decorations) {
-    const v = Number(input.setup[d]);
-    if (Number.isFinite(v) && v > 0) setup[d] = Math.round(v * 100) / 100;
-  }
   const tiers = normalizeTiers(decorations, input.tiers);
 
   const { data, error } = await supabase
@@ -64,7 +58,6 @@ export async function updatePricingProfileAction(
     .update({
       name: input.name.trim() || "Untitled profile",
       decorations,
-      setup: setup as unknown as Json,
       tiers: tiers as unknown as Json,
       updated_at: new Date().toISOString(),
     })

@@ -1,13 +1,8 @@
 import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { mergeCheckoutSettings } from "@/lib/checkoutSettings";
-import { mergeAddonSettings } from "@/lib/addonSettings";
 import { mergePaymentSettings } from "@/lib/paymentSettings";
 import { mergeBusinessSettings } from "@/lib/businessSettings";
-import {
-  mergeDecorationPricing,
-  DECORATION_PRICING_SETTINGS_KEY,
-} from "@/lib/pricing/decorationPricing";
 import type { DecorationMethodRow, ProfileRow, SettingRow } from "@/lib/db/rows";
 import { SettingsClient } from "./SettingsClient";
 
@@ -35,10 +30,8 @@ export default async function AdminSettingsPage() {
         "email_templates",
         "shop",
         "checkout",
-        "addons",
         "payments",
         "business",
-        DECORATION_PRICING_SETTINGS_KEY,
       ]),
   ]);
 
@@ -59,17 +52,11 @@ export default async function AdminSettingsPage() {
   const checkoutRow = settingRows.find((s) => s.key === "checkout");
   const checkout = mergeCheckoutSettings(checkoutRow?.value);
 
-  const addonRow = settingRows.find((s) => s.key === "addons");
-  const addons = mergeAddonSettings(addonRow?.value);
-
   const paymentsRow = settingRows.find((s) => s.key === "payments");
   const payments = mergePaymentSettings(paymentsRow?.value);
 
   const businessRow = settingRows.find((s) => s.key === "business");
   const business = mergeBusinessSettings(businessRow?.value);
-
-  const decorationPricingRow = settingRows.find((s) => s.key === DECORATION_PRICING_SETTINGS_KEY);
-  const decorationPricing = mergeDecorationPricing(decorationPricingRow?.value);
 
   return (
     <SettingsClient
@@ -77,10 +64,8 @@ export default async function AdminSettingsPage() {
       staff={staffRows}
       emailTemplates={emailTemplates}
       checkout={checkout}
-      addons={addons}
       payments={payments}
       business={business}
-      decorationPricing={decorationPricing}
     />
   );
 }

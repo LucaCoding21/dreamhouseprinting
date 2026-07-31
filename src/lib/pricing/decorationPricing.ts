@@ -6,9 +6,13 @@
  *
  * The DEFAULTS mirror the hardcoded quick-quote tables in lib/pricing.ts
  * (EXTRA_COLOUR_SURCHARGE / EXTRA_LOCATION_SURCHARGE), so until Julian edits
- * anything in settings, every surface prices exactly as before. Setup fees and
- * the embroidery size adder default to 0 because curve prices are
- * all-inclusive; raising them is Julian's call.
+ * anything in settings, every surface prices exactly as before.
+ *
+ * There is deliberately NO setup or digitizing fee here. Julian's price list is
+ * all-inclusive: it is built as blank x markup + setup + per-print cost, then
+ * quoted to the customer as one number, which is why a single shirt costs $66
+ * and a thousand cost $7.65 each. Setup is already collected inside the low
+ * quantity tiers, so charging it again would bill it twice.
  */
 import { roundCents } from "@/lib/money";
 
@@ -28,16 +32,12 @@ export interface RushTier {
 
 export interface DecorationPricingSettings {
   screen: {
-    /** One-time fee per screen (per colour, per location). 0 = amortized into the curve. */
-    setupPerScreen: number;
     /** Per-piece surcharge by TOTAL colour count of a print (1 colour adds nothing). */
     colourSurcharge: Record<number, number>;
     /** Per-piece surcharge for each print location beyond the first, by quantity. */
     extraLocationPerPiece: QtyBreak[];
   };
   embroidery: {
-    /** One-time digitization fee per design. 0 = amortized into the curve. */
-    digitizationFee: number;
     /** Per-piece surcharge for each embroidery location beyond the first, by quantity. */
     extraLocationPerPiece: QtyBreak[];
     /** Square inches included in the base price before the size adder kicks in. */
@@ -55,7 +55,6 @@ export const DECORATION_PRICING_SETTINGS_KEY = "decoration_pricing";
 
 export const DEFAULT_DECORATION_PRICING: DecorationPricingSettings = {
   screen: {
-    setupPerScreen: 0,
     colourSurcharge: { 1: 0, 2: 1.3, 3: 2.61, 4: 3.75, 5: 3.75, 6: 3.75, 7: 3.75, 8: 3.75 },
     extraLocationPerPiece: [
       { minQty: 10, price: 12.24 },
@@ -67,7 +66,6 @@ export const DEFAULT_DECORATION_PRICING: DecorationPricingSettings = {
     ],
   },
   embroidery: {
-    digitizationFee: 0,
     extraLocationPerPiece: [
       { minQty: 10, price: 15.81 },
       { minQty: 25, price: 10.98 },
@@ -133,12 +131,10 @@ export function mergeDecorationPricing(raw: unknown): DecorationPricingSettings 
   const d = DEFAULT_DECORATION_PRICING;
   return {
     screen: {
-      setupPerScreen: num(v.screen?.setupPerScreen, d.screen.setupPerScreen),
       colourSurcharge: mergeColourMap(v.screen?.colourSurcharge, d.screen.colourSurcharge),
       extraLocationPerPiece: mergeBreaks(v.screen?.extraLocationPerPiece, d.screen.extraLocationPerPiece),
     },
     embroidery: {
-      digitizationFee: num(v.embroidery?.digitizationFee, d.embroidery.digitizationFee),
       extraLocationPerPiece: mergeBreaks(v.embroidery?.extraLocationPerPiece, d.embroidery.extraLocationPerPiece),
       includedSqIn: num(v.embroidery?.includedSqIn, d.embroidery.includedSqIn),
       perExtraSqInPerPiece: num(v.embroidery?.perExtraSqInPerPiece, d.embroidery.perExtraSqInPerPiece),
@@ -182,7 +178,7 @@ export function embroiderySizeSurcharge(widthIn: number, heightIn: number, s: De
   return roundCents(extra * s.embroidery.perExtraSqInPerPiece);
 }
 
-/** Flat rush surcharge for a tier: pct% of (subtotal + setup), whole cents. */
+/** Flat rush surcharge for a tier: pct% of the pre-tax job, whole cents. */
 export function rushTierFee(subtotal: number, setup: number, pct: number): number {
   return roundCents((subtotal + setup) * (pct / 100));
 }

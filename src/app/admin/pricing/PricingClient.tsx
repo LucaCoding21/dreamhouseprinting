@@ -10,47 +10,160 @@ import { Label } from "@/components/ui/Label";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { InfoTip } from "@/components/ui/InfoTip";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCAD } from "@/lib/money";
+import { cn } from "@/lib/cn";
 import type { PricingProfileWithUsage } from "@/lib/admin/queries";
 import type { QuoteDecoration, QuotePriceBreak } from "@/lib/db/rows";
 import { updatePricingProfileAction, duplicatePricingProfileAction, deletePricingProfileAction } from "./actions";
+import { DecorationChargesTab, AddonsTab } from "./DecorationChargesTab";
+import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing";
+import type { AddonSettings } from "@/lib/addonSettings";
 
 const DECO_LABEL: Record<QuoteDecoration, string> = { screen: "Screen print", embroidery: "Embroidery" };
 
-export function PricingClient({ profiles }: { profiles: PricingProfileWithUsage[] }) {
+/**
+ * Every number that moves a customer's price, on one screen. Price lists set
+ * the base; decoration charges and rush adjust it; add-ons are per-garment
+ * extras. These used to be split across this page and two Settings tabs, so
+ * "what does this cost" had three possible homes.
+ */
+export function PricingClient({
+  profiles,
+  decorationPricing,
+  addons,
+}: {
+  profiles: PricingProfileWithUsage[];
+  decorationPricing: DecorationPricingSettings;
+  addons: AddonSettings;
+}) {
   const router = useRouter();
   return (
     <div>
       <AdminHeader title="Pricing" />
-      <div className="mx-auto max-w-3xl space-y-6 px-8 py-6">
-        <Card className="border-dream-purple/30 bg-dream-lavender-soft/50">
-          <CardContent className="p-5">
-            <h2 className="font-display text-base font-semibold text-dream-ink">How pricing works now</h2>
-            <p className="mt-1 text-sm text-dream-muted">
-              Each product&apos;s customer price is built from two things: its <strong>blank cost</strong> (from
-              S&amp;S, set on the product) plus a shared <strong>decoration profile</strong> below. Edit a profile
-              once and every product using it re-prices automatically. You never hand-type a product&apos;s table
-              again. A profile&apos;s tiers are calibrated for one reference blank; pricier or cheaper blanks shift
-              every tier by the exact blank-cost difference.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="px-8 py-6">
+        <Tabs defaultValue="lists">
+          <TabsList>
+            <TabsTrigger value="lists">Price lists</TabsTrigger>
+            <TabsTrigger value="decoration">Decoration &amp; rush</TabsTrigger>
+            <TabsTrigger value="addons">Add-ons</TabsTrigger>
+          </TabsList>
 
-        {profiles.length === 0 && (
-          <Card>
-            <CardContent className="p-6 text-sm text-dream-muted">
-              No pricing profiles yet. Run <code>scripts/seed-pricing-profiles.mjs</code> to create the starter set.
-            </CardContent>
-          </Card>
-        )}
+          <TabsContent value="lists" className="mt-4">
+            <div className="space-y-6">
+              <Card className="mx-auto max-w-3xl border-dream-purple/30 bg-dream-lavender-soft/50">
+                <CardContent className="p-5">
+                  <h2 className="font-display text-base font-semibold text-dream-ink">How pricing works</h2>
+                  <p className="mt-1 text-sm text-dream-muted">
+                    A product&apos;s price is its <strong>blank cost</strong> (from S&amp;S, set on the product) plus
+                    a shared <strong>price list</strong> below. Edit a list once and every product using it re-prices
+                    automatically. The tiers are all-inclusive, the way you quote: screen setup is already collected
+                    in the low-quantity rows, which is why one shirt costs far more than each of fifty. A list is
+                    calibrated for one reference blank, and pricier or cheaper blanks shift every tier by the exact
+                    blank-cost difference.
+                  </p>
+                </CardContent>
+              </Card>
 
-        {profiles.map((p) => (
-          <ProfileCard key={p.profile.id} data={p} onChanged={() => router.refresh()} />
-        ))}
+              {profiles.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-sm text-dream-muted">
+                    No price lists yet. Run <code>scripts/seed-pricing-profiles.mjs</code> to create the starter set.
+                  </CardContent>
+                </Card>
+              ) : (
+                <PriceLists profiles={profiles} onChanged={() => router.refresh()} />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="decoration" className="mt-4">
+            <DecorationChargesTab settings={decorationPricing} />
+          </TabsContent>
+
+          <TabsContent value="addons" className="mt-4">
+            <AddonsTab settings={addons} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
+}
+
+/**
+ * Master/detail instead of a stack. Six lists x two decorations x ~24 tiers is
+ * roughly 250 inputs in one column, so finding the list you wanted meant
+ * scrolling past every other one. Pick on the left, edit on the right.
+ */
+function PriceLists({
+  profiles,
+  onChanged,
+}: {
+  profiles: PricingProfileWithUsage[];
+  onChanged: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState(profiles[0]?.profile.id ?? null);
+  const selected = profiles.find((p) => p.profile.id === selectedId) ?? profiles[0];
+
+  return (
+    <div className="flex flex-col gap-6 lg:flex-row">
+      <nav aria-label="Price lists" className="shrink-0 space-y-1 lg:w-64">
+        {profiles.map((p) => {
+          const on = p.profile.id === selected?.profile.id;
+          const span = tierSpan(p);
+          return (
+            <button
+              key={p.profile.id}
+              type="button"
+              onClick={() => setSelectedId(p.profile.id)}
+              aria-current={on}
+              className={cn(
+                "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                on
+                  ? "border-dream-purple bg-dream-lavender-soft"
+                  : "border-dream-line bg-white hover:border-dream-purple/40",
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold text-dream-ink">{p.profile.name}</span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                    p.productCount > 0 ? "bg-dream-success-soft text-dream-success" : "bg-dream-line text-dream-muted",
+                  )}
+                >
+                  {p.productCount}
+                </span>
+              </div>
+              {/* The range answers "is this the cheap list or the dear one?"
+                  without opening it. */}
+              {span && (
+                <div className="mt-0.5 text-[11px] text-dream-muted">
+                  {formatCAD(span.high)} at 1 to {formatCAD(span.low)} at {span.lowQty}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* key: remount on switch so the editor's draft state never leaks across lists */}
+      <div className="min-w-0 flex-1">
+        {selected && <ProfileCard key={selected.profile.id} data={selected} onChanged={onChanged} />}
+      </div>
+    </div>
+  );
+}
+
+/** Cheapest and dearest tier across a list's decorations, for the summary line. */
+function tierSpan(p: PricingProfileWithUsage): { high: number; low: number; lowQty: number } | null {
+  const tiers = (p.profile.tiers ?? {}) as Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
+  const all = Object.values(tiers).flatMap((t) => t ?? []);
+  if (all.length === 0) return null;
+  const high = Math.max(...all.map((t) => t.price));
+  const cheapest = all.reduce((a, b) => (b.price < a.price ? b : a));
+  return { high, low: cheapest.price, lowQty: cheapest.minQty };
 }
 
 type Rows = Record<string, { minQty: string; price: string }[]>;
@@ -63,12 +176,6 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
   const decorations = (profile.decorations ?? []) as QuoteDecoration[];
 
   const [name, setName] = useState(profile.name);
-  const [setup, setSetup] = useState<Record<string, string>>(() => {
-    const s = (profile.setup ?? {}) as Partial<Record<QuoteDecoration, number>>;
-    const out: Record<string, string> = {};
-    for (const d of decorations) out[d] = s[d] != null ? String(s[d]) : "";
-    return out;
-  });
   const [rows, setRows] = useState<Rows>(() => {
     const tiers = (profile.tiers ?? {}) as Partial<Record<QuoteDecoration, QuotePriceBreak[]>>;
     const out: Rows = {};
@@ -89,18 +196,10 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
   function save() {
     startSave(async () => {
       const tiers: Record<string, { minQty: number; price: number }[]> = {};
-      const setupOut: Record<string, number> = {};
       for (const d of decorations) {
         tiers[d] = (rows[d] ?? []).map((r) => ({ minQty: Number(r.minQty) || 0, price: Number(r.price) || 0 }));
-        const s = Number(setup[d]);
-        if (Number.isFinite(s) && s > 0) setupOut[d] = s;
       }
-      const res = await updatePricingProfileAction(profile.id, {
-        name,
-        decorations,
-        setup: setupOut,
-        tiers,
-      });
+      const res = await updatePricingProfileAction(profile.id, { name, decorations, tiers });
       if (res.error) toast({ title: "Save failed", description: res.error, variant: "error" });
       else {
         toast({
@@ -184,16 +283,15 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
             <Label>{DECO_LABEL[d]}</Label>
             <div className="mt-2 grid grid-cols-[1fr_auto] items-end gap-3">
               <div className="grid gap-1.5">
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-1 text-[11px] font-medium uppercase tracking-wide text-dream-muted">
-                  <span className="flex items-center gap-1">
-                    Min qty
-                    <InfoTip text="This row's price applies from this quantity up to the next row." />
-                  </span>
-                  <span>$ / unit (all-in)</span>
-                  <span className="w-7" />
+                <div className="flex items-center gap-1 px-1 text-[11px] font-medium uppercase tracking-wide text-dream-muted">
+                  Min qty, then $ / unit (all-in)
+                  <InfoTip text="Each row's price applies from its quantity up to the next row. Read them down each column." />
                 </div>
+                {/* CSS columns, not a grid: rows keep reading top-to-bottom in
+                    ascending quantity, they just wrap into a second column. */}
+                <div className="columns-1 gap-x-6 sm:columns-2 2xl:columns-3">
                 {(rows[d] ?? []).map((r, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                  <div key={i} className="mb-1.5 grid break-inside-avoid grid-cols-[1fr_1fr_auto] items-center gap-2">
                     <Input type="number" min={1} value={r.minQty} onChange={(e) => setRow(d, i, "minQty", e.target.value)} />
                     <Input type="number" min={0} step="0.01" value={r.price} onChange={(e) => setRow(d, i, "price", e.target.value)} />
                     <button
@@ -206,32 +304,13 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
                     </button>
                   </div>
                 ))}
+                </div>
                 <div>
                   <Button variant="ghost" size="sm" onClick={() => addRow(d)}>
                     + Add tier
                   </Button>
                 </div>
               </div>
-              <Field
-                label={
-                  <span className="flex items-center gap-1">
-                    Setup fee
-                    <InfoTip text="One-time cost for this method (digitizing an embroidery file, burning screens). It's already included in the tier prices today; it's stored separately so invoices can show it as its own line later." />
-                  </span>
-                }
-              >
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-dream-muted">$</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="1"
-                    className="w-24"
-                    value={setup[d] ?? ""}
-                    onChange={(e) => setSetup((prev) => ({ ...prev, [d]: e.target.value }))}
-                  />
-                </div>
-              </Field>
             </div>
           </div>
         ))}

@@ -4,12 +4,11 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcTax, isProvinceCode } from "@/lib/pricing/tax";
 import { roundCents, formatCAD } from "@/lib/money";
 import { sendOrderStatusEmail, notifyJulian } from "@/lib/notify";
-import { calcPrice } from "@/lib/pricing/platform";
 import { rushFee } from "@/lib/pricing/rush";
 import { rushTierFee } from "@/lib/pricing/decorationPricing";
 import {
   curveForProduct,
-  priceFromCurve,
+  priceFromCurveForPrints,
   allowedCurveDecorations,
   decorationForMethodSlug,
   defaultDecoration,
@@ -342,14 +341,21 @@ export async function placeOrderAction(
     .map((id) => methods?.find((m) => m.id === id)?.slug)
     .filter((s): s is string => !!s);
 
-  // Colour count + location count the designer priced with. Both are provisional
-  // (the artist confirms the real screen count at proofing and nothing is
-  // charged before the invoice), so we mirror the designer and trust them here.
+  // The prints the designer priced with: one per decorated side, each with its
+  // OWN colour count, because Julian charges each print separately. All of it is
+  // provisional (the artist confirms the real screen count at proofing and
+  // nothing is charged before the invoice), so we mirror the designer here.
+  //
+  // Falls back to the whole-job colour count for designs saved before the spec
+  // carried per-spot colours, which reproduces the old whole-job pricing.
   const inkColours = Math.max(1, Number(snap.inkColours ?? 1) || 1);
-  const locations = Math.max(
-    1,
-    (snap.decorationSpots ?? []).filter((s) => s.location || s.view).length || 1
-  );
+  const spots = (snap.decorationSpots ?? []).filter((s) => s.location || s.view);
+  const prints: { colours: number }[] = spots.length
+    ? spots.map((s) => {
+        const n = parseInt(String(s.colours ?? "").replace(/^~/, ""), 10);
+        return { colours: Number.isFinite(n) && n > 0 ? n : inkColours };
+      })
+    : [{ colours: inkColours }];
   const qty = Math.max(combinedQty, 1);
 
   // Recompute the per-unit price exactly the way the designer's `jobPrice` does:
@@ -380,7 +386,7 @@ export async function placeOrderAction(
         const allowed = allowedCurveDecorations(curve, allowedSlugs.length ? allowedSlugs : null);
         decoration = allowed[0] ?? defaultDecoration(curve);
       }
-      const r = priceFromCurve(curve, { qty, colours: inkColours, locations, decoration });
+      const r = priceFromCurveForPrints(curve, { qty, prints, decoration });
       if (r.available) {
         unitPrice = roundCents(r.perUnit);
         setup = 0;
@@ -388,15 +394,11 @@ export async function placeOrderAction(
       }
     }
     if (!pricedFromCurve) {
-      const p = calcPrice({
-        product: productPricing,
-        method: selectedMethod,
-        quantity: qty,
-        colourCount: inkColours,
-        locationCount: locations,
-      });
-      unitPrice = p.unitPrice;
-      setup = p.setupTotal;
+      // The product lost its price list between design and checkout. Trust the
+      // snapshot the customer was actually shown rather than a cost-plus guess,
+      // which historically came in far under cost.
+      unitPrice = Number(snap.unitPrice ?? 0);
+      setup = Number(snap.setupTotal ?? 0);
     }
   } else {
     // No product to reprice against (product deleted): the stored estimate is

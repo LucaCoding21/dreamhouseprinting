@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { priceFromCurve, MAX_LOCATIONS } from "@/lib/pricing/quote";
+import { priceFromCurveForPrints, MAX_LOCATIONS } from "@/lib/pricing/quote";
 import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
 const DECO_LABEL: Record<QuoteDecoration, string> = {
@@ -52,8 +52,12 @@ export function DetailedQuote({
     return offered.length ? offered : base;
   }, [curve.decorations, allowedDecorations]);
   const [decoration, setDecoration] = useState<QuoteDecoration>(decorations[0]);
-  const [colours, setColours] = useState(1);
-  const [locations, setLocations] = useState(1);
+  // One entry per print, each with its own colour count: Julian charges every
+  // print separately, so a 3-colour front and a 2-colour back pays for both.
+  // This used to be a single colour count plus a location count, which
+  // under-quoted exactly those multi-print jobs.
+  const [prints, setPrints] = useState<{ id: number; colours: number }[]>([{ id: 0, colours: 1 }]);
+  const printSeq = useRef(1);
   const [qty, setQty] = useState(DEFAULT_QTY);
   // Raw text of the number field, so partial edits (clearing, typing "2" then
   // "50") don't get clamped mid-keystroke. qty stays the source of truth.
@@ -66,9 +70,15 @@ export function DetailedQuote({
   const isPresetQty = PRESETS.includes(qty);
 
   const result = useMemo(
-    () => priceFromCurve(curve, { qty: Math.max(qty, 1), colours, locations, decoration }),
-    [curve, qty, colours, locations, decoration],
+    () => priceFromCurveForPrints(curve, { qty: Math.max(qty, 1), prints, decoration }),
+    [curve, qty, prints, decoration],
   );
+
+  const addPrint = () =>
+    setPrints((p) => (p.length >= MAX_LOCATIONS ? p : [...p, { id: printSeq.current++, colours: 1 }]));
+  const removePrint = (id: number) => setPrints((p) => (p.length <= 1 ? p : p.filter((r) => r.id !== id)));
+  const setPrintColours = (id: number, n: number) =>
+    setPrints((p) => p.map((r) => (r.id === id ? { ...r, colours: n } : r)));
 
   // Slider + preset chips set the quantity directly and mirror it into the field.
   function setQtyFromControl(raw: number) {
@@ -206,21 +216,52 @@ export function DetailedQuote({
         )}
       </Row>
 
-      {/* Ink colours (screen only) + locations, aligned side by side */}
-      <div className={cn("grid gap-4", isScreen ? "grid-cols-2" : "grid-cols-1")}>
-        {isScreen && (
-          <Row label="Ink colours">
-            <Chips values={[1, 2, 3, 4]} selected={colours} onSelect={setColours} />
-          </Row>
-        )}
-        <Row label="Print locations">
-          <Chips
-            values={Array.from({ length: MAX_LOCATIONS }, (_, i) => i + 1)}
-            selected={locations}
-            onSelect={setLocations}
-          />
-        </Row>
-      </div>
+      {/* Prints: one row per print. Each carries its own ink colours, because
+          each is charged on its own. Embroidery rows show no colour picker,
+          thread colours are free. */}
+      <Row label={prints.length === 1 ? "Your print" : `Your prints (${prints.length})`}>
+        <div className="space-y-2">
+          {prints.map((p, i) => (
+            <div key={p.id} className="flex items-center gap-2">
+              <span className="w-14 shrink-0 text-xs font-semibold text-dream-ink-soft">
+                {i === 0 ? "1st" : i === 1 ? "2nd" : i === 2 ? "3rd" : `${i + 1}th`}
+              </span>
+              {isScreen ? (
+                <div className="min-w-0 flex-1">
+                  <Chips
+                    values={[1, 2, 3, 4]}
+                    selected={p.colours}
+                    onSelect={(n) => setPrintColours(p.id, n)}
+                  />
+                </div>
+              ) : (
+                <span className="min-w-0 flex-1 text-sm text-dream-muted">Any thread colours</span>
+              )}
+              <button
+                type="button"
+                onClick={() => removePrint(p.id)}
+                disabled={prints.length <= 1}
+                aria-label={`Remove print ${i + 1}`}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          {isScreen && <p className="text-xs text-dream-muted">Ink colours in each print.</p>}
+          {prints.length < MAX_LOCATIONS && (
+            <button
+              type="button"
+              onClick={addPrint}
+              className="text-xs font-semibold text-dream-purple hover:underline"
+            >
+              + Add another print
+            </button>
+          )}
+        </div>
+      </Row>
 
       {/* Quantity: quick-pick presets and the stepper share one wrap group, so
           the number you are nudging sits right next to the pills that set it. */}

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/cn";
 import { LBL, useOrderAction } from "./shared";
 import { listSwapProductsAction, changeLineItemProductAction, type SwapProduct } from "../actions";
+import { swatchStyle } from "@/lib/swatch";
 
 /**
  * "Change product" on a line item, for when the customer changes their mind
@@ -194,11 +195,11 @@ export function ChangeProductDialog({
                           {c.thumb ? (
                             <Image src={c.thumb} alt={c.name} width={64} height={64} className="h-full w-full object-contain" />
                           ) : (
-                            <span className="h-8 w-8 rounded-full border border-dream-line-strong" style={{ background: c.hex ?? "#fff" }} />
+                            <span className="h-8 w-8 rounded-full border border-dream-line-strong" style={swatchStyle(c)} />
                           )}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-dream-line-strong" style={{ background: c.hex ?? "#fff" }} />
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-dream-line-strong" style={swatchStyle(c)} />
                           <span className="truncate text-xs font-medium text-dream-ink">{c.name}</span>
                         </div>
                         {!c.inStock && <div className="mt-0.5 text-[10px] text-dream-warn">Out of stock</div>}

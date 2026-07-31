@@ -31,12 +31,11 @@ import { MethodGuideModal, type MethodKey } from "@/components/storefront/Method
 import { cn } from "@/lib/cn";
 import { useCart } from "@/lib/cart/CartContext";
 import { formatCAD, roundCents } from "@/lib/money";
-import { calcPrice } from "@/lib/pricing/platform";
 import {
   curveForProduct,
   decorationForMethodSlug,
   nextCurveBreak,
-  priceFromCurve,
+  priceFromCurveForPrints,
 } from "@/lib/pricing/quote";
 import { fmtDate, inHandsWindow } from "@/lib/turnaround";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -364,34 +363,34 @@ export function DesignerClient(props: Props) {
   const sizeRange =
     props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
 
-  const productInput = useMemo(
-    () => ({
-      // garmentRetailUnit() already resolved retail server-side; feed it as the
-      // base_price so calcPrice returns it verbatim (base_price wins over
-      // wholesale × markup). No confidential cost is present client-side.
-      wholesale_cost: null,
-      base_price: props.pricing.garmentRetail,
-      markup_type: "flat",
-      markup_value: 0,
-      pricing_rules: props.pricing.pricing_rules as never,
-    }),
-    [props.pricing]
-  );
+  /** Decorated sides, which the curve prices as extra print locations. */
   const locationCount = Math.max(1, viewsWithArt.size);
 
   // Pricing colour count, derived from the artwork (was a hardcoded 1). Exact
   // vector counts are used as-is; raster estimates and "full colour" are
   // provisional, the artist confirms the count (and price) at proofing, and
-  // nothing is charged before the invoice. When sides differ we price the
-  // highest count. Only matters for methods with a per-colour cost.
-  const inkColours = useMemo(() => {
-    const counts = views
-      .filter((v) => viewsWithArt.has(v))
-      .map((v) => viewColours[v])
-      .filter((a): a is ColourAnalysis => !!a)
-      .map((a) => pricingColourCount(a));
-    return counts.length ? Math.max(...counts) : 1;
-  }, [views, viewsWithArt, viewColours]);
+  // nothing is charged before the invoice.
+  //
+  // One entry per decorated side, each with ITS OWN colour count, because Julian
+  // charges each print separately (confirmed 2026-07-31). This used to collapse
+  // to the highest count across sides, which under-quoted a 3-colour front plus
+  // a 2-colour back and left the customer to meet the difference at proofing.
+  const prints = useMemo(
+    () =>
+      views
+        .filter((v) => viewsWithArt.has(v))
+        .map((v) => {
+          const a = viewColours[v];
+          return { colours: a ? pricingColourCount(a) : 1 };
+        }),
+    [views, viewsWithArt, viewColours],
+  );
+
+  /** Highest count across sides, for the spec table and the saved snapshot. */
+  const inkColours = useMemo(
+    () => (prints.length ? Math.max(...prints.map((p) => p.colours)) : 1),
+    [prints],
+  );
 
   // Colourways share one job price: the quantity break applies to the COMBINED
   // quantity (same artwork and screens across garment colours), matching how
@@ -419,12 +418,7 @@ export function DesignerClient(props: Props) {
   const jobPrice = useMemo(() => {
     const qty = Math.max(quantity, 1);
     if (curve && curveDecoration) {
-      const r = priceFromCurve(curve, {
-        qty,
-        colours: inkColours,
-        locations: locationCount,
-        decoration: curveDecoration,
-      });
+      const r = priceFromCurveForPrints(curve, { qty, prints, decoration: curveDecoration });
       if (r.available) {
         return {
           engine: "curve" as const,
@@ -435,15 +429,19 @@ export function DesignerClient(props: Props) {
         };
       }
     }
-    const p = calcPrice({ product: productInput, method, quantity: qty, colourCount: inkColours, locationCount });
+    // No curve, no price. There used to be a cost-plus fallback here, but it was
+    // never calibrated against Julian's list and quoted a single tee at $9.88
+    // where the real price is $66.25. Refusing beats guessing: products are given
+    // a price list at import and cannot go live without one, so this is
+    // unreachable in the shop.
     return {
-      engine: "platform" as const,
-      unitPrice: p.unitPrice,
-      setupTotal: p.setupTotal,
-      anchorPerUnit: roundCents(p.garmentRetail + p.decorationPerUnit),
-      discountPct: p.bulkDiscountPct,
+      engine: "unpriced" as const,
+      unitPrice: 0,
+      setupTotal: 0,
+      anchorPerUnit: 0,
+      discountPct: 0,
     };
-  }, [quantity, curve, curveDecoration, inkColours, locationCount, productInput, method]);
+  }, [quantity, curve, curveDecoration, prints]);
 
   const pricedColorways = useMemo(
     () =>
@@ -1492,13 +1490,16 @@ export function DesignerClient(props: Props) {
                       selected && "scale-105"
                     )}
                   >
-                    {/* swatch face with an inset ring so white/light colours stay visible */}
+                    {/* swatch face with an inset ring so white/light colours stay
+                        visible. swatchStyle (not a bare hex) so two-tone names
+                        like "Natural/Black" split diagonally, matching the shop
+                        page and the colourway pickers on the review screen. */}
                     <span
                       className={cn(
                         "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15 transition-shadow",
                         selected && "ring-2 ring-dream-purple"
                       )}
-                      style={{ backgroundColor: c.hex }}
+                      style={swatchStyle(c)}
                     />
                     {/* selected check, drops a contrasting tick on the chosen swatch */}
                     {selected && (

@@ -4,8 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { formatCAD } from "@/lib/money";
-import { defaultDecoration, priceFromCurve } from "@/lib/pricing/quote";
+import { defaultDecoration, priceFromCurve, priceFromCurveForPrints } from "@/lib/pricing/quote";
 import {
   embroiderySizeSurcharge,
   type DecorationPricingSettings,
@@ -152,7 +151,6 @@ export interface LinePriceSuggestion {
   /** Curve axis the price came off. */
   decoration: QuoteDecoration;
   /** One-time fees that are configured but deliberately NOT in the unit price. */
-  setupNote: string | null;
 }
 
 /** A colour count typed by hand or pre-filled by the designer ("~3", "Full colour"). */
@@ -162,17 +160,29 @@ function spotColours(raw: string): number {
 }
 
 /**
- * What this line should cost per piece, off the product's customer curve:
+ * What this line should cost per piece, off the product's customer curve.
  *
- *   unit = priceFromCurve(curve, { qty: combined quantity across every line on
- *          the order sharing this design, colours: the largest colour count
- *          across the line's prints, locations: number of prints, decoration })
+ * Priced PER PRINT and summed, not as one decoration for the whole line:
+ *
+ *   unit = base tier price for the first print's decoration, at the combined
+ *          quantity across every line on the order sharing this design
+ *        + for each print after the first, that print's OWN extra-location rate
+ *        + a colour surcharge for each SCREEN print, on its own colour count
  *        + the embroidery size adder for each embroidery print
  *
- * Screen setup and embroidery digitizing are ONE-TIME fees, so they never touch
- * the per-piece price; they come back as `setupNote` for the admin to add to the
- * order's setup fees by hand. Both default to 0 (amortized into the curve), so
- * the note normally does not appear at all.
+ * The line used to be priced as a single decoration: if any print was
+ * embroidery the whole line went on the embroidery curve, so a screen print
+ * added to an embroidered line was charged at embroidery rates and its ink
+ * colours came out free (colour surcharge is screen-only). Summing per print
+ * also matches how the home-page quick quote has priced multi-print jobs since
+ * 2026-07-27, and how Julian described quoting: each print adds its own setup
+ * and its own per-piece cost.
+ *
+ * Single-print lines are unaffected. Multi-print SCREEN lines go up, because
+ * colours are now charged per print instead of once at the highest count.
+ *
+ * There is no setup line to add on top: the price list already collects it in
+ * the low quantity tiers (see lib/pricing/decorationPricing).
  *
  * Returns null when the product has no curve, or the curve cannot price this
  * config, in which case the stored price is left exactly as it is.
@@ -185,43 +195,53 @@ export function suggestLineUnitPrice(
 ): LinePriceSuggestion | null {
   if (!curve || qty <= 0) return null;
 
-  const embroiderySpots = spots.filter((s) => /embroider/i.test(s.type));
-  const decoration: QuoteDecoration =
-    embroiderySpots.length > 0 && curve.breaks.embroidery?.length
-      ? "embroidery"
-      : curve.breaks.screen?.length
-        ? "screen"
-        : defaultDecoration(curve);
-  const colours = Math.max(1, ...spots.map((s) => spotColours(s.colours)));
-  const locations = Math.max(1, spots.length);
+  /** The decoration a print is priced on, narrowed to what the curve offers. */
+  const decorationFor = (spot: DecorationSpot): QuoteDecoration => {
+    const wanted: QuoteDecoration = /embroider/i.test(spot.type) ? "embroidery" : "screen";
+    if (curve.breaks[wanted]?.length) return wanted;
+    const other: QuoteDecoration = wanted === "embroidery" ? "screen" : "embroidery";
+    return curve.breaks[other]?.length ? other : defaultDecoration(curve);
+  };
 
-  const result = priceFromCurve(curve, { qty, colours, locations, decoration }, settings);
-  if (!result.available) return null;
+  // A line with no prints yet still has a garment price to show.
+  if (spots.length === 0) {
+    const decoration = defaultDecoration(curve);
+    const bare = priceFromCurve(curve, { qty, colours: 1, locations: 1, decoration }, settings);
+    return bare.available
+      ? { unit: Math.round(bare.perUnit * 100) / 100, qty, decoration }
+      : null;
+  }
 
-  const sizeAdder = embroiderySpots.reduce(
-    (sum, s) => sum + embroiderySizeSurcharge(parseFloat(s.widthIn) || 0, parseFloat(s.heightIn) || 0, settings),
-    0,
+  const decorations = spots.map(decorationFor);
+  const primary = decorations[0];
+
+  // Shared with the designer, cart and order placement so the three can't drift.
+  const priced = priceFromCurveForPrints(
+    curve,
+    {
+      qty,
+      decoration: primary,
+      prints: spots.map((sp, i) => ({ colours: spotColours(sp.colours), decoration: decorations[i] })),
+    },
+    settings,
   );
+  if (!priced.available) return null;
 
-  const oneTime: string[] = [];
-  if (decoration === "screen" && settings.screen.setupPerScreen > 0) {
-    const screens = colours * locations;
-    oneTime.push(
-      `${formatCAD(settings.screen.setupPerScreen * screens)} of screen setup (${screens} screen${screens === 1 ? "" : "s"})`,
+  let unit = priced.perUnit;
+
+  // Embroidery is also charged by stitch area, per embroidered print. Only the
+  // admin sheet carries real measurements, so this lives here, not in the
+  // shared pricer.
+  for (let i = 0; i < spots.length; i++) {
+    if (decorations[i] !== "embroidery") continue;
+    unit += embroiderySizeSurcharge(
+      parseFloat(spots[i].widthIn) || 0,
+      parseFloat(spots[i].heightIn) || 0,
+      settings,
     );
   }
-  if (decoration === "embroidery" && settings.embroidery.digitizationFee > 0) {
-    oneTime.push(`${formatCAD(settings.embroidery.digitizationFee)} of digitizing`);
-  }
 
-  return {
-    unit: Math.round((result.perUnit + sizeAdder) * 100) / 100,
-    qty,
-    decoration,
-    setupNote: oneTime.length
-      ? `${oneTime.join(" and ")} is not in this price. Add it under Setup fees if you charge it.`
-      : null,
-  };
+  return { unit: Math.round(unit * 100) / 100, qty, decoration: primary };
 }
 
 /**
