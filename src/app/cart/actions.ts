@@ -10,6 +10,10 @@ export interface PlaceCartInput {
   designIds: string[];
   contact: Omit<CheckoutContactInput, "designId">;
   fulfillment: "ship" | "pickup";
+  /** Priced rush tier chosen at checkout, or null for no rush. */
+  rushTier?: { days: number; pct: number } | null;
+  /** Requested in-hand date from the "Pick a date" option. */
+  neededBy?: string | null;
 }
 
 export interface PlaceCartResult {
@@ -23,10 +27,13 @@ export interface PlaceCartResult {
  * written for every design before its order is placed. Each design that fails
  * is reported back so the cart can keep the unsubmitted ones.
  *
- * Rush and the customer's note are NOT collected here: both are per-design asks
- * made in the designer and stored in the design's price snapshot, which
- * placeOrderAction reads. That keeps a two-design cart from forcing one rush
- * choice onto both jobs.
+ * Rush IS collected here: it is a property of the checkout, not of one design,
+ * so the single choice made on /cart is applied to every order this places. The
+ * percentage is re-resolved per order against that order's own server-side
+ * subtotal, so each job pays the same rate on its own size.
+ *
+ * The customer's note stays per-design: it describes that artwork, so it rides
+ * along in the design's price snapshot, which placeOrderAction reads.
  */
 export async function placeCartOrdersAction(input: PlaceCartInput): Promise<PlaceCartResult> {
   const placed: PlaceCartResult["placed"] = [];
@@ -41,6 +48,10 @@ export async function placeCartOrdersAction(input: PlaceCartInput): Promise<Plac
     const order = await placeOrderAction({
       designId,
       fulfillment: input.fulfillment,
+      // Always send the key, even as null: that is what tells placeOrderAction
+      // checkout owns the rush ask and a stale snapshot must not override it.
+      rushTier: input.rushTier ?? null,
+      neededBy: input.neededBy ?? null,
     });
     if (order.error) {
       failed.push({ designId, error: order.error });

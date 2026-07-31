@@ -63,6 +63,7 @@ export function DetailedQuote({
   const [estimateOpen, setEstimateOpen] = useState(false);
 
   const isScreen = decoration === "screen";
+  const isPresetQty = PRESETS.includes(qty);
 
   const result = useMemo(
     () => priceFromCurve(curve, { qty: Math.max(qty, 1), colours, locations, decoration }),
@@ -221,17 +222,40 @@ export function DetailedQuote({
         </Row>
       </div>
 
-      {/* Quantity, number field + quick-pick presets */}
-      <Row
-        label="Quantity"
-        action={
-          <div className="flex items-center overflow-hidden rounded-lg border border-dream-line bg-white focus-within:border-dream-purple focus-within:ring-2 focus-within:ring-dream-purple/25">
+      {/* Quantity: quick-pick presets and the stepper share one wrap group, so
+          the number you are nudging sits right next to the pills that set it. */}
+      <Row label="Quantity">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setQtyFromControl(n)}
+              aria-pressed={qty === n}
+              className={cn(
+                "flex h-7 items-center rounded-full border px-3 text-xs font-semibold transition-colors",
+                qty === n
+                  ? "border-dream-purple bg-dream-lavender-soft text-dream-purple-dark"
+                  : "border-dream-line bg-white text-dream-muted hover:border-dream-ink/30 hover:text-dream-ink",
+              )}
+            >
+              {n}
+            </button>
+          ))}
+          {/* Stepper reads as one more pill in the group; it rings when the
+              quantity is off-preset, so the active choice is always obvious. */}
+          <div
+            className={cn(
+              "flex h-7 items-center overflow-hidden rounded-full border bg-white transition-colors focus-within:border-dream-purple focus-within:ring-1 focus-within:ring-dream-purple",
+              isPresetQty ? "border-dream-line" : "border-dream-purple ring-1 ring-dream-purple",
+            )}
+          >
             <button
               type="button"
               onClick={() => setQtyFromControl(qty - 1)}
               disabled={qty <= QTY_MIN}
               aria-label="Decrease quantity"
-              className="flex h-7 w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex h-full w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
             >
               &minus;
             </button>
@@ -247,37 +271,18 @@ export function DetailedQuote({
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.currentTarget.blur();
               }}
-              className="h-7 w-10 border-x border-dream-line bg-white text-center text-sm font-bold text-dream-ink tabular-nums focus:bg-dream-lavender-mist focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="h-full w-10 bg-transparent text-center text-xs font-bold text-dream-ink tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <button
               type="button"
               onClick={() => setQtyFromControl(qty + 1)}
               disabled={qty >= QTY_MAX}
               aria-label="Increase quantity"
-              className="flex h-7 w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex h-full w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
             >
               +
             </button>
           </div>
-        }
-      >
-        <div className="flex flex-wrap gap-1.5">
-          {PRESETS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setQtyFromControl(n)}
-              aria-pressed={qty === n}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                qty === n
-                  ? "border-dream-purple bg-dream-lavender-soft text-dream-purple-dark"
-                  : "border-dream-line bg-white text-dream-muted hover:border-dream-ink/30 hover:text-dream-ink",
-              )}
-            >
-              {n}
-            </button>
-          ))}
         </div>
       </Row>
 
@@ -330,21 +335,12 @@ export function DetailedQuote({
 
 /* ------------------------------- helpers ------------------------------- */
 
-/** A labelled control row: small caps label (with optional right-aligned action) above its control. */
-function Row({
-  label,
-  action,
-  children,
-}: {
-  label: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+/** A labelled control row: small caps label above its control. */
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 flex min-h-[1.75rem] items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">{label}</span>
-        {action}
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-dream-ink">
+        {label}
       </div>
       {children}
     </div>

@@ -13,6 +13,13 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { HelpPrompt } from "@/components/support/HelpPrompt";
 import { mapEmbedUrl } from "@/lib/businessSettings";
+import { rushTierFee, type RushTier } from "@/lib/pricing/decorationPricing";
+import {
+  RushRequest,
+  EMPTY_RUSH,
+  resolveRushTier,
+  type RushRequestValue,
+} from "@/components/RushRequest";
 import { placeCartOrdersAction } from "./actions";
 
 export interface CartPrefill {
@@ -30,9 +37,15 @@ export interface CartPrefill {
 export function CartClient({
   prefill,
   pickupAddress,
+  rushTiers,
+  standardDays,
 }: {
   prefill: CartPrefill;
   pickupAddress: string | null;
+  /** "I just want it sooner" options from Settings, Pricing. Empty hides them. */
+  rushTiers: RushTier[];
+  /** Standard production time in business days, shown next to the rush tiers. */
+  standardDays: number;
 }) {
   const router = useRouter();
   const { items, count, ready, removeItem, clearCart } = useCart();
@@ -41,18 +54,26 @@ export function CartClient({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Rush is asked once for the whole checkout, not per design: everything in
+  // this cart is going out on the same deadline.
+  const [rush, setRush] = useState<RushRequestValue>(EMPTY_RUSH);
 
-  // Each item.total is that design's pre-tax price (goods + setup + any rush
-  // tier the customer picked in the designer), so this subtotal already carries
-  // whatever rush was requested per design.
+  // Each item.total is that design's pre-tax price (goods + setup). Rush is
+  // added below, on top of the combined subtotal, so a two-design cart pays the
+  // percentage once against the whole job.
   const subtotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  // Setup is already amortized into the curve price, so the fee base is just the
+  // subtotal. The server re-derives this per order at placement; this is the
+  // customer-facing preview of the same math.
+  const rushTier = resolveRushTier(rush, rushTiers);
+  const rushAmount = rushTier ? rushTierFee(subtotal, 0, rushTier.pct) : 0;
   // Shipping is free on every order (see checkout settings), so the only line
-  // between subtotal and the out-the-door number is sales tax. Compute it live
-  // from the province the customer types into their address, so the "Estimated
-  // total" is what they'll actually be charged, not just the goods subtotal.
+  // between subtotal and the out-the-door number is rush and sales tax. Compute
+  // tax live from the province the customer types into their address, so the
+  // "Estimated total" is what they'll actually be charged.
   const province = isProvinceCode(contact.province) ? contact.province : null;
-  const tax = calcTax(subtotal, province);
-  const grandTotal = subtotal + tax.total;
+  const tax = calcTax(subtotal + rushAmount, province);
+  const grandTotal = subtotal + rushAmount + tax.total;
   const set = (k: keyof CartPrefill, v: string) => setContact((c) => ({ ...c, [k]: v }));
 
   async function request() {
@@ -74,6 +95,8 @@ export function CartClient({
         designIds: items.map((i) => i.designId),
         contact,
         fulfillment,
+        rushTier: rushTier ? { days: rushTier.days, pct: rushTier.pct } : null,
+        neededBy: rush.mode === "date" ? rush.date : null,
       });
       // Drop every successfully placed design from the cart.
       res.placed.forEach((p) => removeItem(p.designId));
@@ -375,9 +398,18 @@ export function CartClient({
                 </Field>
               </div>
 
-              {/* No rush box here on purpose: rush is a per-design ask made in
-                  the designer's "Request a rush" card, and its fee is already in
-                  each item's price below. */}
+              {/* Rush belongs to the checkout, not to one design: the whole
+                  cart ships on one deadline, so the ask sits here beside the
+                  pricing it changes. */}
+              <RushRequest
+                className="mt-5"
+                value={rush}
+                onChange={setRush}
+                tiers={rushTiers}
+                standardDays={standardDays}
+                subtotal={subtotal}
+                setupTotal={0}
+              />
 
               {/* Order summary, a transparent line-item breakdown so the
                   customer sees the real out-the-door number (goods + free
@@ -390,6 +422,14 @@ export function CartClient({
                     <dt className="text-dream-muted">{count === 1 ? "Design" : `Designs (${count})`}</dt>
                     <dd className="font-semibold text-dream-ink">{formatCAD(subtotal)}</dd>
                   </div>
+                  {rushTier && rushAmount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <dt className="text-dream-muted">
+                        Rush (+{rushTier.pct}%, {rushTier.days} business days)
+                      </dt>
+                      <dd className="font-semibold text-dream-ink">{formatCAD(rushAmount)}</dd>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <dt className="text-dream-muted">Shipping</dt>
                     <dd className="font-semibold text-dream-success">Free</dd>

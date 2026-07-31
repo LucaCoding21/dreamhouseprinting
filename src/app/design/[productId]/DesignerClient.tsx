@@ -38,8 +38,6 @@ import {
   nextCurveBreak,
   priceFromCurve,
 } from "@/lib/pricing/quote";
-import { rushTierFee, type RushTier } from "@/lib/pricing/decorationPricing";
-import { RushDatePicker } from "@/components/RushDatePicker";
 import { fmtDate, inHandsWindow } from "@/lib/turnaround";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { swatchStyle } from "@/lib/swatch";
@@ -55,8 +53,6 @@ import type { ProductColourJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
 type View = "front" | "back" | "sleeve";
 type Tool = "colour" | "upload" | "text" | "clipart" | "notes";
-/** Rush request: nothing asked for, a target date, or a "just sooner" tier. */
-type RushMode = "none" | "date" | "sooner";
 
 interface PrintAreaLite {
   id: string;
@@ -88,10 +84,6 @@ export interface InitialDesign {
   scenes: Record<string, object>;
   /** Note the customer left last time ("Leave a note"). */
   customerNote: string | null;
-  /** Requested in-hand date from the "Pick a date" rush option. */
-  neededBy: string | null;
-  /** Rush tier the customer had chosen, matched back to a live tier by days. */
-  rush: { days: number; pct: number } | null;
 }
 
 interface Props {
@@ -112,10 +104,6 @@ interface Props {
   sizes: { name: string; inStock: boolean }[];
   printAreas: PrintAreaLite[];
   methods: MethodLite[];
-  /** "I just want it sooner" options from Settings, Pricing. Empty hides them. */
-  rushTiers: RushTier[];
-  /** Standard production time in business days, shown next to the rush tiers. */
-  standardDays: number;
   isLoggedIn: boolean;
   accountEmail: string | null;
   startAsQuote: boolean;
@@ -305,18 +293,6 @@ export function DesignerClient(props: Props) {
   // its customer production note at placement.
   const [customerNote, setCustomerNote] = useState(edit?.customerNote ?? "");
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
-  // Rush request, ONE box on the review screen: either a target date (no
-  // automatic fee, we confirm the timeline) or one of the admin-configured
-  // tiers, whose percentage surcharge lands in the live estimate.
-  const [rushMode, setRushMode] = useState<RushMode>(
-    edit?.rush ? "sooner" : edit?.neededBy ? "date" : "none"
-  );
-  const [rushDate, setRushDate] = useState<string | null>(edit?.neededBy ?? null);
-  const [rushTierId, setRushTierId] = useState<string | null>(
-    // Match the saved tier back to a live one by turnaround, so editing a design
-    // after Julian retunes the tiers keeps a sensible selection (or none).
-    edit?.rush ? props.rushTiers.find((t) => t.days === edit.rush!.days)?.id ?? null : null
-  );
   const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
   // Views where some artwork spills past the dashed print box. Purely a friendly
   // heads-up, never blocks ordering (a human rechecks every design at proofing).
@@ -483,17 +459,14 @@ export function DesignerClient(props: Props) {
   );
 
   const grandSubtotal = roundCents(pricedColorways.reduce((s, c) => s + c.lineTotal, 0));
-  // The chosen "just sooner" tier (null on a date request or no rush at all).
-  // Its fee is a flat percentage of the pre-tax job, recomputed live so the
-  // estimate always matches what the server charges at placement.
-  const rushTier = rushMode === "sooner" ? props.rushTiers.find((t) => t.id === rushTierId) ?? null : null;
-  const rushAmount = rushTier ? rushTierFee(grandSubtotal, jobPrice.setupTotal, rushTier.pct) : 0;
+  // No rush line here: rush is requested at checkout (it applies to the whole
+  // order, not one design), so this design's total is goods + setup only.
   const breakdown = {
     unitPrice: jobPrice.unitPrice,
     subtotal: grandSubtotal,
     setupTotal: jobPrice.setupTotal,
-    rush: rushAmount,
-    total: roundCents(grandSubtotal + jobPrice.setupTotal + rushAmount),
+    rush: 0,
+    total: roundCents(grandSubtotal + jobPrice.setupTotal),
   };
   // Pre-discount unit price + savings for the headline estimate box (matches
   // the instant-estimate box on the product page, incl. its qty-12 anchor).
@@ -1226,10 +1199,9 @@ export function DesignerClient(props: Props) {
           setupTotal: breakdown.setupTotal,
           total: breakdown.total,
           quantity,
-          // Rush: the chosen tier (days + pct + the fee it added), or a bare
-          // requested date, which carries no automatic fee.
-          ...(rushTier ? { rush: { days: rushTier.days, pct: rushTier.pct, fee: rushAmount } } : {}),
-          ...(rushMode === "date" && rushDate ? { neededBy: rushDate } : {}),
+          // No rush/neededBy here: the customer asks for those at checkout, so
+          // they belong to the order rather than the design. placeOrderAction
+          // still falls back to a snapshot rush for designs saved before this.
           ...(customerNote.trim() ? { customerNote: customerNote.trim() } : {}),
           inkColours,
           // Per-side print spec (real measurement + colour count), pre-fills
@@ -1346,8 +1318,11 @@ export function DesignerClient(props: Props) {
             leftOpen ? "lg:w-[23rem]" : "lg:w-20"
           )}
         >
-          {/* Vertical icon rail */}
-          <div className="flex shrink-0 flex-row items-center gap-5 border-b border-dream-line px-3 py-3 lg:w-20 lg:flex-col lg:gap-9 lg:border-b-0 lg:border-r lg:py-7">
+          {/* Vertical icon rail. Its spacing scales with viewport height so the
+              whole stack (Notes and the contact link are last) stays reachable on
+              short laptop screens, where a fixed gap used to push them past the
+              clipped bottom edge. overflow-y-auto is the backstop below that. */}
+          <div className="no-scrollbar flex shrink-0 flex-row items-center gap-5 border-b border-dream-line px-3 py-3 lg:w-20 lg:flex-col lg:gap-[clamp(0.75rem,2.2vh,2.25rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-[clamp(0.75rem,2vh,1.75rem)] lg:[&>*]:shrink-0">
             {/* Single panel toggle, pinned to the top of the always-visible rail,
                 same spot whether open or closed; the chevron just flips. */}
             <button
@@ -1494,8 +1469,8 @@ export function DesignerClient(props: Props) {
             <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
             {sizeRange && <p className="mt-1 text-xs text-dream-muted">Sizes {sizeRange}</p>}
 
-            {/* Colour picker, its own tab. Upload + Text follow below it (see
-                the Design tools section) so a customer can keep scrolling. */}
+            {/* Colour picker, its own tab and nothing else: the tools each stay
+                on their own tab so this one is only about the garment. */}
             {tool === "colour" && (
               <>
             <div className="mt-4 flex items-baseline justify-between gap-2">
@@ -1548,6 +1523,10 @@ export function DesignerClient(props: Props) {
 
             <hr className="my-6 border-dream-line" />
 
+            {/* Tool panels, one per tab, each its own card. The colour tab has
+                no tools of its own, so the whole section sits out. */}
+            {tool !== "colour" && (
+              <>
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Design tools</div>
 
             {activeView === null && (
@@ -1556,11 +1535,8 @@ export function DesignerClient(props: Props) {
               </p>
             )}
 
-            {/* Tool panels. The colour tab also renders Upload + Text below the
-                colour picker (scroll down) so a customer can keep going without
-                switching tabs. Each panel is its own card. */}
             <div className="mt-3 space-y-4">
-              {(tool === "upload" || tool === "colour") && (
+              {tool === "upload" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
                 <>
                   <h3 className="font-display text-base font-bold text-dream-ink">Upload artwork</h3>
@@ -1603,7 +1579,7 @@ export function DesignerClient(props: Props) {
                 </div>
               )}
 
-              {(tool === "text" || tool === "colour") && (
+              {tool === "text" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
                 <>
                   <h3 className="font-display text-base font-bold text-dream-ink">Add text</h3>
@@ -1787,9 +1763,7 @@ export function DesignerClient(props: Props) {
                     </label>
                   </div>
 
-                  {/* On the colour tab the Upload card already shows the method
-                      picker, so don't render a second one here. */}
-                  {tool !== "colour" && methodPicker}
+                  {methodPicker}
                 </>
                 </div>
               )}
@@ -1818,6 +1792,8 @@ export function DesignerClient(props: Props) {
                 <NoteCard value={customerNote} onChange={setCustomerNote} textareaRef={noteRef} />
               )}
             </div>
+              </>
+            )}
 
             {/* Placements the online designer can't cover (tags, inside labels,
                 and sleeves on products without a sleeve area) are handed off to a
@@ -2336,24 +2312,8 @@ export function DesignerClient(props: Props) {
                     <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
                     <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
                   </div>
-                  {/* Rush surcharge, only when a "just sooner" tier is picked. A
-                      requested date carries no automatic fee. */}
-                  {rushTier && rushAmount > 0 && (
-                    <>
-                      <div className="mt-1.5 flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold text-dream-purple-dark/80">
-                          Rush (+{rushTier.pct}%, {rushTier.days} business days)
-                        </span>
-                        <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(rushAmount)}</span>
-                      </div>
-                      <div className="mt-1.5 flex items-center justify-between gap-3 border-t border-dream-lavender-soft pt-2.5">
-                        <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated total before tax</span>
-                        <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.total)}</span>
-                      </div>
-                    </>
-                  )}
                   <p className="mt-1.5 text-xs font-medium leading-relaxed text-dream-muted">
-                    Free shipping. Tax is added at checkout, and final pricing is confirmed on your proof before you pay.
+                    Free shipping. Tax and any rush you request are added at checkout, and final pricing is confirmed on your proof before you pay.
                   </p>
                 </div>
 
@@ -2372,81 +2332,9 @@ export function DesignerClient(props: Props) {
                   </div>
                 </div>
 
-                {/* Rush request, ONE box. Two mutually exclusive asks: a target
-                    date (no automatic fee, we confirm and quote it) or one of
-                    the priced "sooner" tiers, whose fee joins the estimate. */}
-                <div className="mt-6 rounded-2xl border border-dream-line bg-white px-5 py-5">
-                  <h3 className="font-display text-lg font-bold leading-tight text-dream-ink">Request a rush</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-dream-muted">
-                    We&apos;ll do our best to accommodate requested rushes.
-                  </p>
-                  <div className="mt-4 space-y-2.5">
-                    <RushChoice
-                      title="Pick a date"
-                      selected={rushMode === "date"}
-                      onSelect={() => {
-                        setRushMode(rushMode === "date" ? "none" : "date");
-                        setRushTierId(null);
-                      }}
-                    >
-                      <div className="mt-3">
-                        <RushDatePicker value={rushDate} autoOpen onChange={setRushDate} />
-                      </div>
-                      <p className="mt-2 text-xs leading-relaxed text-dream-muted">
-                        Our team will confirm the timeline and quote any rush fee.
-                      </p>
-                    </RushChoice>
-
-                    {/* Priced options only exist when Julian has rush tiers
-                        configured; with none, the date request is the whole box. */}
-                    {props.rushTiers.length > 0 && (
-                      <RushChoice
-                        title="I just want it sooner"
-                        selected={rushMode === "sooner"}
-                        onSelect={() => {
-                          setRushMode(rushMode === "sooner" ? "none" : "sooner");
-                          setRushDate(null);
-                        }}
-                      >
-                        <>
-                          <div className="mt-3 space-y-2">
-                            {props.rushTiers.map((t) => {
-                              const on = rushTierId === t.id;
-                              const fee = rushTierFee(breakdown.subtotal, breakdown.setupTotal, t.pct);
-                              return (
-                                <button
-                                  key={t.id}
-                                  type="button"
-                                  onClick={() => setRushTierId(on ? null : t.id)}
-                                  aria-pressed={on}
-                                  className={cn(
-                                    "flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors",
-                                    on
-                                      ? "border-dream-purple bg-dream-lavender-mist"
-                                      : "border-dream-line bg-white hover:border-dream-purple/50"
-                                  )}
-                                >
-                                  <span className="font-display text-sm font-bold text-dream-ink">
-                                    {t.days} business days
-                                  </span>
-                                  <span className="flex shrink-0 items-center gap-2">
-                                    <span className="text-xs font-semibold text-dream-muted">+{t.pct}%</span>
-                                    <span className="rounded-full bg-dream-sun px-2.5 py-0.5 font-display text-xs font-extrabold text-dream-ink">
-                                      +{formatCAD(fee)}
-                                    </span>
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <p className="mt-2 text-xs leading-relaxed text-dream-muted">
-                            Standard: {props.standardDays} business days.
-                          </p>
-                        </>
-                      </RushChoice>
-                    )}
-                  </div>
-                </div>
+                {/* Rush is asked for at checkout, not here: it applies to the
+                    whole order being placed, so a customer submitting two
+                    designs picks one deadline for the lot. See RushRequest. */}
 
                 {/* The customer's note, shown here too so they can see it is
                     attached to what they're about to send. */}
@@ -2648,48 +2536,6 @@ function NoteCard({
         className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-sm leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-dream-faint focus:border-dream-purple"
       />
       <p className="mt-2 text-xs text-dream-faint">Saved with your design and sent to our team with your order.</p>
-    </div>
-  );
-}
-
-/** One of the two mutually exclusive rush asks. Selecting it reveals its own
- *  controls; selecting the other (or clicking it again) closes it. */
-function RushChoice({
-  title,
-  selected,
-  onSelect,
-  children,
-}: {
-  title: string;
-  selected: boolean;
-  onSelect: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border px-4 py-3.5 transition-colors",
-        selected ? "border-dream-purple bg-dream-lavender-mist/50" : "border-dream-line bg-white"
-      )}
-    >
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-pressed={selected}
-        className="flex w-full items-center gap-3 text-left"
-      >
-        <span
-          aria-hidden
-          className={cn(
-            "grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition-colors",
-            selected ? "border-dream-purple" : "border-dream-line-strong"
-          )}
-        >
-          {selected && <span className="h-2.5 w-2.5 rounded-full bg-dream-purple" />}
-        </span>
-        <span className="font-display text-sm font-bold text-dream-ink">{title}</span>
-      </button>
-      {selected && children}
     </div>
   );
 }

@@ -6,10 +6,6 @@ import { getGuestToken } from "@/lib/guest";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { enabledColours } from "@/lib/productImage";
 import { garmentRetailUnit } from "@/lib/pricing/platform";
-import {
-  DECORATION_PRICING_SETTINGS_KEY,
-  mergeDecorationPricing,
-} from "@/lib/pricing/decorationPricing";
 import { DesignerClient, type InitialDesign } from "./DesignerClient";
 import type { ProductColourJson, ProductSizeJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
@@ -52,14 +48,10 @@ async function loadInitialDesign(
 
   const colour = (data.colour ?? {}) as { name?: string };
   const colorways = (data.colorways ?? []) as unknown as DesignColourway[];
-  // The note + rush request live in the price snapshot, so reopening a saved
-  // design brings both back instead of silently dropping them on the next save.
-  const snap = (data.price_snapshot ?? {}) as {
-    customerNote?: string | null;
-    neededBy?: string | null;
-    rush?: boolean | { days?: number; pct?: number } | null;
-  };
-  const rush = snap.rush && typeof snap.rush === "object" ? snap.rush : null;
+  // The customer's note lives in the price snapshot, so reopening a saved
+  // design brings it back instead of silently dropping it on the next save.
+  // Rush is NOT read back here: it is asked for at checkout now.
+  const snap = (data.price_snapshot ?? {}) as { customerNote?: string | null };
   return {
     designId: data.id,
     name: data.name ?? null,
@@ -74,11 +66,6 @@ async function loadInitialDesign(
     })),
     scenes: (data.scene_definition ?? {}) as Record<string, object>,
     customerNote: typeof snap.customerNote === "string" ? snap.customerNote : null,
-    neededBy: typeof snap.neededBy === "string" ? snap.neededBy : null,
-    rush:
-      rush && Number(rush.pct) > 0
-        ? { days: Math.round(Number(rush.days) || 0), pct: Number(rush.pct) }
-        : null,
   };
 }
 
@@ -112,15 +99,6 @@ export default async function DesignPage({
   }
 
   const user = await getUser();
-  // Rush options (business days + surcharge %) are admin-tunable in
-  // Settings, Pricing; defaults apply until Julian edits the row.
-  const service = requireSupabaseServiceClient();
-  const { data: pricingRow } = await service
-    .from("settings")
-    .select("value")
-    .eq("key", DECORATION_PRICING_SETTINGS_KEY)
-    .maybeSingle();
-  const decorationPricing = mergeDecorationPricing(pricingRow?.value);
   const colours = enabledColours(product) as ProductColourJson[];
   const allSizes = (product.sizes ?? []) as unknown as (ProductSizeJson & { enabled?: boolean })[];
   const sizes = allSizes.filter((s) => s.enabled !== false);
@@ -160,8 +138,6 @@ export default async function DesignPage({
         per_unit_cost: m.per_unit_cost,
         per_color_cost: m.per_color_cost,
       }))}
-      rushTiers={decorationPricing.rushTiers}
-      standardDays={decorationPricing.standardDays}
       isLoggedIn={!!user}
       accountEmail={user?.email ?? null}
       startAsQuote={quote === "1"}

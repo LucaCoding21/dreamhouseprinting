@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 
 /**
  * Dreamhouse's own need-by calendar. Used on the rush turnaround step: when a
  * customer requests a rush we require them to pick the day they need the order
- * in hand. Renders an input-style trigger that opens a floating panel with
- * quick shortcuts (Today / Tomorrow / This weekend / Next week) above a month
- * grid. Value + onChange speak plain `YYYY-MM-DD` strings (local calendar day,
- * no timezone drift) so the parent can pass it straight through to the order.
+ * in hand. Renders INLINE, quick shortcuts (Today / Tomorrow / This weekend /
+ * Next week) above a month grid, so choosing "Pick a date" simply expands the
+ * box it sits in. It used to open a portaled popup, which needed fixed-position
+ * measuring and flip logic purely to escape the checkout card's overflow, all of
+ * which an inline panel makes unnecessary.
+ *
+ * Value + onChange speak plain `YYYY-MM-DD` strings (local calendar day, no
+ * timezone drift) so the parent can pass it straight through to the order.
  */
 
 /** Local-day ISO string (YYYY-MM-DD), deliberately NOT toISOString(), which shifts to UTC. */
@@ -54,79 +57,24 @@ function fmtLong(d: Date): string {
 export function RushDatePicker({
   value,
   onChange,
-  autoOpen = false,
+  className,
 }: {
   value: string | null;
   onChange: (iso: string) => void;
-  /** Open the panel immediately on mount (used when the rush option is picked). */
-  autoOpen?: boolean;
+  className?: string;
 }) {
-  const [open, setOpen] = useState(autoOpen);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  // Fixed-position coords for the portaled panel, so it escapes any
-  // overflow-hidden ancestor (the checkout/cart card was clipping it). Null
-  // until the client layout effect measures the trigger, which also keeps the
-  // portal off the server render (no document.body there).
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
-
   const today = useMemo(() => startOfDay(new Date()), []);
   const selected = value ? startOfDay(fromISODate(value)) : null;
   const [viewMonth, setViewMonth] = useState<Date>(
     () => new Date((selected ?? today).getFullYear(), (selected ?? today).getMonth(), 1)
   );
 
-  const PANEL_W = 224; // w-56
-  const PANEL_H = 320; // approx, enough to decide flip
-
-  // Position the panel relative to the trigger, flipping above when there's no
-  // room below. Recomputed on open, scroll and resize.
-  useLayoutEffect(() => {
-    if (!open) return;
-    function place() {
-      const el = triggerRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const openUp = r.bottom + PANEL_H > window.innerHeight && r.top - PANEL_H > 0;
-      const top = openUp ? r.top - PANEL_H - 6 : r.bottom + 6;
-      const left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_W - 8));
-      setCoords({ top, left });
-    }
-    place();
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [open]);
-
-  // Close on outside click / Escape (accounting for the portaled panel).
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      const t = e.target as Node;
-      if (triggerRef.current?.contains(t) || panelRef.current?.contains(t)) return;
-      setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
   function pick(d: Date) {
     onChange(toISODate(d));
     setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
-    setOpen(false);
   }
 
-  // Quick shortcuts, dates + the short weekday shown on the right.
+  // Quick shortcuts, dates + the short weekday shown alongside.
   const day = today.getDay();
   const tomorrow = addDays(today, 1);
   // Upcoming Saturday (today if it already is Saturday).
@@ -135,11 +83,13 @@ export function RushDatePicker({
   const nextWeek = addDays(today, ((1 - day + 7) % 7) || 7);
   const shortDow = (d: Date) => d.toLocaleDateString("en-CA", { weekday: "short" });
 
+  // One tone for every icon: four different hues read as a rainbow against the
+  // lavender/cream palette and were the loudest thing on the panel.
   const shortcuts = [
-    { label: "Today", date: today, icon: <SunIcon />, tone: "text-dream-success" },
-    { label: "Tomorrow", date: tomorrow, icon: <SunriseIcon />, tone: "text-amber-500" },
-    { label: "This weekend", date: thisWeekend, icon: <SofaIcon />, tone: "text-blue-500" },
-    { label: "Next week", date: nextWeek, icon: <CalIcon />, tone: "text-dream-purple" },
+    { label: "Today", date: today, icon: <SunIcon /> },
+    { label: "Tomorrow", date: tomorrow, icon: <SunriseIcon /> },
+    { label: "This weekend", date: thisWeekend, icon: <SofaIcon /> },
+    { label: "Next week", date: nextWeek, icon: <CalIcon /> },
   ];
 
   // Build the month grid (leading blanks + days).
@@ -153,123 +103,104 @@ export function RushDatePicker({
   const canGoPrev = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1) > new Date(today.getFullYear(), today.getMonth(), 1);
 
   return (
-    <div className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          "flex w-full max-w-[16rem] items-center gap-2 rounded-lg border bg-white px-2.5 py-2 text-left transition-colors",
-          value ? "border-dream-purple" : "border-dream-line-strong hover:border-dream-purple"
-        )}
-      >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-dream-lavender-soft text-dream-purple">
-          <CalIcon />
-        </span>
-        <span className={cn("min-w-0 flex-1 truncate text-sm font-semibold", value ? "text-dream-ink" : "text-dream-faint")}>
-          {selected ? fmtLong(selected) : "Pick a date"}
-        </span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-dream-faint transition-transform", open && "rotate-180")} />
-      </button>
+    <div className={cn(className)}>
+      {/* Quick shortcuts, a wrap row rather than the popup's vertical list: the
+          inline panel is wider than it is tall, so they cost almost no height. */}
+      <div className="flex flex-wrap gap-1.5">
+        {shortcuts.map((s) => {
+          const on = !!selected && sameDay(s.date, selected);
+          return (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => pick(s.date)}
+              aria-pressed={on}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 transition-colors",
+                on
+                  ? "bg-dream-lavender-soft ring-1 ring-inset ring-dream-purple"
+                  : "bg-white ring-1 ring-inset ring-dream-line hover:ring-dream-purple/50"
+              )}
+            >
+              <span className="shrink-0 text-dream-purple [&>svg]:h-3.5 [&>svg]:w-3.5">{s.icon}</span>
+              <span className="text-xs font-semibold text-dream-ink">{s.label}</span>
+              <span className="text-[11px] text-dream-faint">{shortDow(s.date)}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {open && coords && createPortal(
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-label="Pick your need-by date"
-          style={{ position: "fixed", top: coords.top, left: coords.left, width: PANEL_W }}
-          className="z-[60] overflow-hidden rounded-xl border border-dream-line bg-white shadow-[0_10px_32px_-8px_rgba(27,20,88,0.28)]"
-        >
-          {/* Quick shortcuts */}
-          <div className="border-b border-dream-line">
-            {shortcuts.map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                onClick={() => pick(s.date)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-dream-lavender-soft"
-              >
-                <span className={cn("shrink-0", s.tone)}>{s.icon}</span>
-                <span className="flex-1 text-[13px] font-medium text-dream-ink">{s.label}</span>
-                <span className="text-xs text-dream-faint">{shortDow(s.date)}</span>
-              </button>
-            ))}
-          </div>
+      {/* Month grid */}
+      <div className="mt-3 border-t border-dream-line pt-2">
+        <div className="flex items-center justify-between pb-1">
+          <button
+            type="button"
+            onClick={() => canGoPrev && setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}
+            disabled={!canGoPrev}
+            aria-label="Previous month"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-dream-muted transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <span className="font-display text-sm font-bold text-dream-ink">
+            {MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+          </span>
+          <button
+            type="button"
+            onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}
+            aria-label="Next month"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-dream-muted transition-colors hover:bg-white"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
 
-          {/* Month grid */}
-          <div className="p-2">
-            <div className="flex items-center justify-between pb-1">
-              <button
-                type="button"
-                onClick={() => canGoPrev && setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}
-                disabled={!canGoPrev}
-                aria-label="Previous month"
-                className="flex h-6 w-6 items-center justify-center rounded-md text-dream-muted transition-colors hover:bg-dream-bg disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <span className="font-display text-[13px] font-bold text-dream-ink">
-                {MONTHS[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-              </span>
-              <button
-                type="button"
-                onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}
-                aria-label="Next month"
-                className="flex h-6 w-6 items-center justify-center rounded-md text-dream-muted transition-colors hover:bg-dream-bg"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+        <div className="grid grid-cols-7 gap-y-0.5">
+          {WEEKDAYS.map((w) => (
+            <div key={w} className="pb-1 text-center text-[10px] font-semibold text-dream-faint">
+              {w}
             </div>
+          ))}
+          {cells.map((d, i) => {
+            if (!d) return <div key={`b${i}`} />;
+            const isPast = d < today;
+            const isToday = sameDay(d, today);
+            const isSelected = selected && sameDay(d, selected);
+            return (
+              <button
+                key={toISODate(d)}
+                type="button"
+                disabled={isPast}
+                onClick={() => pick(d)}
+                aria-pressed={!!isSelected}
+                className={cn(
+                  "mx-auto flex h-8 w-8 items-center justify-center rounded-md text-xs transition-colors",
+                  isPast && "cursor-not-allowed text-dream-line-strong",
+                  !isPast && !isSelected && "text-dream-ink hover:bg-white",
+                  isSelected && "bg-dream-purple font-bold text-white",
+                  !isSelected && isToday && "font-bold text-dream-purple ring-1 ring-inset ring-dream-purple/40"
+                )}
+              >
+                {d.getDate()}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-            <div className="grid grid-cols-7">
-              {WEEKDAYS.map((w) => (
-                <div key={w} className="pb-0.5 text-center text-[10px] font-semibold text-dream-faint">
-                  {w}
-                </div>
-              ))}
-              {cells.map((d, i) => {
-                if (!d) return <div key={`b${i}`} />;
-                const isPast = d < today;
-                const isToday = sameDay(d, today);
-                const isSelected = selected && sameDay(d, selected);
-                return (
-                  <button
-                    key={toISODate(d)}
-                    type="button"
-                    disabled={isPast}
-                    onClick={() => pick(d)}
-                    aria-pressed={!!isSelected}
-                    className={cn(
-                      "mx-auto flex h-7 w-7 items-center justify-center rounded-md text-xs transition-colors",
-                      isPast && "cursor-not-allowed text-dream-faint/50",
-                      !isPast && !isSelected && "text-dream-ink hover:bg-dream-lavender-soft",
-                      isSelected && "bg-dream-purple font-bold text-white",
-                      !isSelected && isToday && "font-bold text-dream-purple ring-1 ring-inset ring-dream-purple/40"
-                    )}
-                  >
-                    {d.getDate()}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>,
-        document.body
+      {/* Confirmation of the chosen day, spelled out in full so there is no
+          ambiguity about which date a highlighted cell means. */}
+      {selected && (
+        <p className="mt-2 border-t border-dream-line pt-2 text-xs font-semibold text-dream-ink">
+          <span className="text-dream-muted">Need it by </span>
+          {fmtLong(selected)}
+        </p>
       )}
     </div>
   );
 }
 
 /*, icons (inline, no deps), */
-function ChevronDown({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
-      <path d="M6 9l6 6 6-6" />
-    </svg>
-  );
-}
 function ChevronLeft({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>

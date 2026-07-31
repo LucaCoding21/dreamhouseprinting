@@ -113,7 +113,6 @@ export function ShippingClient({
                     <div className="mt-3 max-w-sm">
                       <RushDatePicker
                         value={neededBy}
-                        autoOpen
                         onChange={(iso) => {
                           setNeededBy(iso);
                           setShowDateError(false);

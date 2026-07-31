@@ -40,7 +40,12 @@ export function OrderDetailClient({
 
       {/* Active-work context that lives alongside the lines */}
       <ProofHistory detail={detail} />
-      <OrderTimeline order={order} orderId={order.id} canEdit={can.edit} />
+      <OrderTimeline
+        order={order}
+        orderId={order.id}
+        canEdit={can.edit}
+        recipient={customer?.email || order.guest_email || null}
+      />
 
       {/* ── Reference: status, contact, payment, totals, one-time info, kept at the bottom ── */}
       <section className="space-y-6 border-t border-dream-line pt-8">

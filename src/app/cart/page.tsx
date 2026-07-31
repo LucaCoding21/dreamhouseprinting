@@ -3,6 +3,10 @@ import SiteFooter from "@/components/SiteFooter";
 import { getUser } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { mergeBusinessSettings, pickupAddress } from "@/lib/businessSettings";
+import {
+  DECORATION_PRICING_SETTINGS_KEY,
+  mergeDecorationPricing,
+} from "@/lib/pricing/decorationPricing";
 import { CartClient, type CartPrefill } from "./CartClient";
 
 export const metadata = { title: "Your cart | Dreamhouse Printing" };
@@ -42,14 +46,20 @@ export default async function CartPage() {
   const user = await getUser();
   let prefill: CartPrefill = EMPTY;
 
-  // Pickup address is shown at checkout when the customer chooses "Pick up".
+  // Pickup address is shown at checkout when the customer chooses "Pick up";
+  // rush options (business days + surcharge %) drive the "Request a rush" card.
+  // Both are admin-tunable in Settings; defaults apply until Julian edits them.
   const service = requireSupabaseServiceClient();
-  const { data: businessRow } = await service
-    .from("settings")
-    .select("value")
-    .eq("key", "business")
-    .maybeSingle();
+  const [{ data: businessRow }, { data: pricingRow }] = await Promise.all([
+    service.from("settings").select("value").eq("key", "business").maybeSingle(),
+    service
+      .from("settings")
+      .select("value")
+      .eq("key", DECORATION_PRICING_SETTINGS_KEY)
+      .maybeSingle(),
+  ]);
   const shopPickupAddress = pickupAddress(mergeBusinessSettings(businessRow?.value));
+  const decorationPricing = mergeDecorationPricing(pricingRow?.value);
 
   if (user) {
     const { data: profile } = await service
@@ -75,7 +85,12 @@ export default async function CartPage() {
   return (
     <div className="min-h-screen bg-[#f8f7fd] text-dream-ink">
       <SiteNav />
-      <CartClient prefill={prefill} pickupAddress={shopPickupAddress} />
+      <CartClient
+        prefill={prefill}
+        pickupAddress={shopPickupAddress}
+        rushTiers={decorationPricing.rushTiers}
+        standardDays={decorationPricing.standardDays}
+      />
       <SiteFooter />
     </div>
   );

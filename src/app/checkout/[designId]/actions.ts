@@ -180,13 +180,23 @@ export interface PlaceOrderInput {
   /** Pickup at the shop vs ship to the saved address (both free). */
   fulfillment: "ship" | "pickup";
   /**
-   * Legacy per-design checkout funnel only. The rush ask now lives in the
-   * designer and travels in the design's price snapshot, so the cart no longer
-   * sends this. "rush" here still means "requested, fee quoted on the proof".
+   * Legacy per-design checkout funnel only. "rush" here still means
+   * "requested, fee quoted on the proof" with no automatic surcharge.
    */
   turnaround?: "standard" | "rush";
   /** Customer's requested in-hand date (YYYY-MM-DD), only on a rush. */
   neededBy?: string | null;
+  /**
+   * The priced rush tier chosen at checkout, or null for "no rush". Rush is an
+   * order-level ask, so the cart sends it per placement rather than reading it
+   * off the design.
+   *
+   * Presence is what makes it authoritative: `undefined` (key absent) falls back
+   * to the design's price snapshot, which is how designs saved back when the
+   * designer owned the rush box still get their fee. An explicit `null` means
+   * the customer declined rush at checkout and beats any stale snapshot value.
+   */
+  rushTier?: { days: number; pct: number } | null;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -406,20 +416,34 @@ export async function placeOrderAction(
   const snapBasis = Number(snap.subtotal ?? 0) + Number(snap.setupTotal ?? 0);
   const serverRepriced = Math.abs(subtotal + setup - snapBasis) > 0.05;
 
-  // Rush. The designer's "I just want it sooner" tiers carry a real percentage
+  // Rush. The checkout's "I just want it sooner" tiers carry a real percentage
   // surcharge, recomputed here off the SERVER subtotal (never the client's fee)
-  // so a tampered snapshot can only change which tier was asked for, not the
+  // so a tampered request can only change which tier was asked for, not the
   // math. A bare requested date adds nothing, the shop quotes that on the proof.
-  // Designs saved before rush tiers existed carry the legacy flat-rush boolean,
-  // still honoured at the old 50% rate.
+  //
+  // The caller wins when it sends the field at all (see PlaceOrderInput.rushTier).
+  // Only when it stays silent do we read the design's snapshot, which is what
+  // keeps designs saved while the designer owned the rush box working, including
+  // the pre-tiers flat-rush boolean at its old 50% rate.
   const snapRush = snap.rush ?? null;
-  const rushTier =
+  const snapTier =
     snapRush && typeof snapRush === "object" && Number(snapRush.pct) > 0
       ? { days: Math.max(0, Math.round(Number(snapRush.days) || 0)), pct: Number(snapRush.pct) }
       : null;
+  const fromInput = input.rushTier !== undefined;
+  const rushTier = fromInput
+    ? input.rushTier && Number(input.rushTier.pct) > 0
+      ? {
+          days: Math.max(0, Math.round(Number(input.rushTier.days) || 0)),
+          pct: Number(input.rushTier.pct),
+        }
+      : null
+    : snapTier;
   const rush = rushTier
     ? rushTierFee(subtotal, setup, rushTier.pct)
-    : rushFee(subtotal, setup, snapRush === true);
+    : fromInput
+      ? 0
+      : rushFee(subtotal, setup, snapRush === true);
   const province = isProvinceCode(address.prov) ? address.prov : null;
   const tax = calcTax(subtotal + setup + rush, province).total;
   const shipping = 0;
@@ -430,12 +454,13 @@ export async function placeOrderAction(
   due.setDate(due.getDate() + lead);
 
   // The customer's picked need-by date IS the order's target date, so it drives
-  // due_date (falling back to the lead-time projection). It can come from the
-  // designer (price snapshot) or the legacy funnel's rush step. Only trust a
-  // well-formed YYYY-MM-DD so a tampered request can't write garbage.
+  // due_date (falling back to the lead-time projection). Same authority rule as
+  // the tier above: a caller that owns the rush ask owns the date with it, so a
+  // stale snapshot date can't resurrect a deadline the customer just cleared.
+  // Only trust a well-formed YYYY-MM-DD so a tampered request can't write garbage.
   const neededBy = ISO_DATE.test(input.neededBy ?? "")
     ? input.neededBy!
-    : ISO_DATE.test(snap.neededBy ?? "")
+    : !fromInput && ISO_DATE.test(snap.neededBy ?? "")
       ? snap.neededBy!
       : null;
   const rushRequested = input.turnaround === "rush" || !!rushTier || !!neededBy;
