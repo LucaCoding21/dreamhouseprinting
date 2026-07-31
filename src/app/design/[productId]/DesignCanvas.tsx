@@ -2,12 +2,20 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as fabric from "fabric";
-import { effectivePrintBox, boxPxPerInch, formatInches, type NormalizedBox } from "@/lib/design/printArea";
+import {
+  effectivePrintBox,
+  boxPxPerInch,
+  formatInches,
+  zoneIndexForPoint,
+  type NormalizedBox,
+} from "@/lib/design/printArea";
 
 export type PrintBox = NormalizedBox; // normalized 0..1
 
 /** Everything the canvas needs to draw + label + measure one print area. */
 export interface PrintAreaSpec {
+  /** The print_areas row id. Identifies this zone in every downstream record. */
+  id: string;
   box: PrintBox; // admin-drawn placement envelope
   name: string;
   maxWidthIn: number | null;
@@ -27,8 +35,11 @@ export type ArtDescriptor = { type: "text"; fill: string } | { type: "image"; sr
 
 export interface DesignCanvasHandle {
   setGarment: (url: string | null) => void;
-  setPrintArea: (area: PrintAreaSpec | null) => void;
-  addImageFromUrl: (url: string) => Promise<void>;
+  /** Every zone on this side, drawn at once. Order is the caller's; all
+   *  per-zone results below are index-aligned to it. */
+  setPrintAreas: (areas: PrintAreaSpec[]) => void;
+  /** `zone` targets which box new art is centred in (default: the first). */
+  addImageFromUrl: (url: string, zone?: number) => Promise<void>;
   addText: (
     text: string,
     opts?: {
@@ -37,6 +48,7 @@ export interface DesignCanvasHandle {
       fill?: string;
       fontSize?: number;
       textAlign?: "left" | "center" | "right";
+      zone?: number;
     }
   ) => void;
   clearArt: () => void;
@@ -60,10 +72,20 @@ export interface DesignCanvasHandle {
   loadScene: (json: object | null) => Promise<void>;
   exportMockup: () => string | null;
   hasObjects: () => boolean;
-  artOutsidePrintArea: () => boolean;
-  artMetrics: () => ArtMetrics | null;
-  getArtDescriptors: () => ArtDescriptor[];
+  /** Per-zone art state, index-aligned to the last setPrintAreas call. Art is
+   *  assigned to exactly one zone (see zoneIndexForPoint), so a side with a
+   *  left chest and a full front reports them as two independent prints. */
+  zoneReport: () => ZoneReport[];
   recalcOffset: () => void;
+}
+
+/** Everything downstream needs to know about one zone's artwork. */
+export interface ZoneReport {
+  hasArt: boolean;
+  /** Any of this zone's art spilling outside its box. */
+  outside: boolean;
+  metrics: ArtMetrics | null;
+  descriptors: ArtDescriptor[];
 }
 
 // The canvas sizes itself to the garment image's aspect ratio (within this
@@ -135,11 +157,14 @@ export const DesignCanvas = forwardRef<
 >(function DesignCanvas({ onSelectionChange, onChange, onGarmentLoaded, onRequestDelete, onModifyCommit }, ref) {
   const elRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<fabric.Canvas | null>(null);
-  const printRectRef = useRef<fabric.Rect | null>(null);
-  const printLabelRef = useRef<fabric.FabricText | null>(null);
-  const printAreaRef = useRef<PrintAreaSpec | null>(null);
-  // The inch-true box actually drawn/measured against (see lib/design/printArea).
-  const effBoxRef = useRef<PrintBox | null>(null);
+  // Guide objects currently on the canvas (one rect + one label per zone).
+  // Kept as a flat list because the only thing done with them is "sweep them
+  // all before redrawing" and "keep them on top of new art".
+  const guideObjectsRef = useRef<fabric.FabricObject[]>([]);
+  const printAreasRef = useRef<PrintAreaSpec[]>([]);
+  // The inch-true boxes actually drawn/measured against, index-aligned to
+  // printAreasRef (see lib/design/printArea).
+  const effBoxesRef = useRef<PrintBox[]>([]);
   const dimsRef = useRef({ ...DEFAULT_DIMS });
   // Monotonic token per setGarment call: a slow image load that finishes
   // after a newer call must not stomp the newer garment (out-of-order swaps).
@@ -270,14 +295,14 @@ export const DesignCanvas = forwardRef<
     });
 
     canvas.on("object:added", (e) => {
-      // Keep the print-area label readable above newly added art. Only reorder
+      // Keep the print-area labels readable above newly added art. Only reorder
       // a label that is STILL on the canvas: bringObjectToFront pushes its
       // argument into the object stack unconditionally, so calling it with a
       // label that loadFromJSON's clear() just removed would resurrect it as
       // an untracked orphan (which then bakes into exported mockups).
-      const label = printLabelRef.current;
-      if (label && e.target !== label && canvas.getObjects().includes(label)) {
-        canvas.bringObjectToFront(label);
+      const live = canvas.getObjects();
+      for (const g of guideObjectsRef.current) {
+        if (g !== e.target && g.type === "text" && live.includes(g)) canvas.bringObjectToFront(g);
       }
       onChange?.();
     });
@@ -301,80 +326,121 @@ export const DesignCanvas = forwardRef<
   function redrawPrintRect() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Sweep EVERY guide off the canvas, the tracked pair AND any tag-marked
+    // Sweep EVERY guide off the canvas, the tracked ones AND any tag-marked
     // orphan a scene load may have left behind, before drawing fresh ones.
     canvas
       .getObjects()
-      .filter((o) => isGuideObject(o) || o === printRectRef.current || o === printLabelRef.current)
+      .filter((o) => isGuide(o))
       .forEach((o) => canvas.remove(o));
-    printRectRef.current = null;
-    printLabelRef.current = null;
-    const area = printAreaRef.current;
-    if (!area) {
-      effBoxRef.current = null;
+    guideObjectsRef.current = [];
+    effBoxesRef.current = [];
+
+    const areas = printAreasRef.current;
+    if (areas.length === 0) {
       canvas.requestRenderAll();
       return;
     }
     const { w, h } = dimsRef.current;
-    // Reconcile the drawn envelope with the physical inch dims: the box we
+    // Reconcile each drawn envelope with its physical inch dims: the box we
     // render (and measure inside) is the largest inch-aspect-true rect that
     // fits the envelope, so px-per-inch is uniform on both axes.
-    const box = effectivePrintBox(area.box, area.maxWidthIn, area.maxHeightIn, w / h);
-    effBoxRef.current = box;
-    const rect = new fabric.Rect({
-      left: box.x * w,
-      top: box.y * h,
-      width: box.width * w,
-      height: box.height * h,
-      // Fabric v7 defaults origin to center; the box coords are a top-left
-      // anchor, so pin the origin or the rect renders offset by half its size.
-      originX: "left",
-      originY: "top",
-      fill: "transparent",
-      stroke: "#7664ff",
-      strokeWidth: 1.5,
-      strokeDashArray: [7, 6],
-      selectable: false,
-      evented: false,
-      excludeFromExport: true,
+    effBoxesRef.current = areas.map((a) => effectivePrintBox(a.box, a.maxWidthIn, a.maxHeightIn, w / h));
+
+    // Rects first (all sent to the back), then labels on top, so a big zone's
+    // outline can never be drawn over a nested zone's label.
+    const labels: fabric.FabricObject[] = [];
+    areas.forEach((area, i) => {
+      const box = effBoxesRef.current[i];
+      const rect = new fabric.Rect({
+        left: box.x * w,
+        top: box.y * h,
+        width: box.width * w,
+        height: box.height * h,
+        // Fabric v7 defaults origin to center; the box coords are a top-left
+        // anchor, so pin the origin or the rect renders offset by half its size.
+        originX: "left",
+        originY: "top",
+        fill: "transparent",
+        stroke: "#7664ff",
+        strokeWidth: 1.5,
+        strokeDashArray: [7, 6],
+        selectable: false,
+        evented: false,
+        excludeFromExport: true,
+      });
+      Object.assign(rect, { [GUIDE_TAG]: true });
+      canvas.add(rect);
+      canvas.sendObjectToBack(rect);
+      guideObjectsRef.current.push(rect);
+
+      // The zone's admin-given name + real print dimensions, pinned above its
+      // top-left corner (or just inside it when the box touches the top).
+      const text =
+        area.maxWidthIn && area.maxHeightIn
+          ? `${area.name} · ${formatInches(area.maxWidthIn, area.maxHeightIn)}`
+          : area.name;
+      const labelTop = box.y * h - 18;
+      const label = new fabric.FabricText(text, {
+        left: box.x * w,
+        top: labelTop < 2 ? box.y * h + 4 : labelTop,
+        originX: "left",
+        originY: "top",
+        fontFamily: "Archivo, sans-serif",
+        fontSize: 11,
+        fontWeight: "700",
+        fill: "#7664ff",
+        backgroundColor: "rgba(255,255,255,0.85)",
+        selectable: false,
+        evented: false,
+        excludeFromExport: true,
+      });
+      Object.assign(label, { [GUIDE_TAG]: true });
+      canvas.add(label);
+      labels.push(label);
+      guideObjectsRef.current.push(label);
     });
-    Object.assign(rect, { [GUIDE_TAG]: true });
-    printRectRef.current = rect;
-    canvas.add(rect);
-    canvas.sendObjectToBack(rect);
-    // The area's admin-given name + real print dimensions, pinned above the
-    // box's top-left corner (or just inside it when the box touches the top).
-    const text =
-      area.maxWidthIn && area.maxHeightIn
-        ? `${area.name} · ${formatInches(area.maxWidthIn, area.maxHeightIn)}`
-        : area.name;
-    const labelTop = box.y * h - 18;
-    const label = new fabric.FabricText(text, {
-      left: box.x * w,
-      top: labelTop < 2 ? box.y * h + 4 : labelTop,
-      originX: "left",
-      originY: "top",
-      fontFamily: "Archivo, sans-serif",
-      fontSize: 11,
-      fontWeight: "700",
-      fill: "#7664ff",
-      backgroundColor: "rgba(255,255,255,0.85)",
-      selectable: false,
-      evented: false,
-      excludeFromExport: true,
-    });
-    Object.assign(label, { [GUIDE_TAG]: true });
-    printLabelRef.current = label;
-    canvas.add(label);
-    canvas.bringObjectToFront(label);
+    labels.forEach((l) => canvas.bringObjectToFront(l));
     canvas.requestRenderAll();
   }
 
-  /** The print guide (rect + label), everything that isn't customer art.
-   *  Checks the value tag as well as the refs so orphaned guides (from any
-   *  load/reorder race) never count as art or leak into exports/measurements. */
+  /** The print guides (rects + labels), everything that isn't customer art.
+   *  Checks the value tag as well as the tracked list so orphaned guides (from
+   *  any load/reorder race) never count as art or leak into exports. */
   const isGuide = (o: fabric.FabricObject) =>
-    o === printRectRef.current || o === printLabelRef.current || isGuideObject(o);
+    isGuideObject(o) || guideObjectsRef.current.includes(o);
+
+  /** Live art objects on the canvas, with fresh corner coords. After a
+   *  programmatic load (undo/redo/scene restore) cached coords can be stale,
+   *  so every geometry read refreshes them first. */
+  function artObjects(): fabric.FabricObject[] {
+    const canvas = canvasRef.current;
+    if (!canvas) return [];
+    const out = canvas.getObjects().filter((o) => !isGuide(o));
+    out.forEach((o) => o.setCoords());
+    return out;
+  }
+
+  /** The zone each art object belongs to, index into effBoxesRef. Assignment
+   *  is by the object's centre so dragging art from the chest into the middle
+   *  of the shirt re-homes it, which is what the customer expects to see. */
+  function zoneOf(o: fabric.FabricObject): number {
+    const { w, h } = dimsRef.current;
+    const r = o.getBoundingRect();
+    const cx = (r.left + r.width / 2) / w;
+    const cy = (r.top + r.height / 2) / h;
+    return zoneIndexForPoint(cx, cy, effBoxesRef.current);
+  }
+
+  /** Centre point of a zone in canvas pixels, for placing new art. Falls back
+   *  to the canvas centre when the side has no zones configured. */
+  function zoneCentre(zone: number): { cx: number; cy: number } {
+    const { w, h } = dimsRef.current;
+    const box = effBoxesRef.current[zone] ?? effBoxesRef.current[0] ?? null;
+    return {
+      cx: (box ? box.x + box.width / 2 : 0.5) * w,
+      cy: (box ? box.y + box.height / 2 : 0.5) * h,
+    };
+  }
 
   useImperativeHandle(ref, () => ({
     setGarment(url) {
@@ -418,21 +484,20 @@ export const DesignCanvas = forwardRef<
         onGarmentLoaded?.();
       });
     },
-    setPrintArea(area) {
-      printAreaRef.current = area;
+    setPrintAreas(areas) {
+      printAreasRef.current = areas;
       redrawPrintRect();
     },
-    async addImageFromUrl(url) {
+    async addImageFromUrl(url, zone = 0) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const img = await fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" });
-      const box = effBoxRef.current;
-      const { w, h } = dimsRef.current;
+      const { w } = dimsRef.current;
+      const box = effBoxesRef.current[zone] ?? effBoxesRef.current[0] ?? null;
       const targetW = (box ? box.width : 0.5) * w * 0.85;
       const scale = targetW / (img.width ?? targetW);
       img.set({ scaleX: scale, scaleY: scale });
-      const cx = (box ? box.x + box.width / 2 : 0.5) * w;
-      const cy = (box ? box.y + box.height / 2 : 0.5) * h;
+      const { cx, cy } = zoneCentre(zone);
       img.set({ left: cx, top: cy, originX: "center", originY: "center" });
       attachControls(img);
       canvas.add(img);
@@ -442,10 +507,7 @@ export const DesignCanvas = forwardRef<
     async addText(text, opts) {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const box = effBoxRef.current;
-      const { w, h } = dimsRef.current;
-      const cx = (box ? box.x + box.width / 2 : 0.5) * w;
-      const cy = (box ? box.y + box.height / 2 : 0.5) * h;
+      const { cx, cy } = zoneCentre(opts?.zone ?? 0);
       const fontFamily = opts?.fontFamily ?? "Archivo, sans-serif";
       const fontWeight = opts?.fontWeight ?? "700";
       const t = new fabric.IText(text, {
@@ -522,10 +584,10 @@ export const DesignCanvas = forwardRef<
       const canvas = canvasRef.current;
       const o = canvas?.getActiveObject();
       if (!canvas || !o) return;
-      const box = effBoxRef.current;
-      const { w, h } = dimsRef.current;
-      const cx = (box ? box.x + box.width / 2 : 0.5) * w;
-      const cy = (box ? box.y + box.height / 2 : 0.5) * h;
+      // Centre it in the zone it already belongs to, so centring a chest logo
+      // keeps it on the chest instead of yanking it to another zone.
+      o.setCoords();
+      const { cx, cy } = zoneCentre(Math.max(0, zoneOf(o)));
       // Position by the object's center regardless of its own origin.
       o.setXY(new fabric.Point(cx, cy), "center", "center");
       o.setCoords();
@@ -545,7 +607,11 @@ export const DesignCanvas = forwardRef<
       const o = canvas?.getActiveObject();
       if (canvas && o) {
         canvas.sendObjectBackwards(o);
-        if (printRectRef.current) canvas.sendObjectToBack(printRectRef.current);
+        // The dashed outlines stay behind every piece of art.
+        const live = canvas.getObjects();
+        for (const g of guideObjectsRef.current) {
+          if (g.type === "rect" && live.includes(g)) canvas.sendObjectToBack(g);
+        }
         canvas.requestRenderAll();
       }
     },
@@ -627,10 +693,10 @@ export const DesignCanvas = forwardRef<
         const garment = canvas.backgroundImage;
         await canvas.loadFromJSON(scene);
         if (garment && !canvas.backgroundImage) canvas.backgroundImage = garment;
-        // Refs may point at guides loadFromJSON cleared; redrawPrintRect
-        // sweeps every guide (tracked or orphaned) and draws a fresh pair.
-        printRectRef.current = null;
-        printLabelRef.current = null;
+        // The tracked list may point at guides loadFromJSON cleared;
+        // redrawPrintRect sweeps every guide (tracked or orphaned by tag) and
+        // draws a fresh set.
+        guideObjectsRef.current = [];
         // Re-attach the delete badge to the freshly deserialized objects.
         canvas.getObjects().forEach((o) => attachControls(o));
         redrawPrintRect();
@@ -658,70 +724,67 @@ export const DesignCanvas = forwardRef<
       });
     },
     hasObjects() {
-      const canvas = canvasRef.current;
-      if (!canvas) return false;
-      return canvas.getObjects().some((o) => !isGuide(o));
+      return artObjects().length > 0;
     },
-    artOutsidePrintArea() {
-      const canvas = canvasRef.current;
-      const box = effBoxRef.current;
-      if (!canvas || !box) return false;
+    zoneReport() {
+      const areas = printAreasRef.current;
+      const boxes = effBoxesRef.current;
       const { w, h } = dimsRef.current;
-      const bx = box.x * w,
-        by = box.y * h,
-        bw = box.width * w,
-        bh = box.height * h;
-      return canvas.getObjects().some((o) => {
-        if (isGuide(o)) return false;
-        // After a programmatic load (loadFromJSON on undo/redo/scene restore)
-        // an object's cached corner coords can be stale; refresh them so the
-        // rotation-aware bounding box is measured against the real placement.
-        o.setCoords();
+      const reports: ZoneReport[] = areas.map(() => ({
+        hasArt: false,
+        outside: false,
+        metrics: null,
+        descriptors: [],
+      }));
+      if (areas.length === 0) return reports;
+
+      // Union bounding box per zone, in canvas px, built as we walk the art.
+      const bounds = areas.map(() => ({ minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }));
+
+      for (const o of artObjects()) {
+        const z = zoneOf(o);
+        if (z < 0) continue;
         const r = o.getBoundingRect();
-        return r.left < bx - 1 || r.top < by - 1 || r.left + r.width > bx + bw + 1 || r.top + r.height > by + bh + 1;
-      });
-    },
-    artMetrics() {
-      const canvas = canvasRef.current;
-      const box = effBoxRef.current;
-      const area = printAreaRef.current;
-      if (!canvas || !box || !area) return null;
-      const ppi = boxPxPerInch(box, area.maxWidthIn, dimsRef.current.w);
-      if (!ppi) return null;
-      // Union bounding box of every art object, the printed footprint of the
-      // whole composition on this side (rotation-aware via getBoundingRect).
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
-      let any = false;
-      for (const o of canvas.getObjects()) {
-        if (isGuide(o)) continue;
-        any = true;
-        o.setCoords();
-        const r = o.getBoundingRect();
-        minX = Math.min(minX, r.left);
-        minY = Math.min(minY, r.top);
-        maxX = Math.max(maxX, r.left + r.width);
-        maxY = Math.max(maxY, r.top + r.height);
-      }
-      if (!any) return null;
-      const round1 = (n: number) => Math.round(n * 10) / 10;
-      return { widthIn: round1((maxX - minX) / ppi), heightIn: round1((maxY - minY) / ppi) };
-    },
-    getArtDescriptors() {
-      const canvas = canvasRef.current;
-      if (!canvas) return [];
-      const out: ArtDescriptor[] = [];
-      for (const o of canvas.getObjects()) {
-        if (isGuide(o)) continue;
+        const rep = reports[z];
+        rep.hasArt = true;
+
         if (o.type === "i-text" || o.type === "text" || o.type === "textbox") {
-          out.push({ type: "text", fill: String((o as fabric.IText).fill ?? "#000000") });
+          rep.descriptors.push({ type: "text", fill: String((o as fabric.IText).fill ?? "#000000") });
         } else if (o.type === "image") {
-          out.push({ type: "image", src: (o as fabric.FabricImage).getSrc() });
+          rep.descriptors.push({ type: "image", src: (o as fabric.FabricImage).getSrc() });
+        }
+
+        const b = bounds[z];
+        b.minX = Math.min(b.minX, r.left);
+        b.minY = Math.min(b.minY, r.top);
+        b.maxX = Math.max(b.maxX, r.left + r.width);
+        b.maxY = Math.max(b.maxY, r.top + r.height);
+
+        // Out of bounds is judged against the zone the art belongs to, so a
+        // chest logo nudged off the chest box is flagged even though it still
+        // sits well inside the full-front box around it.
+        const box = boxes[z];
+        const bx = box.x * w,
+          by = box.y * h,
+          bw = box.width * w,
+          bh = box.height * h;
+        if (r.left < bx - 1 || r.top < by - 1 || r.left + r.width > bx + bw + 1 || r.top + r.height > by + bh + 1) {
+          rep.outside = true;
         }
       }
-      return out;
+
+      const round1 = (n: number) => Math.round(n * 10) / 10;
+      areas.forEach((area, i) => {
+        if (!reports[i].hasArt) return;
+        const ppi = boxPxPerInch(boxes[i], area.maxWidthIn, w);
+        if (!ppi) return;
+        const b = bounds[i];
+        reports[i].metrics = {
+          widthIn: round1((b.maxX - b.minX) / ppi),
+          heightIn: round1((b.maxY - b.minY) / ppi),
+        };
+      });
+      return reports;
     },
     recalcOffset() {
       // The canvas is CSS-scaled for zoom; refresh Fabric's cached element

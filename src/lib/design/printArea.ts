@@ -70,6 +70,50 @@ export function boxPxPerInch(
   return px > 0 ? px / maxWidthIn : null;
 }
 
+/**
+ * Which zone a piece of art belongs to, given its centre in normalized coords
+ * and the effective boxes of every zone on that view (index-aligned).
+ *
+ * A side can carry several zones, and they routinely NEST: a left chest sits
+ * inside the full front. So containment alone is ambiguous, and the smallest
+ * containing zone wins. That matches how a printer reads it, a chest-sized
+ * logo dropped on the chest is a left chest print, not a full front print.
+ *
+ * Art whose centre is in no zone still has to belong somewhere (it is flagged
+ * out of bounds separately, never dropped), so it falls to the nearest zone by
+ * centre distance. Returns -1 only when there are no zones at all.
+ */
+export function zoneIndexForPoint(cx: number, cy: number, boxes: NormalizedBox[]): number {
+  if (boxes.length === 0) return -1;
+  if (boxes.length === 1) return 0;
+
+  let best = -1;
+  let bestArea = Infinity;
+  boxes.forEach((b, i) => {
+    const inside = cx >= b.x && cx <= b.x + b.width && cy >= b.y && cy <= b.y + b.height;
+    if (!inside) return;
+    const area = b.width * b.height;
+    if (area < bestArea) {
+      bestArea = area;
+      best = i;
+    }
+  });
+  if (best !== -1) return best;
+
+  let nearest = 0;
+  let nearestDist = Infinity;
+  boxes.forEach((b, i) => {
+    const dx = cx - (b.x + b.width / 2);
+    const dy = cy - (b.y + b.height / 2);
+    const d = dx * dx + dy * dy;
+    if (d < nearestDist) {
+      nearestDist = d;
+      nearest = i;
+    }
+  });
+  return nearest;
+}
+
 /** `12″ × 14″`, shared label formatting so admin + designer read identically. */
 export function formatInches(w: number, h: number): string {
   const f = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));

@@ -11,6 +11,7 @@ import {
   type DesignCanvasHandle,
   type PrintAreaSpec,
   type ArtMetrics,
+  type ArtDescriptor,
 } from "./DesignCanvas";
 import {
   analyzeImageSource,
@@ -118,6 +119,15 @@ function normView(v: string): View {
   return "front";
 }
 const VIEW_LABEL: Record<View, string> = { front: "Front", back: "Back", sleeve: "Sleeve" };
+
+/** What the designer tracks for one print zone. See the `spotArt` state. */
+interface SpotArt {
+  hasArt: boolean;
+  outside: boolean;
+  metrics: ArtMetrics | null;
+  colours: ColourAnalysis | null;
+}
+const EMPTY_SPOT_ART: SpotArt = { hasArt: false, outside: false, metrics: null, colours: null };
 
 function imageForView(colour: ProductColourJson | undefined, view: View): string | null {
   if (!colour) return null;
@@ -276,13 +286,16 @@ export function DesignerClient(props: Props) {
   const [extraColorways, setExtraColorways] = useState<
     { id: string; colourName: string; sizeQty: Record<string, number> }[]
   >(() => (edit?.extraColorways ?? []).map((c, i) => ({ id: `cw-${i}`, ...c })));
-  // Physical print size (W″ × H″) of each decorated side, derived from where
-  // the customer placed + scaled the art inside the inch-true print box.
-  const [measurements, setMeasurements] = useState<Partial<Record<View, ArtMetrics | null>>>({});
-  // Per-side colour analysis of the artwork: exact for vectors/text, a
-  // quantized estimate (or "full colour") for rasters. Null while an image's
-  // analysis is still resolving.
-  const [viewColours, setViewColours] = useState<Partial<Record<View, ColourAnalysis | null>>>({});
+  // Everything we know about the art in one print zone, keyed by print-area id.
+  // A side can carry SEVERAL zones (a left chest beside a full front), and each
+  // is its own print: its own measurement, its own colour count, its own price.
+  // So this is keyed by zone, not by side.
+  //   metrics  physical print size (W″ × H″), from where the art was placed and
+  //            scaled inside the inch-true box
+  //   colours  colour analysis, exact for vectors/text, a quantized estimate
+  //            (or "full colour") for rasters, null while an image resolves
+  //   outside  art spilling past this zone's box, a friendly heads-up only
+  const [spotArt, setSpotArt] = useState<Record<string, SpotArt>>({});
   // Analysis is cached per image source, so undo/redo/colour swaps (same data
   // URLs) never re-run it. `pending` guards duplicate in-flight analyses.
   const analysisCache = useRef(new Map<string, ColourAnalysis>());
@@ -292,10 +305,10 @@ export function DesignerClient(props: Props) {
   // its customer production note at placement.
   const [customerNote, setCustomerNote] = useState(edit?.customerNote ?? "");
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
-  const [viewsWithArt, setViewsWithArt] = useState<Set<View>>(new Set());
-  // Views where some artwork spills past the dashed print box. Purely a friendly
-  // heads-up, never blocks ordering (a human rechecks every design at proofing).
-  const [outOfBounds, setOutOfBounds] = useState<Set<View>>(new Set());
+  // Which zone new art lands in, by print-area id. Only ever ambiguous when the
+  // active side has more than one zone, where the customer picks with the zone
+  // pills. Null falls back to the active side's first zone.
+  const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
   // Which canvas currently has a selected object (drives the selection rail).
   // isText gates the text-only colour control.
   const [selection, setSelection] = useState<{ view: View; isText: boolean } | null>(null);
@@ -349,44 +362,84 @@ export function DesignerClient(props: Props) {
   // is preserved across colour swaps.
   const currentColourHasSide = !!colour?.images?.side;
   const method = priceableMethods.find((m) => m.id === methodId) ?? null;
-  const printAreaForView = (v: View) => props.printAreas.find((p) => normView(p.view) === v);
-  const specForView = (v: View): PrintAreaSpec | null => {
-    const pa = printAreaForView(v);
-    return pa
-      ? { box: pa.position, name: pa.name, maxWidthIn: pa.maxWidthIn, maxHeightIn: pa.maxHeightIn }
-      : null;
-  };
+  // Every zone on a side, in the admin's order. A side commonly has one, but a
+  // shirt can carry a left chest AND a full front, and both are drawn and
+  // priced independently.
+  const spotsForView = (v: View) => props.printAreas.filter((p) => normView(p.view) === v);
+  const specsForView = (v: View): PrintAreaSpec[] =>
+    spotsForView(v).map((pa) => ({
+      id: pa.id,
+      box: pa.position,
+      name: pa.name,
+      maxWidthIn: pa.maxWidthIn,
+      maxHeightIn: pa.maxHeightIn,
+    }));
   // Which side to SHOW when nothing is active: keeps single-view mode from ever
   // blanking. The visible "active" ring still tracks the raw (nullable) activeView.
   const displayView: View = activeView ?? views[0] ?? "front";
 
+  // The zone tools act on: the pill the customer picked, else the first zone on
+  // the side being shown.
+  const displayViewSpots = spotsForView(displayView);
+  const activeSpot = displayViewSpots.find((p) => p.id === activeSpotId) ?? displayViewSpots[0] ?? null;
+
+  /** Which zone on `v` new art should land in: the picked one if it lives on
+   *  this side, else that side's first zone. */
+  function targetZone(v: View) {
+    const i = spotsForView(v).findIndex((p) => p.id === activeSpotId);
+    return i >= 0 ? i : 0;
+  }
+
   const sizeRange =
     props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
 
-  /** Decorated sides, which the curve prices as extra print locations. */
-  const locationCount = Math.max(1, viewsWithArt.size);
+  // Every zone across every side, flat and in a stable order, with the side it
+  // belongs to. This is the list the review table, the pricing and the saved
+  // spec all walk.
+  const allSpots = useMemo(
+    () =>
+      views.flatMap((v) =>
+        spotsForView(v).map((pa, i) => ({
+          id: pa.id,
+          view: v,
+          name: pa.name,
+          /** Index within its own side, which is what the canvas API takes. */
+          zone: i,
+        })),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [views, props.printAreas],
+  );
+
+  /** Zones that actually carry art. Each one is a separate print. */
+  const decoratedSpots = useMemo(
+    () => allSpots.filter((s) => spotArt[s.id]?.hasArt),
+    [allSpots, spotArt],
+  );
+
+  /** Decorated zones, which the curve prices as separate print locations. A
+   *  left chest plus a full front is two prints even though it is one side. */
+  const locationCount = Math.max(1, decoratedSpots.length);
 
   // Pricing colour count, derived from the artwork (was a hardcoded 1). Exact
   // vector counts are used as-is; raster estimates and "full colour" are
   // provisional, the artist confirms the count (and price) at proofing, and
   // nothing is charged before the invoice.
   //
-  // One entry per decorated side, each with ITS OWN colour count, because Julian
+  // One entry per decorated ZONE, each with ITS OWN colour count, because Julian
   // charges each print separately (confirmed 2026-07-31). This used to collapse
   // to the highest count across sides, which under-quoted a 3-colour front plus
   // a 2-colour back and left the customer to meet the difference at proofing.
   const prints = useMemo(
     () =>
-      views
-        .filter((v) => viewsWithArt.has(v))
-        .map((v) => {
-          const a = viewColours[v];
-          return { colours: a ? pricingColourCount(a) : 1 };
-        }),
-    [views, viewsWithArt, viewColours],
+      decoratedSpots.map((s) => {
+        const a = spotArt[s.id]?.colours ?? null;
+        return { colours: a ? pricingColourCount(a) : 1 };
+      }),
+    [decoratedSpots, spotArt],
   );
 
-  /** Highest count across sides, for the spec table and the saved snapshot. */
+  /** Highest count across prints, for the saved snapshot's summary field. */
   const inkColours = useMemo(
     () => (prints.length ? Math.max(...prints.map((p) => p.colours)) : 1),
     [prints],
@@ -517,7 +570,7 @@ export function DesignerClient(props: Props) {
       const c = canvasRefs.current[v];
       if (!c) return;
       c.setGarment(imageForView(colour, v));
-      c.setPrintArea(specForView(v));
+      c.setPrintAreas(specsForView(v));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colourName]);
@@ -703,21 +756,15 @@ export function DesignerClient(props: Props) {
       analysisCache.current.set(src, { kind: "full" });
     } finally {
       pendingAnalyses.current.delete(src);
-      views.forEach(refreshColours);
+      refreshAllColours();
     }
   }
 
-  /** Recompute a side's merged colour analysis from what's on its canvas.
-   *  Text fills are exact; images come from the cache (missing ones are kicked
-   *  off async and this re-runs when they land). */
-  function refreshColours(v: View) {
-    const c = canvasRefs.current[v];
-    if (!c) return;
-    const descs = c.getArtDescriptors();
-    if (descs.length === 0) {
-      setViewColours((prev) => ({ ...prev, [v]: null }));
-      return;
-    }
+  /** Merge one zone's art descriptors into a single colour analysis. Text fills
+   *  are exact; images come from the cache (missing ones are kicked off async
+   *  and the whole side re-runs when they land). Null means "still resolving". */
+  function coloursFromDescriptors(descs: ArtDescriptor[]): ColourAnalysis | null {
+    if (descs.length === 0) return null;
     const analyses: ColourAnalysis[] = [];
     let pending = false;
     for (const d of descs) {
@@ -733,32 +780,39 @@ export function DesignerClient(props: Props) {
         }
       }
     }
-    setViewColours((prev) => ({ ...prev, [v]: pending ? null : mergeAnalyses(analyses) }));
+    return pending ? null : mergeAnalyses(analyses);
   }
 
-  /** Recompute whether a given view has artwork (and whether any spills out),
-   *  plus its live print measurement and colour count. */
+  /** Re-read one side's canvas and refresh the record for every zone on it.
+   *  The canvas reports per zone, so a side holding a left chest and a full
+   *  front updates both independently from one pass. */
   function onCanvasChange(v: View) {
     const c = canvasRefs.current[v];
     if (!c) return;
-    const has = c.hasObjects();
-    setViewsWithArt((prev) => {
-      const next = new Set(prev);
-      if (has) next.add(v);
-      else next.delete(v);
+    const spots = spotsForView(v);
+    if (spots.length === 0) return;
+    const report = c.zoneReport();
+    setSpotArt((prev) => {
+      const next = { ...prev };
+      spots.forEach((pa, i) => {
+        const r = report[i];
+        next[pa.id] = r
+          ? {
+              hasArt: r.hasArt,
+              outside: r.outside,
+              metrics: r.metrics,
+              colours: coloursFromDescriptors(r.descriptors),
+            }
+          : EMPTY_SPOT_ART;
+      });
       return next;
     });
-    // An empty view can't be out of bounds; otherwise ask the canvas.
-    const outside = has && c.artOutsidePrintArea();
-    setOutOfBounds((prev) => {
-      if (outside === prev.has(v)) return prev;
-      const next = new Set(prev);
-      if (outside) next.add(v);
-      else next.delete(v);
-      return next;
-    });
-    setMeasurements((prev) => ({ ...prev, [v]: has ? c.artMetrics() : null }));
-    refreshColours(v);
+  }
+
+  /** Re-read every side. Used when an async image analysis lands, since it can
+   *  change the colour count of any zone that references that image. */
+  function refreshAllColours() {
+    views.forEach(onCanvasChange);
   }
 
   // Saved-design rehydration: each view's art is loaded into its canvas once,
@@ -836,7 +890,7 @@ export function DesignerClient(props: Props) {
       void ensureAnalysis(dataUrl, kind.kind === "pdf" ? file : undefined);
 
       snapshot(v);
-      await canvasRefs.current[v]?.addImageFromUrl(dataUrl);
+      await canvasRefs.current[v]?.addImageFromUrl(dataUrl, targetZone(v));
       // Upload the ORIGINAL file as the print-ready source (full-quality PDF/vector).
       artworkFiles.current.push({ id, file });
       onCanvasChange(v);
@@ -862,6 +916,7 @@ export function DesignerClient(props: Props) {
       fill: textColor,
       fontSize,
       textAlign,
+      zone: targetZone(v),
     });
     onCanvasChange(v);
   }
@@ -870,7 +925,7 @@ export function DesignerClient(props: Props) {
     const v = activeView;
     if (!v) return;
     snapshot(v);
-    await canvasRefs.current[v]?.addImageFromUrl(svgToDataUrl(svg));
+    await canvasRefs.current[v]?.addImageFromUrl(svgToDataUrl(svg), targetZone(v));
     onCanvasChange(v);
   }
 
@@ -1184,7 +1239,7 @@ export function DesignerClient(props: Props) {
             lineTotal: c.lineTotal,
           })),
         decorationMethodId: methodId,
-        printAreaIds: viewsArt.map((v) => printAreaForView(v)?.id).filter(Boolean) as string[],
+        printAreaIds: decoratedSpots.map((s) => s.id),
         scenes: allScenes,
         sceneImages: [...sceneSrcIds.values()]
           .filter((id) => staged[id])
@@ -1202,19 +1257,19 @@ export function DesignerClient(props: Props) {
           // still falls back to a snapshot rush for designs saved before this.
           ...(customerNote.trim() ? { customerNote: customerNote.trim() } : {}),
           inkColours,
-          // Per-side print spec (real measurement + colour count), pre-fills
-          // the admin decoration sheet so the artist starts from real values.
-          decorationSpots: viewsArt.map((v) => {
-            const pa = printAreaForView(v);
-            const m = canvasRefs.current[v]?.artMetrics() ?? null;
-            const a = viewColours[v] ?? null;
+          // One row per decorated ZONE (real measurement + colour count),
+          // pre-fills the admin decoration sheet so the artist starts from real
+          // values. A left chest and a full front on the same side are two rows,
+          // because they are two prints to set up, charge and produce.
+          decorationSpots: decoratedSpots.map((s) => {
+            const art = spotArt[s.id];
             return {
-              view: v,
-              location: pa?.name ?? VIEW_LABEL[v],
+              view: s.view,
+              location: s.name || VIEW_LABEL[s.view],
               type: method?.name ?? "",
-              widthIn: m ? String(m.widthIn) : "",
-              heightIn: m ? String(m.heightIn) : "",
-              colours: a ? formatColourValue(a) : "",
+              widthIn: art?.metrics ? String(art.metrics.widthIn) : "",
+              heightIn: art?.metrics ? String(art.metrics.heightIn) : "",
+              colours: art?.colours ? formatColourValue(art.colours) : "",
             };
           }),
         },
@@ -1262,11 +1317,12 @@ export function DesignerClient(props: Props) {
   }
 
   const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
-  // Sides that actually carry art, listed in the review spec table.
-  const decoratedViews = views.filter((v) => viewsWithArt.has(v));
-  // Any decorated side with art spilling past the print box (drives the review
+  // Any decorated zone with art spilling past its box (drives the review
   // heads-up). Informational only, never gates checkout.
-  const anyOutOfBounds = decoratedViews.some((v) => outOfBounds.has(v));
+  const anyOutOfBounds = decoratedSpots.some((s) => spotArt[s.id]?.outside);
+  /** Zones on a side whose art spills out, for the on-canvas warning pill. */
+  const viewOutOfBounds = (v: View) =>
+    spotsForView(v).some((pa) => spotArt[pa.id]?.outside);
   // Embroidery is decorated in thread; screen print / DTG in ink. Label the
   // colour count accordingly so the spec reads in the customer's terms.
   const isEmbroidery = (method?.name ?? "").toLowerCase().includes("embroid");
@@ -1536,6 +1592,47 @@ export function DesignerClient(props: Props) {
               </p>
             )}
 
+            {/* Zone picker. Only shown when the side being edited has more than
+                one print area (a left chest beside a full front), since with a
+                single zone there is nothing to choose. Picking a zone decides
+                where NEW art lands; dragging art from one box to another
+                re-homes it on its own. */}
+            {activeView !== null && displayViewSpots.length > 1 && (
+              <div className="mt-3">
+                <div className="text-xs font-medium text-dream-muted">Print location</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {displayViewSpots.map((pa) => {
+                    const selected = pa.id === activeSpot?.id;
+                    return (
+                      <button
+                        key={pa.id}
+                        type="button"
+                        onClick={() => setActiveSpotId(pa.id)}
+                        aria-pressed={selected}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
+                          selected
+                            ? "bg-dream-purple text-white"
+                            : "bg-dream-cream text-dream-ink hover:bg-dream-lavender/40",
+                        )}
+                      >
+                        {pa.name}
+                        {spotArt[pa.id]?.hasArt && (
+                          <span
+                            className={cn(
+                              "ml-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle",
+                              selected ? "bg-white" : "bg-dream-purple",
+                            )}
+                            aria-hidden
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="mt-3 space-y-4">
               {tool === "upload" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
@@ -1567,14 +1664,11 @@ export function DesignerClient(props: Props) {
                   <p className="mt-3 text-xs leading-relaxed text-dream-muted">
                     Not print-ready? We&apos;ll touch up your art, free.
                   </p>
-                  {(() => {
-                    const pa = printAreaForView(displayView);
-                    return pa?.maxWidthIn && pa?.maxHeightIn ? (
-                      <p className="mt-2 text-xs leading-relaxed text-dream-muted">
-                        {VIEW_LABEL[displayView]} prints up to {pa.maxWidthIn} × {pa.maxHeightIn} in.
-                      </p>
-                    ) : null;
-                  })()}
+                  {activeSpot?.maxWidthIn && activeSpot?.maxHeightIn ? (
+                    <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+                      {activeSpot.name} prints up to {activeSpot.maxWidthIn} × {activeSpot.maxHeightIn} in.
+                    </p>
+                  ) : null}
                   {methodPicker}
                 </>
                 </div>
@@ -1937,7 +2031,7 @@ export function DesignerClient(props: Props) {
 
                     {/* Out-of-bounds heads-up, subtle, non-blocking. Never
                         intercepts canvas clicks (pointer-events-none). */}
-                    {!loading && outOfBounds.has(v) && (
+                    {!loading && viewOutOfBounds(v) && (
                       <div className="pointer-events-none absolute right-2 top-2 z-10 max-w-[13rem]">
                         <div className="flex items-start gap-1.5 rounded-xl bg-dream-sun/95 px-2.5 py-1.5 text-left ring-1 ring-dream-ink/10 backdrop-blur-sm">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-dream-ink" aria-hidden>
@@ -2152,7 +2246,7 @@ export function DesignerClient(props: Props) {
                   <div className="flex items-center justify-between">
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">What we&apos;re printing</div>
                     <span className="text-xs font-semibold text-dream-muted">
-                      {decoratedViews.length} {decoratedViews.length === 1 ? "location" : "locations"}
+                      {decoratedSpots.length} {decoratedSpots.length === 1 ? "location" : "locations"}
                     </span>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-dream-line">
@@ -2168,13 +2262,18 @@ export function DesignerClient(props: Props) {
                         <HelpDot label="About the colour count" onClick={() => setHelpTopic("colours")} />
                       </span>
                     </div>
-                    {decoratedViews.map((v) => {
+                    {/* One row per decorated ZONE. A left chest and a full front
+                        on the same side are two prints, so they get two rows;
+                        both point at that side's mockup. */}
+                    {decoratedSpots.map((s) => {
+                      const v = s.view;
+                      const art = spotArt[s.id];
                       const pIdx = previews.findIndex((p) => p.view === v);
                       const interactive = previews.length > 1 && pIdx >= 0;
                       const isActivePreview = interactive && pIdx === previewIdx;
                       return (
                       <div
-                        key={v}
+                        key={s.id}
                         role={interactive ? "button" : undefined}
                         tabIndex={interactive ? 0 : undefined}
                         aria-pressed={interactive ? isActivePreview : undefined}
@@ -2198,7 +2297,7 @@ export function DesignerClient(props: Props) {
                       >
                         <div className="grid grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3">
                           <span className="flex items-center gap-1.5 font-semibold">
-                            {VIEW_LABEL[v]}
+                            {s.name || VIEW_LABEL[v]}
                             {interactive && (
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 transition-opacity", isActivePreview ? "text-dream-purple opacity-100" : "text-dream-faint opacity-0")} aria-hidden>
                                 <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
@@ -2207,15 +2306,15 @@ export function DesignerClient(props: Props) {
                           </span>
                           <span className="text-dream-ink-soft">{method?.name ?? "Print"}</span>
                           <span className="whitespace-nowrap text-dream-ink-soft">
-                            {measurements[v]
-                              ? `${measurements[v]!.widthIn}″ W × ${measurements[v]!.heightIn}″ H`
+                            {art?.metrics
+                              ? `${art.metrics.widthIn}″ W × ${art.metrics.heightIn}″ H`
                               : "-"}
                           </span>
                           <span className="justify-self-end whitespace-nowrap rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-bold text-dream-purple">
-                            {viewColours[v] ? formatColourChip(viewColours[v]!, isEmbroidery ? "thread" : "ink") : "-"}
+                            {art?.colours ? formatColourChip(art.colours, isEmbroidery ? "thread" : "ink") : "-"}
                           </span>
                         </div>
-                        {outOfBounds.has(v) && (
+                        {art?.outside && (
                           <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-dream-warn-soft px-2.5 py-1.5 text-xs font-medium leading-snug text-dream-warn">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0" aria-hidden>
                               <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />

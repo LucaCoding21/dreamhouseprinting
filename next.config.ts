@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // Dev only: Next blocks its own /_next dev resources when the page is opened
+  // from a non-localhost origin, which silently leaves the client JS unloaded.
+  // Allowing the LAN origin lets you test on a phone, or from a browser that
+  // cannot reach this machine's loopback. No effect on a production build.
+  allowedDevOrigins: ["192.168.1.66"],
   experimental: {
     // Designer scenes stage their images to Storage and send only markers, so
     // action bodies stay small, this is headroom for text-heavy scenes, kept

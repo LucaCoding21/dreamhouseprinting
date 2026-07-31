@@ -61,8 +61,10 @@ export interface DesignSubmitInput {
     customerNote?: string | null;
     /** Colour count the estimate was priced with (artist confirms at proofing). */
     inkColours?: number;
-    /** Per-side print spec derived in the designer (real measurement + colour
-     *  count), pre-fills the admin decoration sheet on order placement. */
+    /** Print spec derived in the designer, ONE ENTRY PER DECORATED ZONE (real
+     *  measurement + colour count). A side can carry several zones, e.g. a left
+     *  chest beside a full front, and each is its own print. Pre-fills the admin
+     *  decoration sheet on order placement. */
     decorationSpots?: {
       view: string;
       location: string;

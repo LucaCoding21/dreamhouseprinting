@@ -341,10 +341,12 @@ export async function placeOrderAction(
     .map((id) => methods?.find((m) => m.id === id)?.slug)
     .filter((s): s is string => !!s);
 
-  // The prints the designer priced with: one per decorated side, each with its
-  // OWN colour count, because Julian charges each print separately. All of it is
-  // provisional (the artist confirms the real screen count at proofing and
-  // nothing is charged before the invoice), so we mirror the designer here.
+  // The prints the designer priced with: one per decorated ZONE, each with its
+  // OWN colour count, because Julian charges each print separately. A side can
+  // hold several zones (a left chest beside a full front) and each is its own
+  // print. All of it is provisional (the artist confirms the real screen count
+  // at proofing and nothing is charged before the invoice), so we mirror the
+  // designer here.
   //
   // Falls back to the whole-job colour count for designs saved before the spec
   // carried per-spot colours, which reproduces the old whole-job pricing.
