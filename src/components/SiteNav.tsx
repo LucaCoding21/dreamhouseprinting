@@ -187,10 +187,12 @@ export default function SiteNav() {
             />
           </Link>
 
-          {/* Nav links, desktop only */}
+          {/* Nav links, desktop only. mr-auto anchors them beside the logo at
+              every width, before this they drifted toward the center between
+              1280 and 1535px and only sat left once 2xl kicked in. */}
           <nav
             aria-label="Main"
-            className="hidden items-center justify-center gap-1.5 xl:flex 2xl:gap-3"
+            className="mr-auto hidden items-center gap-1.5 xl:flex 2xl:gap-3"
           >
             {NAV_LINKS.map((link) =>
               link.label === "Brands" ? (
@@ -244,7 +246,7 @@ export default function SiteNav() {
 
           <div className="relative flex items-center gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
             {/* Search slot, reserves the open width at 2xl so toggling never
-                shifts the centered nav links. Below 2xl there's no room to
+                shifts the icon cluster. Below 2xl there's no room to
                 reserve: the open form overlays the icon cluster instead
                 (absolute, anchored to this cluster's right edge). */}
             <div className="flex w-auto justify-end 2xl:w-72">
@@ -281,7 +283,10 @@ export default function SiteNav() {
                 onClick={openSearch}
                 className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
               >
-                <SketchSearchIcon className="h-[24px] w-[24px]" />
+                {/* Icon sizes here are tuned to read at the same weight as the
+                    hamburger beside them (a 28px glyph), each nudged for its
+                    own viewBox padding rather than sharing one number. */}
+                <SketchSearchIcon className="h-[28px] w-[28px]" />
               </button>
             )}
             </div>
@@ -296,7 +301,7 @@ export default function SiteNav() {
               title="Your account"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
             >
-              <AccountIcon className="h-[19px] w-[19px]" />
+              <AccountIcon className="h-[25px] w-[25px]" />
             </Link>
 
             {/* Quick Quote CTA, desktop only */}
@@ -473,11 +478,15 @@ export default function SiteNav() {
       </div>
 
     {/* Spacer reserves the nav's height since the header is `fixed` at every
-        breakpoint. Heights track the logo + vertical padding per breakpoint. */}
+        breakpoint. The ResizeObserver measurement takes over after hydration;
+        these fallbacks only cover the first paint, so they must EQUAL the real
+        header height (logo height + 48px padding + 1px border) or everything
+        below the nav renders shifted up under the fixed header until JS runs
+        (the price-match banner was getting clipped 33px at lg). */}
     <div
       aria-hidden="true"
       style={spacerH != null ? { height: spacerH } : undefined}
-      className="h-[72px] lg:h-[96px] xl:h-[96px]"
+      className="h-[105px] lg:h-[129px] xl:h-[109px] 2xl:h-[121px]"
     />
     </>
   );

@@ -46,7 +46,8 @@ export default function CartNavButton() {
         onClick={() => setOpen(true)}
         className="relative inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
       >
-        <CartIcon className="h-[22px] w-[22px]" />
+        {/* Matches the search / account / hamburger weight in SiteNav. */}
+        <CartIcon className="h-[27px] w-[27px]" />
         {ready && count > 0 && (
           <span className="absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dream-purple px-1 text-[11px] font-bold leading-none text-white">
             {count}
