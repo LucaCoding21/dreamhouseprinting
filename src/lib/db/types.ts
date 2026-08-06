@@ -487,6 +487,7 @@ export type Database = {
           position: Json
           product_id: string
           px_per_inch: number | null
+          size_limits: Json
           view: string
         }
         Insert: {
@@ -499,6 +500,7 @@ export type Database = {
           position: Json
           product_id: string
           px_per_inch?: number | null
+          size_limits?: Json
           view?: string
         }
         Update: {
@@ -511,6 +513,7 @@ export type Database = {
           position?: Json
           product_id?: string
           px_per_inch?: number | null
+          size_limits?: Json
           view?: string
         }
         Relationships: [

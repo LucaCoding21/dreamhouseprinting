@@ -20,6 +20,7 @@ import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { ProofLightbox } from "./ProofLightbox";
 import { curveForProduct } from "@/lib/pricing/quote";
+import { formatInches } from "@/lib/design/printArea";
 import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing";
 import {
   LBL,
@@ -537,6 +538,23 @@ export function OrderItemCard({
               <div className={LBL}>
                 Print ({item.spots.length} spot{item.spots.length === 1 ? "" : "s"})
               </div>
+              {/* Per-garment-size print limits from the product's print areas,
+                  so the artist sizing a mixed run (XS through 3XL) has the real
+                  numbers in front of them instead of one adult max. */}
+              {(product?.printAreas ?? []).some((pa) => pa.sizeLimits.length > 0) && (
+                <div className="rounded-lg bg-dream-bg px-3 py-2 text-xs text-dream-muted">
+                  <span className="font-semibold text-dream-ink">Max print by garment size: </span>
+                  {(product?.printAreas ?? [])
+                    .filter((pa) => pa.sizeLimits.length > 0)
+                    .map(
+                      (pa) =>
+                        `${pa.name}: ${pa.sizeLimits
+                          .map((r) => `${r.label} ${formatInches(r.maxWidthIn, r.maxHeightIn)}`)
+                          .join(" · ")}`,
+                    )
+                    .join("  |  ")}
+                </div>
+              )}
               {item.spots.map((spot, si) => (
                 <DecorationSpotRow
                   key={si}

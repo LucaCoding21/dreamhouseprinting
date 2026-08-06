@@ -338,6 +338,8 @@ export interface PrintAreaInput {
   maxHeightIn: number;
   pxPerInch: number;
   displayOrder: number;
+  /** Per-size-range max dims (Youth/XS prints smaller than 3XL), admin-facing. */
+  sizeLimits?: { label: string; maxWidthIn: number; maxHeightIn: number }[];
 }
 
 /** Replace a product's print areas with the supplied set. */
@@ -348,11 +350,25 @@ export async function savePrintAreasAction(
   await requirePermission("products.manage");
   const supabase = requireSupabaseServiceClient();
 
+  const cleanLimits = (rows: PrintAreaInput["sizeLimits"]) =>
+    (rows ?? [])
+      .slice(0, 10)
+      .map((r) => ({
+        label: String(r.label ?? "").slice(0, 30).trim(),
+        maxWidthIn: Number(r.maxWidthIn),
+        maxHeightIn: Number(r.maxHeightIn),
+      }))
+      .filter((r) => r.label && r.maxWidthIn > 0 && r.maxHeightIn > 0);
+
   // Replace-all: delete existing, insert new (simple + correct for a small set).
   const { error: delErr } = await supabase.from("print_areas").delete().eq("product_id", productId);
   if (delErr) return { error: delErr.message };
 
   if (areas.length) {
+    // size_limits joins the insert only when some area actually has rows, so
+    // saving keeps working on a database where migration 0016 hasn't run yet
+    // (typing limits there surfaces the missing-column error in the toast).
+    const anyLimits = areas.some((a) => cleanLimits(a.sizeLimits).length > 0);
     const rows = areas.map((a) => ({
       product_id: productId,
       name: a.name,
@@ -362,6 +378,7 @@ export async function savePrintAreasAction(
       max_height_in: a.maxHeightIn,
       px_per_inch: a.pxPerInch,
       display_order: a.displayOrder,
+      ...(anyLimits ? { size_limits: asJson(cleanLimits(a.sizeLimits)) } : {}),
     }));
     const { error } = await supabase.from("print_areas").insert(rows);
     if (error) return { error: error.message };

@@ -36,6 +36,9 @@ export interface OrderProduct {
   colours: ProductColourJson[] | null;
   /** Customer price curve (`pricing_rules.quote`), the source for line repricing. */
   pricing_rules: Json | null;
+  /** Print areas with per-garment-size limits, the artist's reference when a
+   *  run spans sizes (Youth/XS prints smaller than 3XL). */
+  printAreas?: { name: string; sizeLimits: { label: string; maxWidthIn: number; maxHeightIn: number }[] }[];
 }
 
 export interface Detail {

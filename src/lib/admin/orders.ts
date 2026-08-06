@@ -1,6 +1,7 @@
 import "server-only";
 
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { parseSizeLimits } from "@/lib/design/printArea";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow, ProfileRow, ProductRow, ProductColourJson } from "@/lib/db/rows";
 
 /** Admin order reads (service client, staff see everything). Callers are permission-gated. */
@@ -97,6 +98,8 @@ export type OrderProduct = Pick<
 > & {
   /** Per-colour S&S CDN blank images, so admin can pull the exact blank garment for a line. */
   colours: ProductColourJson[] | null;
+  /** Print areas with their per-garment-size limits, for the artist's reference. */
+  printAreas?: { name: string; sizeLimits: { label: string; maxWidthIn: number; maxHeightIn: number }[] }[];
 };
 
 export interface AdminOrderDetail {
@@ -129,7 +132,7 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
   const designIds = (lineItems ?? []).map((l) => l.design_id).filter(Boolean) as string[];
   const productIds = [...new Set((lineItems ?? []).map((l) => l.product_id).filter(Boolean))] as string[];
 
-  const [designsRes, productsRes] = await Promise.all([
+  const [designsRes, productsRes, printAreasRes] = await Promise.all([
     designIds.length
       ? supabase.from("designs").select("*").in("id", designIds)
       : Promise.resolve({ data: [] }),
@@ -141,9 +144,24 @@ export async function getAdminOrder(id: string): Promise<AdminOrderDetail | null
           .select("id, name, brand, ss_style_name, ss_style_id, colours, pricing_rules")
           .in("id", productIds)
       : Promise.resolve({ data: [] }),
+    // Print areas ride along for their per-size limits (select * so this
+    // still works on a DB where the 0016 size_limits column doesn't exist).
+    productIds.length
+      ? supabase.from("print_areas").select("*").in("product_id", productIds).order("display_order")
+      : Promise.resolve({ data: [] }),
   ]);
   const designs = (designsRes.data ?? []) as DesignRow[];
-  const products = (productsRes.data ?? []) as AdminOrderDetail["products"];
+  const printAreaRows = (printAreasRes.data ?? []) as {
+    product_id: string;
+    name: string;
+    size_limits?: unknown;
+  }[];
+  const products = ((productsRes.data ?? []) as AdminOrderDetail["products"]).map((p) => ({
+    ...p,
+    printAreas: printAreaRows
+      .filter((a) => a.product_id === p.id)
+      .map((a) => ({ name: a.name, sizeLimits: parseSizeLimits(a.size_limits) })),
+  }));
 
   let customer: AdminOrderDetail["customer"] = null;
   if (order.customer_id) {

@@ -119,3 +119,31 @@ export function formatInches(w: number, h: number): string {
   const f = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
   return `${f(w)}″ × ${f(h)}″`;
 }
+
+/**
+ * Per-size-range override of a print area's max dimensions (a Youth/XS hoodie
+ * takes a smaller print than a 3XL). Stored in print_areas.size_limits;
+ * admin-facing only: the designer keeps showing the one standard-size box, and
+ * the artist applies the right range at proof time.
+ */
+export interface PrintAreaSizeLimit {
+  label: string;
+  maxWidthIn: number;
+  maxHeightIn: number;
+}
+
+/** Read print_areas.size_limits defensively (jsonb from the wire, or absent
+ *  entirely on databases where the 0016 migration hasn't run yet). */
+export function parseSizeLimits(raw: unknown): PrintAreaSizeLimit[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r) => {
+      const row = (r ?? {}) as Partial<PrintAreaSizeLimit>;
+      const w = Number(row.maxWidthIn);
+      const h = Number(row.maxHeightIn);
+      const label = typeof row.label === "string" ? row.label.trim() : "";
+      if (!label || !Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) return null;
+      return { label, maxWidthIn: w, maxHeightIn: h };
+    })
+    .filter((r): r is PrintAreaSizeLimit => r !== null);
+}
