@@ -363,6 +363,14 @@ export default async function AdminDashboardPage({
             Download CSV
           </a>
         )}
+        {/* Same button as the orders page header, so a phone order can be
+            keyed in straight from the morning dashboard. */}
+        <Link
+          href="/admin/orders/new"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-dream-purple px-4 font-display text-sm font-medium text-white shadow-sm transition-colors hover:bg-dream-purple-dark"
+        >
+          New order
+        </Link>
       </AdminHeader>
 
       <div className="space-y-8 px-8 py-6">
@@ -383,20 +391,23 @@ export default async function AdminDashboardPage({
           <div className="mt-0.5 font-display text-3xl font-extrabold text-dream-ink">{formatCAD(outstanding)}</div>
         </div>
 
-        {/* Top strip: clickable count chips */}
+        {/* Top strip: clickable count chips. Most anchor to their queue card
+            below; Needs proof jumps straight to the orders page's Creating
+            mockup tab instead (per Julian), since that's where the work
+            actually happens. */}
         {chips.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {chips.map((q) => (
-              <a
+              <Link
                 key={q.key}
-                href={`#q-${q.key}`}
+                href={q.key === "needs-proof" ? `/admin/orders?tab=${q.tab}` : `#q-${q.key}`}
                 className="inline-flex items-center gap-2 rounded-full border border-dream-line bg-dream-surface px-3 py-1.5 text-sm font-medium text-dream-ink transition-colors hover:border-dream-purple"
               >
                 {q.title}
                 <span className="grid h-5 min-w-5 place-items-center rounded-full bg-dream-lavender-soft px-1.5 text-xs font-bold text-dream-purple">
                   {q.items.length}
                 </span>
-              </a>
+              </Link>
             ))}
           </div>
         )}
