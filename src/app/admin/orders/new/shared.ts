@@ -3,7 +3,8 @@
  * server actions. Kept out of actions.ts because a "use server" module may only
  * export async functions.
  */
-import type { OrderStatus, QuoteDecoration, ProductQuoteCurveJson } from "@/lib/db/rows";
+import type { OrderStatus, ProductColourJson, QuoteDecoration, ProductQuoteCurveJson } from "@/lib/db/rows";
+import type { DecorationSpot } from "../actions";
 
 /**
  * Statuses a manually created order may start in. Deliberately excludes
@@ -26,10 +27,14 @@ export interface CatalogProduct {
   id: string;
   name: string;
   brand: string | null;
+  /** S&S style number, shown on the line like the order detail does. */
+  ssStyleName: string | null;
   isActive: boolean;
   /** Size names in catalog order. */
   sizes: string[];
-  colours: { name: string; hex: string | null }[];
+  /** Full colour rows (hex + per-view blank images) so the line can show the
+   *  exact supplier blank, same as the order detail's left rail. */
+  colours: ProductColourJson[];
   /** Customer price curve, when the product has one (drives the suggested price). */
   curve: ProductQuoteCurveJson | null;
   /** Curve axes this product actually offers. */
@@ -66,9 +71,17 @@ export interface ManualOrderItemInput {
   /** size -> quantity. Freeform lines use a single "Qty" key. */
   sizeQuantities: Record<string, number>;
   unitPrice: number;
-  /** Print spec the price was quoted from; pre-fills the artist's sheet. */
-  printColours: number;
-  printLocations: number;
+  /** Full print spec, one row per placement, exactly what the order detail edits. */
+  spots: DecorationSpot[];
+  /** Line finishing, stored in decorations like the detail page does. */
+  bagging: boolean;
+  sewnTags: boolean;
+  /** Where the blanks come from; "" until staff picks one. */
+  supplier: string;
+  /** Per-line notes, same taxonomy as the order detail. */
+  customerNotes: string;
+  productionNotes: string;
+  shippingNotes: string;
 }
 
 export interface ManualOrderAddress {
@@ -87,7 +100,9 @@ export interface ManualOrderInput {
   guest: { name: string; email: string; phone: string } | null;
   status: OrderStatus;
   fulfillment: "ship" | "pickup";
-  rush: boolean;
+  /** Rush charge the admin sets directly: a flat dollar amount, or a custom
+   *  percentage of the subtotal. Null when no rush is charged. */
+  rush: { type: "amount" | "percent"; value: number } | null;
   /** In-hands date (YYYY-MM-DD), optional. */
   dueDate: string | null;
   address: ManualOrderAddress;

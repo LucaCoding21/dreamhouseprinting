@@ -5,9 +5,10 @@ import { requirePermission, getProfile } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendOrderStatusEmail } from "@/lib/notify";
 import { roundCents } from "@/lib/money";
-import { rushFee } from "@/lib/pricing/rush";
+import { rushTierFee } from "@/lib/pricing/decorationPricing";
 import type { Json } from "@/lib/db/types";
 import type { OrderStatus } from "@/lib/db/rows";
+import type { DecorationSpot } from "../actions";
 import { MANUAL_ORDER_STATUSES, type CustomerHit, type ManualOrderInput } from "./shared";
 
 const asJson = (v: unknown) => v as unknown as Json;
@@ -61,6 +62,26 @@ function cleanSizes(sq: Record<string, number>): Record<string, number> {
     if (key && Number.isFinite(n) && n > 0) out[key] = n;
   }
   return out;
+}
+
+const str = (v: unknown, max = 120) => (typeof v === "string" ? v.slice(0, max) : "");
+
+/** Coerce the client's print spec into clean DecorationSpot rows. */
+function cleanSpots(spots: unknown): DecorationSpot[] {
+  if (!Array.isArray(spots)) return [];
+  return spots.slice(0, 8).map((s) => {
+    const spot = (s ?? {}) as Partial<DecorationSpot>;
+    return {
+      location: str(spot.location),
+      type: str(spot.type),
+      widthIn: str(spot.widthIn, 10),
+      heightIn: str(spot.heightIn, 10),
+      colours: str(spot.colours, 20),
+      pantones: Array.isArray(spot.pantones) ? spot.pantones.map((p) => str(p, 30)).filter(Boolean).slice(0, 12) : [],
+      puff: !!spot.puff,
+      spotProcess: !!spot.spotProcess,
+    };
+  });
 }
 
 /**
@@ -129,7 +150,16 @@ export async function createManualOrderAction(
   );
   // Curve prices are all-inclusive, so a manual order carries no setup line.
   const setupFees = 0;
-  const rush = rushFee(subtotal, setupFees, input.rush);
+  // Rush is whatever the admin set: a flat dollar amount as-is, a percentage
+  // recomputed here off the server-side subtotal.
+  const rushValue =
+    input.rush && Number.isFinite(Number(input.rush.value)) ? Math.max(0, Number(input.rush.value)) : 0;
+  const rush =
+    rushValue <= 0
+      ? 0
+      : input.rush!.type === "percent"
+        ? rushTierFee(subtotal, setupFees, Math.min(500, rushValue))
+        : roundCents(rushValue);
   const total = roundCents(subtotal + setupFees + rush + shipping + tax);
 
   // ---- Order row ----------------------------------------------------------
@@ -178,7 +208,7 @@ export async function createManualOrderAction(
       }),
       due_date: dueDate,
       fulfillment_method: input.fulfillment,
-      shipping_method: input.rush ? "rush" : "standard",
+      shipping_method: rush > 0 ? "rush" : "standard",
       shipping_address: asJson(address),
       customer_notes: asJson(notes),
       sales_rep: profile?.name ?? null,
@@ -188,22 +218,11 @@ export async function createManualOrderAction(
   if (orderErr) return { error: orderErr.message };
 
   // ---- Line items ---------------------------------------------------------
-  const lineRows = items.map((it) => {
+  // The decorations blob carries the SAME spec the order detail page edits
+  // (spots, finishing, supplier, per-line notes), so the created order opens
+  // there with nothing lost and nothing to re-type.
+  const lineRows = items.map((it, idx) => {
     const qty = sumSizes(it.sizeQuantities);
-    const locations = Math.max(1, Math.min(Math.floor(it.printLocations) || 1, 4));
-    const colours = Math.max(1, Math.min(Math.floor(it.printColours) || 1, 8));
-    // Start the artist's decoration sheet from what the price was quoted on.
-    // Location names are left blank on purpose: nobody has picked placements yet.
-    const spots = Array.from({ length: locations }, () => ({
-      location: "",
-      type: "",
-      widthIn: "",
-      heightIn: "",
-      colours: String(colours),
-      pantones: [] as string[],
-      puff: false,
-      spotProcess: false,
-    }));
     return {
       order_id: order.id,
       product_id: it.kind === "catalog" ? it.productId : null,
@@ -211,7 +230,17 @@ export async function createManualOrderAction(
       colour: asJson({ name: it.colourName || null, hex: it.colourHex || null }),
       size_quantities: asJson(it.sizeQuantities),
       decoration_method_id: it.kind === "catalog" ? it.decorationMethodId : null,
-      decorations: asJson({ spots, bagging: false, sewnTags: false, priceConfirmed: false }),
+      decorations: asJson({
+        spots: cleanSpots(it.spots),
+        bagging: !!it.bagging,
+        sewnTags: !!it.sewnTags,
+        priceConfirmed: false,
+        supplier: str(it.supplier, 60),
+        customerNotes: str(it.customerNotes, 2000),
+        productionNotes: str(it.productionNotes, 2000),
+        shippingNotes: str(it.shippingNotes, 2000),
+        position: idx,
+      }),
       unit_price: it.unitPrice,
       setup_fee: 0,
       line_total: roundCents(it.unitPrice * qty),
