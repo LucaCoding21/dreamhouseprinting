@@ -151,6 +151,32 @@ export function AdminTopBar({
           })}
         </nav>
 
+        {/* The customer-facing site, in its own tab so the admin page you were
+            working on stays open and unsaved edits survive. */}
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener"
+          title="View the shop in a new tab"
+          className="flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-[18px] w-[18px] shrink-0"
+            aria-hidden
+          >
+            <path d="M3 10.5 12 3l9 7.5" />
+            <path d="M5 9.8V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.8" />
+            <path d="M9.5 21v-6h5v6" />
+          </svg>
+          <span className="hidden sm:inline">View shop</span>
+        </Link>
+
         {/* Who's signed in, plus the way out */}
         <div className="flex shrink-0 items-center gap-2 border-l border-white/10 pl-3">
           <div

@@ -153,7 +153,9 @@ export function ProductEditor({
   // priced tiers (turns green live, before save).
   const setupSteps = [
     {
-      done: Boolean(product.category_id),
+      // Live off the picker, not the saved row, so choosing a category ticks
+      // the step immediately (Active and pricing already behave this way).
+      done: Boolean(categoryId),
       label: "Choose a category",
       hint: "So it lands in the right Shop All aisle.",
       href: "#pe-details",
@@ -179,6 +181,16 @@ export function ProductEditor({
   ];
   const doneCount = setupSteps.filter((s) => s.done).length;
   const fullyLive = doneCount === setupSteps.length;
+  /** Which setup step the admin jumped to, so its section stays ringed until
+   *  they pick another. Cleared once the step is finished. */
+  const [focusStep, setFocusStep] = useState<string | null>(null);
+  const stepRing = (id: string) => {
+    if (focusStep !== id) return "";
+    // The ring drops off by itself the moment the step is satisfied, so it
+    // never lingers on a section that no longer needs attention.
+    const step = setupSteps.find((s) => s.href === `#${id}`);
+    return step && !step.done ? "ring-2 ring-dream-danger ring-offset-2 ring-offset-dream-bg" : "";
+  };
 
   // Thumbnail picker: only enabled colours that actually have a front photo are
   // selectable. Preview mirrors what the shop card will show (falls back to auto).
@@ -258,7 +270,7 @@ export function ProductEditor({
         }
       >
         <Button variant="ghost" onClick={() => router.push("/admin/products")}>
-          ← All products
+          All products
         </Button>
         <Button variant="secondary" onClick={sync} loading={syncing}>
           Sync from S&amp;S
@@ -268,79 +280,96 @@ export function ProductEditor({
         </Button>
       </AdminHeader>
 
-      {!fullyLive && (
-        <div className="px-8 pt-6">
-          <Card className="border-dream-warn/40 bg-dream-warn-soft/40">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+      {/* Stays put once every step is ticked: the banner flips green and
+          confirms the product is live, instead of vanishing and leaving the
+          admin unsure whether the last step actually registered. */}
+      <div className="px-8 pt-6">
+          {/* White like every other admin card (grey body text is legible on it,
+              which it isn't on a saturated cream), with a coloured left accent
+              carrying the status signal. */}
+          <Card className="overflow-hidden">
+            <CardContent className={cn("border-l-4 p-5", fullyLive ? "border-dream-success" : "border-dream-danger")}>
+              <div>
+                <div className="flex flex-wrap items-baseline gap-x-2.5">
                   <h3 className="font-display text-base font-semibold text-dream-ink">
-                    This product isn&apos;t visible in the shop yet
+                    {fullyLive ? "Setup complete, this product is live" : "This product isn't visible in the shop yet"}
                   </h3>
-                  <p className="mt-0.5 text-sm text-dream-muted">
-                    Finish these steps, then it goes live for customers.
-                  </p>
+                  <span
+                    className={cn(
+                      "text-sm font-semibold",
+                      fullyLive ? "text-dream-success" : "text-dream-danger"
+                    )}
+                  >
+                    {doneCount} of {setupSteps.length} done
+                  </span>
                 </div>
-                <Badge variant="warn" className="shrink-0">
-                  {doneCount}/{setupSteps.length} done
-                </Badge>
+                <p className="mt-0.5 text-sm text-dream-muted">
+                  {fullyLive
+                    ? "Customers can find it in the shop, open it in the designer and order it."
+                    : "Finish these steps, then it goes live for customers."}
+                </p>
               </div>
-              <ul className="mt-4 space-y-1">
-                {setupSteps.map((s) => (
-                  <li key={s.label}>
-                    <a
-                      href={s.href}
-                      className="-mx-2 flex items-start gap-3 rounded-lg px-2 py-1.5 hover:bg-dream-surface/70"
-                    >
-                      {s.done ? (
-                        <svg
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="mt-0.5 h-4 w-4 shrink-0 text-dream-success"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.71-9.29a1 1 0 00-1.42-1.42L9 10.59 7.71 9.3a1 1 0 00-1.42 1.4l2 2a1 1 0 001.42 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          className="mt-0.5 h-4 w-4 shrink-0 text-dream-line-strong"
-                          aria-hidden="true"
-                        >
-                          <circle cx="10" cy="10" r="7" />
-                        </svg>
-                      )}
-                      <span>
+              {/* Done: the banner is just the green confirmation line, no
+                  checklist. Unfinished: the full actionable list. */}
+              {!fullyLive && (
+                /* Same circle language as the order stage stepper: filled green
+                   check when done, outlined dot when not, label centered on it. */
+                <ul className="mt-4 space-y-1">
+                  {setupSteps.map((s) => (
+                    <li key={s.label}>
+                      <a
+                        href={s.href}
+                        onClick={() => setFocusStep(s.done ? null : s.href.slice(1))}
+                        className={cn(
+                          "-mx-2 flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors",
+                          focusStep === s.href.slice(1) && !s.done ? "bg-dream-danger-soft" : "hover:bg-dream-bg"
+                        )}
+                      >
                         <span
+                          aria-hidden="true"
                           className={cn(
-                            "text-sm font-medium",
-                            s.done ? "text-dream-muted line-through" : "text-dream-ink"
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2",
+                            s.done
+                              ? "border-dream-success bg-dream-success text-white"
+                              : "border-dream-line-strong bg-white"
                           )}
                         >
-                          {s.label}
+                          {s.done && (
+                            <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
+                              <path
+                                d="M3.5 8.5l3 3 6-6.5"
+                                stroke="currentColor"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
                         </span>
-                        {!s.done && <span className="block text-xs text-dream-muted">{s.hint}</span>}
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+                        <span className="min-w-0 leading-tight">
+                          <span
+                            className={cn(
+                              "text-sm font-medium",
+                              s.done ? "text-dream-muted line-through" : "text-dream-ink"
+                            )}
+                          >
+                            {s.label}
+                          </span>
+                          {!s.done && <span className="mt-0.5 block text-xs text-dream-muted">{s.hint}</span>}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>
-      )}
 
       <div className="grid gap-6 px-8 py-6 lg:grid-cols-3">
         {/* Main config */}
         <div className="space-y-6 lg:col-span-2">
-          <Card id="pe-details" className="scroll-mt-24">
+          <Card id="pe-details" className={cn("scroll-mt-24 transition-shadow", stepRing("pe-details"))}>
             <CardHeader>
               <CardTitle>Details</CardTitle>
             </CardHeader>
@@ -384,7 +413,8 @@ export function ProductEditor({
             </CardHeader>
             <CardContent>
               <p className="mb-3 text-sm text-dream-muted">
-                {enColours.size} of {colours.length} S&amp;S colours enabled. Click to toggle.
+                Customers can pick {enColours.size} of the {colours.length} colours S&amp;S offers.
+                Click a swatch to turn it on or off.
               </p>
               <div className="flex flex-wrap gap-2">
                 {colours.map((c) => {
@@ -503,14 +533,14 @@ export function ProductEditor({
             </CardContent>
           </Card>
 
-          <div id="pe-print-areas" className="scroll-mt-24">
+          <div id="pe-print-areas" className={cn("scroll-mt-24 rounded-xl transition-shadow", stepRing("pe-print-areas"))}>
             <PrintAreaEditor productId={product.id} initialAreas={printAreas} colours={colours} />
           </div>
         </div>
 
         {/* Sidebar: pricing, decoration, flags */}
         <div className="space-y-6">
-          <Card id="pe-visibility" className="scroll-mt-24">
+          <Card id="pe-visibility" className={cn("scroll-mt-24 transition-shadow", stepRing("pe-visibility"))}>
             <CardHeader>
               <CardTitle>Visibility</CardTitle>
             </CardHeader>
@@ -534,7 +564,7 @@ export function ProductEditor({
 
           {/* Customer pricing: blank (wholesale x markup) + a shared decoration
               profile. The tier table is computed, not hand-typed. */}
-          <Card id="pe-pricing" className="scroll-mt-24">
+          <Card id="pe-pricing" className={cn("scroll-mt-24 transition-shadow", stepRing("pe-pricing"))}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 Customer pricing
