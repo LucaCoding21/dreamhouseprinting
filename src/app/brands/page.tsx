@@ -43,11 +43,8 @@ export default function BrandsPage() {
                 {b.label}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-dream-ink-soft">{b.blurb}</p>
-              <span className="mt-4 inline-flex items-center gap-1 font-display text-sm font-bold text-dream-purple">
+              <span className="mt-auto self-end pt-4 font-display text-sm font-bold text-dream-purple underline decoration-2 underline-offset-4 transition-colors group-hover:decoration-dream-sun">
                 Browse {b.label}
-                <span aria-hidden className="transition-transform duration-200 group-hover:translate-x-1">
-                  &rarr;
-                </span>
               </span>
             </Link>
           ))}

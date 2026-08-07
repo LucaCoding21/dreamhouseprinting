@@ -20,6 +20,7 @@ import {
   resolveRushTier,
   type RushRequestValue,
 } from "@/components/RushRequest";
+import { OrderPlacingOverlay } from "@/components/OrderPlacingOverlay";
 import { placeCartOrdersAction } from "./actions";
 
 export interface CartPrefill {
@@ -52,6 +53,9 @@ export function CartClient({
   const [contact, setContact] = useState<CartPrefill>(prefill);
   const [fulfillment, setFulfillment] = useState<"ship" | "pickup">("ship");
   const [busy, setBusy] = useState(false);
+  // How many designs the in-flight submit covers, captured at click time
+  // (items empty out as orders place, but the overlay copy shouldn't change).
+  const [placingCount, setPlacingCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // Rush is asked once for the whole checkout, not per design: everything in
@@ -90,6 +94,7 @@ export function CartClient({
       return;
     }
     setBusy(true);
+    setPlacingCount(items.length);
     try {
       const res = await placeCartOrdersAction({
         designIds: items.map((i) => i.designId),
@@ -101,10 +106,12 @@ export function CartClient({
       // Drop every successfully placed design from the cart.
       res.placed.forEach((p) => removeItem(p.designId));
       if (res.placed.length === 0) {
+        setBusy(false);
         setError(res.failed[0]?.error ?? "We couldn’t place your request. Please try again.");
         return;
       }
       if (res.failed.length > 0) {
+        setBusy(false);
         // Some went through, some didn't. Celebrate the successes and flag the
         // stragglers separately (they stay in the cart to retry).
         const placedNums = res.placed.map((p) => p.orderNumber).filter(Boolean).join(", ");
@@ -148,15 +155,20 @@ export function CartClient({
       if (triples.length) params.set("orders", triples.join(","));
       const qs = params.toString();
       router.push(`/checkout/done${qs ? `?${qs}` : ""}`);
+      // Both success paths deliberately leave `busy` true: the overlay stays up
+      // while Next renders the destination, instead of flashing the (now empty)
+      // cart during the navigation.
     } catch {
-      setError("Something went wrong placing your request. Please try again.");
-    } finally {
       setBusy(false);
+      setError("Something went wrong placing your request. Please try again.");
     }
   }
 
   // Empty cart, warm, on-brand, with the doodle dog.
-  if (ready && count === 0) {
+  // While a submit is in flight the cart empties out item by item; without the
+  // `!busy` guard this branch would flash "Your cart is empty" between placing
+  // the orders and landing on the order page.
+  if (ready && count === 0 && !busy) {
     return (
       <main className="mx-auto w-full max-w-2xl px-4 py-20 text-center sm:px-6">
         <Image
@@ -182,6 +194,8 @@ export function CartClient({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-44 pt-8 sm:px-6 lg:pb-56">
+      {busy && <OrderPlacingOverlay plural={placingCount > 1} />}
+
       {/* Back to shop, top-left, where people look to keep browsing */}
       <Link
         href="/shop"

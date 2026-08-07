@@ -172,27 +172,31 @@ export default function SiteNav() {
       </svg>
 
       <div className="relative z-50 mx-auto max-w-[1600px]">
-        {/* Row 1: logo · nav links · search · sign-in · CTA */}
-        <div className="flex items-center justify-between gap-4 pt-6 pb-6 xl:pt-6 xl:pb-6">
-          {/* shrink-0: the logo must never be the flex item that gives way
-              when the row runs tight, it was getting crushed on laptops. */}
-          <Link href="/" className="flex shrink-0 items-center pr-4 2xl:pr-8">
-            <Image
-              src="/dreamhouse-logo-nav.svg"
-              alt="Dreamhouse Printing"
-              width={457}
-              height={298}
-              priority
-              className="h-14 w-auto lg:h-[80px] xl:h-[60px] 2xl:h-[72px]"
-            />
-          </Link>
+        {/* Row 1: logo · nav links · search · sign-in · CTA.
+            The logo and the icon cluster are equal flex-1 wings, so the link
+            row sits in the true center of the bar. When a wing's content
+            outgrows its half (tight xl widths), flex lets the wings go
+            unequal and the links nudge off-center instead of overlapping. */}
+        <div className="flex items-center gap-4 pt-6 pb-6 xl:pt-6 xl:pb-6">
+          <div className="flex min-w-0 flex-1 items-center justify-start">
+            {/* shrink-0: the logo must never be the flex item that gives way
+                when the row runs tight, it was getting crushed on laptops. */}
+            <Link href="/" className="flex shrink-0 items-center pr-4 2xl:pr-8">
+              <Image
+                src="/dreamhouse-logo-nav.svg"
+                alt="Dreamhouse Printing"
+                width={457}
+                height={298}
+                priority
+                className="h-14 w-auto lg:h-[80px] xl:h-[60px] 2xl:h-[72px]"
+              />
+            </Link>
+          </div>
 
-          {/* Nav links, desktop only. mr-auto anchors them beside the logo at
-              every width, before this they drifted toward the center between
-              1280 and 1535px and only sat left once 2xl kicked in. */}
+          {/* Nav links, desktop only, centered between the wings. */}
           <nav
             aria-label="Main"
-            className="mr-auto hidden items-center gap-1.5 xl:flex 2xl:gap-3"
+            className="hidden shrink-0 items-center gap-1.5 xl:flex 2xl:gap-3"
           >
             {NAV_LINKS.map((link) =>
               link.label === "Brands" ? (
@@ -244,7 +248,7 @@ export default function SiteNav() {
             )}
           </nav>
 
-          <div className="relative flex items-center gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
+          <div className="relative flex flex-1 items-center justify-end gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
             {/* Search slot, reserves the open width at 2xl so toggling never
                 shifts the icon cluster. Below 2xl there's no room to
                 reserve: the open form overlays the icon cluster instead

@@ -155,17 +155,22 @@ function RushChoice({
   children: React.ReactNode;
 }) {
   return (
+    // The WHOLE container toggles the choice, not just the radio row. The
+    // header button stays for keyboard users (its Enter/Space click bubbles
+    // up to this div's handler, so there is exactly one toggle path).
     <div
+      onClick={onSelect}
       className={cn(
-        "rounded-xl border px-4 py-3.5 transition-colors",
-        selected ? "border-dream-purple bg-dream-lavender-mist/50" : "border-dream-line bg-white",
+        "cursor-pointer rounded-xl border px-4 py-3.5 transition-colors",
+        selected
+          ? "border-dream-purple bg-dream-lavender-mist/50"
+          : "border-dream-line bg-white hover:border-dream-purple/50",
       )}
     >
       <button
         type="button"
-        onClick={onSelect}
         aria-pressed={selected}
-        className="flex w-full items-center gap-3 text-left"
+        className="flex w-full cursor-pointer items-center gap-3 text-left"
       >
         <span
           aria-hidden
@@ -178,7 +183,13 @@ function RushChoice({
         </span>
         <span className="font-display text-sm font-bold text-dream-ink">{title}</span>
       </button>
-      {selected && children}
+      {selected && (
+        // Clicks on the revealed controls (date picker, tier rows) must not
+        // bubble up and collapse the box they live in.
+        <div className="cursor-default" onClick={(e) => e.stopPropagation()}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
