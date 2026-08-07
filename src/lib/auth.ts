@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/db/types";
 
@@ -30,10 +31,18 @@ export type StaffPermission = (typeof STAFF_PERMISSIONS)[number];
  */
 export const getUser = cache(async () => {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  // A transient auth-server or network failure must NOT read as "logged out":
+  // the guards below would bounce a validly signed-in admin to /login over a
+  // blip. Retry retryable failures before giving up.
+  for (let attempt = 0; ; attempt++) {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (user) return user;
+    if (attempt >= 2 || !error || !isAuthRetryableFetchError(error)) return null;
+    await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+  }
 });
 
 /** The current user's profile row (role, permissions, org), or null if logged out. Deduped per request. */
@@ -41,8 +50,15 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getUser();
   if (!user) return null;
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  return data ?? null;
+  // Same idea as getUser: "no profile row" is a real answer (maybeSingle data
+  // null, no error), but a failed query is not proof the user lacks a profile,
+  // so retry before letting requireStaff demote a signed-in admin to /login.
+  for (let attempt = 0; ; attempt++) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    if (data) return data;
+    if (!error || attempt >= 2) return null;
+    await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+  }
 });
 
 /** Just the role, so callers that selected only that column can pass it. */
@@ -79,7 +95,11 @@ export async function requireUser(nextPath = "/account") {
 /** Gate a route to staff. Redirects non-staff away. Returns the staff profile. */
 export async function requireStaff() {
   const profile = await getProfile();
-  if (!isStaff(profile)) redirect("/login?next=/admin");
+  if (!isStaff(profile)) {
+    // Signed-in non-staff go to their own home (sending them to /login would
+    // loop, since the login page bounces authenticated users back).
+    redirect(profile ? accountHomePath(profile) : "/login?next=/admin");
+  }
   return profile!;
 }
 
