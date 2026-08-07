@@ -20,6 +20,20 @@ import {
 import { ProductGallery } from "./ProductGallery";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { HelpPrompt } from "@/components/support/HelpPrompt";
+import { getProfile, isStaff } from "@/lib/auth";
+
+/**
+ * Staff can open this page for an INACTIVE product as a 1:1 draft preview
+ * (the admin editor's "Preview in shop" button). Same code path, same data
+ * shape, just without the is_active gate. RLS backstops it: anonymous
+ * visitors can't even SELECT an inactive product row, so the app-level
+ * check here is defence in depth, not the only lock.
+ */
+async function canView(product: { is_active: boolean } | null): Promise<boolean> {
+  if (!product) return false;
+  if (product.is_active) return true;
+  return isStaff(await getProfile());
+}
 
 export async function generateMetadata({
   params,
@@ -28,7 +42,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const product = await getProductById(id);
-  if (!product || !product.is_active) return { title: "Product | Dreamhouse Printing" };
+  if (!product || !(await canView(product))) return { title: "Product | Dreamhouse Printing" };
   return {
     title: `${product.name} | Dreamhouse Printing`,
     description:
@@ -47,7 +61,8 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const { from } = await searchParams;
   const product = await getProductById(id);
-  if (!product || !product.is_active) notFound();
+  if (!product || !(await canView(product))) notFound();
+  const draftPreview = !product.is_active;
 
   const colours = enabledColours(product);
   const allSizes = (product.sizes ?? []) as unknown as (ProductSizeJson & {
@@ -106,6 +121,23 @@ export default async function ProductDetailPage({
 
   return (
     <main className="mx-auto max-w-[94rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+      {/* Staff-only draft preview marker. A fixed overlay so the page itself
+          renders exactly as customers will see it once the product goes live. */}
+      {draftPreview && (
+        <div className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-full bg-dream-ink px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(27,20,88,0.35)]">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-dream-sun" aria-hidden="true" />
+            <span>Draft preview. Customers can&apos;t see this page yet.</span>
+            <Link
+              href={`/admin/products/${product.id}`}
+              className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-white/25"
+            >
+              Back to editor
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Back to shop */}
       <Link
         href={backHref}

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getProfile, isStaff } from "@/lib/auth";
 import type { CategoryRow, ProductRow, DecorationMethodRow } from "./rows";
 
 /**
@@ -132,7 +133,11 @@ export async function getActiveDecorationMethods(): Promise<DecorationMethodRow[
 export async function getProductForDesign(id: string) {
   const supabase = await createSupabaseServerClient();
   const product = await getProductById(id);
-  if (!product || !product.is_active) return null;
+  if (!product) return null;
+  // Staff may open the designer on an inactive product, so the admin's
+  // draft preview ("Preview in shop") can click through the whole flow.
+  // RLS already scopes inactive rows (product + print areas) to staff.
+  if (!product.is_active && !isStaff(await getProfile())) return null;
 
   const [{ data: printAreas }, methods] = await Promise.all([
     supabase.from("print_areas").select("*").eq("product_id", id).order("display_order"),

@@ -262,16 +262,41 @@ export function ProductEditor({
       <AdminHeader
         title={product.name}
         badge={
-          fullyLive ? (
-            <Badge variant="success">Live in shop</Badge>
-          ) : (
-            <Badge variant={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</Badge>
-          )
+          <>
+            {product.ss_style_name && (
+              <span
+                className="rounded-full border border-dream-line bg-dream-bg px-2.5 py-0.5 text-xs font-semibold tracking-wide text-dream-muted"
+                title={product.brand ? `${product.brand} style ${product.ss_style_name}` : undefined}
+              >
+                SKU {product.ss_style_name}
+              </span>
+            )}
+            {fullyLive ? (
+              <Badge variant="success">Live in shop</Badge>
+            ) : (
+              <Badge variant={isActive ? "success" : "neutral"}>{isActive ? "Active" : "Inactive"}</Badge>
+            )}
+          </>
         }
       >
         <Button variant="ghost" onClick={() => router.push("/admin/products")}>
           All products
         </Button>
+        {/* Opens the real /shop/[id] page in a new tab. For inactive products
+            the shop page lets staff through as a 1:1 draft preview. */}
+        <a
+          href={`/shop/${product.id}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-dream-line bg-white px-4 font-display text-sm font-medium text-dream-ink transition-colors hover:bg-dream-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+        >
+          {isActive ? "View live page" : "Preview in shop"}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-dream-muted" aria-hidden="true">
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          </svg>
+        </a>
         <Button variant="secondary" onClick={sync} loading={syncing}>
           Sync from S&amp;S
         </Button>
