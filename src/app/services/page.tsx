@@ -52,12 +52,12 @@ const METHODS: Method[] = [
     rotate: 1.5,
   },
   {
-    name: "DTG printing",
+    name: "DTF printing",
     description:
-      "Direct-to-garment (DTG) and direct-to-film (DTF) for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
-    image: "/dtg-printing-vancouver.webp",
-    imageAlt: "DTG printer laying ink onto a custom t-shirt",
-    imageTitle: "Full-colour DTG and DTF printing for small runs in Vancouver",
+      "Direct-to-film (DTF) transfers for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
+    image: "/dtf-printing-vancouver.webp",
+    imageAlt: "Full colour DTF prints on custom t-shirts",
+    imageTitle: "Full-colour DTF printing for small runs in Vancouver",
     imageClassName: "w-[175px] sm:w-[200px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
@@ -161,7 +161,7 @@ const FAQS = [
   },
   {
     q: "Is there a minimum order size?",
-    a: "There's no minimum order size, but pricing is quantity based and DTG and DTF are definitely preferable for small orders. We will do screen printing and embroidery for small orders, but the cost will be higher due to the set up involved.",
+    a: "There's no minimum order size, but pricing is quantity based and DTF is definitely preferable for small orders. We will do screen printing and embroidery for small orders, but the cost will be higher due to the set up involved.",
   },
   {
     q: "What's the quickest you can do an order?",
@@ -220,9 +220,15 @@ export default function ServicesPage() {
 
       <Link
         href="/contact#coastal-reign"
-        className="hidden bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95 sm:block"
+        className="block bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
       >
-        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+        <p className="mx-auto max-w-[1400px] px-4 py-2 text-center text-[12px] font-bold sm:px-6 sm:text-[15px]">
+          {/* Condensed on mobile to avoid an awkward wrap, but still pulls both
+              competitor names (Coastal Reign / Get Bold) — those are the hook. */}
+          <span className="sm:hidden">
+            We price match Coastal Reign &amp; Get Bold and{" "}
+            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
+          </span>
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
             <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
@@ -262,7 +268,7 @@ function Hero() {
             </h1>
 
             <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-              Custom screen printing, embroidery, and direct-to-garment in
+              Custom screen printing, embroidery, and DTF transfers in
               Vancouver for shirts, hoodies, hats, and bags. Built for local
               brands, small businesses, and teams.
             </p>
@@ -351,7 +357,7 @@ function Methods() {
           </h2>
           <div>
             <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
-              Screen printing, embroidery, and DTG, all done in house in
+              Screen printing, embroidery, and DTF, all done in house in
               Vancouver. Pick the method that fits your job, your timeline,
               and your budget.
             </p>

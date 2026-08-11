@@ -25,8 +25,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
       images: [
         `${SITE_URL}/custom-screen-printed-tshirts-vancouver.webp`,
         `${SITE_URL}/screen-printing-vancouver.webp`,
-        `${SITE_URL}/custom-embroidery-vancouver.webp`,
-        `${SITE_URL}/dtg-printing-vancouver.webp`,
+        `${SITE_URL}/custom-embroidery-vancouver.png`,
+        `${SITE_URL}/dtf-printing-vancouver.webp`,
       ],
     },
     {

@@ -17,7 +17,7 @@ export type SizeKey = "S" | "M" | "L" | "XL" | "2XL" | "3XL";
 // Value is a stringified integer so it maps cleanly to controlled inputs.
 export type SizeBreakdown = Partial<Record<SizeKey, string>>;
 
-export type PrintMethod = "screen" | "embroidery" | "dtg" | "not-sure";
+export type PrintMethod = "screen" | "embroidery" | "dtf" | "not-sure";
 
 export type PrintLocation =
   | "front-center"
@@ -136,7 +136,7 @@ export const PRINT_METHOD_OPTIONS: { value: PrintMethod; label: string }[] = [
   { value: "not-sure", label: "Not sure — Julian figures it out" },
   { value: "screen", label: "Screen print" },
   { value: "embroidery", label: "Embroidery" },
-  { value: "dtg", label: "DTG" },
+  { value: "dtf", label: "DTF" },
 ];
 
 export const emptyFormData: QuoteFormData = {
