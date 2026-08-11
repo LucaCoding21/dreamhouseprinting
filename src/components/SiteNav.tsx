@@ -334,7 +334,10 @@ export default function SiteNav() {
 
     {/* Spacer reserves the nav's height on mobile (header is `fixed`).
         Hidden on desktop where the header is back to `relative`. */}
-    <div aria-hidden="true" className="h-[68px] lg:h-[88px] xl:hidden" />
+    {/* Must match the real header height at each width: 56px logo + 2*6px
+        padding on mobile, 100px logo + 2*6px padding from lg up. Too short
+        and whatever follows the nav (the price-match banner) hides under it. */}
+    <div aria-hidden="true" className="h-[68px] lg:h-[112px] xl:hidden" />
     </>
   );
 }

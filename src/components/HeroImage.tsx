@@ -15,7 +15,7 @@ export default function HeroImage() {
     // transform-origin matches the previous image transform so the layout
     // grows downward from the top edge.
     <div
-      className="relative lg:scale-[1.35]"
+      className="relative xl:scale-[1.35]"
       style={{ transformOrigin: "center top" }}
     >
       <Image
@@ -34,8 +34,8 @@ export default function HeroImage() {
         height={1468}
         priority
         onLoad={() => setLoaded(true)}
-        sizes="(min-width: 1024px) 820px, (min-width: 768px) 55vw, 100vw"
-        className={`relative z-10 h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] lg:max-h-[990px] ${
+        sizes="(min-width: 1280px) 820px, (min-width: 768px) 55vw, 100vw"
+        className={`relative z-10 h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] xl:max-h-[990px] ${
           loaded ? "animate-pop" : "opacity-0"
         }`}
       />
