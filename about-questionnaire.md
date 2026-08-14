@@ -6,7 +6,7 @@ The page has 5 sections. One short prompt per section.
 
 ---
 
-## 1. The hero — "Why it matters"
+## 1. The ero — "Why it matters"
 
 **Why did you start Dreamhouse?** (2–3 sentences. What was wrong with other print shops? What did you want to do differently?)
 
@@ -36,11 +36,11 @@ The page has 5 sections. One short prompt per section.
 
 >
 
-**One short line for the left side** (current placeholder: *"Looking for a print shop that'll actually pick up the phone? That's us."*) — keep, tweak, or rewrite:
+**One short line for the left side** (current placeholder: _"Looking for a print shop that'll actually pick up the phone? That's us."_) — keep, tweak, or rewrite:
 
 >
 
-**One short line for the right side** (current: *"Every roll of ink, every screen, every stitch — done by hand on Main Street."*) — keep, tweak, or rewrite. Mention the actual neighbourhood/street if Main Street isn't right:
+**One short line for the right side** (current: _"Every roll of ink, every screen, every stitch — done by hand on Main Street."_) — keep, tweak, or rewrite. Mention the actual neighbourhood/street if Main Street isn't right:
 
 >
 
