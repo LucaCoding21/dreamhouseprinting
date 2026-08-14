@@ -6,7 +6,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { shopPrice } from "@/lib/pricing/quote";
+import { shopPriceAtQty } from "@/lib/pricing/quote";
+import { useShopQty } from "@/components/storefront/ShopQuantity";
 import { productPrimaryImage, colourCardImage, enabledColours } from "@/lib/productImage";
 import { swatchStyle, sortColours, heroColour } from "@/lib/swatch";
 import type { ProductRow } from "@/lib/db/rows";
@@ -26,6 +27,9 @@ export function ProductCard({
   className?: string;
   featured?: boolean;
 }) {
+  const { qty } = useShopQty();
+  const price = shopPriceAtQty(product, qty);
+
   const fallbackImage = productPrimaryImage(product);
   // Show the most-popular colours first (staples + primaries, then light -> dark),
   // so the 6 dots on the card surface the colours people actually order.
@@ -133,18 +137,15 @@ export function ProductCard({
         )}
 
         <div className="mt-auto border-t border-dream-line pt-3">
-          {(() => {
-            const price = shopPrice(product);
-            return (
-              <span className="inline-flex items-baseline gap-1.5 self-start font-display text-lg font-bold text-dream-ink">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">
-                  {price.label}
-                </span>
-                {formatCAD(price.amount)}
-                <span className="text-[10px] font-semibold text-dream-ink/55">/unit</span>
-              </span>
-            );
-          })()}
+          {/* Priced at the shared shop quantity for a minimum print (1 colour,
+              1 location), not the top-volume "as low as" teaser. */}
+          <span className="inline-flex items-baseline gap-1.5 self-start font-display text-lg font-bold text-dream-ink">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">
+              {price.label}
+            </span>
+            {formatCAD(price.amount)}
+            <span className="text-[10px] font-semibold text-dream-ink/55">/unit</span>
+          </span>
         </div>
       </div>
     </div>

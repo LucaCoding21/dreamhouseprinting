@@ -216,7 +216,7 @@ export function curveForProduct(
 
 /**
  * Map a decoration_methods slug onto the curve's decoration axis. Methods the
- * curve can't price (DTG, vinyl) return null and fall back to the platform
+ * curve can't price (DTF, vinyl) return null and fall back to the platform
  * cost-plus engine.
  */
 export function decorationForMethodSlug(slug: string | null | undefined): QuoteDecoration | null {
@@ -258,6 +258,30 @@ export function shopPrice(product: PricingInput["product"]): {
   const curve = curveForProduct(product);
   if (curve) return { amount: startingFromCurve(curve), label: "as low as" };
   return { amount: garmentRetailUnit(product), label: "from" };
+}
+
+/**
+ * Shop-card price at a REAL quantity: the minimum print (1 colour, 1 location)
+ * on the product's cheapest decoration at that qty. Replaces the "as low as"
+ * teaser (which quoted the top-volume tier) with the price a customer ordering
+ * `qty` units would actually see. Curve-less products still fall back to the
+ * blank garment retail "from" price, which doesn't vary with quantity.
+ */
+export function shopPriceAtQty(
+  product: PricingInput["product"],
+  qty: number
+): { amount: number; label: string } {
+  const curve = curveForProduct(product);
+  if (!curve) return { amount: garmentRetailUnit(product), label: "from" };
+  let best = Infinity;
+  for (const d of curve.decorations) {
+    const r = priceFromCurve(curve, { qty, colours: 1, locations: 1, decoration: d });
+    if (r.available) best = Math.min(best, r.perUnit);
+  }
+  if (!Number.isFinite(best)) {
+    return { amount: startingFromCurve(curve), label: "as low as" };
+  }
+  return { amount: best, label: `at ${qty} units` };
 }
 
 /**

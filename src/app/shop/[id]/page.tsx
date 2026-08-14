@@ -205,7 +205,7 @@ export default async function ProductDetailPage({
       {/* Help nudge, a person to ask before committing to a custom job */}
       <HelpPrompt
         title="Have a question about this product?"
-        body="Not sure on sizing, colours, or artwork? Ask us before you order. A real person will help."
+        body="Have questions on sizing, colours, or decoration possibilities? Just ask us and a real person will give you the info you need :)"
         className="mt-6"
       />
 
@@ -240,7 +240,7 @@ function ValueProps() {
   const props = [
     {
       title: "Price-match guarantee",
-      desc: "Find it cheaper in Vancouver and we'll match it.",
+      desc: "We price match large shops like Coastal Reign and Get Bold.",
       icon: <ShieldIcon className="h-7 w-7" />,
       badge: "bg-dream-purple text-white",
       tilt: "-rotate-3",

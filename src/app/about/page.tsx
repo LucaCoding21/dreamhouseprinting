@@ -330,7 +330,7 @@ function ReadyCTA() {
         <Reveal variant="up" delay={160}>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
             <Link
-              href="/#quick-quote"
+              href="/shop"
               className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5"
             >
               Start your order

@@ -11,6 +11,10 @@ import { ShopSidebar } from "@/components/storefront/ShopSidebar";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { SortSelect } from "@/components/storefront/SortSelect";
 import { ShopSearch } from "@/components/storefront/ShopSearch";
+import {
+  ShopQtyProvider,
+  ShopQtyControl,
+} from "@/components/storefront/ShopQuantity";
 import { EmptyState } from "@/components/ui";
 import { shopPrice } from "@/lib/pricing/quote";
 import { cn } from "@/lib/cn";
@@ -77,11 +81,13 @@ export default async function ShopPage({
           />
 
           <div className="mt-8">
-            {filtered ? (
-              <FilteredView category={category} search={search} brand={brand} sort={sort} />
-            ) : (
-              <DefaultView sort={sort} />
-            )}
+            <ShopQtyProvider>
+              {filtered ? (
+                <FilteredView category={category} search={search} brand={brand} sort={sort} />
+              ) : (
+                <DefaultView sort={sort} />
+              )}
+            </ShopQtyProvider>
           </div>
         </section>
       </div>
@@ -145,6 +151,7 @@ async function DefaultView({ sort }: { sort?: string }) {
             {allProducts.length} {allProducts.length === 1 ? "product" : "products"}
           </span>
         </div>
+        <ShopQtyControl />
       </div>
       {empty ? (
         <EmptyState
@@ -206,6 +213,7 @@ async function FilteredView({
             {products.length} {products.length === 1 ? "product" : "products"}
           </span>
         </div>
+        <ShopQtyControl />
       </div>
 
       {products.length > 0 ? (

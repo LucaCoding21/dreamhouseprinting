@@ -74,6 +74,18 @@ export function DetailedQuote({
     [curve, qty, prints, decoration],
   );
 
+  // Collapsed-header teaser: the simplest job (one 1-colour print) at 50 pieces,
+  // so the closed card already shows a real number instead of ad copy.
+  const teaser = useMemo(
+    () =>
+      priceFromCurveForPrints(curve, {
+        qty: 50,
+        prints: [{ colours: 1 }],
+        decoration: decorations[0],
+      }),
+    [curve, decorations],
+  );
+
   const addPrint = () =>
     setPrints((p) => (p.length >= MAX_LOCATIONS ? p : [...p, { id: printSeq.current++, colours: 1 }]));
   const removePrint = (id: number) => setPrints((p) => (p.length <= 1 ? p : p.filter((r) => r.id !== id)));
@@ -156,9 +168,11 @@ export function DetailedQuote({
           </svg>
           <span>
             <span className="block font-display text-xl font-bold text-dream-ink">
-              Build an instant estimate
+              Instant quote
             </span>
-            <span className="mt-0.5 block text-xs text-dream-muted">Takes 5 seconds · no signup</span>
+            <span className="mt-0.5 block text-xs text-dream-muted">
+              From {formatCAD(teaser.perUnit)}/unit at 50 pieces
+            </span>
           </span>
         </span>
         <svg
