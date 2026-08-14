@@ -6,7 +6,7 @@ The page has 5 sections. One short prompt per section.
 
 ---
 
-## 1. The ero — "Why it matters"
+## 1. The ro — "Why it matters"
 
 **Why did you start Dreamhouse?** (2–3 sentences. What was wrong with other print shops? What did you want to do differently?)
 
