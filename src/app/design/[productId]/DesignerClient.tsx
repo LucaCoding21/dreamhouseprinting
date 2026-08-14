@@ -260,7 +260,7 @@ export function DesignerClient(props: Props) {
     [props.pricing.pricing_rules]
   );
   // Methods the customer can pick. When the product has a curve (the normal
-  // case), only offer methods the curve can price, otherwise DTG/vinyl would
+  // case), only offer methods the curve can price, otherwise DTF/vinyl would
   // fall through to the uncalibrated cost-plus fallback and underprice the job.
   const priceableMethods = useMemo(
     () =>
@@ -1323,7 +1323,7 @@ export function DesignerClient(props: Props) {
   /** Zones on a side whose art spills out, for the on-canvas warning pill. */
   const viewOutOfBounds = (v: View) =>
     spotsForView(v).some((pa) => spotArt[pa.id]?.outside);
-  // Embroidery is decorated in thread; screen print / DTG in ink. Label the
+  // Embroidery is decorated in thread; screen print / DTF in ink. Label the
   // colour count accordingly so the spec reads in the customer's terms.
   const isEmbroidery = (method?.name ?? "").toLowerCase().includes("embroid");
   const colourKindLabel = isEmbroidery ? "Thread colours" : "Ink colours";

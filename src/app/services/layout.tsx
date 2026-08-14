@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
-const title = "Screen Printing, Embroidery & DTG Services in Vancouver";
+const title = "Screen Printing, Embroidery & DTF Services in Vancouver";
 const description =
-  "Custom screen printing, embroidery, and DTG printing in Vancouver for shirts, hoodies, hats, and totes. See pricing, turnaround, and method details.";
+  "Custom screen printing, embroidery, and DTF printing in Vancouver for shirts, hoodies, hats, and totes. See pricing, turnaround, and method details.";
 const image = "/custom-screen-printed-tshirts-vancouver.webp";
 
 export const metadata: Metadata = {

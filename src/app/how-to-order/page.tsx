@@ -59,7 +59,7 @@ const GOOD_TO_KNOW: GoodToKnow[] = [
   },
   {
     title: "Order any quantity",
-    body: "There's no minimum. Pricing is quantity-based, so bigger runs cost less per piece. For small orders, DTG and DTF keep things affordable.",
+    body: "There's no minimum. Pricing is quantity-based, so bigger runs cost less per piece. For small orders, DTF keeps things affordable.",
   },
   {
     title: "Know your timeline",

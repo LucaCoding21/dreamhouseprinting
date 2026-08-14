@@ -52,12 +52,12 @@ const METHODS: Method[] = [
     rotate: 1.5,
   },
   {
-    name: "DTG printing",
+    name: "DTF printing",
     description:
-      "Direct-to-garment (DTG) and direct-to-film (DTF) for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
+      "Direct-to-film (DTF) transfers for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
     image: "/dtg-printing-vancouver.webp",
-    imageAlt: "DTG printer laying ink onto a custom t-shirt",
-    imageTitle: "Full-colour DTG and DTF printing for small runs in Vancouver",
+    imageAlt: "DTF transfer being pressed onto a custom t-shirt",
+    imageTitle: "Full-colour DTF printing for small runs in Vancouver",
     imageClassName: "w-[175px] sm:w-[200px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
@@ -155,7 +155,7 @@ const FAQS = [
   },
   {
     q: "Is there a minimum order size?",
-    a: "There's no minimum order size, but pricing is quantity based and DTG and DTF are definitely preferable for small orders. We will do screen printing and embroidery for small orders, but the cost will be higher due to the set up involved.",
+    a: "There's no minimum order size, but pricing is quantity based and DTF is definitely preferable for small orders. We will do screen printing and embroidery for small orders, but the cost will be higher due to the set up involved.",
   },
   {
     q: "What's the quickest you can do an order?",
@@ -260,7 +260,7 @@ function Hero() {
             </h1>
 
             <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-              Custom screen printing, embroidery, and direct-to-garment in
+              Custom screen printing, embroidery, and DTF printing in
               Vancouver for shirts, hoodies, hats, and bags. Built for local
               brands, small businesses, and teams.
             </p>
@@ -349,7 +349,7 @@ function Methods() {
           </h2>
           <div>
             <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
-              Screen printing, embroidery, and DTG, all done in house in
+              Screen printing, embroidery, and DTF, all done in house in
               Vancouver. Pick the method that fits your job, your timeline,
               and your budget.
             </p>

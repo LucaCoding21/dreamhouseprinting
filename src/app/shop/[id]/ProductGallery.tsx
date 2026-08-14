@@ -384,7 +384,7 @@ export function ProductGallery({
                 <p>
                   A custom-ready blank, decorated in-house. Choose your colour and
                   sizes, then add artwork in the designer. Screenprint,
-                  embroidery, or DTG depending on the piece.
+                  embroidery, or DTF depending on the piece.
                 </p>
               );
             })()}
