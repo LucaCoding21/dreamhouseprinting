@@ -80,7 +80,7 @@ export default function ContactPage() {
 
       <Hero />
 
-      <section className="relative bg-dream-cream pb-10 pt-20 lg:pb-32 lg:pt-28">
+      <section className="relative bg-dream-cream pb-6 pt-20 lg:pb-10 lg:pt-28">
         <svg
           aria-hidden="true"
           preserveAspectRatio="xMidYMid"
@@ -269,39 +269,23 @@ export default function ContactPage() {
               </p>
               <Link
                 href="/#quick-quote"
-                className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
+                className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition hover:-translate-y-0.5 active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
               >
-                Start a quote →
+                Start a quote
               </Link>
             </div>
           </aside>
         </div>
       </section>
 
-      {/* Coastal Reign, scroll target for the green banner strip (/contact#coastal-reign).
+      {/* Price match, scroll target for the green banner strip (/contact#coastal-reign).
           scroll-mt clears the fixed mobile nav so the heading isn't tucked under it. */}
       <section
         id="coastal-reign"
         className="scroll-mt-28 bg-dream-cream pb-4 lg:pb-10"
       >
         <div className="mx-auto max-w-[1280px] px-6 md:px-8 lg:px-10">
-          <div className="rounded-[28px] border-2 border-dream-ink bg-dream-lavender-soft px-7 py-8 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:px-10 sm:py-10">
-            <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
-              Coastal Reign orders
-            </span>
-            <h2 className="mt-3 font-display text-[26px] font-bold leading-tight text-dream-ink sm:text-[30px]">
-              Submitting a Coastal Reign order for a price matching discount?
-            </h2>
-            <p className="mt-3 max-w-[680px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
-              Orders from Coastal Reign can be submitted with a link. Just make
-              sure your order is showing as{" "}
-              <span className="font-semibold text-dream-ink">
-                &ldquo;Pending Mockup Approval&rdquo;
-              </span>
-              , then drop the link in the message above and we&apos;ll take it
-              from there.
-            </p>
-          </div>
+          <PriceMatchCard />
         </div>
       </section>
 
@@ -318,8 +302,8 @@ export default function ContactPage() {
 
 function Hero() {
   return (
-    <section className="relative flex min-h-[440px] flex-col justify-center bg-dream-lavender-soft lg:min-h-[560px]">
-      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-20 pt-24 text-center md:px-8 lg:px-10 lg:pb-28 lg:pt-32">
+    <section className="relative flex flex-col justify-center bg-dream-lavender-soft">
+      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-16 pt-10 text-center md:px-8 lg:pb-20 lg:pt-14 lg:px-10">
         <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px] lg:text-[76px]">
           Let&apos;s{" "}
           <span className="relative inline-block">
@@ -339,6 +323,124 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Price-match submission, Coastal Reign / Get Bold order links
+// ────────────────────────────────────────────────────────────────────────────
+
+function PriceMatchCard() {
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", email: "", link: "" });
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const message = `[Price match]\n\nOrder link: ${form.link.trim()}`;
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          message,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.error ?? "Something went wrong. Try again?");
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Couldn't reach the server. Check your connection and retry.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const compactInputCls =
+    "rounded-xl border border-dream-ink/15 bg-white px-3.5 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/40 outline-none transition hover:border-dream-ink/40 focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20 disabled:opacity-60";
+
+  return (
+    <div className="rounded-[24px] border-2 border-dream-ink bg-dream-lavender-soft px-6 py-5 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:px-8 sm:py-6">
+      <h2 className="font-display text-[19px] font-bold leading-tight text-dream-ink sm:text-[21px]">
+        Ordering from Coastal Reign or Get Bold?
+      </h2>
+      <p className="mt-1 text-[13.5px] leading-relaxed text-dream-ink-soft sm:text-[14px]">
+        Drop your order link and we&apos;ll beat their price. Coastal Reign
+        orders need to show{" "}
+        <span className="font-semibold text-dream-ink">
+          &ldquo;Pending Mockup Approval&rdquo;
+        </span>{" "}
+        first.
+      </p>
+
+      {sent ? (
+        <p className="mt-3 text-[14px] font-semibold text-dream-ink">
+          Got it! We&apos;ll email you our price within a business day.
+        </p>
+      ) : (
+        <form
+          onSubmit={onSubmit}
+          className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center"
+        >
+          <input
+            type="url"
+            name="link"
+            required
+            disabled={submitting}
+            value={form.link}
+            onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))}
+            placeholder="Order link"
+            aria-label="Order link"
+            className={`${compactInputCls} sm:flex-1`}
+            inputMode="url"
+          />
+          <input
+            type="text"
+            name="name"
+            required
+            disabled={submitting}
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Name"
+            aria-label="Name"
+            className={`${compactInputCls} sm:w-36`}
+            autoComplete="name"
+          />
+          <input
+            type="email"
+            name="email"
+            required
+            disabled={submitting}
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            placeholder="Email"
+            aria-label="Email"
+            className={`${compactInputCls} sm:w-52`}
+            autoComplete="email"
+            inputMode="email"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rough-pill rough-pill-filled cursor-pointer self-start px-6 py-2.5 font-display text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60 sm:self-auto"
+          >
+            {submitting ? "Sending…" : "Submit"}
+          </button>
+        </form>
+      )}
+
+      {error ? (
+        <p className="mt-2 text-sm font-medium text-red-800">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Before-you-write, small set of pointers so people don't write blind
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -352,7 +454,7 @@ function BeforeYouWrite() {
     {
       n: "02",
       title: "Share artwork if you have it",
-      body: "Vector (.ai .eps .pdf) or 300dpi .png is ideal. A sketch works too.",
+      body: "We can vectorize or work with sketches depending on the size of your order. AI art is generally not suitable for decoration unless it is a simple logo or design due to the lack of resolution and blended lines.",
     },
     {
       n: "03",
@@ -477,7 +579,7 @@ function SentState({ onReset }: { onReset: () => void }) {
           onClick={onReset}
           className="font-display text-sm font-bold uppercase tracking-[0.18em] text-dream-purple underline-offset-4 hover:underline"
         >
-          Send another →
+          Send another
         </button>
       </div>
     </div>
