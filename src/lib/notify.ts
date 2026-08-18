@@ -65,9 +65,10 @@ function resendClient(): { resend: Resend; from: string } | null {
 }
 
 /**
- * Resolve who a customer-facing order email goes to: the linked profile's email
- * (respecting an explicit email opt-out) or the guest email. Returns null when
- * there's no deliverable address or the customer opted out.
+ * Resolve who a customer-facing order email goes to: an admin-set override
+ * (`orders.guest_email`, editable per order), else the linked profile's email
+ * (respecting an explicit email opt-out), else the guest email. Returns null
+ * when there's no deliverable address or the customer opted out.
  */
 async function resolveOrderRecipient(
   service: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
@@ -79,11 +80,14 @@ async function resolveOrderRecipient(
       .select("email, name, notification_preferences")
       .eq("id", order.customer_id)
       .maybeSingle();
-    if (!customer?.email) return null;
+    if (!customer?.email && !order.guest_email) return null;
     // Respect an explicit opt-out; default is opted-in.
-    const prefs = (customer.notification_preferences ?? {}) as unknown as Record<string, boolean>;
+    const prefs = (customer?.notification_preferences ?? {}) as unknown as Record<string, boolean>;
     if (prefs.email === false) return null;
-    return { email: customer.email, name: customer.name };
+    // An admin-set guest_email on an account order overrides where the emails
+    // go (typo fix, or "send it to my colleague"); the login email is untouched.
+    const email = order.guest_email || customer?.email;
+    return email ? { email, name: customer?.name ?? null } : null;
   }
   // Guests are always sent (transactional, no preference record).
   return order.guest_email ? { email: order.guest_email, name: null } : null;

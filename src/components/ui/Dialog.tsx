@@ -75,9 +75,12 @@ export function DialogContent({
     };
   }, [open, onOpenChange]);
 
-  // Move focus into the panel on open.
+  // Move focus into the panel on open, unless a child already claimed it
+  // (an autoFocus input like the Change-product search must keep focus so
+  // typing works immediately).
   useEffect(() => {
-    if (open) panelRef.current?.focus();
+    const panel = panelRef.current;
+    if (open && panel && !panel.contains(document.activeElement)) panel.focus();
   }, [open]);
 
   // Portal target only exists on the client; nothing renders during SSR

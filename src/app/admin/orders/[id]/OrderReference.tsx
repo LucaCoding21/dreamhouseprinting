@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
 import { PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from "@/lib/db/rows";
-import { setPaymentStatusAction, sendInvoiceAction, setTrackingAction } from "../actions";
+import { setPaymentStatusAction, sendInvoiceAction, setTrackingAction, setDueDateAction } from "../actions";
 import { EtransferVerify } from "./EtransferVerify";
 import { LBL, SHIP_ON_TRACKING, fmtDay, useOrderAction, type Can, type Detail } from "./shared";
 
@@ -34,6 +34,7 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
   const [paymentPick, setPaymentPick] = useState<{ base: PaymentStatus; value: PaymentStatus } | null>(null);
   const payment = paymentPick && paymentPick.base === serverPayment ? paymentPick.value : serverPayment;
   const [tracking, setTracking] = useState(order.shipping_tracking ?? "");
+  const [dueDate, setDueDate] = useState(order.due_date ?? "");
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
 
   const paymentBadge: "success" | "info" | "warn" | "neutral" =
@@ -177,11 +178,32 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
         </CardContent>
       </Card>
 
-      {/* Stat mini-block */}
+      {/* Stat mini-block. "In hands" is the due date, editable in place so
+          Julian can set (or clear) the real commitment; picking a date saves
+          immediately. */}
       <Card>
         <CardContent className="grid grid-cols-3 gap-3 p-4">
+          <div>
+            <div className={LBL}>In hands</div>
+            {can.edit ? (
+              <input
+                type="date"
+                value={dueDate}
+                title="Due date for this order. Pick a date to save it; clear it to remove."
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setDueDate(next);
+                  run(() => setDueDateAction(order.id, next || null), next ? "Due date saved" : "Due date cleared");
+                }}
+                className="mt-0.5 w-full rounded-md border border-dream-line bg-white px-1 py-0.5 text-sm font-semibold text-dream-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple"
+              />
+            ) : (
+              <div className="mt-0.5 truncate text-sm font-semibold text-dream-ink">
+                {order.due_date ? fmtDay(order.due_date) : "-"}
+              </div>
+            )}
+          </div>
           {[
-            { label: "In hands", value: order.due_date ? fmtDay(order.due_date) : "-" },
             { label: "Total pieces", value: String(pieces) },
             { label: "Order value", value: formatCAD(total) },
           ].map((s) => (

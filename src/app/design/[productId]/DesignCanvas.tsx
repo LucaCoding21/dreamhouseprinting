@@ -717,9 +717,13 @@ export const DesignCanvas = forwardRef<
       // via the render filter. This also drops any orphaned guide the
       // hide-the-refs approach used to miss. The garment backgroundImage is
       // drawn separately and stays in the mockup.
+      // Scale the export to a real output size. The on-screen canvas is small
+      // (a few hundred px), so a fixed 2x came out visibly low res in the admin
+      // and on proofs. Target ~1600px on the long edge, never below 2x.
+      const long = Math.max(canvas.getWidth(), canvas.getHeight(), 1);
       return canvas.toDataURL({
         format: "png",
-        multiplier: 2,
+        multiplier: Math.min(6, Math.max(2, 1600 / long)),
         filter: (o) => !isGuide(o as fabric.FabricObject) && !o.excludeFromExport,
       });
     },

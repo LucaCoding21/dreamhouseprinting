@@ -18,7 +18,7 @@ import { ChangeProductDialog } from "./ChangeProductDialog";
 import { ReorderArrows } from "./ReorderArrows";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
-import { ProofLightbox } from "./ProofLightbox";
+import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { curveForProduct } from "@/lib/pricing/quote";
 import { formatInches } from "@/lib/design/printArea";
 import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing";
@@ -27,6 +27,7 @@ import {
   SIZE_ORDER,
   SUPPLIER_OPTIONS,
   itemQty,
+  relativeTime,
   sizeRank,
   suggestLineUnitPrice,
   type Can,
@@ -114,19 +115,27 @@ export function OrderItemCard({
   const [newSize, setNewSize] = useState("");
   const [proofOpen, setProofOpen] = useState(false);
   const [mockupsOpen, setMockupsOpen] = useState(false);
+  const [proofHistoryOpen, setProofHistoryOpen] = useState(false);
   const [mockupPreview, setMockupPreview] = useState<{ view: string; url: string | null } | null>(null);
+  const [proofPreview, setProofPreview] = useState<ProofRow | null>(null);
   const mockups = ((design?.mockup_images ?? []) as { view: string; url: string | null }[]).filter((m) => m.url);
   const colour = (lineItem?.colour ?? {}) as { name?: string; hex?: string | null };
   const qty = itemQty(item);
   const unit = Number(item.unitPrice) || 0;
+  // Newest first (getAdminOrder orders proofs by created_at desc). The latest
+  // is the FINAL version of what's getting printed, so it's the line's hero
+  // visual; the rest are history (old originals, replaced versions).
   const latestProof = proofsForItem[0];
+  const olderProofs = proofsForItem.slice(1);
 
-  // Show the full standard size run as fillable slots, plus any non-standard
-  // Only the sizes actually on the line get a column (a tote shouldn't show
-  // nine empty apparel sizes). Standard sizes not on the line become small
-  // "+XS" pills so any of them is one click away.
-  const displaySizes = item.sizes.map(([s]) => s).sort((a, b) => sizeRank(a) - sizeRank(b));
-  const missingStandard = SIZE_ORDER.filter((s) => !item.sizes.some(([k]) => k.toUpperCase() === s));
+  // The full standard size run ALWAYS shows as fillable slots (per Julian,
+  // 2026-08-13), plus any custom sizes on the line. Zero-qty columns still
+  // drop out of the saved size_quantities, so an untouched column costs
+  // nothing; only custom sizes need an explicit X to remove.
+  const displaySizes = [
+    ...SIZE_ORDER,
+    ...item.sizes.map(([s]) => s).filter((s) => !SIZE_ORDER.includes(s.toUpperCase())),
+  ].sort((a, b) => sizeRank(a) - sizeRank(b));
   const qtyOf = (s: string) => item.sizes.find(([k]) => k.toUpperCase() === s.toUpperCase())?.[1] ?? 0;
 
   /* ------------------------------ auto-repricing ------------------------------
@@ -169,13 +178,6 @@ export function OrderItemCard({
 
   const removeSize = (s: string) =>
     patchPriced((p) => ({ ...p, sizes: p.sizes.filter(([k]) => k.toUpperCase() !== s.toUpperCase()) }));
-
-  const addSizeColumn = (s: string) =>
-    patchPriced((p) =>
-      p.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase())
-        ? p
-        : { ...p, sizes: [...p.sizes, [s, 0] as [string, number]].sort(([a], [b]) => sizeRank(a) - sizeRank(b)) },
-    );
 
   /** Spot fields that move the price: the method, the colour count, the size. */
   const PRICED_SPOT_KEYS: (keyof DecorationSpot)[] = ["type", "colours", "widthIn", "heightIn"];
@@ -239,7 +241,32 @@ export function OrderItemCard({
           <div className="flex shrink-0 flex-col gap-3 lg:w-44">
             <BlankGarment product={product} colour={colour} />
 
-            {mockups.length === 0 ? (
+            {/* Hero visual: the latest proof once one exists (the final version
+                of what's getting printed); the customer's own mockup until
+                then. Older proofs live in the history dropdown below. */}
+            {latestProof?.image ? (
+              <figure className="rounded-xl border border-dream-purple/50 p-2">
+                <figcaption className="mb-1 text-xs font-medium text-dream-ink">Latest proof</figcaption>
+                <button
+                  type="button"
+                  onClick={() => setProofPreview(latestProof)}
+                  title="Click to view full size"
+                  className="block h-32 w-full overflow-hidden rounded-lg bg-dream-bg"
+                >
+                  {fileKind(latestProof.image) === "pdf" ? (
+                    <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-dream-muted">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-8 w-8" aria-hidden>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <path d="M14 2v6h6" />
+                      </svg>
+                      <span className="text-[10px] font-semibold">PDF proof</span>
+                    </span>
+                  ) : (
+                    <Image src={latestProof.image} alt="Latest proof" width={160} height={160} className="h-full w-full object-contain" />
+                  )}
+                </button>
+              </figure>
+            ) : mockups.length === 0 ? (
               <div className="flex h-32 w-32 items-center justify-center rounded-lg border border-dream-line bg-dream-bg text-xs text-dream-faint">
                 No mockup
               </div>
@@ -322,6 +349,51 @@ export function OrderItemCard({
                         >
                           <Image src={m.url!} alt={`${m.view} mockup`} width={56} height={56} className="min-h-0 w-full flex-1 object-contain" />
                           <span className="text-[9px] font-medium capitalize text-dream-muted">{m.view}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Old originals and replaced proofs, kept out of the way. */}
+              {olderProofs.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setProofHistoryOpen((o) => !o)}
+                    className="flex items-center gap-1 text-sm font-medium text-dream-ink transition-colors hover:text-dream-purple"
+                  >
+                    Proof history ({olderProofs.length})
+                    <Chevron open={proofHistoryOpen} />
+                  </button>
+                  {proofHistoryOpen && (
+                    <div className="mt-2 grid grid-cols-3 gap-1.5">
+                      {olderProofs.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          disabled={!p.image}
+                          onClick={() => p.image && setProofPreview(p)}
+                          title={`${p.status.replace(/_/g, " ")} · ${relativeTime(p.created_at)}`}
+                          className="flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
+                        >
+                          {p.image ? (
+                            fileKind(p.image) === "pdf" ? (
+                              <span className="flex min-h-0 w-full flex-1 items-center justify-center text-dream-muted">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5" aria-hidden>
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <path d="M14 2v6h6" />
+                                </svg>
+                              </span>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={p.image} alt="Older proof" className="min-h-0 w-full flex-1 object-contain" />
+                            )
+                          ) : (
+                            <span className="text-[9px] text-dream-faint">No file</span>
+                          )}
+                          <span className="text-[9px] font-medium text-dream-muted">{relativeTime(p.created_at)}</span>
                         </button>
                       ))}
                     </div>
@@ -475,7 +547,9 @@ export function OrderItemCard({
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
                         className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
-                      {can.edit && (
+                      {/* Standard sizes are permanent columns (a zero simply
+                          doesn't save); only custom sizes get an X. */}
+                      {can.edit && !SIZE_ORDER.includes(s.toUpperCase()) && (
                         <button
                           type="button"
                           aria-label={`Remove size ${s}`}
@@ -490,25 +564,6 @@ export function OrderItemCard({
                     </div>
                   );
                 })}
-                {can.edit && missingStandard.length > 0 && (
-                  <div>
-                    <div className="mb-1 h-4" aria-hidden />
-                    <div className="flex h-9 flex-wrap items-center gap-1">
-                      {missingStandard.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => addSizeColumn(s)}
-                          title={`Add size ${s}`}
-                          tabIndex={-1}
-                          className="rounded-md border border-dashed border-dream-line px-1.5 py-1 text-[10px] font-bold uppercase leading-none text-dream-faint transition-colors hover:border-dream-purple hover:text-dream-purple"
-                        >
-                          +{s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {can.edit && (
                   <div className="w-24">
                     <div className="mb-1 text-center text-[10px] font-semibold uppercase text-dream-faint">Eg. S or M</div>
@@ -709,6 +764,15 @@ export function OrderItemCard({
         title={`${mockupPreview.view} mockup`}
         open={!!mockupPreview}
         onOpenChange={(o) => !o && setMockupPreview(null)}
+      />
+    )}
+    {proofPreview?.image && (
+      <ProofLightbox
+        src={proofPreview.image}
+        kind={fileKind(proofPreview.image)}
+        title={`Proof · ${proofPreview.status.replace(/_/g, " ")}`}
+        open={!!proofPreview}
+        onOpenChange={(o) => !o && setProofPreview(null)}
       />
     )}
     </>

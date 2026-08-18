@@ -13,6 +13,8 @@ import {
   downloadBlob,
   isHttpUrl,
   rasterExtension,
+  reencodePng,
+  svgToPngBlob,
   viewLabel,
   type Piece,
 } from "./artworkPieces";
@@ -64,40 +66,77 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
     }
   }
 
+  /** Render a text piece to a transparent PNG blob via an offscreen Fabric canvas. */
+  async function renderTextPng(piece: Piece): Promise<Blob> {
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+    const fabric = await import("fabric");
+    const enlivened = await fabric.util.enlivenObjects<InstanceType<typeof fabric.FabricObject>>([
+      piece.object as Record<string, unknown>,
+    ]);
+    const obj = enlivened[0];
+    if (!obj) throw new Error("no object");
+
+    // Shift so the bounding rect's top-left lands at (margin, margin).
+    const margin = 24;
+    const bounds = obj.getBoundingRect();
+    obj.set({ left: (obj.left ?? 0) - bounds.left + margin, top: (obj.top ?? 0) - bounds.top + margin });
+    obj.setCoords();
+
+    const canvas = new fabric.StaticCanvas(undefined, {
+      width: Math.max(1, Math.ceil(bounds.width) + margin * 2),
+      height: Math.max(1, Math.ceil(bounds.height) + margin * 2),
+      backgroundColor: undefined,
+      enableRetinaScaling: false,
+    });
+    canvas.add(obj);
+    canvas.renderAll();
+
+    const dataUrl = canvas.toDataURL({ format: "png", multiplier: 4 });
+    canvas.dispose();
+    return dataUrlToBlob(dataUrl);
+  }
+
   async function downloadText(piece: Piece) {
     setRenderingKey(piece.key);
     try {
-      if (typeof document !== "undefined" && document.fonts?.ready) {
-        await document.fonts.ready;
-      }
-      const fabric = await import("fabric");
-      const enlivened = await fabric.util.enlivenObjects<InstanceType<typeof fabric.FabricObject>>([
-        piece.object as Record<string, unknown>,
-      ]);
-      const obj = enlivened[0];
-      if (!obj) throw new Error("no object");
-
-      // Shift so the bounding rect's top-left lands at (margin, margin).
-      const margin = 24;
-      const bounds = obj.getBoundingRect();
-      obj.set({ left: (obj.left ?? 0) - bounds.left + margin, top: (obj.top ?? 0) - bounds.top + margin });
-      obj.setCoords();
-
-      const canvas = new fabric.StaticCanvas(undefined, {
-        width: Math.max(1, Math.ceil(bounds.width) + margin * 2),
-        height: Math.max(1, Math.ceil(bounds.height) + margin * 2),
-        backgroundColor: undefined,
-        enableRetinaScaling: false,
-      });
-      canvas.add(obj);
-      canvas.renderAll();
-
-      const dataUrl = canvas.toDataURL({ format: "png", multiplier: 4 });
-      canvas.dispose();
-
-      downloadBlob(dataUrlToBlob(dataUrl), `${slug}-${piece.view}-text-${piece.index}.png`);
+      downloadBlob(await renderTextPng(piece), `${slug}-${piece.view}-text-${piece.index}.png`);
     } catch {
       toast({ title: "Could not render text", description: "The text art could not be exported to PNG.", variant: "error" });
+    } finally {
+      setRenderingKey(null);
+    }
+  }
+
+  /** Fetch a piece's pixels as a PNG blob (the only image type the clipboard takes). */
+  async function piecePngBlob(piece: Piece): Promise<Blob> {
+    if (piece.kind === "text") return renderTextPng(piece);
+    if (!piece.src) throw new Error("no src");
+    if (piece.kind === "sticker") {
+      let svg: string;
+      if (isHttpUrl(piece.src)) {
+        svg = await (await fetch(piece.src)).text();
+      } else {
+        const [, payload = ""] = piece.src.split(",", 2);
+        svg = /;base64/i.test(piece.src) ? atob(payload) : decodeURIComponent(payload);
+      }
+      return svgToPngBlob(svg);
+    }
+    const blob = isHttpUrl(piece.src) ? await (await fetch(piece.src)).blob() : dataUrlToBlob(piece.src);
+    return blob.type === "image/png" ? blob : reencodePng(blob);
+  }
+
+  /** Copy a piece to the clipboard as a PNG, so it pastes straight into design tools. */
+  async function copyPiece(piece: Piece) {
+    setRenderingKey(piece.key);
+    try {
+      // Hand the clipboard a promise: Safari requires the write to start
+      // inside the user gesture, before any await.
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": piecePngBlob(piece) })]);
+      toast({ title: "Copied to clipboard", description: "Paste it anywhere as a PNG.", variant: "success" });
+    } catch {
+      toast({ title: "Could not copy", description: "The image could not be copied. Try the download instead.", variant: "error" });
     } finally {
       setRenderingKey(null);
     }
@@ -149,11 +188,23 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
                     <img src={piece.src} alt={viewLabel(piece.view)} className="max-h-full max-w-full object-contain" />
                   )}
                 </button>
+                {/* Copy first (Julian pastes these into his design tools);
+                    download stays as the smaller second action. */}
+                <button
+                  type="button"
+                  aria-label="Copy this artwork to the clipboard"
+                  title="Copy to clipboard"
+                  onClick={() => void copyPiece(piece)}
+                  className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-dream-purple p-1 text-white group-hover:block"
+                >
+                  <CopyIcon className="h-3 w-3" />
+                </button>
                 <button
                   type="button"
                   aria-label="Download this artwork"
+                  title="Download file"
                   onClick={() => download(piece)}
-                  className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-dream-ink/85 p-1 text-white group-hover:block"
+                  className="absolute -bottom-1.5 -right-1.5 hidden rounded-full bg-dream-ink/85 p-1 text-white group-hover:block"
                 >
                   <DownloadIcon className="h-3 w-3" />
                 </button>
@@ -203,6 +254,24 @@ export function Chevron({ open }: { open: boolean }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} aria-hidden>
       <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CopyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(className)}
+      aria-hidden="true"
+    >
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
   );
 }

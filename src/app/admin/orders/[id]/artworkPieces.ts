@@ -166,6 +166,52 @@ export function dataUrlToBlob(src: string): Blob {
   return new Blob([decodeURIComponent(payload)], { type: mime });
 }
 
+/** Decode any raster blob (jpeg/webp/…) and re-encode it as PNG, the one
+ *  image type the async clipboard accepts. */
+export function reencodePng(blob: Blob): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, img.naturalWidth);
+      canvas.height = Math.max(1, img.naturalHeight);
+      canvas.getContext("2d")!.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG encode failed"))), "image/png");
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("image decode failed"));
+    };
+    img.src = url;
+  });
+}
+
+/** Rasterize an SVG string to a transparent PNG blob at 4x its intrinsic size. */
+export function svgToPngBlob(svg: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    const img = new Image();
+    img.onload = () => {
+      const scale = 4;
+      const w = Math.max(1, Math.round((img.naturalWidth || 512) * scale));
+      const h = Math.max(1, Math.round((img.naturalHeight || 512) * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG encode failed"))), "image/png");
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("SVG decode failed"));
+    };
+    img.src = url;
+  });
+}
+
 /* --------------------------------- collection --------------------------------- */
 
 /** Every placed image, sticker and text object across a design's views. */

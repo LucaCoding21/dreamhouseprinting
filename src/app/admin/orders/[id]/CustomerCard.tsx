@@ -19,7 +19,8 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
   const company = ship.company ?? "";
   const name = customer?.name ?? ship.name ?? "";
   const phone = customer?.phone ?? ship.phone ?? "";
-  const email = customer?.email ?? order.guest_email ?? "";
+  // guest_email doubles as a per-order override on account orders, so it wins.
+  const email = order.guest_email ?? customer?.email ?? "";
 
   const initial = useMemo(
     () => ({
@@ -48,7 +49,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
         updateOrderDetailsAction(order.id, {
           contactName: form.contactName,
           contactPhone: form.contactPhone,
-          guestEmail: customer ? undefined : form.contactEmail,
+          guestEmail: form.contactEmail,
           shipping: {
             name: form.shipName,
             company: form.company,
@@ -123,11 +124,16 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
               </Labeled>
               <Labeled label="Email">
                 <Input
+                  type="email"
                   value={form.contactEmail}
-                  disabled={!canEdit || !!customer}
-                  title={customer ? "Login email, the customer manages this" : undefined}
+                  disabled={!canEdit}
                   onChange={(e) => setF({ contactEmail: e.target.value })}
                 />
+                {customer && (
+                  <p className="mt-1 text-[11px] text-dream-faint">
+                    Where this order&apos;s emails go. Their account login email stays the same.
+                  </p>
+                )}
               </Labeled>
             </div>
 

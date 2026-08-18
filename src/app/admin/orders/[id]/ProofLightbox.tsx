@@ -39,8 +39,15 @@ export function ProofLightbox({
   return createPortal(
     <div
       className="fixed inset-0 z-[60] flex flex-col bg-dream-overlay/90 backdrop-blur-sm"
+      // A left-click anywhere but the controls closes the viewer, per Julian:
+      // "clicking anywhere out of here closes the window". The image is NOT
+      // exempt: its object-contain layout box spans the whole letterboxed
+      // area, so exempting <img> would swallow every "outside" click too.
+      // The PDF iframe keeps its clicks (its viewer needs them).
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onOpenChange(false);
+        if (e.button !== 0) return;
+        if ((e.target as HTMLElement).closest("iframe, button, a")) return;
+        onOpenChange(false);
       }}
     >
       <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-3 text-white">
@@ -57,12 +64,7 @@ export function ProofLightbox({
           Close
         </button>
       </div>
-      <div
-        className="flex min-h-0 flex-1 items-center justify-center p-4 pt-0"
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget) onOpenChange(false);
-        }}
-      >
+      <div className="flex min-h-0 flex-1 items-center justify-center p-4 pt-0">
         {kind === "pdf" ? (
           <iframe src={src} title={title ?? "Proof PDF"} className="h-full w-full rounded-lg bg-white" />
         ) : (

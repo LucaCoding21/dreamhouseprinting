@@ -33,6 +33,9 @@ const LABELS: Record<PriceKey, string> = {
 let adjSeq = 0;
 const newAdjustment = (): PriceAdjustment => ({ id: `new-${Date.now()}-${adjSeq++}`, label: "", amount: 0 });
 
+/** Fee adds money, discount takes it off. Stored as the sign on `amount`. */
+type AdjustmentKind = "fee" | "discount";
+
 export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
   const { order } = detail;
   const { pending, run } = useOrderAction();
@@ -62,6 +65,10 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
   const [discountValue, setDiscountValue] = useState<number>(stored.discountValue ?? 0);
   const [discountLabel, setDiscountLabel] = useState<string>(stored.discountLabel ?? "");
   const [adjustments, setAdjustments] = useState<PriceAdjustment[]>(() => normalizeAdjustments(stored.adjustments));
+  // Which way a row points while its amount is still 0 (sign carries it after
+  // that). Keyed by row id; seeded when a row is added via + Fee / + Discount.
+  const [adjKinds, setAdjKinds] = useState<Record<string, AdjustmentKind>>({});
+  const kindOf = (a: PriceAdjustment): AdjustmentKind => adjKinds[a.id] ?? (a.amount < 0 ? "discount" : "fee");
 
   // Save pricing greys out until something in the card actually changed. The
   // baseline is the card's mount state (the card remounts when the stored
@@ -197,64 +204,91 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
           )}
         </div>
 
-        {/* Any number of extra discounts and fees. Negative takes money off, positive adds it. */}
+        {/* Individually named fee and discount rows (per Julian). A row's sign
+            is set by its Fee/Discount picker; the amount is always typed
+            positive. Stored the same as before: signed `amount` on the row. */}
         <div className="space-y-1.5 border-t border-dream-line pt-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">Discounts &amp; fees</span>
             {can.pricing && (
-              <button
-                type="button"
-                className="text-xs font-semibold text-dream-purple hover:underline"
-                onClick={() => patchAdjustments([...adjustments, newAdjustment()])}
-              >
-                + Add row
-              </button>
+              <span className="flex items-center gap-2.5">
+                {(["fee", "discount"] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className="text-xs font-semibold text-dream-purple hover:underline"
+                    onClick={() => {
+                      const row = newAdjustment();
+                      setAdjKinds((m) => ({ ...m, [row.id]: kind }));
+                      patchAdjustments([...adjustments, row]);
+                    }}
+                  >
+                    + {kind === "fee" ? "Fee" : "Discount"}
+                  </button>
+                ))}
+              </span>
             )}
           </div>
           {adjustments.length === 0 && (
             <p className="text-[11px] text-dream-faint">
-              None. Add a row for a rush surcharge, a delivery fee, or a one-off discount (use a minus).
+              None. Add a fee (delivery, rush surcharge) or a discount (loyalty, price match), each with its own name.
             </p>
           )}
-          {adjustments.map((a, i) => (
-            <div key={a.id} className="flex items-center gap-1.5 text-sm">
-              <Input
-                value={a.label}
-                disabled={!can.pricing}
-                placeholder="e.g. Delivery fee"
-                onChange={(e) =>
-                  patchAdjustments(adjustments.map((row, j) => (j === i ? { ...row, label: e.target.value } : row)))
-                }
-                className="h-8 min-w-0 flex-1"
-              />
-              <Input
-                type="number"
-                step="0.01"
-                value={a.amount === 0 ? "" : a.amount}
-                placeholder="0.00"
-                disabled={!can.pricing}
-                title="Negative takes money off, positive adds a fee"
-                onChange={(e) =>
-                  patchAdjustments(
-                    adjustments.map((row, j) => (j === i ? { ...row, amount: Number(e.target.value) || 0 } : row)),
-                  )
-                }
-                className="h-8 w-24 shrink-0 text-right"
-              />
-              {can.pricing && (
-                <button
-                  type="button"
-                  aria-label={`Remove ${adjustmentLabel(a)}`}
-                  className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
-                  onClick={() => patchAdjustments(adjustments.filter((_, j) => j !== i))}
+          {adjustments.map((a, i) => {
+            const kind = kindOf(a);
+            const setRow = (patch: Partial<PriceAdjustment>) =>
+              patchAdjustments(adjustments.map((row, j) => (j === i ? { ...row, ...patch } : row)));
+            return (
+              <div key={a.id} className="flex items-center gap-1.5 text-sm">
+                <Input
+                  value={a.label}
+                  disabled={!can.pricing}
+                  placeholder={kind === "fee" ? "e.g. Delivery fee" : "e.g. Loyalty discount"}
+                  onChange={(e) => setRow({ label: e.target.value })}
+                  className="h-8 min-w-0 flex-1"
+                />
+                <Select
+                  value={kind}
+                  disabled={!can.pricing}
+                  title="A fee adds to the total, a discount takes money off"
+                  onChange={(e) => {
+                    const next = e.target.value as AdjustmentKind;
+                    setAdjKinds((m) => ({ ...m, [a.id]: next }));
+                    setRow({ amount: next === "discount" ? -Math.abs(a.amount) : Math.abs(a.amount) });
+                  }}
+                  className="h-8 w-24 shrink-0 py-0 leading-none"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          ))}
+                  <option value="fee">Fee</option>
+                  <option value="discount">Discount</option>
+                </Select>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={a.amount === 0 ? "" : Math.abs(a.amount)}
+                  placeholder="0.00"
+                  disabled={!can.pricing}
+                  onChange={(e) => {
+                    const abs = Math.abs(Number(e.target.value) || 0);
+                    setRow({ amount: kind === "discount" ? -abs : abs });
+                  }}
+                  className="h-8 w-24 shrink-0 text-right"
+                />
+                {can.pricing && (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${adjustmentLabel(a)}`}
+                    className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                    onClick={() => patchAdjustments(adjustments.filter((_, j) => j !== i))}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {editableRow("shipping")}

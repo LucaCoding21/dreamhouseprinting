@@ -403,7 +403,12 @@ export interface OrderDetailsInput {
   /** Written to the customer's profile when the order has one. */
   contactName?: string;
   contactPhone?: string;
-  /** Guest orders only, the notification email. */
+  /**
+   * Where order emails go. Guest orders store it directly; account orders
+   * store it as an override ONLY when it differs from the profile email (the
+   * login email itself is the customer's to manage). Typo fixes and
+   * "send it to my boss instead" both land here.
+   */
   guestEmail?: string;
   shipping: {
     name?: string;
@@ -440,8 +445,18 @@ export async function updateOrderDetailsAction(
     shipping_method: input.shippingMethod,
     fulfillment_method: input.fulfillmentMethod,
   };
-  if (!order.customer_id && input.guestEmail !== undefined) {
-    patch.guest_email = input.guestEmail.trim() || null;
+  if (input.guestEmail !== undefined) {
+    const email = input.guestEmail.trim();
+    if (!order.customer_id) {
+      patch.guest_email = email || null;
+    } else {
+      // Account order: keep guest_email as a notification override, cleared
+      // when it matches the profile email (claimGuestRecords only touches
+      // customer_id-null rows, so a set override can't be re-claimed).
+      const { data: prof } = await service.from("profiles").select("email").eq("id", order.customer_id).single();
+      patch.guest_email =
+        email && email.toLowerCase() !== (prof?.email ?? "").trim().toLowerCase() ? email : null;
+    }
   }
   const { error } = await service.from("orders").update(patch).eq("id", orderId);
   if (error) return { error: error.message };
@@ -456,6 +471,28 @@ export async function updateOrderDetailsAction(
   }
 
   await logActivity(service, orderId, "details_updated", {});
+  revalidateOrder(orderId);
+  return { ok: true };
+}
+
+/** Set (or clear) the order's in-hands date. Placement projects one from the
+ *  lead time; this is Julian overriding it with the real commitment. */
+export async function setDueDateAction(
+  orderId: string,
+  date: string | null
+): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+
+  const due = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+  if (date && !due) return { error: "Enter the date as YYYY-MM-DD." };
+
+  const { error } = await service.from("orders").update({ due_date: due }).eq("id", orderId);
+  if (error) return { error: error.message };
+
+  await logActivity(service, orderId, "order_edited", {
+    message: due ? `Due date set to ${due}` : "Due date cleared",
+  });
   revalidateOrder(orderId);
   return { ok: true };
 }
