@@ -116,10 +116,10 @@ export function OrderTracker({
         {/* Current stage on the left, doodle dog on an organic blob on the right */}
         <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-center lg:gap-20">
           <div className="min-w-0">
-            <div className="whitespace-nowrap font-display text-3xl font-extrabold leading-tight text-dream-ink sm:text-[34px]">
+            <div className="font-display text-2xl font-extrabold leading-tight text-dream-ink sm:whitespace-nowrap sm:text-[34px] min-[400px]:text-3xl">
               {current.label}
             </div>
-            <p className="mt-1.5 whitespace-nowrap text-sm leading-relaxed text-dream-muted">
+            <p className="mt-1.5 text-sm leading-relaxed text-dream-muted lg:whitespace-nowrap">
               {STAGE_COPY[current.key] ?? "We'll keep you posted every step of the way."}
             </p>
           </div>
@@ -160,7 +160,7 @@ export function OrderTracker({
             const showCheck = done || finish;
             const when = reached ? stageDates?.[i] : null;
             return (
-              <li key={s.key} className="relative flex flex-1 flex-col items-center">
+              <li key={s.key} className="relative flex min-w-0 flex-1 flex-col items-center">
                 {i > 0 &&
                   (reached ? (
                     <span aria-hidden className="absolute right-1/2 top-4 h-[3px] w-full rounded-full bg-dream-purple" />
@@ -191,13 +191,13 @@ export function OrderTracker({
 
                 <span
                   className={cn(
-                    "mt-2 px-0.5 text-center text-[11px] leading-tight transition-colors duration-500",
+                    "mt-2 w-full break-words px-0.5 text-center text-[14px] leading-tight transition-colors duration-500 hyphens-auto sm:text-[14px]",
                     isCurrent ? "font-semibold text-dream-ink" : reached ? "text-dream-ink-soft" : "text-dream-faint",
                   )}
                 >
                   {s.label}
                 </span>
-                {when && <span className="mt-0.5 text-[10px] text-dream-faint">{fmtStageDate(when)}</span>}
+                {when && <span className="mt-0.5 text-[14px] text-dream-faint">{fmtStageDate(when)}</span>}
               </li>
             );
           })}

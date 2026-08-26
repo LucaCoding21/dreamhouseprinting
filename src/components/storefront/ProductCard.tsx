@@ -35,7 +35,9 @@ export function ProductCard({
   // so the 6 dots on the card surface the colours people actually order.
   const enabled = enabledColours(product);
   const colours = sortColours(enabled);
-  const swatches = colours.slice(0, 6);
+  // Cap at 4 dots so they never squash in narrow card columns (grid-cols-2 at
+  // 320px leaves ~104px); the "+N" count absorbs the rest.
+  const swatches = colours.slice(0, 4);
   const extra = colours.length - swatches.length;
 
   // Default the card image to the hero colour (owner's pinned pick, else the
@@ -79,8 +81,12 @@ export function ProductCard({
 
       <div className="relative aspect-square w-full overflow-hidden bg-white">
         {featured && (
-          <span className="absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-full bg-dream-sun px-2.5 py-1 font-display text-xs font-bold text-white shadow-sm">
-            <span aria-hidden>★</span> Top pick
+          <span
+            title="Top pick"
+            className="absolute left-2 top-2 z-20 inline-flex items-center justify-center gap-1 rounded-full bg-dream-sun font-display text-[14px] font-bold text-white shadow-sm max-sm:h-7 max-sm:w-7 max-sm:text-sm sm:px-2.5 sm:py-1"
+          >
+            <span aria-hidden>★</span>
+            <span className="max-sm:sr-only">Top pick</span>
           </span>
         )}
         {activeImage ? (
@@ -89,7 +95,7 @@ export function ProductCard({
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 22vw"
-            className="object-contain p-4 transition-transform duration-200 group-hover:scale-[1.05]"
+            className="object-contain p-1.5 transition-transform duration-200 group-hover:scale-[1.05] sm:p-4"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-dream-lavender-soft">
@@ -98,20 +104,27 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex min-h-[3.5rem] flex-col justify-end gap-0.5">
+      <div className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
+        {/* Reserve exactly two lines of title. That is what keeps every card's
+            text block the same height, so swatch rows and prices line up across
+            a row. The old value was slightly too short for a real two-line name
+            (18px at leading-snug), so taller cards spilled past it and shorter
+            ones opened a gap; these values fit brand + two lines exactly.
+            justify-end puts any slack ABOVE the brand, where it reads as part
+            of the gap under the photo rather than a hole in the card. */}
+        <div className="flex min-h-[3.5rem] flex-col justify-end gap-0.5 sm:min-h-[4.5rem]">
           {product.brand && (
-            <span className="text-xs font-semibold uppercase tracking-wide text-dream-purple">
+            <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple sm:text-[14px]">
               {product.brand}
             </span>
           )}
-          <h3 className="line-clamp-2 font-display text-lg font-semibold leading-snug text-dream-ink">
+          <h3 className="line-clamp-2 font-display text-[14px] font-semibold leading-snug text-dream-ink sm:text-lg">
             {product.name}
           </h3>
         </div>
 
         {swatches.length > 0 && (
-          <div className="relative z-20 flex items-center gap-1.5">
+          <div className="relative z-20 flex flex-wrap items-center gap-1.5">
             {swatches.map((c, i) => (
               <button
                 key={`${c.name}-${i}`}
@@ -121,7 +134,7 @@ export function ProductCard({
                 aria-pressed={i === selected}
                 onClick={() => setSelected(i)}
                 className={cn(
-                  "h-[22px] w-[22px] rounded-full border border-dream-line transition-transform hover:scale-110",
+                  "h-[22px] w-[22px] shrink-0 rounded-full border border-dream-line transition-transform hover:scale-110",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
                   i === selected && "ring-2 ring-dream-purple ring-offset-1 ring-offset-white",
                 )}
@@ -129,17 +142,19 @@ export function ProductCard({
               />
             ))}
             {extra > 0 && (
-              <span className="ml-0.5 text-xs font-medium text-dream-faint">
+              <span className="ml-0.5 text-[14px] font-medium text-dream-faint">
                 +{extra}
               </span>
             )}
           </div>
         )}
 
-        <div className="mt-auto border-t border-dream-line pt-3">
+        <div className="mt-auto border-t border-dream-line pt-2.5 sm:pt-3">
           {/* Priced at the shared shop quantity for a minimum print (1 colour,
               1 location), not the top-volume "as low as" teaser. */}
-          <span className="inline-flex items-baseline gap-1.5 self-start font-display text-lg font-bold text-dream-ink">
+          <span className="inline-flex flex-nowrap items-baseline gap-x-1 self-start whitespace-nowrap font-display text-[15px] font-bold text-dream-ink sm:gap-x-1.5 sm:text-lg">
+            {/* 10px: this row has to fit "AT 25 UNITS $18.58 /unit" on one line
+                inside a half-width card on a 320px phone. */}
             <span className="text-[10px] font-semibold uppercase tracking-wide text-dream-ink/55">
               {price.label}
             </span>

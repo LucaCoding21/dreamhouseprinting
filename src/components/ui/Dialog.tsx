@@ -104,7 +104,7 @@ export function DialogContent({
         aria-describedby={descId}
         tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-lg rounded-xl border border-dream-line bg-dream-surface shadow-xl",
+          "relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-xl border border-dream-line bg-dream-surface shadow-xl",
           "focus-visible:outline-none",
           className,
         )}

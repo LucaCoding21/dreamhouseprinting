@@ -72,7 +72,7 @@ export function InvoicePanel({
             </span>
             <div className="min-w-0">
               <div className="font-display text-sm font-bold text-dream-ink">Payment received</div>
-              <p className="text-xs text-dream-muted">
+              <p className="text-[14px] text-dream-muted">
                 Paid {fmtDate(paidAt)}
                 {paymentMethod === "etransfer" ? " by Interac e-Transfer" : paymentMethod === "card" ? " by card" : ""}. Thank
                 you!
@@ -115,7 +115,7 @@ export function InvoicePanel({
             >
               {pending ? "Starting checkout…" : `Pay ${formatCAD(amountDue)}`}
             </button>
-            <p className="mt-2 text-center text-xs text-dream-muted">
+            <p className="mt-2 text-center text-[14px] text-dream-muted">
               {invoiceSentAt ? `Invoice sent ${fmtDate(invoiceSentAt)}` : "Approved. Pay to send your order to production."}
             </p>
           </div>

@@ -71,21 +71,21 @@ export function OrderSummary({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-sm font-bold">{summary.designName}</p>
-          <p className="truncate text-xs text-dream-muted">
+          <p className="truncate text-[14px] text-dream-muted">
             {summary.productName}
             {summary.brand ? ` · ${summary.brand}` : ""}
           </p>
           <div className="mt-1.5 space-y-1.5">
             {summary.colorways.map((cw, i) => (
               <div key={i}>
-                <p className="flex items-center gap-1.5 text-xs text-dream-muted">
+                <p className="flex items-center gap-1.5 text-[14px] text-dream-muted">
                   {cw.colourHex && (
                     <span className="inline-block h-3 w-3 rounded-full border border-dream-line" style={{ backgroundColor: cw.colourHex }} />
                   )}
                   {cw.colourName ?? "-"} · {cw.quantity} {cw.quantity === 1 ? "item" : "items"}
                 </p>
                 {cw.sizeBreakdown.length > 0 && (
-                  <p className="mt-0.5 text-[11px] text-dream-faint">
+                  <p className="mt-0.5 text-[14px] text-dream-faint">
                     {cw.sizeBreakdown.map((s) => `${s.size}×${s.qty}`).join("  ")}
                   </p>
                 )}
@@ -117,10 +117,10 @@ export function OrderSummary({
         <span className="font-display text-base font-bold">Total</span>
         <span className="text-right">
           <span className="font-display text-xl font-extrabold text-dream-purple">{formatCAD(total)}</span>
-          <span className="ml-1 text-xs text-dream-faint">CAD</span>
+          <span className="ml-1 text-[14px] text-dream-faint">CAD</span>
         </span>
       </div>
-      {!province && <p className="mt-2 text-xs text-dream-faint">Enter your province to calculate tax.</p>}
+      {!province && <p className="mt-2 text-[14px] text-dream-faint">Enter your province to calculate tax.</p>}
     </div>
   );
 }

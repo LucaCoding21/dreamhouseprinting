@@ -170,7 +170,7 @@ export function DetailedQuote({
             <span className="block font-display text-xl font-bold text-dream-ink">
               Instant quote
             </span>
-            <span className="mt-0.5 block text-xs text-dream-muted">
+            <span className="mt-0.5 block text-[14px] text-dream-muted">
               From {formatCAD(teaser.perUnit)}/unit at 50 pieces
             </span>
           </span>
@@ -236,8 +236,8 @@ export function DetailedQuote({
       <Row label={prints.length === 1 ? "Your print" : `Your prints (${prints.length})`}>
         <div className="space-y-2">
           {prints.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs font-semibold text-dream-ink-soft">
+            <div key={p.id} className="flex items-center gap-2.5">
+              <span className="w-7 shrink-0 text-[14px] font-semibold tabular-nums text-dream-ink-soft">
                 {i === 0 ? "1st" : i === 1 ? "2nd" : i === 2 ? "3rd" : `${i + 1}th`}
               </span>
               {isScreen ? (
@@ -256,7 +256,7 @@ export function DetailedQuote({
                 onClick={() => removePrint(p.id)}
                 disabled={prints.length <= 1}
                 aria-label={`Remove print ${i + 1}`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink disabled:opacity-30 disabled:hover:bg-transparent"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>
                   <path d="M6 6l12 12M18 6L6 18" />
@@ -264,12 +264,12 @@ export function DetailedQuote({
               </button>
             </div>
           ))}
-          {isScreen && <p className="text-xs text-dream-muted">Ink colours in each print.</p>}
+          {isScreen && <p className="text-[14px] text-dream-muted">Ink colours in each print.</p>}
           {prints.length < MAX_LOCATIONS && (
             <button
               type="button"
               onClick={addPrint}
-              className="text-xs font-semibold text-dream-purple hover:underline"
+              className="text-[14px] font-semibold text-dream-purple hover:underline"
             >
               + Add another print
             </button>
@@ -280,7 +280,11 @@ export function DetailedQuote({
       {/* Quantity: quick-pick presets and the stepper share one wrap group, so
           the number you are nudging sits right next to the pills that set it. */}
       <Row label="Quantity">
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* On a phone the presets sit on one even row of five and the stepper
+            takes the full width below, so both are thumb-sized and nothing
+            wraps into a ragged second line. From sm up they share one row. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-1.5">
+          <div className="grid grid-cols-5 gap-1.5 sm:flex sm:gap-1.5">
           {PRESETS.map((n) => (
             <button
               key={n}
@@ -288,7 +292,7 @@ export function DetailedQuote({
               onClick={() => setQtyFromControl(n)}
               aria-pressed={qty === n}
               className={cn(
-                "flex h-7 items-center rounded-full border px-3 text-xs font-semibold transition-colors",
+                "flex h-9 items-center justify-center rounded-full border text-[14px] font-semibold transition-colors sm:px-3",
                 qty === n
                   ? "border-dream-purple bg-dream-lavender-soft text-dream-purple-dark"
                   : "border-dream-line bg-white text-dream-muted hover:border-dream-ink/30 hover:text-dream-ink",
@@ -297,11 +301,12 @@ export function DetailedQuote({
               {n}
             </button>
           ))}
+          </div>
           {/* Stepper reads as one more pill in the group; it rings when the
               quantity is off-preset, so the active choice is always obvious. */}
           <div
             className={cn(
-              "flex h-7 items-center overflow-hidden rounded-full border bg-white transition-colors focus-within:border-dream-purple focus-within:ring-1 focus-within:ring-dream-purple",
+              "flex h-10 w-full items-center justify-between overflow-hidden rounded-full border bg-white transition-colors focus-within:border-dream-purple focus-within:ring-1 focus-within:ring-dream-purple sm:h-9 sm:w-auto sm:justify-start",
               isPresetQty ? "border-dream-line" : "border-dream-purple ring-1 ring-dream-purple",
             )}
           >
@@ -310,7 +315,7 @@ export function DetailedQuote({
               onClick={() => setQtyFromControl(qty - 1)}
               disabled={qty <= QTY_MIN}
               aria-label="Decrease quantity"
-              className="flex h-full w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex h-full w-12 shrink-0 items-center justify-center text-lg font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent sm:w-9 sm:text-base"
             >
               &minus;
             </button>
@@ -326,14 +331,14 @@ export function DetailedQuote({
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.currentTarget.blur();
               }}
-              className="h-full w-10 bg-transparent text-center text-xs font-bold text-dream-ink tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="h-full flex-1 bg-transparent text-center text-sm font-bold text-dream-ink tabular-nums focus:outline-none [appearance:textfield] sm:w-10 sm:flex-none sm:text-[14px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
             <button
               type="button"
               onClick={() => setQtyFromControl(qty + 1)}
               disabled={qty >= QTY_MAX}
               aria-label="Increase quantity"
-              className="flex h-full w-7 items-center justify-center text-base font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent"
+              className="flex h-full w-12 shrink-0 items-center justify-center text-lg font-bold text-dream-ink-soft transition-colors hover:bg-dream-bg disabled:opacity-40 disabled:hover:bg-transparent sm:w-9 sm:text-base"
             >
               +
             </button>
@@ -345,7 +350,7 @@ export function DetailedQuote({
       <div className="rounded-xl border border-dream-lavender-soft bg-dream-lavender-mist px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+            <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
               Your price
             </p>
             <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
@@ -353,7 +358,7 @@ export function DetailedQuote({
               <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
             </p>
             {result.discountPct > 0 && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs">
+              <p className="mt-1.5 flex items-center gap-1.5 text-[14px]">
                 <span className="text-dream-muted line-through">{formatCAD(result.anchorPerUnit)}</span>
                 <span className="rounded-full bg-dream-sun px-2 py-0.5 font-bold text-dream-ink">
                   Save {result.discountPct}%
@@ -362,21 +367,24 @@ export function DetailedQuote({
             )}
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+            <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
               {qty} unit{qty === 1 ? "" : "s"}
             </p>
             <p className="font-display text-xl font-bold leading-none text-dream-ink">
               {formatCAD(result.total)}
             </p>
-            <p className="mt-1.5 text-xs text-dream-muted">est. total</p>
+            <p className="mt-1.5 text-[14px] text-dream-muted">est. total</p>
           </div>
         </div>
       </div>
 
       {/* Estimate note + secondary quick-quote link */}
-      <p className="text-center text-xs text-dream-muted">
-        Estimate only · free art proof before anything prints.{" "}
-        <Link href={quoteHref} className="font-semibold text-dream-purple hover:underline">
+      <p className="text-center text-[14px] text-dream-muted">
+        Estimate only · free art proof before anything prints.
+        <Link
+          href={quoteHref}
+          className="mt-1 block font-semibold text-dream-purple hover:underline"
+        >
           Quick quote
         </Link>
       </p>
@@ -394,7 +402,7 @@ export function DetailedQuote({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-dream-ink">
+      <div className="mb-2 text-[14px] font-semibold uppercase tracking-wide text-dream-ink">
         {label}
       </div>
       {children}
@@ -402,6 +410,11 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+/**
+ * Ink-colour picker for one print. A segmented track (same shape as the
+ * Decoration toggle above it) rather than four bordered cards: on a phone the
+ * cards ate most of the row and read as four separate choices instead of one.
+ */
 function Chips({
   values,
   selected,
@@ -412,7 +425,7 @@ function Chips({
   onSelect: (n: number) => void;
 }) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex gap-1 rounded-full bg-dream-bg p-1">
       {values.map((n) => (
         <button
           key={n}
@@ -420,10 +433,10 @@ function Chips({
           onClick={() => onSelect(n)}
           aria-pressed={n === selected}
           className={cn(
-            "h-9 flex-1 rounded-lg border text-sm font-semibold transition-colors",
+            "h-7 flex-1 rounded-full text-[14px] font-semibold transition-colors",
             n === selected
-              ? "border-dream-ink bg-dream-ink text-white"
-              : "border-dream-line bg-white text-dream-ink-soft hover:border-dream-ink/40 hover:text-dream-ink",
+              ? "bg-dream-ink text-white shadow-sm"
+              : "text-dream-ink-soft hover:text-dream-ink",
           )}
         >
           {n}

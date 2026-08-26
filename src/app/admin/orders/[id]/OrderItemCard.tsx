@@ -405,7 +405,7 @@ export function OrderItemCard({
 
           {/* MIDDLE, product, sizes, print, notes */}
           <div className="min-w-0 flex-1 space-y-5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {onMoveUp && onMoveDown && (
                 <ReorderArrows onUp={onMoveUp} onDown={onMoveDown} disableUp={!!isFirst} disableDown={!!isLast} />
               )}
@@ -427,7 +427,7 @@ export function OrderItemCard({
                 value={item.productName}
                 disabled={!can.edit}
                 onChange={(e) => onPatch((p) => ({ ...p, productName: e.target.value }))}
-                className="flex-1 font-semibold text-dream-ink"
+                className="min-w-32 flex-1 font-semibold text-dream-ink"
               />
               <Select
                 value={item.productionStatus}

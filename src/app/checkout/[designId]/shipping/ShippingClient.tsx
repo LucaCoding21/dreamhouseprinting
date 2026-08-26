@@ -47,7 +47,7 @@ export function ShippingClient({
   }
 
   return (
-    <div className="min-h-screen bg-dream-bg text-dream-ink">
+    <div className="min-h-dvh bg-dream-bg text-dream-ink">
       <SiteNav />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6">
@@ -107,7 +107,7 @@ export function ShippingClient({
                 {turnaround === "rush" && (
                   <div className="mt-4 rounded-2xl border border-dream-purple/30 bg-dream-lavender-soft/50 p-4">
                     <p className="text-sm font-semibold text-dream-ink">What day do you need it in hand?</p>
-                    <p className="mt-0.5 text-xs text-dream-muted">
+                    <p className="mt-0.5 text-[14px] text-dream-muted">
                       Pick your target date so we can confirm whether we can hit it.
                     </p>
                     <div className="mt-3 max-w-sm">
@@ -120,7 +120,7 @@ export function ShippingClient({
                       />
                     </div>
                     {showDateError && (
-                      <p className="mt-2 text-xs font-semibold text-dream-danger">
+                      <p className="mt-2 text-[14px] font-semibold text-dream-danger">
                         Please pick the day you need it by.
                       </p>
                     )}
@@ -136,7 +136,7 @@ export function ShippingClient({
             >
               {busy ? "Loading…" : "Continue to review"}
             </button>
-            <p className="mt-3 text-xs text-dream-faint">{checkout.footnote}</p>
+            <p className="mt-3 text-[14px] text-dream-faint">{checkout.footnote}</p>
           </div>
 
           {/* Right, order summary */}
@@ -191,7 +191,7 @@ function OptionCard({
           {badge && (
             <span
               className={cn(
-                "shrink-0 text-xs font-bold uppercase tracking-wide",
+                "shrink-0 text-[14px] font-bold uppercase tracking-wide",
                 badgeTone === "fee" ? "text-dream-purple" : "text-dream-success"
               )}
             >
@@ -199,7 +199,7 @@ function OptionCard({
             </span>
           )}
         </span>
-        <span className="mt-0.5 block text-xs text-dream-muted">{subtitle}</span>
+        <span className="mt-0.5 block text-[14px] text-dream-muted">{subtitle}</span>
       </span>
     </button>
   );

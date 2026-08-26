@@ -93,7 +93,7 @@ export default function ContactPage() {
               height="28"
               patternUnits="userSpaceOnUse"
             >
-              <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+              <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#e0dffe" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#contact-hero-scallop)" />
@@ -124,7 +124,7 @@ export default function ContactPage() {
                         type="button"
                         onClick={() => setTopic(t.value)}
                         disabled={submitting}
-                        className={`rounded-full px-4 py-2 font-display text-[13px] font-semibold transition disabled:opacity-60 ${
+                        className={`rounded-full px-5 py-2.5 font-display text-[15px] font-semibold transition disabled:opacity-60 sm:px-4 sm:py-2 sm:text-[14px] ${
                           topic === t.value
                             ? "bg-dream-purple text-white"
                             : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"
@@ -185,7 +185,7 @@ export default function ContactPage() {
                     placeholder="Tell us a bit about what you're thinking…"
                     className={`${inputCls} resize-none`}
                   />
-                  <span className="mt-1.5 block text-right text-[12px] text-dream-ink-soft">
+                  <span className="mt-1.5 block text-right text-[14px] text-dream-ink-soft">
                     {form.message.length}/1000
                   </span>
                 </Field>
@@ -226,7 +226,7 @@ export default function ContactPage() {
                     </button>
                   </div>
 
-                  <p className="text-[13px] text-dream-ink-soft">
+                  <p className="text-[14px] text-dream-ink-soft">
                     Or just email{" "}
                     <a
                       href="mailto:admin@dreamhouseprinting.com"
@@ -257,7 +257,7 @@ export default function ContactPage() {
             />
 
             <div className="rounded-[28px] bg-dream-sun px-7 py-7 text-dream-ink">
-              <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-black">
+              <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-black">
                 Already know what you want?
               </span>
               <h3 className="mt-3 font-display text-[24px] font-bold leading-tight text-black sm:text-[26px]">
@@ -467,7 +467,7 @@ function BeforeYouWrite() {
     <section className="relative pb-24 pt-20 lg:pb-32 lg:pt-28">
       <div className="relative mx-auto max-w-[1280px] px-6 lg:px-10">
         <div className="text-center">
-          <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+          <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-dream-purple">
             Before you write
           </span>
           <h2 className="mt-4 font-display text-[40px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px]">
@@ -478,7 +478,7 @@ function BeforeYouWrite() {
         <div className="mt-14 grid gap-5 sm:grid-cols-3 sm:gap-6">
           {items.map((item) => (
             <div key={item.n} className="rough-card relative px-7 py-7">
-              <span className="font-display text-[13px] font-bold text-dream-purple">
+              <span className="font-display text-[14px] font-bold text-dream-purple">
                 {item.n}
               </span>
               <h3 className="mt-2 font-display text-[20px] font-bold leading-tight text-dream-ink">
@@ -518,13 +518,13 @@ function ContactCard({
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <span className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-dream-purple">
+        <span className="font-display text-[14px] font-bold uppercase tracking-[0.14em] text-dream-purple">
           {kicker}
         </span>
         <p className="mt-1 break-words font-display text-[15px] font-bold leading-tight text-dream-ink sm:text-[18px]">
           {heading}
         </p>
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-dream-ink-soft sm:mt-2 sm:text-[13px]">
+        <p className="mt-1.5 text-[14px] leading-relaxed text-dream-ink-soft sm:mt-2 sm:text-[14px]">
           {hint}
         </p>
       </div>
@@ -595,7 +595,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
+      <span className="mb-1.5 block text-[14px] font-semibold text-dream-ink">
         {label}
       </span>
       {children}

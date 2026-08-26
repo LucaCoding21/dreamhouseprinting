@@ -78,7 +78,7 @@ export function RushRequest({
             value={value.date}
             onChange={(date) => onChange({ mode: "date", date, tierId: null })}
           />
-          <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+          <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
             Our team will confirm the timeline and quote any rush fee.
           </p>
         </RushChoice>
@@ -111,7 +111,7 @@ export function RushRequest({
                       }
                       aria-pressed={on}
                       className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors",
+                        "flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border px-3 py-2.5 text-left transition-colors sm:px-3.5",
                         on
                           ? "border-dream-purple bg-dream-lavender-mist"
                           : "border-dream-line bg-white hover:border-dream-purple/50",
@@ -121,8 +121,8 @@ export function RushRequest({
                         {t.days} business days
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
-                        <span className="text-xs font-semibold text-dream-muted">+{t.pct}%</span>
-                        <span className="rounded-full bg-dream-sun px-2.5 py-0.5 font-display text-xs font-extrabold text-dream-ink">
+                        <span className="text-[14px] font-semibold text-dream-muted">+{t.pct}%</span>
+                        <span className="rounded-full bg-dream-sun px-2.5 py-0.5 font-display text-[14px] font-extrabold text-dream-ink">
                           +{formatCAD(fee)}
                         </span>
                       </span>
@@ -130,7 +130,7 @@ export function RushRequest({
                   );
                 })}
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+              <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
                 Standard: {standardDays} business days.
               </p>
             </>

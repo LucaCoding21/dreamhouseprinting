@@ -83,7 +83,7 @@ export default async function MyDesignsPage() {
                 <div className="relative aspect-square w-full overflow-hidden border-b border-dream-line bg-white">
                   <span
                     className={cn(
-                      "absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm",
+                      "absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[14px] font-semibold shadow-sm",
                       isDraft
                         ? "bg-dream-muted text-white"
                         : "bg-dream-success text-white",
@@ -109,7 +109,7 @@ export default async function MyDesignsPage() {
                 {/* Meta */}
                 <div className="flex flex-1 flex-col gap-2 p-4">
                   {product?.brand && (
-                    <span className="text-xs font-semibold uppercase tracking-wide text-dream-purple">
+                    <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">
                       {product.brand}
                     </span>
                   )}
@@ -117,7 +117,7 @@ export default async function MyDesignsPage() {
                     {product?.name ?? "Custom design"}
                   </h3>
 
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-dream-muted">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[14px] text-dream-muted">
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       {colour.name && (
                         <span className="inline-flex items-center gap-1.5">
@@ -138,7 +138,7 @@ export default async function MyDesignsPage() {
                   </div>
 
                   <div className="mt-auto flex items-center justify-between border-t border-dream-line pt-3">
-                    <span className="text-xs text-dream-faint">
+                    <span className="text-[14px] text-dream-faint">
                       {new Date(d.created_at).toLocaleDateString("en-CA")}
                     </span>
                     <span className="text-sm font-semibold text-dream-purple">

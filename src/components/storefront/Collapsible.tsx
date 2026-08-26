@@ -29,7 +29,7 @@ export function Collapsible({
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-3 py-4 text-left transition-colors hover:text-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
       >
-        <span className="font-display text-sm font-semibold text-dream-ink">
+        <span className="font-display text-base font-semibold text-dream-ink">
           {title}
         </span>
         <PlusMinus open={open} />

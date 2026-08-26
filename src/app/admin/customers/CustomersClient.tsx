@@ -34,7 +34,7 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
   return (
     <div>
       <AdminHeader title="Customers" />
-      <div className="px-8 py-6">
+      <div className="px-4 py-6 sm:px-8">
         {/* Stat cards */}
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3">
           {[

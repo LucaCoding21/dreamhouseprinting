@@ -66,12 +66,12 @@ export default function Home() {
         href="/contact#coastal-reign"
         className="block bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
       >
-        <p className="mx-auto max-w-[1400px] px-4 py-2 text-center text-[12px] font-bold sm:px-6 sm:text-[15px]">
-          {/* Condensed on mobile to avoid an awkward wrap, but still pulls both
-              competitor names (Coastal Reign / Get Bold), those are the hook. */}
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-2 py-2 text-center text-[clamp(10px,3.3vw,13px)] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+          {/* Condensed on mobile AND fluid-sized (2.9vw) so it always sits on
+              ONE line down to 320px, both competitor names stay the hook. */}
           <span className="sm:hidden">
             We price match Coastal Reign &amp; Get Bold and{" "}
-            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
+            <span className="font-display font-extrabold uppercase">beat it by 5%</span>
           </span>
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
@@ -118,7 +118,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="home-hero-media relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
+          <div className="home-hero-media relative mx-auto mb-12 mt-3 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
             <HeroImage />
           </div>
         </div>

@@ -33,7 +33,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           permissions={profile.staff_permissions ?? []}
           badges={{ "/admin/orders": actionCount ?? 0 }}
         />
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip">
+          {/* Ultrawide guard: keep admin content readable on 2560px+ monitors
+              without affecting anything below 1800px. */}
+          <div className="mx-auto w-full max-w-[1800px]">{children}</div>
+        </div>
       </div>
     </ToastProvider>
   );

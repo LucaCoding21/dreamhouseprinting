@@ -72,7 +72,7 @@ export function ReviewClient({
   }
 
   return (
-    <div className="min-h-screen bg-dream-bg text-dream-ink">
+    <div className="min-h-dvh bg-dream-bg text-dream-ink">
       <SiteNav />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-8 sm:px-6 sm:pb-44">
@@ -129,7 +129,7 @@ export function ReviewClient({
                   <span className="font-display text-base font-bold">Order total</span>
                   <span>
                     <span className="font-display text-xl font-extrabold text-dream-purple">{formatCAD(total)}</span>
-                    <span className="ml-1 text-xs text-dream-faint">CAD</span>
+                    <span className="ml-1 text-[14px] text-dream-faint">CAD</span>
                   </span>
                 </div>
               </div>
@@ -154,7 +154,7 @@ export function ReviewClient({
                   <TimelineIcon name={t.icon} />
                 </span>
                 <p className="mt-2 font-display text-sm font-bold leading-tight">{t.label}</p>
-                <p className="mt-0.5 text-xs text-dream-muted">{t.detail}</p>
+                <p className="mt-0.5 text-[14px] text-dream-muted">{t.detail}</p>
               </div>
             ))}
           </div>
@@ -187,14 +187,14 @@ export function ReviewClient({
                   <div className="inline-block rounded-lg bg-dream-lavender-soft px-2.5 py-1 font-display font-extrabold text-dream-purple">
                     {formatCAD(summary.subtotal)} CAD
                   </div>
-                  <div className="mt-1 text-xs text-dream-muted">
+                  <div className="mt-1 text-[14px] text-dream-muted">
                     {summary.quantity} {summary.quantity === 1 ? "item" : "items"}
                     {summary.colorways.length > 1 ? ` · ${summary.colorways.length} colours` : ""}
                   </div>
                 </div>
               </div>
 
-              <p className="mt-4 text-xs font-bold uppercase tracking-wide text-dream-muted">Colours &amp; sizes</p>
+              <p className="mt-4 text-[14px] font-bold uppercase tracking-wide text-dream-muted">Colours &amp; sizes</p>
               <div className="mt-2 space-y-2">
                 {summary.colorways.map((cw, i) => (
                   <div key={i} className="rounded-xl border border-dream-line p-3">
@@ -205,7 +205,7 @@ export function ReviewClient({
                         )}
                         {cw.colourName ?? "-"}
                       </span>
-                      <span className="text-xs text-dream-muted">
+                      <span className="text-[14px] text-dream-muted">
                         {cw.quantity} @ {formatCAD(cw.unitPrice)} ={" "}
                         <span className="font-bold text-dream-ink">{formatCAD(cw.lineTotal)} CAD</span>
                       </span>
@@ -213,7 +213,7 @@ export function ReviewClient({
                     {cw.sizeBreakdown.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {cw.sizeBreakdown.map((s) => (
-                          <span key={s.size} className="rounded-full bg-dream-bg px-2.5 py-1 text-xs font-medium">
+                          <span key={s.size} className="rounded-full bg-dream-bg px-2.5 py-1 text-[14px] font-medium">
                             {s.size} ({s.qty})
                           </span>
                         ))}
@@ -223,10 +223,10 @@ export function ReviewClient({
                 ))}
               </div>
 
-              <p className="mt-5 text-xs font-bold uppercase tracking-wide text-dream-muted">Decoration</p>
+              <p className="mt-5 text-[14px] font-bold uppercase tracking-wide text-dream-muted">Decoration</p>
               <div className="mt-2 overflow-hidden rounded-xl border border-dream-line">
                 <table className="w-full text-sm">
-                  <thead className="bg-dream-bg text-left text-xs uppercase tracking-wide text-dream-muted">
+                  <thead className="bg-dream-bg text-left text-[14px] uppercase tracking-wide text-dream-muted">
                     <tr>
                       <th className="px-3 py-2 font-semibold">Location</th>
                       <th className="px-3 py-2 font-semibold">Type</th>
@@ -237,11 +237,11 @@ export function ReviewClient({
                     {ctx.printLocations.map((loc, i) => (
                       <tr key={i} className="border-t border-dream-line">
                         <td className="px-3 py-2">
-                          <span className="rounded-md bg-dream-bg px-2 py-0.5 text-xs font-medium">{loc}</span>
+                          <span className="rounded-md bg-dream-bg px-2 py-0.5 text-[14px] font-medium">{loc}</span>
                         </td>
                         <td className="px-3 py-2">{ctx.decorationMethodName ?? "-"}</td>
                         <td className="px-3 py-2">
-                          <span className="rounded-md bg-dream-lavender-soft px-2 py-0.5 text-xs font-medium text-dream-purple">
+                          <span className="rounded-md bg-dream-lavender-soft px-2 py-0.5 text-[14px] font-medium text-dream-purple">
                             Full colour
                           </span>
                         </td>
@@ -265,7 +265,7 @@ export function ReviewClient({
             ← Shipping
           </Link>
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-4">
-            <span className="text-center text-xs text-dream-faint">Payment is made after expert review.</span>
+            <span className="text-center text-[14px] text-dream-faint">Payment is made after expert review.</span>
             <button
               onClick={submit}
               disabled={busy}
@@ -360,7 +360,7 @@ function TimelineIcon({ name }: { name: string }) {
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-dream-line bg-white p-5">
-      <h3 className="text-xs font-bold uppercase tracking-wide text-dream-muted">{title}</h3>
+      <h3 className="text-[14px] font-bold uppercase tracking-wide text-dream-muted">{title}</h3>
       <div className="mt-2 space-y-0.5 text-sm text-dream-muted">{children}</div>
     </div>
   );
@@ -372,7 +372,7 @@ function MoneyRow({ label, value, muted = false }: { label: string; value: strin
       <dt className="text-dream-muted">{label}</dt>
       <dd className={muted ? "text-dream-faint" : "font-medium text-dream-ink"}>
         {value}
-        {!muted && <span className="text-xs text-dream-faint"> CAD</span>}
+        {!muted && <span className="text-[14px] text-dream-faint"> CAD</span>}
       </dd>
     </div>
   );

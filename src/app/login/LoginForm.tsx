@@ -20,7 +20,7 @@ export function LoginForm({ next }: { next: string }) {
       <Field label="Password" required>
         <PasswordInput name="password" autoComplete="current-password" placeholder="••••••••" required />
         <div className="mt-1 text-right">
-          <Link href="/forgot-password" className="text-xs font-semibold text-dream-purple hover:underline">
+          <Link href="/forgot-password" className="text-[14px] font-semibold text-dream-purple hover:underline">
             Forgot password?
           </Link>
         </div>

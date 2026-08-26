@@ -115,7 +115,7 @@ export default function HowToOrderPage() {
         href="/contact#coastal-reign"
         className="hidden bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95 sm:block"
       >
-        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[14px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
           We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
           <span className="font-display font-extrabold uppercase tracking-wide">
             beat it by 5%
@@ -155,7 +155,7 @@ function Hero() {
     <section className="relative isolate overflow-hidden bg-dream-lavender-soft text-dream-ink">
       <div className="relative mx-auto grid w-full max-w-[1450px] items-center gap-12 px-6 pb-24 pt-12 md:px-8 md:pb-28 md:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(420px,600px)] lg:gap-16 lg:px-10 lg:pb-32 lg:pt-20">
         <div>
-          <span className="font-display text-xs font-bold uppercase tracking-[0.06em] text-dream-purple">
+          <span className="font-display text-[14px] font-bold uppercase tracking-[0.06em] text-dream-purple">
             How to order
           </span>
           <h1 className="mt-4 max-w-[820px] font-display text-[48px] font-bold leading-[1.0] tracking-tight text-dream-ink sm:text-[58px] md:text-[74px] lg:text-[86px]">
@@ -195,7 +195,7 @@ function Hero() {
               className="h-auto w-full rounded-[20px]"
             />
           </div>
-          <span className="absolute -bottom-4 -left-4 rotate-[-4deg] rounded-full bg-dream-sun px-5 py-2 font-display text-[13px] font-extrabold text-dream-ink shadow-[4px_4px_0_0_rgba(27,20,88,0.9)] sm:text-sm">
+          <span className="absolute -bottom-4 -left-4 rotate-[-4deg] rounded-full bg-dream-sun px-5 py-2 font-display text-[14px] font-extrabold text-dream-ink shadow-[4px_4px_0_0_rgba(27,20,88,0.9)] sm:text-sm">
             Printed in house
           </span>
         </div>
@@ -231,7 +231,7 @@ function StartOptions() {
         {/* Left column, heading + intro only. */}
         <Reveal variant="up">
           <div className="lg:pt-4">
-            <h2 className="font-display text-[56px] font-bold leading-[0.98] tracking-tight text-dream-ink lg:text-[84px]">
+            <h2 className="font-display text-[44px] font-bold leading-[0.98] tracking-tight text-dream-ink sm:text-[56px] lg:text-[84px]">
               Two ways
               <br />
               to start
@@ -246,42 +246,45 @@ function StartOptions() {
         </Reveal>
 
         {/* Right column, a bento of mixed-size tiles: the two start options,
-            two studio photos, and a small accent tile. */}
+            two studio photos, and a small accent tile. On phones the 6-col
+            bento becomes a simple 2-col stack (option cards full width, photo
+            + accent side by side, second photo a full-width strip); the
+            original bento returns untouched from sm up. */}
         <Reveal variant="up" delay={120}>
-          <div className="grid auto-rows-[104px] grid-cols-6 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:auto-rows-[104px] sm:grid-cols-6 sm:gap-4">
             {/* Option 1, large, top-left */}
             <Reveal
               variant="pop"
-              className="col-start-1 col-span-4 row-start-1 row-span-3"
+              className="col-span-2 sm:col-start-1 sm:col-span-4 sm:row-start-1 sm:row-span-3"
             >
               <BentoOption opt={designIt} className="h-full" />
             </Reveal>
 
             {/* Photo, top-right */}
-            <div className="relative col-start-5 col-span-2 row-start-1 row-span-2 overflow-hidden rounded-[22px] ring-1 ring-dream-ink/10">
+            <div className="relative h-36 overflow-hidden rounded-[22px] ring-1 ring-dream-ink/10 sm:col-start-5 sm:col-span-2 sm:row-start-1 sm:row-span-2 sm:h-auto">
               <Image
                 src="/custom-printed-tshirts-vancouver.jpeg"
                 alt="Custom printed t-shirts from our Vancouver studio"
                 fill
-                sizes="(max-width: 1024px) 30vw, 260px"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 30vw, 260px"
                 className="object-cover"
               />
             </div>
 
             {/* Accent, small, right */}
-            <div className="col-start-5 col-span-2 row-start-3 row-span-1 flex items-center justify-center rounded-[22px] bg-dream-sun px-3 text-center">
+            <div className="flex h-36 items-center justify-center rounded-[22px] bg-dream-sun px-3 text-center sm:col-start-5 sm:col-span-2 sm:row-start-3 sm:row-span-1 sm:h-auto">
               <span className="font-display text-[17px] font-extrabold leading-tight text-dream-ink">
                 Printed in house
               </span>
             </div>
 
             {/* Photo, bottom-left */}
-            <div className="relative col-start-1 col-span-2 row-start-4 row-span-2 overflow-hidden rounded-[22px] ring-1 ring-dream-ink/10">
+            <div className="relative col-span-2 h-40 overflow-hidden rounded-[22px] ring-1 ring-dream-ink/10 sm:col-start-1 sm:col-span-2 sm:row-start-4 sm:row-span-2 sm:h-auto">
               <Image
                 src="/screen-printing-process-vancouver.jpeg"
                 alt="Screen printing process in our Vancouver shop"
                 fill
-                sizes="(max-width: 1024px) 30vw, 260px"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 30vw, 260px"
                 className="object-cover"
               />
             </div>
@@ -289,7 +292,7 @@ function StartOptions() {
             {/* Option 2, wide, bottom-right */}
             <Reveal
               variant="pop"
-              className="col-start-3 col-span-4 row-start-4 row-span-2"
+              className="col-span-2 sm:col-start-3 sm:col-span-4 sm:row-start-4 sm:row-span-2"
             >
               <BentoOption opt={quickQuote} className="h-full" />
             </Reveal>
@@ -397,10 +400,10 @@ const GOOD_TO_KNOW_CHIPS = [
 
 function GoodToKnowSection() {
   return (
-    <section className="relative z-20 mx-auto max-w-[1400px] px-6 pb-10 pt-24 lg:px-10 lg:pb-16 lg:pt-32">
+    <section className="relative z-20 mx-auto max-w-[1400px] px-6 pb-10 pt-10 sm:pt-24 lg:px-10 lg:pb-16 lg:pt-32">
       <Reveal variant="up">
         <div className="mx-auto max-w-[680px] text-center">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink lg:text-[46px]">
+          <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
             Good to know before you order
           </h2>
         </div>
@@ -409,22 +412,26 @@ function GoodToKnowSection() {
       {/* One full card, pulled down with a negative margin so it overflows on
           top of the FAQ scallops in the section below. */}
       <Reveal variant="up" delay={120}>
-        <div className="relative z-20 mt-10 -mb-20 rounded-[32px] bg-white p-7 shadow-[12px_12px_0_0_rgba(27,20,88,0.95)] ring-1 ring-dream-ink/10 sm:p-9 lg:-mb-28 lg:p-12">
-          <div className="grid gap-9 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-dream-line">
+        <div className="relative z-20 mt-8 -mb-20 rounded-[24px] bg-white px-6 py-9 shadow-[12px_12px_0_0_rgba(27,20,88,0.95)] ring-1 ring-dream-ink/10 sm:p-9 lg:-mb-28 lg:p-12">
+          <div className="grid divide-y divide-dream-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {GOOD_TO_KNOW.map((item, i) => (
               <div
                 key={item.title}
-                className="sm:px-8 sm:first:pl-0 sm:last:pr-0"
+                className="py-6 first:pt-0 last:pb-0 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0"
               >
+                {/* Phones keep the text full width (an icon column squeezed the
+                    body into ~65% and pushed every paragraph to five lines);
+                    the icon is a small marker above the title, and hairlines
+                    between items do the separating. */}
                 <span
-                  className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${GOOD_TO_KNOW_CHIPS[i]}`}
+                  className={`inline-flex h-10 w-10 items-center justify-center rounded-xl sm:h-14 sm:w-14 sm:rounded-2xl ${GOOD_TO_KNOW_CHIPS[i]}`}
                 >
                   <GoodIcon name={GOOD_TO_KNOW_ICONS[i]} />
                 </span>
-                <h3 className="mt-5 font-display text-[22px] font-bold leading-tight text-dream-ink">
+                <h3 className="mt-3 font-display text-[19px] font-bold leading-tight text-dream-ink sm:mt-5 sm:text-[22px]">
                   {item.title}
                 </h3>
-                <p className="mt-2.5 text-[14.5px] leading-relaxed text-dream-ink-soft">
+                <p className="mt-1.5 text-[14.5px] leading-relaxed text-dream-ink-soft sm:mt-2.5">
                   {item.body}
                 </p>
               </div>
@@ -481,7 +488,7 @@ function FAQ() {
   return (
     <section
       id="faq"
-      className="relative bg-dream-lavender-soft pb-20 pt-48 lg:pb-24 lg:pt-64"
+      className="relative bg-dream-lavender-soft pb-20 pt-24 sm:pt-48 lg:pb-24 lg:pt-64"
     >
       <svg
         aria-hidden="true"
@@ -495,7 +502,7 @@ function FAQ() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
+            <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#f4f2ff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#hto-faq-scallop)" />
@@ -504,7 +511,7 @@ function FAQ() {
       <div className="relative mx-auto grid max-w-[1300px] gap-8 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
           <Reveal variant="up">
-            <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink md:text-[44px] lg:text-[48px]">
+            <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[44px] lg:text-[48px]">
               Ordering questions
             </h2>
           </Reveal>
@@ -563,16 +570,16 @@ function CTA() {
             Start your design or send a quote request, and we&apos;ll take it
             from there.
           </p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mx-auto mt-9 flex max-w-[320px] flex-col items-stretch justify-center gap-4 sm:max-w-none sm:flex-row sm:items-center">
             <Link
               href="/shop"
-              className="rough-pill rough-pill-filled inline-flex items-center justify-center px-9 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+              className="rough-pill rough-pill-filled inline-flex w-full items-center justify-center px-9 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 sm:w-auto"
             >
               Start your order
             </Link>
             <Link
               href="/contact"
-              className="inline-flex items-center justify-center rounded-full border-2 border-white px-9 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 hover:bg-white hover:text-dream-ink"
+              className="inline-flex w-full items-center justify-center rounded-full border-2 border-white px-9 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 hover:bg-white hover:text-dream-ink sm:w-auto"
             >
               Contact us
             </Link>

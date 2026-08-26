@@ -71,7 +71,7 @@ export function ShopSidebar({
                       <Link
                         href={`/shop?category=${sub.slug}`}
                         className={cn(
-                          "block rounded-lg px-3 py-1.5 text-[13px] transition-colors",
+                          "block rounded-lg px-3 py-1.5 text-[14px] transition-colors",
                           isActive(sub.slug)
                             ? "font-medium text-dream-purple-selected"
                             : "text-dream-muted hover:bg-dream-lavender-soft hover:text-dream-ink",

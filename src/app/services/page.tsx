@@ -32,7 +32,7 @@ const METHODS: Method[] = [
     image: "/screen-printing-vancouver.webp",
     imageAlt: "Screen printing inks and squeegee on a custom t-shirt",
     imageTitle: "Bulk screen printing for tees and hoodies in Vancouver",
-    imageClassName: "w-[150px] sm:w-[170px]",
+    imageClassName: "w-[100px] min-[400px]:w-[130px] sm:w-[170px]",
     bg: "bg-dream-purple",
     titleColor: "text-white",
     descColor: "text-white/85",
@@ -45,7 +45,7 @@ const METHODS: Method[] = [
     image: "/custom-embroidery-vancouver.png",
     imageAlt: "Embroidered logo thread close-up on apparel",
     imageTitle: "Custom logo embroidery on caps and jackets in Vancouver",
-    imageClassName: "w-[165px] -rotate-12 sm:w-[188px] -mt-8",
+    imageClassName: "w-[110px] min-[400px]:w-[140px] -rotate-12 sm:w-[188px] sm:-mt-8",
     bg: "bg-white",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
@@ -58,7 +58,7 @@ const METHODS: Method[] = [
     image: "/dtg-printing-vancouver.webp",
     imageAlt: "DTF transfer being pressed onto a custom t-shirt",
     imageTitle: "Full-colour DTF printing for small runs in Vancouver",
-    imageClassName: "w-[175px] sm:w-[200px]",
+    imageClassName: "w-[110px] min-[400px]:w-[145px] sm:w-[200px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
@@ -216,7 +216,7 @@ export default function ServicesPage() {
         href="/contact#coastal-reign"
         className="hidden bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95 sm:block"
       >
-        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[12px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[14px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
             <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
@@ -318,7 +318,7 @@ function Hero() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="28" rx="60" ry="28" fill="#f4f2ff" />
+            <ellipse cx="60" cy="29" rx="60" ry="29" fill="#f4f2ff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#services-hero-scallop)" />
@@ -344,7 +344,7 @@ function Methods() {
       />
       <Reveal variant="up">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-16">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
+          <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
             Three ways to print custom apparel in Vancouver<span className="hidden lg:inline">.</span>
           </h2>
           <div>
@@ -371,24 +371,31 @@ function Methods() {
             key={m.name}
             variant="stamp"
             delay={i * 100}
-            className={`relative h-[300px] w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:px-9 lg:flex-1 ${i > 0 ? "lg:-ml-6" : ""} ${m.bg}`}
+            className={`relative h-auto w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:px-9 lg:flex-1 ${i > 0 ? "lg:-ml-6" : ""} ${m.bg}`}
             style={{ rotate: `${m.rotate}deg` } as CSSProperties}
           >
-            <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
-              {m.name}
-            </h3>
+            {/* Mobile only: title and photo sit side by side in normal flow so
+                the card can be content-height. `sm:contents` dissolves this
+                wrapper from sm up, restoring the absolute-positioned layout. */}
+            <div className="flex items-start justify-between gap-4 sm:contents">
+              <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
+                {m.name}
+              </h3>
 
-            <Image
-              src={m.image}
-              alt={m.imageAlt}
-              title={m.imageTitle}
-              width={260}
-              height={260}
-              unoptimized
-              className={`absolute right-2 top-[42%] z-0 h-auto -translate-y-1/2 sm:right-3 ${m.imageClassName ?? "w-[210px] sm:w-[240px]"}`}
-            />
+              <Image
+                src={m.image}
+                alt={m.imageAlt}
+                title={m.imageTitle}
+                width={260}
+                height={260}
+                unoptimized
+                className={`static right-2 top-[32%] z-0 h-auto shrink-0 translate-y-0 sm:absolute sm:right-3 sm:top-[42%] sm:-translate-y-1/2 ${m.imageClassName ?? "w-[150px] min-[400px]:w-[210px] sm:w-[240px]"}`}
+              />
+            </div>
 
-            <p className={`absolute bottom-7 left-8 right-8 z-10 max-w-[58%] text-[15px] leading-relaxed sm:left-9 sm:text-[16px] ${m.descColor}`}>
+            {/* Normal flow under the title/photo row at base; the pinned
+                side-by-side 58% layout returns at sm. */}
+            <p className={`static bottom-7 left-8 right-8 z-10 mt-5 text-[15px] leading-relaxed sm:absolute sm:mt-0 sm:left-9 sm:max-w-[58%] sm:text-[16px] ${m.descColor}`}>
               {m.description}
             </p>
           </Reveal>
@@ -404,7 +411,7 @@ function Methods() {
 
 function Products() {
   return (
-    <section className="bg-dream-cream pb-32 pt-20 lg:pb-44 lg:pt-24">
+    <section className="bg-dream-cream pb-32 pt-10 sm:pt-20 lg:pb-44 lg:pt-24">
       <div className="mx-auto max-w-[1550px] px-6 lg:px-10">
         <Reveal variant="up">
           <SectionHeader
@@ -448,7 +455,7 @@ function Products() {
                 className="price-tag-alive pointer-events-none absolute -right-2 top-4 z-20 inline-flex items-baseline gap-1.5 rounded-full bg-dream-sun px-4 py-2 font-display text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.92)] ring-2 ring-white"
                 style={{ "--base-tilt": `${tagTilts[i % tagTilts.length]}deg` } as CSSProperties}
               >
-                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-dream-ink/70">
+                <span className="text-[14px] font-bold uppercase tracking-[0.14em] text-dream-ink/70">
                   from
                 </span>
                 <span className="font-display text-[17px] font-bold leading-none text-dream-ink">
@@ -461,7 +468,7 @@ function Products() {
                   <h3 className="font-display text-[22px] font-bold leading-tight tracking-tight text-dream-ink lg:text-[24px]">
                     {cat.name}
                   </h3>
-                  <p className="mt-1.5 text-[13px] leading-snug text-dream-ink/70">
+                  <p className="mt-1.5 text-[14px] leading-snug text-dream-ink/70">
                     {cat.brands.join(" · ")}
                   </p>
                 </div>
@@ -475,7 +482,7 @@ function Products() {
                 </span>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] font-medium text-dream-ink/55">
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[14px] font-medium text-dream-ink/55">
                 <span className="inline-flex items-center gap-1.5">
                   <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
                     <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -520,7 +527,7 @@ function FAQ() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
+            <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#f4f2ff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#services-products-scallop)" />
@@ -528,7 +535,7 @@ function FAQ() {
       <div className="relative mx-auto grid max-w-[1500px] gap-4 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
           <Reveal variant="up">
-            <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[44px] lg:text-[48px]">
+            <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[44px] lg:text-[48px]">
               Frequently asked questions
             </h2>
           </Reveal>
@@ -666,12 +673,12 @@ function SectionHeader({
     >
       {kicker ? (
         cleanKicker ? (
-          <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+          <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-dream-purple">
             {kicker}
           </span>
         ) : (
           <span
-            className={`inline-flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.28em] text-dream-purple ${
+            className={`inline-flex items-center gap-2 font-display text-[14px] font-bold uppercase tracking-[0.28em] text-dream-purple ${
               center ? "justify-center" : ""
             }`}
           >
@@ -683,7 +690,7 @@ function SectionHeader({
       <h2
         className={`${
           kicker ? "mt-4" : ""
-        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]`}
+        } font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]`}
       >
         {title}
       </h2>

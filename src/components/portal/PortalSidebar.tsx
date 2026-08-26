@@ -50,10 +50,10 @@ export function PortalSidebar() {
           <IconHelp className="h-5 w-5" />
         </span>
         <p className="mt-3 font-display text-sm font-bold text-dream-ink">Need help with an order?</p>
-        <p className="mt-1 text-xs text-dream-muted">Our team is here to help you every step of the way.</p>
+        <p className="mt-1 text-[14px] text-dream-muted">Our team is here to help you every step of the way.</p>
         <Link
           href="/account/help"
-          className="mt-3 inline-flex items-center justify-center rounded-full bg-dream-purple px-4 py-2 text-xs font-bold text-white transition-transform hover:-translate-y-0.5"
+          className="mt-3 inline-flex items-center justify-center rounded-full bg-dream-purple px-4 py-2 text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5"
         >
           Contact Support
         </Link>

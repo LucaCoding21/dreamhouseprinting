@@ -44,10 +44,9 @@ export function HelpPrompt({
         <Link
           href={CONTACT_PATH}
           {...tabProps}
-          className="inline-flex items-center gap-1 font-semibold text-dream-purple underline-offset-2 hover:underline"
+          className="font-semibold text-dream-purple underline-offset-2 hover:underline"
         >
           Contact us
-          <ArrowIcon className="h-3.5 w-3.5" />
         </Link>
       </div>
     );
@@ -56,7 +55,7 @@ export function HelpPrompt({
   return (
     <div
       className={cn(
-        "flex flex-col items-start gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between",
+        "flex flex-col gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between",
         className,
       )}
     >
@@ -74,10 +73,12 @@ export function HelpPrompt({
       <Link
         href={CONTACT_PATH}
         {...tabProps}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-purple px-5 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+        // Stacked (mobile), the button sits bottom-RIGHT: it is the end of the
+        // card's reading path, and a thumb reaches that corner. From sm up the
+        // card is a row and justify-between already places it.
+        className="inline-flex shrink-0 items-center self-end rounded-full bg-dream-purple px-5 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 sm:self-auto"
       >
         Contact us
-        <ArrowIcon className="h-4 w-4" />
       </Link>
     </div>
   );
@@ -97,23 +98,6 @@ function ChatIcon(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="M4 5.5c5.3-.6 10.7-.6 16 0 .5 3.2.5 6.4 0 9.6-2 .3-4 .4-6 .5l-4 3.4v-3.4c-2 0-4-.2-6-.5-.5-3.2-.5-6.4 0-9.6Z" />
       <path d="M8.5 10h7M8.5 12.6h4.5" />
-    </svg>
-  );
-}
-
-function ArrowIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   );
 }

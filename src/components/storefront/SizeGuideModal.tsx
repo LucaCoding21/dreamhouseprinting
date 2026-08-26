@@ -42,7 +42,7 @@ export function SizeGuideModal({
       <button
         type="button"
         onClick={openModal}
-        className="text-xs font-medium text-dream-purple hover:underline"
+        className="-my-2 py-2 text-[12px] font-medium text-dream-ink-soft underline decoration-dream-ink-soft/70 decoration-1 underline-offset-4 transition-colors hover:text-dream-ink hover:decoration-dream-ink"
       >
         Size guide
       </button>
@@ -54,7 +54,10 @@ export function SizeGuideModal({
             <p className="mt-0.5 text-sm text-dream-muted">{productName}</p>
           </div>
 
-          <div className="max-h-[70vh] overflow-auto px-5 pb-5">
+          {/* Cap accounts for the header (~5rem) + panel margin, so this inner
+              scroller never forces a second (panel-level) scrollbar on short
+              viewports. */}
+          <div className="max-h-[min(70dvh,calc(100dvh-9rem))] overflow-auto px-5 pb-5">
             {state.status === "loading" && (
               <div className="flex items-center justify-center gap-2 py-12 text-dream-muted">
                 <Spinner size={18} />
@@ -99,7 +102,7 @@ function SizeGuideBody({ guide }: { guide: SizeGuide }) {
   return (
     <>
       {compact ? <SizeMatrix guide={guide} /> : <SizeList guide={guide} />}
-      <p className="mt-4 text-xs leading-relaxed text-dream-muted">
+      <p className="mt-4 text-[14px] leading-relaxed text-dream-muted">
         Garment measurements in inches, taken flat. Allow a small tolerance.
       </p>
     </>
@@ -160,7 +163,7 @@ function SizeList({ guide }: { guide: SizeGuide }) {
                 key={c}
                 className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-8"
               >
-                <dt className="text-xs font-semibold uppercase tracking-wide text-dream-muted">
+                <dt className="text-[14px] font-semibold uppercase tracking-wide text-dream-muted">
                   {c}
                 </dt>
                 <dd className="text-sm font-medium text-dream-ink sm:text-right">

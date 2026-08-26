@@ -263,7 +263,7 @@ export function CartClient({
             </span>
             <div className="leading-tight">
               <p className="text-sm font-bold text-dream-ink">{r.t}</p>
-              <p className="mt-0.5 text-xs text-dream-muted">{r.d}</p>
+              <p className="mt-0.5 text-[14px] text-dream-muted">{r.d}</p>
             </div>
           </li>
         ))}
@@ -282,24 +282,24 @@ export function CartClient({
                 className="group flex items-center gap-4 rounded-xl border border-dream-line bg-white p-3.5 transition-transform hover:-translate-y-0.5 sm:p-4"
               >
                 {/* Mockup in a white frame */}
-                <span className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-white">
+                <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-white sm:h-24 sm:w-24">
                   {item.mockupUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.mockupUrl} alt="" className="h-full w-full object-contain p-1.5" />
                   ) : (
-                    <span className="text-xs text-dream-faint">No preview</span>
+                    <span className="text-[14px] text-dream-faint">No preview</span>
                   )}
                 </span>
 
-                <div className="flex min-w-0 flex-1 items-stretch justify-between gap-3 self-stretch">
+                <div className="flex min-w-0 flex-1 flex-col gap-2 self-stretch sm:flex-row sm:items-stretch sm:justify-between sm:gap-3">
                   {/* Left: name + colour · quantity, pinned to the top */}
                   <div className="flex min-w-0 flex-col justify-start gap-1">
                     <p className="truncate font-display text-base font-bold text-dream-ink sm:text-lg">{item.productName}</p>
                     <p className="truncate text-sm text-dream-muted">{item.colourSummary}</p>
                   </div>
                   {/* Right: actions pinned top, price pinned bottom */}
-                  <div className="flex shrink-0 flex-col items-end justify-between gap-2">
-                    <div className="flex items-center gap-3 text-xs font-semibold">
+                  <div className="flex shrink-0 items-center justify-between gap-2 sm:flex-col sm:items-end">
+                    <div className="flex items-center gap-3 text-[14px] font-semibold">
                       {item.productId && (
                         <Link
                           href={`/design/${item.productId}?design=${item.designId}`}
@@ -340,8 +340,8 @@ export function CartClient({
 
             <div className="px-5 py-5 sm:px-6">
               {/* Your contact */}
-              <p className="text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">Your contact</p>
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <p className="text-[14px] font-bold uppercase tracking-[0.04em] text-dream-purple">Your contact</p>
+              <div className="mt-3 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
                 <Field label="First name" htmlFor="c-first" required>
                   <Input id="c-first" value={contact.firstName} onChange={(e) => set("firstName", e.target.value)} />
                 </Field>
@@ -357,7 +357,7 @@ export function CartClient({
               </div>
 
               {/* Fulfillment, segmented Ship / Pickup */}
-              <p className="mt-6 text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">How you&rsquo;ll get it</p>
+              <p className="mt-6 text-[14px] font-bold uppercase tracking-[0.04em] text-dream-purple">How you&rsquo;ll get it</p>
               <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-dream-cream p-1">
                 <ToggleSeg active={fulfillment === "ship"} onClick={() => setFulfillment("ship")}>Ship to me</ToggleSeg>
                 <ToggleSeg active={fulfillment === "pickup"} onClick={() => setFulfillment("pickup")}>Pick up</ToggleSeg>
@@ -368,7 +368,7 @@ export function CartClient({
                   it reads alongside the choice rather than buried under the form. */}
               {fulfillment === "pickup" && (
                 <div className="mt-3 rounded-xl border border-dream-line-strong bg-dream-cream/60 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">Pick up from</p>
+                  <p className="text-[14px] font-bold uppercase tracking-[0.04em] text-dream-purple">Pick up from</p>
                   {pickupAddress ? (
                     <>
                       <address className="mt-1.5 whitespace-pre-line font-display text-base font-bold not-italic leading-snug text-dream-ink">
@@ -389,7 +389,7 @@ export function CartClient({
                       Pickup address shared when your order is confirmed. We&rsquo;ll include it in your proof email.
                     </p>
                   )}
-                  <p className="mt-3 flex items-start gap-1.5 text-xs text-dream-muted">
+                  <p className="mt-3 flex items-start gap-1.5 text-[14px] text-dream-muted">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="mt-px shrink-0 text-dream-purple">
                       <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
                     </svg>
@@ -399,7 +399,7 @@ export function CartClient({
               )}
 
               {/* Address */}
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
                 <Field label="Street address" htmlFor="c-street" required className="col-span-2">
                   <Input id="c-street" value={contact.street} onChange={(e) => set("street", e.target.value)} />
                 </Field>
@@ -437,7 +437,7 @@ export function CartClient({
                   shipping + tax), not just the goods subtotal. Tax is computed
                   live from the province in their address above. */}
               <div className="mt-5 border-t border-dream-line pt-4">
-                <p className="text-xs font-bold uppercase tracking-[0.04em] text-dream-purple">Order summary</p>
+                <p className="text-[14px] font-bold uppercase tracking-[0.04em] text-dream-purple">Order summary</p>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <dt className="text-dream-muted">{count === 1 ? "Design" : `Designs (${count})`}</dt>
@@ -467,7 +467,7 @@ export function CartClient({
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-dream-line pt-3">
                   <div>
                     <span className="font-display text-sm font-bold text-dream-ink">Estimated total</span>
-                    <p className="mt-0.5 text-xs text-dream-faint">Final pricing confirmed on your proof before you pay.</p>
+                    <p className="mt-0.5 text-[14px] text-dream-faint">Final pricing confirmed on your proof before you pay.</p>
                   </div>
                   <span className="rounded-xl bg-dream-sun px-3 py-1.5 font-display text-xl font-extrabold text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.18)]">
                     {formatCAD(grandTotal)}
@@ -485,7 +485,7 @@ export function CartClient({
               >
                 {busy ? "Submitting…" : count === 1 ? "Submit order" : "Submit orders"}
               </button>
-              <p className="mt-3 text-center text-xs leading-relaxed text-dream-faint">
+              <p className="mt-3 text-center text-[14px] leading-relaxed text-dream-faint">
                 No payment now. Our team reviews &amp; cleans up your artwork, then emails a proof to approve.
               </p>
             </div>

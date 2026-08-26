@@ -83,7 +83,7 @@ export default async function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f7fd] text-dream-ink">
+    <div className="min-h-dvh bg-[#f8f7fd] text-dream-ink">
       <SiteNav />
       <CartClient
         prefill={prefill}

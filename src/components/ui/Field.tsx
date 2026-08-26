@@ -35,9 +35,9 @@ export function Field({
       )}
       {children}
       {error ? (
-        <p className="text-xs text-dream-danger">{error}</p>
+        <p className="text-[14px] text-dream-danger">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-dream-muted">{hint}</p>
+        <p className="text-[14px] text-dream-muted">{hint}</p>
       ) : null}
     </div>
   );

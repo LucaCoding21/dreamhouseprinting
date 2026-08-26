@@ -23,7 +23,7 @@ const STATUS_TEXT: Record<string, string> = {
 };
 function StatusLabel({ tone, label }: { tone: string; label: string }) {
   return (
-    <span className={`text-xs font-medium ${STATUS_TEXT[tone] ?? "text-dream-muted"}`}>{label}</span>
+    <span className={`text-[14px] font-medium ${STATUS_TEXT[tone] ?? "text-dream-muted"}`}>{label}</span>
   );
 }
 
@@ -97,7 +97,7 @@ function statusIcon(status: OrderStatus): typeof IconClock {
  *  mobile, where rows stack. */
 export function OrderListHeader() {
   return (
-    <div className="hidden items-center gap-4 pr-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-dream-faint sm:flex">
+    <div className="hidden items-center gap-4 pr-4 pb-1 text-[14px] font-semibold uppercase tracking-wide text-dream-faint xl:flex">
       <span className="min-w-0 flex-1">Order</span>
       <div className="flex items-center gap-8">
         <span className="w-32 shrink-0">Date</span>
@@ -139,36 +139,45 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
             <span className="font-display text-sm font-semibold text-dream-ink">{o.order_number ?? "Order"}</span>
             {meta &&
               (columns ? (
-                <span className="sm:hidden">
+                <span className="xl:hidden">
                   <StatusLabel tone={meta.badge} label={meta.label} />
                 </span>
               ) : (
                 <StatusTag tone={meta.badge}>{meta.label}</StatusTag>
               ))}
           </div>
-          <p className="mt-0.5 truncate text-xs text-dream-muted">{statusNote(o)}</p>
+          <p className="mt-0.5 truncate text-[14px] text-dream-muted">{statusNote(o)}</p>
         </div>
       </div>
 
       {columns ? (
-        <div className="hidden items-center gap-8 sm:flex">
-          <div className="w-32 shrink-0 text-xs text-dream-faint">
+        <>
+        <div className="hidden shrink-0 text-right sm:block xl:hidden">
+          <div className="font-display font-bold text-dream-ink">{formatCAD(orderTotal(o))}</div>
+          <div className="text-[14px] text-dream-faint">
+            {paid ? "Paid · " : ""}
+            {new Date(o.created_at).toLocaleDateString("en-CA")}
+          </div>
+        </div>
+        <div className="hidden items-center gap-8 xl:flex">
+          <div className="w-32 shrink-0 text-[14px] text-dream-faint">
             {new Date(o.created_at).toLocaleDateString("en-CA")}
           </div>
           <div className="w-36 shrink-0">
             {meta && <StatusLabel tone={meta.badge} label={meta.label} />}
           </div>
-          <div className="w-28 shrink-0 text-xs text-dream-muted">
+          <div className="w-28 shrink-0 text-[14px] text-dream-muted">
             {payment?.label ?? ""}
           </div>
           <div className="w-24 shrink-0 font-display text-sm font-semibold text-dream-ink">
             {formatCAD(orderTotal(o))}
           </div>
         </div>
+        </>
       ) : (
         <div className="hidden shrink-0 text-right sm:block">
           <div className="font-display font-bold text-dream-ink">{formatCAD(orderTotal(o))}</div>
-          <div className="text-xs text-dream-faint">
+          <div className="text-[14px] text-dream-faint">
             {paid ? "Paid · " : ""}
             {new Date(o.created_at).toLocaleDateString("en-CA")}
           </div>

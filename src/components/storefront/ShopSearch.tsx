@@ -7,7 +7,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 export function ShopSearch() {
   const router = useRouter();
   const params = useSearchParams();
-  const [query, setQuery] = useState(params.get("search") ?? "");
+  // Mirror the URL, don't just seed from it: switching category navigates to a
+  // /shop URL with no `search`, and a field that kept its own initial state
+  // went on showing a term the results were no longer filtered by. Synced
+  // during render (not in an effect) so there is no flash of the stale value.
+  const urlQuery = params.get("search") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+  const [lastUrlQuery, setLastUrlQuery] = useState(urlQuery);
+  if (urlQuery !== lastUrlQuery) {
+    setLastUrlQuery(urlQuery);
+    setQuery(urlQuery);
+  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

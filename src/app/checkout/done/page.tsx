@@ -59,7 +59,7 @@ export default async function CheckoutDonePage({
   const primaryLabel = multiple ? "Go to your orders" : "View your order";
 
   return (
-    <div className="flex min-h-screen flex-col bg-dream-bg text-dream-ink">
+    <div className="flex min-h-dvh flex-col bg-dream-bg text-dream-ink">
       <SiteNav />
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center px-4 py-24 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-dream-success-soft text-dream-success">
@@ -97,7 +97,7 @@ export default async function CheckoutDonePage({
                       View order
                     </Link>
                   ) : (
-                    <span className="text-xs text-dream-faint">Details in your email</span>
+                    <span className="text-[14px] text-dream-faint">Details in your email</span>
                   )}
                 </li>
               );

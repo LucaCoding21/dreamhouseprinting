@@ -1,22 +1,61 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { TESTIMONIALS } from "@/lib/testimonials";
 
+/**
+ * Endless carousel. The review list is rendered TWICE, so there is always an
+ * identical card to the right of the last one and pressing next never
+ * dead-ends. Once a scroll settles past the first copy we silently rewind by
+ * exactly one copy's width; the content on both sides is identical, so the
+ * jump is invisible and the arrows keep going in one direction forever.
+ */
 export default function Testimonials() {
   const scrollerRef = useRef<HTMLDivElement>(null);
+
+  /** Card-to-card distance (gap-agnostic) and the width of one full set. */
+  function metrics(el: HTMLDivElement) {
+    const cards = el.querySelectorAll<HTMLElement>("article");
+    if (cards.length < 2) return { pitch: el.clientWidth * 0.8, copy: 0 };
+    const pitch = cards[1].offsetLeft - cards[0].offsetLeft;
+    return { pitch, copy: pitch * TESTIMONIALS.length };
+  }
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    let timer: ReturnType<typeof setTimeout>;
+    // Debounced: rewinding mid-animation would cancel the smooth scroll, so
+    // wait for it (or a finger swipe) to come to rest first.
+    const onScroll = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const { copy } = metrics(el);
+        if (copy && el.scrollLeft >= copy) el.scrollLeft -= copy;
+      }, 150);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      clearTimeout(timer);
+    };
+  }, []);
 
   function scrollBy(dir: 1 | -1) {
     const el = scrollerRef.current;
     if (!el) return;
-    const card = el.querySelector("article");
-    const step = card ? card.clientWidth + 32 : el.clientWidth * 0.8;
-    el.scrollBy({ left: step * dir, behavior: "smooth" });
+    const { pitch, copy } = metrics(el);
+    // Going back from the first card: hop forward one identical copy first, so
+    // there is always something to the left to scroll into.
+    if (dir === -1 && copy && el.scrollLeft < pitch) el.scrollLeft += copy;
+    el.scrollBy({ left: pitch * dir, behavior: "smooth" });
   }
 
   return (
-    <section className="relative mx-auto max-w-[1700px] px-6 pb-48 pt-24 lg:px-12 lg:pb-56 lg:pt-32">
-      <h2 className="text-center font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-5xl">
+    /* pb leaves room for the footer dog peeking up; phones need far less of
+       it than the taller desktop dog. */
+    <section className="relative mx-auto max-w-[1700px] px-6 pb-28 pt-12 sm:pb-48 sm:pt-24 lg:px-12 lg:pb-56 lg:pt-32">
+      <h2 className="text-center font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-5xl">
         Reviews
       </h2>
       <p className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
@@ -28,9 +67,12 @@ export default function Testimonials() {
           ref={scrollerRef}
           className="no-scrollbar -mx-2 flex snap-x snap-mandatory gap-6 overflow-x-auto px-2 py-6 md:gap-8"
         >
-          {TESTIMONIALS.map((t) => (
+          {/* Second copy is decorative: it exists only so the loop has runway,
+              so it is hidden from screen readers to avoid repeated reviews. */}
+          {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
             <article
-              key={t.name}
+              key={`${t.name}-${i}`}
+              aria-hidden={i >= TESTIMONIALS.length || undefined}
               className="relative flex min-h-[340px] w-[85%] shrink-0 snap-start flex-col rounded-3xl px-6 py-7 shadow-[0_4px_0_0_rgba(27,20,88,0.08)] transition-transform duration-200 hover:-translate-y-1 sm:w-[55%] sm:px-7 sm:py-8 md:w-[calc((100%-2rem)/2.3)] lg:w-[calc((100%-3rem)/3.3)]"
               style={{
                 background: t.bg,
@@ -59,7 +101,7 @@ export default function Testimonials() {
                 {t.quote}
               </p>
 
-              <p className="mt-6 font-display text-[13px] font-bold uppercase tracking-wide text-dream-ink">
+              <p className="mt-6 font-display text-[14px] font-bold uppercase tracking-wide text-dream-ink">
                , {t.name}
               </p>
             </article>

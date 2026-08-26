@@ -94,7 +94,7 @@ export default async function AccountDashboardPage() {
               <p className="text-sm text-dream-ink-soft">Approve the proof and we’ll get it printing.</p>
             </div>
             {needsApproval.length > 1 && (
-              <span className="rounded-[3px] bg-white px-2.5 py-1 text-xs font-bold text-dream-purple">
+              <span className="rounded-[3px] bg-white px-2.5 py-1 text-[14px] font-bold text-dream-purple">
                 {needsApproval.length} waiting
               </span>
             )}
@@ -126,7 +126,7 @@ export default async function AccountDashboardPage() {
                 i % 2 === 0 ? "border-r border-dream-line" : ""
               } ${i === 1 ? "sm:border-r sm:border-dream-line" : ""}`}
             >
-              <dt className="text-xs font-medium text-dream-muted">{s.label}</dt>
+              <dt className="text-[14px] font-medium text-dream-muted">{s.label}</dt>
               <dd className="mt-1 font-display text-2xl font-extrabold text-dream-ink">{s.value}</dd>
             </div>
           ))}

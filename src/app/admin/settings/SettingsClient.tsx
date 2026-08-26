@@ -60,7 +60,7 @@ export function SettingsClient({
   return (
     <div>
       <AdminHeader title="Settings" />
-      <div className="px-8 py-6">
+      <div className="px-4 py-6 sm:px-8">
         <Tabs defaultValue="decoration">
           <TabsList>
             <TabsTrigger value="decoration">Decoration methods</TabsTrigger>

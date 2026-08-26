@@ -78,7 +78,7 @@ export function SiblingOrdersBanner({
           <p className="font-display text-sm font-bold text-dream-ink">
             You placed {total} requests
           </p>
-          <p className="text-xs leading-relaxed text-dream-muted">
+          <p className="text-[14px] leading-relaxed text-dream-muted">
             Every design is quoted, proofed and invoiced on its own, so each one has its own
             page.{current ? ` You're on ${current}.` : ""}
           </p>
@@ -127,13 +127,13 @@ export function SiblingOrdersBanner({
                   {orderStatusLabel(s.status)}
                 </Badge>
               </span>
-              <span className="mt-0.5 block truncate text-xs text-dream-muted">
+              <span className="mt-0.5 block truncate text-[14px] text-dream-muted">
                 {s.number}
                 {s.pieces > 0 ? ` · ${s.pieces} ${s.pieces === 1 ? "piece" : "pieces"}` : ""}
                 {s.colours.length ? ` · ${s.colours.join(", ")}` : ""}
               </span>
               {s.total !== null && (
-                <span className="mt-0.5 block text-xs font-semibold text-dream-ink">
+                <span className="mt-0.5 block text-[14px] font-semibold text-dream-ink">
                   {formatCAD(s.total)}
                 </span>
               )}

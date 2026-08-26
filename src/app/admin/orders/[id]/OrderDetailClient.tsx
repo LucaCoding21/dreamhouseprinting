@@ -31,7 +31,7 @@ export function OrderDetailClient({
   }, 0);
 
   return (
-    <div className="space-y-6 px-8 py-6">
+    <div className="space-y-6 px-4 py-6 sm:px-8">
       {/* Slim command strip, identity + the one hero action, always up top */}
       <CommandHeader detail={detail} can={can} who={who} />
 

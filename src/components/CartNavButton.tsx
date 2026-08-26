@@ -44,12 +44,14 @@ export default function CartNavButton() {
         aria-label={`Cart${count ? ` (${count})` : ""}`}
         title="Your cart"
         onClick={() => setOpen(true)}
-        className="relative inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+        className="relative inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
       >
         {/* Matches the search / account / hamburger weight in SiteNav. */}
-        <CartIcon className="h-[27px] w-[27px]" />
+        {/* translate-y matches the nav's shared bottom baseline, see the note
+            on SketchSearchIcon in SiteNav. */}
+        <CartIcon className="h-[24px] w-[24px] translate-y-[2px] sm:h-[27px] sm:w-[27px] sm:translate-y-[3px]" />
         {ready && count > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dream-purple px-1 text-[11px] font-bold leading-none text-white">
+          <span className="absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dream-purple px-1 text-[14px] font-bold leading-none text-white">
             {count}
           </span>
         )}
@@ -139,12 +141,12 @@ export default function CartNavButton() {
                           {formatCAD(item.total)}
                         </span>
                       </div>
-                      <p className="truncate text-xs text-dream-muted">{item.colourSummary}</p>
+                      <p className="truncate text-[14px] text-dream-muted">{item.colourSummary}</p>
                       <button
                         type="button"
                         onClick={() => removeItem(item.designId)}
                         aria-label={`Remove ${item.productName}`}
-                        className="mt-auto self-end pt-2 text-xs font-semibold text-dream-faint transition-colors hover:text-dream-danger"
+                        className="mt-auto self-end pt-2 text-[14px] font-semibold text-dream-faint transition-colors hover:text-dream-danger"
                       >
                         Remove
                       </button>
@@ -156,10 +158,10 @@ export default function CartNavButton() {
               {/* Footer, estimate + CTA, pinned to the bottom */}
               <div className="border-t border-dream-purple/15 bg-white px-5 py-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-dream-muted">Estimated</span>
+                  <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-muted">Estimated</span>
                   <span className="font-display text-xl font-extrabold text-dream-ink">{formatCAD(total)}</span>
                 </div>
-                <p className="mt-1 text-[11px] text-dream-muted">
+                <p className="mt-1 text-[14px] text-dream-muted">
                   Estimate only. We confirm pricing before anything prints.
                 </p>
                 <Link

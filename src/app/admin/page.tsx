@@ -373,7 +373,7 @@ export default async function AdminDashboardPage({
         </Link>
       </AdminHeader>
 
-      <div className="space-y-8 px-8 py-6">
+      <div className="space-y-8 px-4 py-6 sm:px-8">
         {denied && (
           <div className="rounded-lg bg-dream-warn-soft px-4 py-3 text-sm text-dream-warn">
             You don&apos;t have permission to access <strong>{denied}</strong>.

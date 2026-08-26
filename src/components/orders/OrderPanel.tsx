@@ -31,9 +31,9 @@ export function OrderPanel({
         className,
       )}
     >
-      <div className="flex items-center gap-2.5 border-b border-dream-line px-5 py-4">
-        <h2 className="font-display text-lg font-bold text-dream-ink">{title}</h2>
-        {tag}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-dream-line px-5 py-4">
+        <h2 className="min-w-0 font-display text-lg font-bold text-dream-ink">{title}</h2>
+        {tag && <span className="shrink-0">{tag}</span>}
         {action && <div className="ml-auto flex items-center">{action}</div>}
       </div>
       <div className={cn("p-5", bodyClassName)}>{children}</div>

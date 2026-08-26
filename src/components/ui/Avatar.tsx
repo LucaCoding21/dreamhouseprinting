@@ -14,7 +14,7 @@ export interface AvatarProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const SIZES: Record<AvatarSize, string> = {
-  sm: "h-7 w-7 text-xs",
+  sm: "h-7 w-7 text-[14px]",
   md: "h-9 w-9 text-sm",
   lg: "h-12 w-12 text-base",
 };

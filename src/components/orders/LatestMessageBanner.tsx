@@ -26,12 +26,12 @@ export function LatestMessageBanner({ message }: { message: OrderViewMessage }) 
         <p className="min-w-0 flex-1 truncate font-display text-sm font-bold text-dream-ink">
           Message from {message.actor?.trim() || "Dreamhouse Printing"}
         </p>
-        <p className="shrink-0 text-xs font-medium text-dream-muted">{when}</p>
+        <p className="shrink-0 text-[14px] font-medium text-dream-muted">{when}</p>
       </div>
 
       {/* The message itself, set apart in a soft bubble */}
       <div className="mt-3 rounded-xl bg-dream-lavender/35 px-4 py-3">
-        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-dream-ink">
+        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-dream-ink">
           {message.text}
         </p>
       </div>

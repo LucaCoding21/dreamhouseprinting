@@ -5,7 +5,7 @@ const PRODUCT_LINKS = [
   { label: "Shirts", href: "/shop?category=shirts" },
   { label: "Hoodies", href: "/shop?category=hoodies" },
   { label: "Hats", href: "/shop?category=hats-toques" },
-  { label: "Totes", href: "/shop?category=totes" },
+  { label: "Bags", href: "/shop?category=totes" },
   { label: "All products", href: "/shop" },
 ];
 
@@ -19,8 +19,14 @@ const COMPANY_LINKS = [
 export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
   return (
     <footer className="relative mt-16 bg-dream-lavender-soft lg:mt-24">
+      {/* The dog peeks off the right edge on mobile (translate-x-20), which used
+          to widen the DOCUMENT by ~80px and side-scroll every page on a phone.
+          overflow-x-clip crops that overhang without creating a scroll container
+          (overflow-x-hidden would, and would break the sticky headers
+          elsewhere); overflow-y stays visible so the dog still pokes up over the
+          footer's top edge. */}
       {!hideDog && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-full z-10">
+        <div className="pointer-events-none absolute inset-x-0 bottom-full z-10 overflow-x-clip">
           <div className="mx-auto flex max-w-[1400px] justify-end px-6 lg:px-10">
             <Image
               src="/testimonailsplusfooter/footerdog.png"
@@ -46,7 +52,7 @@ export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
                 className="h-14 w-auto lg:h-[100px]"
               />
             </Link>
-            <p className="mt-3 max-w-[320px] text-[13px] leading-relaxed text-dream-ink-soft">
+            <p className="mt-3 max-w-[320px] text-[14px] leading-relaxed text-dream-ink-soft">
               Custom screen printing &amp; embroidery for Vancouver businesses,
               teams, and brands.
             </p>
@@ -56,7 +62,7 @@ export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
           <FooterColumn title="Company" links={COMPANY_LINKS} />
 
           <div className="col-span-2 lg:col-span-1">
-            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-dream-ink">
+            <h3 className="font-display text-[14px] font-bold uppercase tracking-wider text-dream-ink">
               Get started
             </h3>
             <div className="mt-4">
@@ -94,7 +100,7 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <h3 className="font-display text-xs font-bold uppercase tracking-wider text-dream-ink">
+      <h3 className="font-display text-[14px] font-bold uppercase tracking-wider text-dream-ink">
         {title}
       </h3>
       <ul className="mt-4 space-y-2 text-sm text-dream-ink-soft">

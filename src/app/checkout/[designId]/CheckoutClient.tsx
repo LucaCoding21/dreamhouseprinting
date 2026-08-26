@@ -89,7 +89,7 @@ export function CheckoutClient({
   const err = (k: keyof CheckoutContact) => (touched ? errors[k] : undefined);
 
   return (
-    <div className="min-h-screen bg-dream-bg text-dream-ink">
+    <div className="min-h-dvh bg-dream-bg text-dream-ink">
       <SiteNav />
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-20 pt-8 sm:px-6">
@@ -153,7 +153,7 @@ export function CheckoutClient({
             >
               {busy ? "Saving…" : "Continue to shipping options"}
             </button>
-            <p className="mt-3 text-xs text-dream-faint">{footnote}</p>
+            <p className="mt-3 text-[14px] text-dream-faint">{footnote}</p>
           </div>
 
           {/* Right, order summary (sticky, Stripe-style) */}
@@ -189,7 +189,7 @@ export function CheckoutHeader({
           <li key={s} className="flex items-center gap-2">
             <span
               className={cn(
-                "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                "flex h-6 w-6 items-center justify-center rounded-full text-[14px] font-bold",
                 i <= current ? "bg-dream-purple text-white" : "bg-dream-line text-dream-muted"
               )}
             >

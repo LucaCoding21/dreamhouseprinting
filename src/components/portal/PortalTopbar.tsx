@@ -4,7 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { signOutAction } from "@/app/login/actions";
 import { PORTAL_NAV, isNavActive } from "./nav";
+import { IconSignOut } from "./icons";
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -25,11 +27,21 @@ export function PortalTopbar({ name }: { name: string }) {
 
         <div className="ml-auto flex items-center gap-3">
           <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-dream-purple text-xs font-bold text-white"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-dream-purple text-[14px] font-bold text-white"
             title={name}
           >
             {initialsOf(name)}
           </span>
+          {/* Mobile sign-out (desktop has it in the sidebar) */}
+          <form action={signOutAction} className="lg:hidden">
+            <button
+              aria-label="Sign out"
+              title="Sign out"
+              className="grid h-9 w-9 place-items-center rounded-full border border-dream-line bg-white text-dream-ink-soft transition-colors hover:text-dream-ink"
+            >
+              <IconSignOut className="h-4 w-4" />
+            </button>
+          </form>
         </div>
       </div>
 

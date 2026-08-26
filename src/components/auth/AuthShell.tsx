@@ -15,7 +15,7 @@ export function AuthShell({
   footer?: React.ReactNode;
 }) {
   return (
-    <main className="relative isolate h-dvh overflow-hidden bg-gradient-to-b from-dream-lavender-mist via-dream-cream to-dream-lavender-soft flex flex-col items-center justify-center px-4 pt-12 pb-56">
+    <main className="relative isolate min-h-dvh overflow-x-clip overflow-y-clip bg-gradient-to-b from-dream-lavender-mist via-dream-cream to-dream-lavender-soft flex flex-col items-center justify-center px-4 pt-8 pb-40 sm:pt-12 sm:pb-56">
       {/* --- Layered cloud horizon (behind everything, non-interactive).
           Stacking order follows the file names: back < mid < front. --- */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 select-none">
@@ -52,14 +52,16 @@ export function AuthShell({
       />
 
       {/* --- Brand mark --- */}
-      <Link href="/" className="mb-8 flex items-center">
+      <Link href="/" className="mb-6 flex items-center sm:mb-8">
+        {/* The stacked mark, not the wide lockup: this sits centred above a
+            narrow card, where a ~3.2:1 lockup would run past the card's width. */}
         <Image
-          src="/dreamhouse-logo-nav.svg"
+          src="/dreamhouse-logo-mark-v2.svg"
           alt="Dreamhouse Printing"
-          width={457}
-          height={298}
+          width={498}
+          height={508}
           priority
-          className="h-24 w-auto"
+          className="h-16 w-auto sm:h-24"
         />
       </Link>
 
@@ -80,7 +82,7 @@ export function AuthShell({
           />
         </svg>
 
-        <div className="relative rounded-[28px] border-[3px] border-dream-ink bg-dream-surface p-8 shadow-[0_8px_0_0_rgba(27,20,88,0.9)]">
+        <div className="relative rounded-[28px] border-[3px] border-dream-ink bg-dream-surface p-6 shadow-[0_8px_0_0_rgba(27,20,88,0.9)] sm:p-8">
           <h1 className="font-display text-3xl font-bold text-dream-ink">{title}</h1>
           {subtitle && <p className="mt-1.5 text-sm text-dream-muted">{subtitle}</p>}
           <div className="mt-6">{children}</div>

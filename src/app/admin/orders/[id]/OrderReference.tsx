@@ -182,7 +182,7 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
           Julian can set (or clear) the real commitment; picking a date saves
           immediately. */}
       <Card>
-        <CardContent className="grid grid-cols-3 gap-3 p-4">
+        <CardContent className="grid grid-cols-1 gap-3 p-4 min-[420px]:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
           <div>
             <div className={LBL}>In hands</div>
             {can.edit ? (

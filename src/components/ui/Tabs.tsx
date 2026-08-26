@@ -79,7 +79,7 @@ export function TabsList({ className, children, ...props }: TabsListProps) {
       role="tablist"
       onKeyDown={onKeyDown}
       className={cn(
-        "inline-flex items-center gap-1 border-b border-dream-line",
+        "flex flex-wrap items-center gap-1 border-b border-dream-line",
         className,
       )}
       {...props}

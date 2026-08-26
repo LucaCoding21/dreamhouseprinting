@@ -123,8 +123,8 @@ export function RushDatePicker({
               )}
             >
               <span className="shrink-0 text-dream-purple [&>svg]:h-3.5 [&>svg]:w-3.5">{s.icon}</span>
-              <span className="text-xs font-semibold text-dream-ink">{s.label}</span>
-              <span className="text-[11px] text-dream-faint">{shortDow(s.date)}</span>
+              <span className="text-[14px] font-semibold text-dream-ink">{s.label}</span>
+              <span className="text-[14px] text-dream-faint">{shortDow(s.date)}</span>
             </button>
           );
         })}
@@ -157,7 +157,7 @@ export function RushDatePicker({
 
         <div className="grid grid-cols-7 gap-y-0.5">
           {WEEKDAYS.map((w) => (
-            <div key={w} className="pb-1 text-center text-[10px] font-semibold text-dream-faint">
+            <div key={w} className="pb-1 text-center text-[14px] font-semibold text-dream-faint">
               {w}
             </div>
           ))}
@@ -174,7 +174,7 @@ export function RushDatePicker({
                 onClick={() => pick(d)}
                 aria-pressed={!!isSelected}
                 className={cn(
-                  "mx-auto flex h-8 w-8 items-center justify-center rounded-md text-xs transition-colors",
+                  "mx-auto flex h-8 w-8 items-center justify-center rounded-md text-[14px] transition-colors",
                   isPast && "cursor-not-allowed text-dream-line-strong",
                   !isPast && !isSelected && "text-dream-ink hover:bg-white",
                   isSelected && "bg-dream-purple font-bold text-white",
@@ -191,7 +191,7 @@ export function RushDatePicker({
       {/* Confirmation of the chosen day, spelled out in full so there is no
           ambiguity about which date a highlighted cell means. */}
       {selected && (
-        <p className="mt-2 border-t border-dream-line pt-2 text-xs font-semibold text-dream-ink">
+        <p className="mt-2 border-t border-dream-line pt-2 text-[14px] font-semibold text-dream-ink">
           <span className="text-dream-muted">Need it by </span>
           {fmtLong(selected)}
         </p>

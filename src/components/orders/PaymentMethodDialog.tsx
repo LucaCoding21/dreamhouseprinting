@@ -156,7 +156,7 @@ export function PaymentMethodDialog({
             </DialogHeader>
             <div className="space-y-3 p-5 pt-2">
               <div className="rounded-xl bg-dream-sun-soft/60 px-4 py-3">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-ink-soft">Amount to send</div>
+                <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink-soft">Amount to send</div>
                 <div className="font-display text-2xl font-bold text-dream-ink">{formatCAD(amountDue)}</div>
               </div>
 
@@ -217,14 +217,14 @@ function CopyRow({ label, value, hint }: { label: string; value: string; hint?: 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-dream-line bg-dream-bg px-4 py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">{label}</div>
-        <div className="truncate font-medium text-dream-ink">{value}</div>
-        {hint && <div className="text-xs text-dream-faint">{hint}</div>}
+        <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-muted">{label}</div>
+        <div className="break-all font-medium text-dream-ink">{value}</div>
+        {hint && <div className="text-[14px] text-dream-faint">{hint}</div>}
       </div>
       <button
         type="button"
         onClick={copy}
-        className="shrink-0 rounded-lg border border-dream-line bg-white px-3 py-1.5 text-xs font-semibold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple"
+        className="shrink-0 rounded-lg border border-dream-line bg-white px-3 py-1.5 text-[14px] font-semibold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple"
       >
         {copied ? "Copied!" : "Copy"}
       </button>

@@ -78,10 +78,18 @@ export default async function ProductDetailPage({
     (c) => c.id === product.category_id || c.id === product.subcategory_id,
   );
 
+  // One fetch feeds both the "Next" link and "You might also like".
+  const listing = await getActiveProducts({ sort: "featured" });
+
+  // "Next" walks the listing order and wraps at the end. It used to be
+  // related[0], i.e. the first featured product every time, so it bounced
+  // between the same two items no matter where you started.
+  const here = listing.findIndex((p) => p.id === product.id);
+  const nextProduct =
+    listing.length > 1 && here >= 0 ? listing[(here + 1) % listing.length] : null;
+
   // "You might also like", other active products, current one removed.
-  const related = (await getActiveProducts({ sort: "featured", limit: 6 }))
-    .filter((p) => p.id !== product.id)
-    .slice(0, 5);
+  const related = listing.filter((p) => p.id !== product.id).slice(0, 5);
 
   const quoteCurve =
     ((product.pricing_rules as { quote?: ProductQuoteCurveJson } | null)?.quote ??
@@ -119,6 +127,19 @@ export default async function ProductDetailPage({
         ? `/shop?category=${cat.slug}`
         : "/shop";
 
+  // Name the destination: "Back to Shirts" tells you where the link lands, and
+  // it is the listing you actually came from. Only when the URL carries a
+  // category, though: a search or the full catalogue has no honest short name,
+  // so those stay "Back to shop".
+  const backCategorySlug =
+    from && from.startsWith("/shop")
+      ? new URLSearchParams(from.split("?")[1] ?? "").get("category")
+      : (cat?.slug ?? null);
+  const backCategory = backCategorySlug
+    ? categories.find((c) => c.slug === backCategorySlug)
+    : null;
+  const backLabel = backCategory ? `Back to ${backCategory.name}` : "Back to shop";
+
   return (
     <main className="mx-auto max-w-[94rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
       {/* Staff-only draft preview marker. A fixed overlay so the page itself
@@ -130,7 +151,7 @@ export default async function ProductDetailPage({
             <span>Draft preview. Customers can&apos;t see this page yet.</span>
             <Link
               href={`/admin/products/${product.id}`}
-              className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors hover:bg-white/25"
+              className="rounded-full bg-white/15 px-3 py-1 text-[14px] font-semibold whitespace-nowrap transition-colors hover:bg-white/25"
             >
               Back to editor
             </Link>
@@ -138,19 +159,42 @@ export default async function ProductDetailPage({
         </div>
       )}
 
-      {/* Back to shop */}
-      <Link
-        href={backHref}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-dream-ink transition-colors hover:text-dream-purple"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-          <path d="m15 18-6-6 6-6" />
-        </svg>
-        Back to shop
-      </Link>
+      {/* Back to shop (left) + Next product (right) */}
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <Link
+          href={backHref}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-dream-muted transition-colors hover:text-dream-purple"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          {backLabel}
+        </Link>
+        {/* Phones only: on desktop the "You might also like" grid at the foot of
+            the page already does this job, and better (it shows what you're
+            moving to). On a phone that grid is a long scroll away. */}
+        {nextProduct && (
+          <Link
+            href={
+              from
+                ? `/shop/${nextProduct.id}?from=${encodeURIComponent(from)}`
+                : `/shop/${nextProduct.id}`
+            }
+            className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-dream-muted transition-colors hover:text-dream-purple lg:hidden"
+            title={nextProduct.name}
+          >
+            <span className="truncate">
+              Next: {nextProduct.name}
+            </span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </Link>
+        )}
+      </div>
 
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-10 text-sm text-dream-muted">
+      <nav aria-label="Breadcrumb" className="mb-5 text-sm text-dream-muted sm:mb-10">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link href="/" className="hover:text-dream-ink">
@@ -211,9 +255,9 @@ export default async function ProductDetailPage({
 
       {/* You might also like */}
       {related.length > 0 && (
-        <section className="mt-24">
+        <section className="mt-10 sm:mt-24">
           <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="font-display text-3xl font-bold text-dream-ink">
+            <h2 className="font-display text-[22px] font-bold text-dream-ink sm:text-3xl">
               You might also like
             </h2>
             <Link

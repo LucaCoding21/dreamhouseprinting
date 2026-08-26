@@ -284,10 +284,40 @@ body {
   .home-hero-title {
     font-size: clamp(22px, calc(2.3svh + 9px), 30px);
   }
+  /* The copy block pulls up under the hero photo via -mt-[84px], normally
+     offset by the title's pt-14 (56px) for a net -28px tuck. The clamp above
+     collapses that padding on short viewports, so shrink the pull by the same
+     amount: net stays -28px (headline sits ~20px below the photo's mb-12)
+     instead of climbing onto the photo at 320x568 / 375x667. */
+  .home-hero-copy {
+    margin-top: calc(-28px - clamp(4px, 13.7svh - 71px, 56px));
+  }
+  /* Narrow AND short (iPhone SE, 375x667): the stacked hero needs ~700px to
+     lay out, so the photo shrinks harder here than the >=640px rule allows.
+     This is what keeps "Get a quick quote" above the fold. */
+  .home-hero-media {
+    max-width: clamp(170px, calc(58svh - 165px), 420px);
+  }
+  /* 4 lines of relaxed sub copy is ~104px; tightening the leading buys a line
+     back without dropping the type size. */
+  .home-hero-sub {
+    line-height: 1.45;
+  }
 }
 @media (max-height: 900px) and (min-width: 640px) and (max-width: 1023px) {
   .home-hero-title {
     font-size: clamp(26px, calc(4svh + 4px), 40px);
+  }
+}
+
+/* Phones: the headline is long, and the section's 24px side padding leaves it
+   a narrow measure that breaks into short, ragged lines (iPhone SE). Reclaim
+   part of that padding for the title ONLY, so it reads wider and fuller while
+   the body copy below keeps the roomier margin. Width-only (not height-gated)
+   so it holds on tall narrow phones too. */
+@media (max-width: 639px) {
+  .home-hero-title {
+    margin-inline: -6px;
   }
 }
 
@@ -339,7 +369,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 28px;
+  border-radius: 18px;
   background: #ffffff;
   z-index: -1;
   filter: url("#rough-card-edges");
@@ -484,10 +514,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   block-size: 0;
   overflow: clip;
   opacity: 0;
+  /* Every property runs on the SAME clock. The fade used to finish 100ms before
+     the height did, so a closing answer went invisible while its box was still
+     shrinking, and the card visibly dropped the last stretch on its own, the
+     "bump" you get when opening another question collapses this one. */
   transition:
-    content-visibility 0.35s allow-discrete,
-    block-size 0.35s ease,
-    opacity 0.25s ease;
+    content-visibility 0.3s allow-discrete,
+    block-size 0.3s cubic-bezier(0.33, 1, 0.68, 1),
+    opacity 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 }
 .faq-accordion[open]::details-content {
   block-size: auto;

@@ -109,16 +109,17 @@ export function AdminTopBar({
 
   return (
     <header className="z-30 shrink-0 bg-dream-ink text-white">
-      <div className="flex h-14 items-center gap-4 px-4">
+      <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-2 md:h-14 md:flex-nowrap md:pt-0">
         {/* Brand, back to the admin home */}
         <Link href="/admin" className="flex shrink-0 items-baseline gap-2 rounded-lg px-1 py-1">
           <span className="font-display text-[15px] font-bold leading-none">Dreamhouse</span>
           <span className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Admin</span>
         </Link>
 
-        {/* Links. Scrolls sideways on narrow screens rather than wrapping, so
-            the bar keeps its fixed height. */}
-        <nav className="no-scrollbar -mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
+        {/* Links. Below md the nav drops to its own full-width row and scrolls
+            sideways; from md up it sits inline and the bar keeps its fixed
+            height. */}
+        <nav className="no-scrollbar -mx-1 order-last flex w-full basis-full items-center gap-1 overflow-x-auto px-1 pb-1.5 md:order-none md:min-w-0 md:flex-1 md:basis-auto md:pb-0">
           {items.map((item) => {
             const active =
               item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
@@ -158,7 +159,7 @@ export function AdminTopBar({
           target="_blank"
           rel="noopener"
           title="View the shop in a new tab"
-          className="flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          className="ml-auto flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white md:ml-0"
         >
           <svg
             viewBox="0 0 24 24"

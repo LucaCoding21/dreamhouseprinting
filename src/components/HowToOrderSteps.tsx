@@ -84,11 +84,11 @@ export default function HowToOrderSteps() {
   return (
     <section
       id="how-it-works"
-      className="mx-auto max-w-[1880px] px-6 pb-32 pt-32 lg:px-10 lg:pb-40 lg:pt-48"
+      className="mx-auto max-w-[1880px] px-6 pb-20 pt-16 sm:pb-32 sm:pt-32 lg:px-10 lg:pb-40 lg:pt-48"
     >
       <Reveal variant="up">
         <div className="mx-auto max-w-[640px] text-center">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink lg:text-[46px]">
+          <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
             How it works
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
@@ -107,20 +107,26 @@ export default function HowToOrderSteps() {
             <div
               key={step.n}
               onClick={() => setFrontN(step.n)}
-              className={`relative w-[290px] shrink-0 [transform:none] lg:w-[410px] lg:[transform:rotate(var(--r))_translateY(var(--ty))] ${
+              // z-index applies from lg ONLY: it exists to order the fanned,
+              // overlapping deck. Below lg the cards are a plain vertical
+              // stack that never overlaps, and an always-on inline z-index
+              // outranked the mobile menu sheet (z-40), so a tapped card
+              // rendered on top of the open menu. The raised value stays under
+              // the nav's z-50 so a card can't cover the header either.
+              className={`relative w-full max-w-full shrink-0 [transform:none] sm:w-[290px] lg:z-[var(--z)] lg:w-[410px] lg:[transform:rotate(var(--r))_translateY(var(--ty))] ${
                 i === 0 ? "" : "lg:-ml-8"
               }`}
               style={
                 {
                   "--r": step.rotate,
                   "--ty": step.shift,
-                  zIndex: frontN === step.n ? 60 : step.z,
+                  "--z": frontN === step.n ? 45 : step.z,
                 } as CSSProperties
               }
             >
               <Reveal variant="pop" delay={i * 130}>
               <div
-                className={`relative flex min-h-[360px] cursor-pointer flex-col items-center rounded-[28px] px-8 pb-10 pt-9 text-center shadow-[7px_7px_0_0_rgba(27,20,88,0.9)] transition-[transform,box-shadow] duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-[3px_3px_0_0_rgba(27,20,88,0.9)] ${step.cardClass}`}
+                className={`relative flex min-h-0 cursor-pointer flex-col items-center rounded-[28px] px-6 pb-6 pt-6 text-center sm:min-h-[360px] sm:px-8 sm:pb-10 sm:pt-9 shadow-[7px_7px_0_0_rgba(27,20,88,0.9)] transition-[transform,box-shadow] duration-100 active:translate-x-[4px] active:translate-y-[4px] active:shadow-[3px_3px_0_0_rgba(27,20,88,0.9)] ${step.cardClass}`}
               >
                 {/* Carved step numeral, bleeds off the bottom-left corner. It
                     lives in its own clip layer so only the numeral is clipped to
@@ -130,7 +136,7 @@ export default function HowToOrderSteps() {
                   className="pointer-events-none absolute inset-0 overflow-hidden rounded-[28px]"
                 >
                   <span
-                    className={`absolute -bottom-8 left-1 select-none font-daruma text-[210px] leading-none ${step.carvedClass}`}
+                    className={`absolute -bottom-6 left-1 select-none font-daruma text-[150px] leading-none sm:-bottom-8 sm:text-[210px] ${step.carvedClass}`}
                   >
                     {step.n}
                   </span>
@@ -139,7 +145,7 @@ export default function HowToOrderSteps() {
                 {/* Content sits above the carved numeral, centred. */}
                 <div className="relative z-10 flex flex-1 flex-col items-center">
                   {/* Title, the dominant element. */}
-                  <h3 className={`font-daruma text-[38px] leading-[0.95] tracking-tight lg:whitespace-nowrap lg:text-[27px] ${step.titleClass}`}>
+                  <h3 className={`font-daruma text-[34px] leading-[0.95] tracking-tight sm:text-[38px] lg:whitespace-nowrap lg:text-[27px] ${step.titleClass}`}>
                     {step.title}
                   </h3>
 
@@ -151,13 +157,13 @@ export default function HowToOrderSteps() {
                     stroke="currentColor"
                     strokeWidth="2.5"
                     strokeLinecap="round"
-                    className={`mt-5 h-3 w-[88px] ${step.ruleClass}`}
+                    className={`mt-4 h-3 w-[88px] sm:mt-5 ${step.ruleClass}`}
                   >
                     <path d="M2 7 Q 12.5 1, 23 7 T 44 7 T 65 7 T 86 7" />
                   </svg>
 
                   {/* Supporting detail, one clean descriptive line. */}
-                  <p className={`mt-5 max-w-[290px] text-[16px] font-medium leading-[1.65] ${step.bulletClass}`}>
+                  <p className={`mt-4 max-w-full text-[16px] font-medium leading-[1.65] sm:mt-5 sm:max-w-[290px] ${step.bulletClass}`}>
                     {step.blurb}
                   </p>
                 </div>

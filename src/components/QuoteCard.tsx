@@ -495,7 +495,9 @@ export default function QuoteCard() {
 
   return (
     <section className="bg-dream-cream">
-      <div className="mx-auto max-w-[960px] px-6 py-14 lg:px-10 lg:py-20">
+      {/* Slim outer gutter on phones so the card itself gets the width; the
+          card keeps its own px-5 inside, so content never touches the edge. */}
+      <div className="mx-auto max-w-[960px] px-3 py-14 sm:px-6 lg:max-w-[1080px] lg:px-10 lg:py-20">
         <div
           id="quick-quote"
           ref={cardRef}
@@ -592,7 +594,7 @@ export default function QuoteCard() {
                 </div>
               )}
 
-              <p className="mt-6 text-center text-xs text-dream-ink-soft">
+              <p className="mt-6 text-center text-[14px] text-dream-ink-soft">
                 Have a quote from{" "}
                 <span className="font-semibold text-dream-ink">Get Bold</span> or{" "}
                 <span className="font-semibold text-dream-ink">Coastal Reign</span>?
@@ -609,21 +611,21 @@ export default function QuoteCard() {
                   <div className="min-w-0">
                     {formPerUnit > 0 ? (
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-dream-ink/60">
+                        <span className="text-[14px] font-semibold uppercase tracking-[0.1em] text-dream-ink/60">
                           est.
                         </span>
                         <AnimatedPrice
                           value={formPerUnit}
                           className="font-display text-2xl font-bold leading-none text-dream-ink tabular-nums sm:text-3xl"
                         />
-                        <span className="text-xs font-semibold text-dream-ink/70">/ item</span>
+                        <span className="text-[14px] font-semibold text-dream-ink/70">/ item</span>
                       </div>
                     ) : (
                       <span className="font-display text-base font-bold text-dream-ink">
                         Custom quote
                       </span>
                     )}
-                    <div className="mt-0.5 truncate text-[11px] font-semibold text-dream-ink/65">
+                    <div className="mt-0.5 truncate text-[14px] font-semibold text-dream-ink/65">
                       {formPerUnit > 0 && effectiveQty > 0
                         ? `≈ $${(roundDisplayPrice(formPerUnit) * effectiveQty).toLocaleString()} total · `
                         : ""}
@@ -722,20 +724,32 @@ function Calculator({
   };
   const productLabel =
     CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Item";
+  // Step numbers are assigned in render order and skip sections that don't
+  // apply to this product ("Other" hides Decoration and Prints), so the
+  // sequence the customer sees is always 1, 2, 3, … with no gaps.
+  const showDecoration = !isContact && availableDecos.length > 1;
+  const showPrints = !isContact;
+  let stepNo = 0;
+  const productStep = ++stepNo;
+  const decorationStep = showDecoration ? ++stepNo : 0;
+  const printsStep = showPrints ? ++stepNo : 0;
+  const quantityStep = ++stepNo;
   return (
     <>
       <div className="text-center">
         <h2 className="font-display text-3xl font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-4xl">
           Get A Quick Quote
         </h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px]">
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px] lg:max-w-2xl">
           Pick your product, colors and quantity. Your estimate updates as you go.
         </p>
       </div>
 
       <div className="mt-10 grid gap-10 md:grid-cols-[1.3fr_1fr] md:items-center md:gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
-        <div className="flex flex-col gap-5">
-          <PillField label="Product Type">
+        {/* gap-8: each numbered step needs to read as its own block, at gap-5
+            the whole calculator ran together as one dense list. */}
+        <div className="flex flex-col gap-5 sm:gap-8">
+          <PillField label="Product Type" step={productStep}>
             {CALC_PRODUCTS.map((opt) => (
               <PillButton
                 key={opt.value}
@@ -748,7 +762,7 @@ function Calculator({
           </PillField>
 
           {!isContact && availableDecos.length > 1 && (
-            <PillField label="Decoration">
+            <PillField label="Decoration" step={decorationStep}>
               {availableDecos.map((d) => (
                 <PillButton
                   key={d}
@@ -768,12 +782,13 @@ function Calculator({
               lines={lines}
               decoration={decoration}
               productLabel={productLabel}
+              step={printsStep}
             />
           )}
 
           <div>
-            <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">
-              Quantity
+            <div className="mb-3">
+              <StepLabel n={quantityStep}>Quantity</StepLabel>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
@@ -788,9 +803,10 @@ function Calculator({
                   {n}
                 </PillButton>
               ))}
-              {/* Custom quantity lives in the same wrap group as the presets so
-                  it reads as one more choice instead of a separate field.
-                  Typing here takes over from the pills; picking a pill again
+              {/* Custom quantity stays in the same wrap group as the presets,
+                  but is a rounded BOX, not a pill: "Custom" in a pill read as
+                  one more thing to tap, so it wasn't obvious you type here.
+                  Typing takes over from the pills; picking a pill again
                   clears it (value is only bound while useCustomQty is on). */}
               <input
                 type="number"
@@ -801,12 +817,12 @@ function Calculator({
                   setUseCustomQty(true);
                   setQuantity(e.target.value);
                 }}
-                placeholder="Custom"
+                placeholder="e.g. 75"
                 aria-label="Custom quantity"
-                className={`w-[104px] rounded-full border bg-white px-4 py-2 font-display text-[13px] font-semibold text-dream-ink transition placeholder:text-dream-ink/45 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+                className={`w-[128px] rounded-lg border bg-white px-3.5 py-2 font-display text-[14px] font-semibold text-dream-ink transition placeholder:font-medium placeholder:text-dream-ink/50 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
                   useCustomQty
                     ? "border-dream-purple ring-1 ring-dream-purple"
-                    : "border-dream-ink/15 hover:border-dream-ink/40"
+                    : "border-dream-ink/25 hover:border-dream-ink/45"
                 }`}
               />
             </div>
@@ -827,10 +843,35 @@ function Calculator({
   );
 }
 
-function PillField({ label, children }: { label: string; children: React.ReactNode }) {
+/** Section label with a step number, so the calculator reads as a sequence.
+ *  Numbers are passed in (not hardcoded) because Decoration and Prints only
+ *  appear for some products, and the count has to stay unbroken. */
+function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <span className="font-display text-[14px] font-bold text-dream-ink">
+      <span className="text-dream-ink/45">{n}.</span> {children}
+    </span>
+  );
+}
+
+function PillField({
+  label,
+  step,
+  children,
+}: {
+  label: string;
+  step?: number;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">{label}</div>
+      <div className="mb-3">
+        {step ? (
+          <StepLabel n={step}>{label}</StepLabel>
+        ) : (
+          <span className="font-display text-[14px] font-bold text-dream-ink">{label}</span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -864,6 +905,7 @@ function PrintsEditor({
   productLabel,
   strong = false,
   error,
+  step,
 }: {
   prints: PrintSpec[];
   setPrints: (p: PrintSpec[]) => void;
@@ -872,6 +914,8 @@ function PrintsEditor({
   productLabel: string;
   strong?: boolean;
   error?: string;
+  /** Step number shown beside the "Prints" heading in the calculator. */
+  step?: number;
 }) {
   const colourLabel = decoration === "embroidery" ? "Thread colors" : "Ink colors";
   const colourNoun = decoration === "embroidery" ? "thread colors" : "colors";
@@ -885,85 +929,119 @@ function PrintsEditor({
 
   return (
     <div>
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <span
-          className={
-            strong
-              ? "text-sm font-semibold text-dream-ink"
-              : "font-display text-[13px] font-bold text-dream-ink"
-          }
-        >
-          Prints
-        </span>
-        <span className="text-[11px] text-dream-ink/55">
+      {/* Hint drops under the label on phones; side by side it squeezed both. */}
+      <div className="mb-3 flex flex-col gap-y-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-3 sm:gap-y-1">
+        {step ? (
+          <StepLabel n={step}>Prints</StepLabel>
+        ) : (
+          <span
+            className={
+              strong
+                ? "text-sm font-semibold text-dream-ink"
+                : "font-display text-[14px] font-bold text-dream-ink"
+            }
+          >
+            Prints
+          </span>
+        )}
+        <span className="text-[14px] text-dream-ink/70">
           One row per print, each with its own colors
         </span>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         {prints.map((print, i) => {
           const line = lines[i];
           return (
             <div
               key={i}
-              className={`rounded-2xl border-2 bg-white px-3 py-3 ${
-                strong ? "border-dream-ink/80" : "border-dream-ink/15"
+              className={`rounded-2xl bg-white p-4 ${
+                strong ? "border-[1.5px] border-dream-ink/80" : "border border-dream-ink/15"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-dream-purple font-display text-[11px] font-bold text-white">
-                  {i + 1}
+              {/* Caption + full-width field, matching the "Ink colors" block
+                  below. The old purple numbered circle read as a colour count:
+                  it was the same pill as the 1-5+ chips a few lines down, so
+                  two different meanings shared one visual. */}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[14px] font-semibold text-dream-ink/55">
+                  Print {i + 1}
                 </span>
-                <select
-                  value={print.location}
-                  onChange={(e) =>
-                    setAt(i, { location: e.target.value as PrintLocation })
-                  }
-                  aria-label={`Print ${i + 1} location`}
-                  className="min-w-0 flex-1 rounded-full border border-dream-ink/20 bg-dream-cream px-3 py-2 font-display text-[13px] font-semibold text-dream-ink outline-none transition focus:border-dream-purple"
-                >
-                  {PRINT_LOCATIONS.map((loc) => (
-                    <option
-                      key={loc.value}
-                      value={loc.value}
-                      disabled={loc.value !== print.location && used.includes(loc.value)}
-                    >
-                      {loc.label}
-                    </option>
-                  ))}
-                </select>
                 {prints.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeAt(i)}
                     aria-label={`Remove print ${i + 1}`}
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dream-ink/20 bg-white text-dream-ink/60 transition hover:border-dream-ink/50 hover:text-dream-ink"
+                    className="text-[14px] font-semibold text-dream-ink/45 transition hover:text-dream-danger"
                   >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                      <path d="M6 6l12 12M18 6L6 18" />
-                    </svg>
+                    Remove
                   </button>
                 )}
               </div>
+              <div className="mt-2">
+                {/* globals.css sets appearance:none on every select (iOS), so
+                    the native arrow is gone; overlay a chevron the way
+                    components/ui/Select does or this reads as a plain pill. */}
+                <div className="relative">
+                  <select
+                    value={print.location}
+                    onChange={(e) =>
+                      setAt(i, { location: e.target.value as PrintLocation })
+                    }
+                    aria-label={`Print ${i + 1} location`}
+                    className="w-full appearance-none rounded-lg border border-dream-ink/20 bg-dream-cream py-2.5 pl-3 pr-9 font-display text-[14px] font-semibold text-dream-ink outline-none transition focus:border-dream-purple"
+                  >
+                    {PRINT_LOCATIONS.map((loc) => (
+                      <option
+                        key={loc.value}
+                        value={loc.value}
+                        disabled={loc.value !== print.location && used.includes(loc.value)}
+                      >
+                        {loc.label}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dream-ink/55"
+                  >
+                    <path
+                      d="M6 8l4 4 4-4"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-dream-ink/55">
+              {/* Label on its own line so the whole chip set stays together on
+                  one row; inline, the label ate enough width to orphan "5+". */}
+              <div className="mt-4">
+                {/* Sentence case, no letter-spacing: matches the numbered step
+                    labels above instead of shouting in stretched caps. */}
+                <span className="block text-[14px] font-semibold text-dream-ink/55">
                   {colourLabel}
                 </span>
-                {PRINT_COLOR_CHOICES.map((n) => (
-                  <PillButton
-                    key={n}
-                    compact
-                    active={print.colors === n}
-                    onClick={() => setAt(i, { colors: n })}
-                  >
-                    {printColorLabel(n)}
-                  </PillButton>
-                ))}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {PRINT_COLOR_CHOICES.map((n) => (
+                    <PillButton
+                      key={n}
+                      compact
+                      active={print.colors === n}
+                      onClick={() => setAt(i, { colors: n })}
+                    >
+                      {printColorLabel(n)}
+                    </PillButton>
+                  ))}
+                </div>
               </div>
 
               {line && (
-                <p className="mt-2 text-[11px] font-semibold text-dream-ink/60 tabular-nums">
+                <p className="mt-4 border-t border-dream-ink/10 pt-3 text-[14px] font-semibold text-dream-ink/60 tabular-nums">
                   {printLineText(line, productLabel, colourNoun)}
                 </p>
               )}
@@ -976,7 +1054,7 @@ function PrintsEditor({
         type="button"
         onClick={() => setPrints([...prints, nextPrint(prints)])}
         disabled={!canAdd}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-dashed border-dream-ink/40 bg-white px-4 py-2 font-display text-[13px] font-semibold text-dream-ink transition hover:border-dream-ink/70 disabled:cursor-not-allowed disabled:opacity-45"
+        className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-dashed border-dream-ink/40 bg-white px-4 py-2 font-display text-[14px] font-semibold text-dream-ink transition hover:border-dream-ink/70 disabled:cursor-not-allowed disabled:opacity-45"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
@@ -984,11 +1062,11 @@ function PrintsEditor({
         Add another print
       </button>
       {!canAdd && (
-        <span className="ml-2 text-[11px] text-dream-ink/50">
+        <span className="ml-2 text-[14px] text-dream-ink/50">
           That&apos;s every location we print.
         </span>
       )}
-      {error && <span className="mt-1 block text-xs font-medium text-red-700">{error}</span>}
+      {error && <span className="mt-1 block text-[14px] font-medium text-red-700">{error}</span>}
     </div>
   );
 }
@@ -1040,8 +1118,8 @@ function PriceCard({
 }) {
   if (isContact) {
     return (
-      <div className="mt-1 rounded-2xl bg-dream-sun px-6 py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
-        <div className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-dream-ink/65">
+      <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
+        <div className="font-display text-[14px] font-bold text-dream-ink/70">
           Custom item
         </div>
         <div className="mt-2 text-sm leading-relaxed text-dream-ink/70">
@@ -1060,14 +1138,20 @@ function PriceCard({
 
   const hasQty = quantity > 0;
   return (
-    <div className="mt-1 rounded-2xl bg-dream-sun px-6 py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
-      <div className="flex items-center justify-between">
-        <span className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-dream-ink/65">
+    <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
+      {/* Caption sits above the label, and both are sentence case with no
+          letter-spacing: uppercase + 0.12em tracking made "Estimated price"
+          wrap to two lines on a 375px phone. */}
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[14px] text-dream-ink/55">Final quote may vary</span>
+        <span className="font-display text-[15px] font-bold text-dream-ink/70">
           Estimated price
         </span>
-        <span className="text-[11px] text-dream-ink/55">Final quote may vary</span>
       </div>
-      <div className="mt-3 flex items-baseline gap-2">
+      {/* Price stack sits flush right on phones, where the card is full width
+          and a left-aligned figure left a lot of dead space; desktop keeps the
+          original left alignment. */}
+      <div className="mt-5 flex items-baseline justify-end gap-2 sm:justify-start">
         <div className="font-display text-5xl font-bold leading-none text-black sm:text-6xl tabular-nums">
           {hasQty ? <AnimatedPrice value={perUnit} /> : "-"}
         </div>
@@ -1076,19 +1160,19 @@ function PriceCard({
         </div>
       </div>
       {hasQty && (
-        <div className="mt-1.5 text-sm font-semibold text-dream-ink/70 tabular-nums">
+        <div className="mt-1.5 text-right text-sm font-semibold text-dream-ink/70 tabular-nums sm:text-left">
           ≈ ${(roundDisplayPrice(perUnit) * quantity).toLocaleString()} total
-          <span className="font-normal text-dream-ink/50"> for {quantity} pieces</span>
+          <span className="font-medium text-dream-ink/70"> for {quantity} pieces</span>
         </div>
       )}
       {hasQty && printCount > 0 && (
-        <div className="mt-1 text-[11px] font-medium text-dream-ink/55 tabular-nums">
+        <div className="mt-1 text-right text-[14px] font-medium text-dream-ink/55 tabular-nums sm:text-left">
           {printCount > 1 ? `${printCount} prints adding up to ` : ""}$
           {perUnit.toFixed(2)} / item before rounding
         </div>
       )}
       {!hasQty && (
-        <div className="mt-2 text-xs text-dream-ink/55">Enter a quantity to see your price</div>
+        <div className="mt-2 text-[14px] text-dream-ink/55">Enter a quantity to see your price</div>
       )}
       {hasQty && (
         <button
@@ -1108,13 +1192,15 @@ function PriceCard({
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
     <div className="mt-6">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-dream-ink-soft">
+      <div className="flex items-center justify-between text-[14px] font-semibold uppercase tracking-wider text-dream-ink-soft">
         <span>
           Step {step + 1} of {total}
         </span>
         <span>{Math.round(((step + 1) / total) * 100)}%</span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/50">
+      {/* The empty part of the track was white/50 on a near-white card, so the
+          bar looked like it floated with no length to fill. */}
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-dream-lavender-soft">
         <div
           className="h-full rounded-full bg-dream-purple transition-all duration-300 ease-out"
           style={{ width: `${((step + 1) / total) * 100}%` }}
@@ -1163,14 +1249,14 @@ function Field({
       <span className="mb-1.5 block text-sm font-semibold text-dream-ink">{label}</span>
       {children}
       {error && (
-        <span className="mt-1 block text-xs font-medium text-red-700">{error}</span>
+        <span className="mt-1 block text-[14px] font-medium text-red-700">{error}</span>
       )}
     </label>
   );
 }
 
 const inputCls =
-  "w-full rounded-2xl border-2 border-dream-ink/80 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20";
+  "w-full rounded-2xl border-[1.5px] border-dream-ink/80 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20";
 
 function StepProduct({
   data,
@@ -1241,12 +1327,12 @@ function StepProduct({
             placeholder="How many pieces total?"
             className={inputCls}
           />
-          <div className="mt-2 flex items-center justify-between text-xs">
+          <div className="mt-2 flex items-center justify-between text-[14px]">
             <span className="text-dream-ink-soft">Minimum order is 12 pieces.</span>
             <button
               type="button"
               onClick={() => update("sizesLater", false)}
-              className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+              className="font-semibold text-dream-purple underline decoration-dream-purple/55 decoration-[1.5px] underline-offset-4 transition-colors hover:decoration-dream-purple"
             >
               Add size breakdown
             </button>
@@ -1254,7 +1340,7 @@ function StepProduct({
         </Field>
       ) : (
         <Field label="Size breakdown" error={errors.sizes}>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
             {SIZE_KEYS.map((k) => {
               const v = data.sizes[k] ?? "";
               const active = v !== "" && Number(v) > 0;
@@ -1281,7 +1367,7 @@ function StepProduct({
               );
             })}
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
+          <div className="mt-2 flex items-center justify-between text-[14px]">
             <span className="font-semibold text-dream-ink">
               Total:{" "}
               <span className="text-dream-purple">
@@ -1294,7 +1380,7 @@ function StepProduct({
             <button
               type="button"
               onClick={() => update("sizesLater", true)}
-              className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+              className="font-semibold text-dream-purple underline decoration-dream-purple/55 decoration-[1.5px] underline-offset-4 transition-colors hover:decoration-dream-purple"
             >
               I&rsquo;ll give sizes later
             </button>
@@ -1382,7 +1468,7 @@ function StepArtwork({
           </div>
           <div>
             <p className="font-display text-lg font-bold text-dream-ink">Upload Files Here</p>
-            <p className="text-xs text-dream-ink-soft">
+            <p className="text-[14px] text-dream-ink-soft">
               Artwork, mockups, logos, PNG, JPG, PDF, AI, EPS (max 25MB each)
             </p>
           </div>
@@ -1405,12 +1491,12 @@ function StepArtwork({
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-dream-ink">{f.name}</p>
-                  <p className="text-xs text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
+                  <p className="text-[14px] text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
-                  className="text-xs font-semibold text-red-700 hover:underline"
+                  className="text-[14px] font-semibold text-red-700 hover:underline"
                 >
                   Remove
                 </button>
@@ -1570,7 +1656,7 @@ function StepTimeline({
         <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
           Have a quote from another printer?
         </span>
-        <p className="mb-3 text-xs text-dream-ink-soft">
+        <p className="mb-3 text-[14px] text-dream-ink-soft">
           Share it here and Julian will try to beat it (Get Bold, Coastal Reign, etc.)
         </p>
 
@@ -1638,12 +1724,12 @@ function StepTimeline({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-dream-ink">{f.name}</p>
-                      <p className="text-xs text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
+                      <p className="text-[14px] text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => onRemove(i)}
-                      className="text-xs font-semibold text-red-700 hover:underline"
+                      className="text-[14px] font-semibold text-red-700 hover:underline"
                     >
                       Remove
                     </button>
@@ -1675,8 +1761,8 @@ function PillButton({
       onClick={onClick}
       className={`rounded-full font-display font-semibold transition ${
         compact
-          ? "min-w-[34px] px-2.5 py-1 text-[12px]"
-          : "min-w-[44px] px-4 py-2 text-[13px]"
+          ? "min-w-[34px] px-2.5 py-1.5 text-[14px]"
+          : "min-w-[44px] px-4 py-2 text-[14px]"
       } ${
         active
           ? "bg-dream-purple text-white"

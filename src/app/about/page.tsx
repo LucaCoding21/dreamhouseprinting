@@ -51,7 +51,9 @@ function Hero() {
         </div>
 
         <div className="relative flex justify-center pr-2 lg:justify-end lg:pr-6">
-          <div className="relative">
+          {/* w-full + max-w at base so the frame can never outgrow narrow
+              phones; from sm up it goes back to shrink-to-fit fixed widths. */}
+          <div className="relative w-full max-w-[356px] sm:w-auto sm:max-w-none">
             <Image
               src="/sticker3.png"
               alt=""
@@ -62,7 +64,7 @@ function Hero() {
             />
 
             <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2 shadow-[8px_8px_0_0_rgba(27,20,88,1)] sm:p-2.5">
-              <div className="relative aspect-square w-[340px] overflow-hidden rounded-lg sm:w-[450px] lg:w-[560px]">
+              <div className="relative aspect-square w-full overflow-hidden rounded-lg sm:w-[450px] lg:w-[560px]">
                 <Image
                   src="/screen-printing-squeegee-vancouver-shop.png"
                   alt="Dreamhouse screen printer pulling a fresh print at the Vancouver shop"
@@ -89,7 +91,7 @@ function Hero() {
 
 function WhatWeDo() {
   return (
-    <section className="relative bg-dream-cream pb-36 pt-32 lg:pb-48 lg:pt-40">
+    <section className="relative bg-dream-cream pb-16 pt-16 sm:pb-36 sm:pt-32 lg:pb-48 lg:pt-40">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
@@ -102,7 +104,7 @@ function WhatWeDo() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+            <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#e0dffe" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#about-hero-scallop)" />
@@ -113,27 +115,36 @@ function WhatWeDo() {
         className="pointer-events-none absolute right-12 top-40 h-[80px] w-[80px] rotate-12 rounded-[40%_60%_55%_45%/55%_45%_60%_40%] bg-dream-sun-soft"
       />
 
-      <div className="relative mx-auto mt-12 grid max-w-[1560px] items-center justify-center gap-12 px-6 md:px-8 lg:mt-16 lg:grid-cols-[auto_auto] lg:gap-24 lg:px-10">
+      {/* justify-center is lg-only on purpose: it centres the grid TRACK, and a
+          single implicit auto track sizes to its content (the 720px photo
+          block), so on a phone the row grew past the viewport and spilled out
+          both sides. Only the two-column desktop layout wants it. */}
+      <div className="relative mx-auto mt-8 grid max-w-[1560px] items-center gap-7 px-6 sm:mt-12 sm:gap-12 md:px-8 lg:mt-16 lg:grid-cols-[auto_auto] lg:justify-center lg:gap-24 lg:px-10">
         {/* Mobile/tablet: heading sits above the photos. On lg the heading
             moves into the text column on the right (rendered below). */}
         <div className="mx-auto max-w-[560px] text-center lg:hidden">
-          <span className="block font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
+          <span className="block font-display text-[14px] font-bold uppercase tracking-[0.18em] text-dream-purple">
             Our Mission
           </span>
-          <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+          <h2 className="mt-5 font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
             Our{" "}
-            <span className="relative inline-block">
-              story
-              <ScribbleUnderline className="-bottom-1" />
+            <span className="whitespace-nowrap">
+              <span className="relative inline-block">
+                story
+                <ScribbleUnderline className="-bottom-1" />
+              </span>
+              .
             </span>
-            .
           </h2>
         </div>
 
         {/* Two-photo column, asymmetric heights + subtle scroll parallax */}
-        <div className="mx-auto grid w-full max-w-[720px] grid-cols-[0.8fr_1.2fr] items-start gap-4 sm:gap-5">
+        {/* Phones get an even pair at a softer aspect: the 0.8fr/1.2fr split with
+            one photo dropped 40px below the other is a desktop composition, and
+            at phone width it read as two mismatched slivers. */}
+        <div className="mx-auto grid w-full max-w-[720px] grid-cols-2 items-start gap-3 sm:grid-cols-[0.8fr_1.2fr] sm:gap-5">
           <ParallaxScroll speed={0.02}>
-            <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
+            <div className="aspect-[4/5] overflow-hidden rounded-[8px] ring-1 ring-dream-ink/10 sm:aspect-[3/5]">
               <Image
                 src="/screen-printed-graphic-tshirts-vancouver.png"
                 alt=""
@@ -144,8 +155,8 @@ function WhatWeDo() {
               />
             </div>
           </ParallaxScroll>
-          <ParallaxScroll speed={0.05} className="mt-10 sm:mt-14">
-            <div className="aspect-[3/5] overflow-hidden rounded-[16px] ring-1 ring-dream-ink/10">
+          <ParallaxScroll speed={0.05} className="sm:mt-14">
+            <div className="aspect-[4/5] overflow-hidden rounded-[8px] ring-1 ring-dream-ink/10 sm:aspect-[3/5]">
               <Image
                 src="/embroidered-hoodies-stack-vancouver.png"
                 alt=""
@@ -160,19 +171,23 @@ function WhatWeDo() {
 
         <div className="mx-auto max-w-[560px] text-left lg:mx-0">
           <div className="hidden lg:block">
-            <span className="font-display text-xs font-bold uppercase tracking-[0.18em] text-dream-purple">
+            <span className="font-display text-[14px] font-bold uppercase tracking-[0.18em] text-dream-purple">
               Our Mission
             </span>
-            <h2 className="mt-5 font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+            <h2 className="mt-5 font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
               Our{" "}
-              <span className="relative inline-block">
-                story
-                <ScribbleUnderline className="-bottom-1" />
+              <span className="whitespace-nowrap">
+                <span className="relative inline-block">
+                  story
+                  <ScribbleUnderline className="-bottom-1" />
+                </span>
+                .
               </span>
-              .
             </h2>
           </div>
-          <p className="mt-8 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+          {/* mt-8 separates this from the heading, which only renders at lg.
+              Below that it was stacking on the grid's row gap under the photos. */}
+          <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px] lg:mt-8">
             Everyone here at Dreamhouse Printing once worked at another print
             shop, and we all walked away with the same thought: this could be
             done better.
@@ -214,7 +229,7 @@ function WhatWeDo() {
 
 function BehindTheScenes() {
   return (
-    <section className="relative overflow-hidden bg-dream-lavender-soft pb-24 pt-24 lg:pb-32 lg:pt-32">
+    <section className="relative overflow-hidden bg-dream-lavender-soft pb-12 pt-24 sm:pb-24 lg:pb-32 lg:pt-32">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
@@ -227,7 +242,7 @@ function BehindTheScenes() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
+            <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#f4f2ff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#about-bts-scallop)" />
@@ -243,18 +258,54 @@ function BehindTheScenes() {
         className="pointer-events-none absolute right-4 top-12 z-0 hidden h-auto w-[130px] rotate-[12deg] sm:block lg:right-14 lg:w-[170px]"
       />
 
-      <div className="relative mx-auto max-w-[1440px] px-6 md:px-8 lg:px-10">
-        {/* TOP-LEFT, heading + copy */}
-        <div className="max-w-[560px] text-left">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
+      {/* Flex + order: on phones the reels sit directly under the heading and
+          scroll sideways; from sm up the original heading/copy/grid returns. */}
+      <div className="relative mx-auto flex max-w-[1440px] flex-col px-6 md:px-8 lg:px-10">
+        {/* TOP-LEFT, heading */}
+        <div className="order-1 max-w-[560px] text-left">
+          <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[56px]">
             Behind the{" "}
-            <span className="relative inline-block">
-              scenes
-              <ScribbleUnderline className="-bottom-1" />
+            {/* nowrap: the scribbled word is an inline-block, which lets the
+                period break onto its own line. Keep them together. */}
+            <span className="whitespace-nowrap">
+              <span className="relative inline-block">
+                scenes
+                <ScribbleUnderline className="-bottom-1" />
+              </span>
+              .
             </span>
-            .
           </h2>
-          <p className="mt-7 text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
+        </div>
+
+        {/* Video reels. Phones: edge-to-edge snap scroller so the next card
+            peeks and the row reads as swipeable. sm+: the three-up grid. */}
+        {/* scroll-pl matches the px inset: without it snap-start aligns cards
+            to the scroller's border edge, so the first video sat flush against
+            the screen instead of lining up under the heading. */}
+        <div className="no-scrollbar order-2 -mx-6 mt-8 flex snap-x snap-mandatory scroll-pl-6 gap-4 overflow-x-auto px-6 pb-2 sm:order-3 sm:mx-0 sm:mt-12 sm:grid sm:grid-cols-3 sm:gap-7 sm:overflow-visible sm:px-0 sm:pb-0 md:-mx-8 md:scroll-pl-8 md:px-8 lg:mx-0 lg:mt-16 lg:ml-auto lg:w-[80%] lg:gap-8 lg:px-0">
+          <ShopReel
+            className="w-[72%] shrink-0 snap-start sm:w-auto sm:shrink"
+            src="/behind-the-scenes/screen-printing-vancouver-shop.mp4"
+            poster="/behind-the-scenes/screen-printing-vancouver-shop.jpg"
+            label="Screen printing in progress at our Vancouver shop"
+          />
+          <ShopReel
+            className="w-[72%] shrink-0 snap-start sm:w-auto sm:shrink"
+            src="/behind-the-scenes/screen-printing-press-vancouver.mp4"
+            poster="/behind-the-scenes/screen-printing-press-vancouver.jpg"
+            label="Pulling ink across the screen at our Vancouver shop"
+          />
+          <ShopReel
+            className="w-[72%] shrink-0 snap-start sm:w-auto sm:shrink"
+            src="/behind-the-scenes/custom-screen-printing-vancouver.mp4"
+            poster="/behind-the-scenes/custom-screen-printing-vancouver.jpg"
+            label="Custom screen printing at our Vancouver studio"
+          />
+        </div>
+
+        {/* Copy, below the reels on phones and above them from sm up */}
+        <div className="order-3 mt-8 max-w-[560px] text-left sm:order-2 sm:mt-7">
+          <p className="text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
             Ever wondered how a blank shirt turns into the real thing? Here&apos;s
             a look inside the shop, from burning screens to the press pulling
             ink, so you can see exactly where your order gets made.
@@ -264,25 +315,6 @@ function BehindTheScenes() {
             middleman, no guesswork, just real people making your stuff right
             here in the shop.
           </p>
-        </div>
-
-        {/* BOTTOM-RIGHT, video reels */}
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-7 lg:mt-16 lg:ml-auto lg:w-[80%] lg:gap-8">
-          <ShopReel
-            src="/behind-the-scenes/screen-printing-vancouver-shop.mp4"
-            poster="/behind-the-scenes/screen-printing-vancouver-shop.jpg"
-            label="Screen printing in progress at our Vancouver shop"
-          />
-          <ShopReel
-            src="/behind-the-scenes/screen-printing-press-vancouver.mp4"
-            poster="/behind-the-scenes/screen-printing-press-vancouver.jpg"
-            label="Pulling ink across the screen at our Vancouver shop"
-          />
-          <ShopReel
-            src="/behind-the-scenes/custom-screen-printing-vancouver.mp4"
-            poster="/behind-the-scenes/custom-screen-printing-vancouver.jpg"
-            label="Custom screen printing at our Vancouver studio"
-          />
         </div>
       </div>
     </section>
@@ -308,7 +340,7 @@ function ReadyCTA() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+            <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#e0dffe" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#about-cta-scallop)" />
@@ -328,16 +360,16 @@ function ReadyCTA() {
           </p>
         </Reveal>
         <Reveal variant="up" delay={160}>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
+          <div className="mx-auto mt-10 flex max-w-[340px] flex-col items-stretch justify-center gap-4 sm:max-w-none sm:flex-row sm:items-center sm:gap-5">
             <Link
               href="/shop"
-              className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5"
+              className="rough-pill rough-pill-filled rough-pill-lean inline-flex w-full items-center justify-center px-10 py-5 font-display text-lg font-bold text-white transition-transform hover:-translate-y-0.5 sm:w-auto"
             >
               Start your order
             </Link>
             <Link
               href="/contact"
-              className="rough-pill rough-pill-outline rough-pill-lean inline-flex items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+              className="rough-pill rough-pill-outline rough-pill-lean inline-flex w-full items-center justify-center px-10 py-5 font-display text-lg font-bold text-dream-purple transition-transform hover:-translate-y-0.5 sm:w-auto"
             >
               Contact us
             </Link>

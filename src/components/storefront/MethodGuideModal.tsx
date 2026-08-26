@@ -91,12 +91,12 @@ export function MethodGuideModal({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-2xl">
         {/* Header + tab toggle */}
-        <div className="flex flex-col gap-4 px-6 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 px-6 pb-3 pt-6 sm:flex-row sm:items-center sm:justify-between sm:pb-0">
           <div>
             <h2 className="font-display text-xl font-extrabold text-dream-ink">How it&rsquo;s made</h2>
             <p className="mt-0.5 text-sm text-dream-muted">Compare your two decoration options.</p>
           </div>
-          <div className="flex gap-1.5 rounded-full bg-dream-cream p-1">
+          <div className="flex w-full gap-1.5 rounded-full bg-dream-cream p-1 sm:w-auto">
             {TABS.map((t) => (
               <button
                 key={t}
@@ -104,7 +104,7 @@ export function MethodGuideModal({
                 onClick={() => onTab(t)}
                 aria-pressed={tab === t}
                 className={cn(
-                  "rounded-full px-4 py-2 font-display text-sm font-bold transition-colors",
+                  "flex-1 rounded-full px-4 py-2 font-display text-sm font-bold transition-colors sm:flex-none",
                   tab === t
                     ? "bg-dream-purple text-white"
                     : "text-dream-muted hover:text-dream-ink",
@@ -116,7 +116,10 @@ export function MethodGuideModal({
           </div>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto px-6 pb-6 pt-5">
+        {/* Cap accounts for the header (~6rem) + footer (~4.5rem) + panel margin,
+            so this inner scroller never forces a second (panel-level) scrollbar
+            on short viewports. */}
+        <div className="max-h-[min(70dvh,calc(100dvh-14rem))] overflow-y-auto px-6 pb-6 pt-5">
           {/* Sample photos */}
           <div
             className={cn(
@@ -141,7 +144,7 @@ export function MethodGuideModal({
             <ProsConsList kind="cons" items={info.cons} />
           </div>
 
-          <p className="mt-6 border border-dream-line bg-dream-cream px-4 py-3 text-xs leading-relaxed text-dream-ink">
+          <p className="mt-6 border border-dream-line bg-dream-cream px-4 py-3 text-[14px] leading-relaxed text-dream-ink">
             Not sure? Pick either one. An artist confirms the best method on your free proof before anything prints.
           </p>
         </div>

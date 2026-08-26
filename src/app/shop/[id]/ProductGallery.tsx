@@ -11,6 +11,9 @@ import { SizeGuideModal } from "@/components/storefront/SizeGuideModal";
 import { swatchStyle, sortColours } from "@/lib/swatch";
 import type { ProductColourJson, ProductSizeJson, ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
+/** Swatches shown before "Show all colours" is tapped (~2 rows on a phone). */
+const COLLAPSED_COLOURS = 16;
+
 interface GalleryImage {
   src: string;
   /** Index into the colours array this image belongs to, or null for generic photos. */
@@ -71,7 +74,10 @@ export function ProductGallery({
       const views: (keyof ProductColourJson["images"])[] = ["front", "back", "side", "model"];
       for (const v of views) {
         const src = c.images?.[v];
-        if (src) out.push({ src, colourIdx: idx, label: `${c.name} ${v}` });
+        // Some colourways repeat the same file across views; one tile each.
+        if (src && !out.some((g) => g.src === src)) {
+          out.push({ src, colourIdx: idx, label: `${c.name} ${v}` });
+        }
       }
     });
     for (const src of extraPhotos) {
@@ -92,6 +98,21 @@ export function ProductGallery({
   const [selectedSize, setSelectedSize] = useState(
     firstInStockSize >= 0 ? firstInStockSize : 0,
   );
+  // Colour swatches collapse to two rows by default: a B+C 3001 carries 79 of
+  // them, which pushed the size picker and the price a full screen down on a
+  // phone. The selected swatch is always rendered, even when it lives past the
+  // cut, so the ring never disappears on collapse.
+  const [showAllColours, setShowAllColours] = useState(false);
+  const colourList = useMemo(() => {
+    const all = colours.map((c, idx) => ({ c, idx }));
+    if (showAllColours || all.length <= COLLAPSED_COLOURS + 4) return all;
+    const head = all.slice(0, COLLAPSED_COLOURS);
+    if (selectedColour >= COLLAPSED_COLOURS && colours[selectedColour]) {
+      head.push({ c: colours[selectedColour], idx: selectedColour });
+    }
+    return head;
+  }, [colours, showAllColours, selectedColour]);
+
   // Cursor position (as %) for the hover-to-magnify effect on the main image.
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   // Whether the full-size lightbox popup is open.
@@ -119,28 +140,46 @@ export function ProductGallery({
   }
 
   const main = images[activeImage] ?? null;
-  // Thumbnails: prefer the front shot of each colour plus generic photos, capped.
-  const thumbs = images;
+  // Thumbnails show the SELECTED colour's shots plus any generic photos, which
+  // is what the rail was always meant to be. Rendering every colour x view put
+  // hundreds of tiles (and hundreds of image requests) in a strip nobody
+  // scrolls to the end of; the swatches above are how you change colour.
+  // Entries keep their index into `images` so activeImage still addresses it.
+  const thumbs = useMemo(() => {
+    const rows = images.map((g, idx) => ({ g, idx }));
+    const own = rows.filter(({ g }) => g.colourIdx === selectedColour);
+    // Product-level photos are only a fallback. For S&S styles that array holds
+    // the style shot (often a different colourway entirely), so showing it
+    // beside the selected colour's own photos put a black bag next to a white
+    // one with nothing to explain why.
+    return own.length > 0 ? own : rows.filter(({ g }) => g.colourIdx === null);
+  }, [images, selectedColour]);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
-      {/* Left: gallery */}
-      <div className="flex flex-col-reverse gap-4 sm:flex-row">
+    <div className="grid gap-8 md:grid-cols-2 md:items-start">
+      {/* Left: gallery.
+          min-w-0 is load-bearing, not decoration: the thumbnail rail below is a
+          horizontal scroll container holding one thumb per colour-view (79
+          colours on a B+C 3001 = hundreds of them). Without it that content
+          width propagates up through this grid item and sizes the grid TRACK to
+          thousands of px, which the aspect-square main image then matches in
+          height. That was the "image is enormous / page runs off screen" bug. */}
+      <div className="flex min-w-0 flex-col-reverse gap-4 sm:flex-row">
         {thumbs.length > 1 && (
-          <div className="flex shrink-0 gap-2 overflow-x-auto p-1 sm:max-h-[28rem] sm:flex-col sm:overflow-y-auto">
-            {thumbs.map((g, i) => (
+          <div className="flex w-full min-w-0 max-w-full shrink-0 gap-2 overflow-x-auto p-1 sm:w-auto sm:max-h-[28rem] sm:flex-col sm:overflow-y-auto">
+            {thumbs.map(({ g, idx }) => (
               <button
-                key={`${g.src}-${i}`}
+                key={`${g.src}-${idx}`}
                 type="button"
                 onClick={() => {
-                  setActiveImage(i);
+                  setActiveImage(idx);
                   if (g.colourIdx !== null) setSelectedColour(g.colourIdx);
                 }}
                 aria-label={`View ${g.label}`}
-                aria-current={i === activeImage}
+                aria-current={idx === activeImage}
                 className={cn(
                   "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-white transition-colors",
-                  i === activeImage
+                  idx === activeImage
                     ? "border-dream-purple ring-1 ring-dream-purple/30"
                     : "border-dream-line hover:border-dream-line-strong",
                 )}
@@ -152,7 +191,7 @@ export function ProductGallery({
         )}
 
         <div
-          className="group relative aspect-square w-full cursor-zoom-in overflow-hidden rounded-xl border border-dream-line bg-white"
+          className="group relative mx-auto aspect-square w-full min-w-0 cursor-zoom-in overflow-hidden rounded-xl border border-dream-line bg-white sm:max-w-[26rem] md:max-w-none"
           onClick={main ? () => setLightboxOpen(true) : undefined}
           role={main ? "button" : undefined}
           tabIndex={main ? 0 : undefined}
@@ -170,6 +209,10 @@ export function ProductGallery({
           onMouseMove={
             main
               ? (e) => {
+                  // Touch devices fire a synthetic mousemove on tap but no
+                  // mouseleave, which left the image stuck at scale(2). Only
+                  // magnify for a real hovering pointer.
+                  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
                   const r = e.currentTarget.getBoundingClientRect();
                   setHoverPos({
                     x: ((e.clientX - r.left) / r.width) * 100,
@@ -187,7 +230,7 @@ export function ProductGallery({
                 alt={`${name}, ${main.label}`}
                 fill
                 sizes="(max-width: 1024px) 100vw, 40vw"
-                className="cursor-zoom-in object-contain p-6 transition-transform duration-150 ease-out"
+                className="cursor-zoom-in object-contain p-3 transition-transform duration-150 ease-out sm:p-6"
                 style={{
                   transform: hoverPos ? "scale(2)" : "scale(1)",
                   transformOrigin: hoverPos ? `${hoverPos.x}% ${hoverPos.y}%` : "center",
@@ -204,11 +247,11 @@ export function ProductGallery({
       </div>
 
       {/* Right: details */}
-      <div className="flex flex-col gap-7">
+      <div className="flex min-w-0 flex-col gap-7">
         {/* 1, Identity: brand/sku, then the product name as the clear primary */}
         <div>
           {(brand || sku) && (
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-dream-muted">
+            <p className="flex items-center gap-2 text-[14px] font-semibold uppercase tracking-wide text-dream-muted lg:text-[14px]">
               {brand && <span>{brand}</span>}
               {brand && sku && (
                 <span aria-hidden="true" className="text-dream-faint">/</span>
@@ -222,15 +265,27 @@ export function ProductGallery({
         </div>
 
         {/* 2, Options: colour + size, grouped tightly with matching labels */}
-        <div className="-mt-3 flex flex-col gap-6 border-t border-dream-line pt-7">
+        <div className="-mt-3 flex flex-col gap-7 border-t border-dream-line pt-7">
         {colours.length > 0 && (
           <div>
-            <div className="mb-3 flex items-baseline gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">Colour</span>
-              <span className="text-sm text-dream-muted">{colours[selectedColour]?.name}</span>
+            <div className="mb-4 flex items-baseline justify-between gap-2">
+              <div className="flex min-w-0 items-baseline gap-2">
+                <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink">Colour</span>
+                <span className="truncate text-sm text-dream-muted">{colours[selectedColour]?.name}</span>
+              </div>
+              {colours.length > COLLAPSED_COLOURS + 4 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllColours((o) => !o)}
+                  aria-expanded={showAllColours}
+                  className="-my-2 shrink-0 py-2 text-[12px] font-medium text-dream-ink-soft underline decoration-dream-ink-soft/70 decoration-1 underline-offset-4 transition-colors hover:text-dream-ink hover:decoration-dream-ink"
+                >
+                  {showAllColours ? "Show fewer" : `Show all ${colours.length} colours`}
+                </button>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {colours.map((c, idx) => (
+              {colourList.map(({ c, idx }) => (
                 <button
                   key={`${c.name}-${idx}`}
                   type="button"
@@ -261,10 +316,10 @@ export function ProductGallery({
         )}
 
         {sizes.length > 0 && (
-          <div className="pb-2">
+          <div>
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">Size</span>
+                <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink">Size</span>
                 <span className="text-sm text-dream-muted">{sizes[selectedSize]?.name}</span>
               </div>
               <SizeGuideModal ssStyleId={ssStyleId} productName={name} />
@@ -302,21 +357,32 @@ export function ProductGallery({
             selectable pills used for colour/size above. */}
         {decorationNames && decorationNames.length > 0 && (
           <div className="pb-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-dream-ink">
+            <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink">
               Decoration
             </span>
-            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
-              {decorationNames.map((n) => (
-                <span
-                  key={n}
-                  className="inline-flex items-center gap-2 text-base font-semibold text-dream-muted"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="text-dream-success" aria-hidden><path d="M4 13c2 1 3.5 2.5 5 5C11 12 14.5 7 20 4" /></svg>
-                  {n}
+            {/* Little tilted icon badges, the same device the value props at the
+                foot of this page use, shrunk down. It carries the site's
+                hand-made character without a pill or an outline, so nothing
+                here reads as a choice to tap. */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-3">
+              {decorationNames.map((n, i) => (
+                <span key={n} className="inline-flex items-center gap-2.5">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                      i % 2 === 0
+                        ? "-rotate-3 bg-dream-lavender-soft text-dream-purple-dark"
+                        : "rotate-3 bg-dream-sun-soft text-dream-ink",
+                    )}
+                  >
+                    <DecorationIcon name={n} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="text-sm font-semibold text-dream-ink">{n}</span>
                 </span>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-dream-muted">
+            <p className="mt-2 text-[14px] text-dream-muted">
               Available on this product. You&apos;ll choose a method when you customize.
             </p>
           </div>
@@ -334,21 +400,21 @@ export function ProductGallery({
         ) : (
           <div className="-mt-3 flex flex-col gap-4 rounded-lg border border-dream-line bg-dream-surface p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+              <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-muted">
                 Estimated total
               </p>
               <p className="font-display text-3xl font-extrabold text-dream-purple-dark">
                 from {formatCAD(startingPrice)}
                 <span className="ml-1 text-base font-normal text-dream-muted">/unit</span>
               </p>
-              <p className="mt-1 text-xs text-dream-muted">
+              <p className="mt-1 text-[14px] text-dream-muted">
                 Final pricing depends on quantity &amp; decoration.
               </p>
             </div>
-            <div className="flex flex-col items-stretch gap-1.5 sm:items-center">
+            <div className="flex min-w-0 flex-col items-stretch gap-1.5 sm:items-center">
               <Link
                 href={`/design/${productId}?colour=${encodeURIComponent(colours[selectedColour]?.name ?? "")}`}
-                className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+                className="rough-pill rough-pill-filled inline-flex w-full items-center justify-center px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 sm:w-auto"
               >
                 Design Now
               </Link>
@@ -457,6 +523,53 @@ function parseDescription(raw: string): string[] {
     .split(/\s*[•·]\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/**
+ * A doodle per decoration method: a squeegee pulling ink for printing, a needle
+ * and thread for embroidery, a heat press for transfers. Falls back to a plain
+ * garment mark for anything Julian adds later.
+ */
+function DecorationIcon({ name, className }: { name: string; className?: string }) {
+  const n = name.toLowerCase();
+  const stroke = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (n.includes("embroid")) {
+    // Needle on the diagonal, eye at the top, thread looping through it.
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden {...stroke}>
+        <path d="M4.8 19.2 16.6 7.4" />
+        <ellipse cx="18.1" cy="5.9" rx="1.7" ry="1.1" transform="rotate(-45 18.1 5.9)" />
+        <path d="M20.3 7.7c.9 1.9 0 3.6-1.8 4.1-1.5.4-2.5-.5-2.1-1.7" />
+      </svg>
+    );
+  }
+  if (n.includes("dtf") || n.includes("transfer") || n.includes("vinyl")) {
+    // Transfer sheet lifting off a garment, with heat rising.
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden {...stroke}>
+        <path d="M4 20h16" />
+        <rect x="6" y="10.5" width="12" height="7" rx="1.5" />
+        <path d="M9 7.5c.8-.8.8-1.7 0-2.5M12 7.5c.8-.8.8-1.7 0-2.5M15 7.5c.8-.8.8-1.7 0-2.5" />
+      </svg>
+    );
+  }
+  // Squeegee: a handle bar above a wide blade, with the ink it just pulled
+  // showing as a stroke underneath. Reads at 18px because it is three
+  // horizontal bands rather than a frame with detail inside it.
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden {...stroke}>
+      <path d="M9.5 4h5v3h-5z" />
+      <path d="M12 7v2" />
+      <path d="M4 9.5h16l-2 5H6l-2-5Z" />
+      <path d="M5.5 19.5c4.4-1.5 8.6-1.5 13 0" />
+    </svg>
+  );
 }
 
 /** Abbreviate verbose size names for the compact pills (e.g. "One Size" -> "OS"). */

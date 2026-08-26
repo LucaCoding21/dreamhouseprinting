@@ -13,10 +13,13 @@ export default function ShopReel({
   src,
   poster,
   label,
+  className = "",
 }: {
   src: string;
   poster: string;
   label: string;
+  /** Sizing/snap classes from the parent (e.g. widths in a mobile scroller). */
+  className?: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [inView, setInView] = useState(false);
@@ -38,7 +41,7 @@ export default function ShopReel({
   }, []);
 
   return (
-    <figure className="rounded-2xl bg-white p-2 shadow-[6px_6px_0_0_rgba(27,20,88,1)]">
+    <figure className={`rounded-2xl bg-white p-2 shadow-[6px_6px_0_0_rgba(27,20,88,1)] ${className}`}>
       <div className="relative aspect-[5/7] w-full overflow-hidden rounded-xl bg-dream-ink">
         <video
           ref={ref}

@@ -42,7 +42,7 @@ export function PricingClient({
   return (
     <div>
       <AdminHeader title="Pricing" />
-      <div className="px-8 py-6">
+      <div className="px-4 py-6 sm:px-8">
         <Tabs defaultValue="lists">
           <TabsList>
             <TabsTrigger value="lists">Price lists</TabsTrigger>
@@ -289,9 +289,9 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
                 </div>
                 {/* CSS columns, not a grid: rows keep reading top-to-bottom in
                     ascending quantity, they just wrap into a second column. */}
-                <div className="columns-1 gap-x-6 sm:columns-2 2xl:columns-3">
+                <div className="columns-1 gap-x-6 xl:columns-2 min-[1780px]:columns-3">
                 {(rows[d] ?? []).map((r, i) => (
-                  <div key={i} className="mb-1.5 grid break-inside-avoid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                  <div key={i} className="mb-1.5 grid break-inside-avoid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
                     <Input type="number" min={1} value={r.minQty} onChange={(e) => setRow(d, i, "minQty", e.target.value)} />
                     <Input type="number" min={0} step="0.01" value={r.price} onChange={(e) => setRow(d, i, "price", e.target.value)} />
                     <button

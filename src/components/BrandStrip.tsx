@@ -2,10 +2,11 @@
 
 // "Brands we print on", a continuous, auto-scrolling logo strip.
 //
-// The marquee works by rendering the SAME row of logos twice inside one flex
-// track and animating the track by -50% (see .animate-brand-marquee in
-// globals.css). When copy 2 reaches the start position the animation loops,
-// so the scroll never visibly jumps.
+// The marquee works by rendering the SAME row of logos four times inside one
+// flex track and animating the track by -50% (see .animate-brand-marquee in
+// globals.css). The two halves of the track are identical (2 rows each), so
+// when the animation loops the scroll never visibly jumps. Four copies (not
+// two) so one half still covers ultra-wide viewports up to ~6400px.
 //
 // Logos live in /public/brands/{slug}.png. Drop official brand art in at the
 // same path (same filename) to swap one out without touching this file.
@@ -48,11 +49,13 @@ function LogoRow({ ariaHidden }: { ariaHidden?: boolean }) {
 
 export default function BrandStrip() {
   return (
+    /* No border-t: the section above ends in white scallops that overlap this
+       one, and a straight border drew a stray line across their base. */
     <section
       aria-label="Trusted by brands like these"
-      className="border-t border-dream-ink/10 bg-white pb-8 pt-8 sm:pb-12 sm:pt-12"
+      className="bg-white pb-8 pt-8 sm:pb-12 sm:pt-12"
     >
-      <p className="mb-12 text-center font-display text-[13px] font-medium uppercase text-dream-ink/40 sm:mb-16 sm:text-sm">
+      <p className="mb-12 text-center font-display text-[14px] font-semibold uppercase tracking-[0.015em] text-dream-ink/60 sm:mb-16 sm:text-sm sm:font-medium sm:text-dream-ink/40">
         Trusted by brands like these
       </p>
 
@@ -69,6 +72,8 @@ export default function BrandStrip() {
       >
         <div className="animate-brand-marquee flex w-max">
           <LogoRow />
+          <LogoRow ariaHidden />
+          <LogoRow ariaHidden />
           <LogoRow ariaHidden />
         </div>
       </div>

@@ -23,6 +23,16 @@ function cleanDescription(html: string): string {
     .trim();
 }
 
+/**
+ * Accept colorSideImage only when it really is a side view. S&S returns the
+ * generic style image in that field for some styles, which is a front-facing
+ * shot and useless as a sleeve mockup.
+ */
+function sideOnlyIfTrueSide(raw: string | null | undefined): string | null {
+  const url = ssImageUrl(raw);
+  return url && /_(?:d|s)_fm\.[a-z]+$/i.test(url) ? url : null;
+}
+
 /** Assemble normalized colours from the SKU list (one entry per distinct colour). */
 export function coloursFromProducts(products: SSProduct[]): ProductColour[] {
   const byColour = new Map<string, SSProduct[]>();
@@ -44,7 +54,14 @@ export function coloursFromProducts(products: SSProduct[]): ProductColour[] {
       images: {
         front: ssImageUrl(rep.colorFrontImage),
         back: ssImageUrl(rep.colorBackImage),
-        side: ssImageUrl(rep.colorSideImage || rep.colorDirectSideImage),
+        // directSide FIRST: it is the true side-on shot ("…_d_fm.jpg") and is
+        // what the designer's Sleeve view draws its print box on. colorSideImage
+        // is inconsistent across styles, on some (Gildan 18500) it is the
+        // generic style photo, a 3/4 front view, so preferring it put a sleeve
+        // print box on the chest. Nothing usable stays null, which makes the
+        // designer show its "no sleeve photo for this colour" placeholder
+        // instead of a misleading mockup.
+        side: ssImageUrl(rep.colorDirectSideImage) ?? sideOnlyIfTrueSide(rep.colorSideImage),
         model: ssImageUrl(rep.colorOnModelFrontImage),
       },
     });

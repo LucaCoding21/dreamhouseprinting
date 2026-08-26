@@ -371,7 +371,7 @@ export function NewOrderClient({
     stageIdx >= 0 ? `${stageIdx + 1}/${TRACKER_STAGES.length} ${TRACKER_STAGES[stageIdx].label}` : STATUS_META[status].label;
 
   return (
-    <div className="space-y-6 px-8 py-6">
+    <div className="space-y-6 px-4 py-6 sm:px-8">
       {/* Command header, cloned from the order detail's strip */}
       <div className="space-y-5 rounded-xl border border-dream-line bg-dream-surface p-5 shadow-sm sm:p-6">
         <div className="flex items-center justify-between gap-3">
@@ -532,7 +532,7 @@ export function NewOrderClient({
                 )
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
                     <Labeled label="Name *">
                       <Input value={guest.name} onChange={(e) => setGuest({ ...guest, name: e.target.value })} />
                     </Labeled>
@@ -552,7 +552,7 @@ export function NewOrderClient({
 
               {/* Fulfilment + shipping address, mirroring the detail's edit form */}
               <div className="space-y-3 border-t border-dream-line pt-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
                   <Labeled label="Fulfillment">
                     <Select value={fulfillment} onChange={(e) => setFulfillment(e.target.value as "ship" | "pickup")}>
                       <option value="pickup">Pick up</option>
@@ -563,7 +563,7 @@ export function NewOrderClient({
                     <Input value={address.company} onChange={(e) => setAddr({ company: e.target.value })} />
                   </Labeled>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
                   <Labeled label="Contact name">
                     <Input value={address.name} onChange={(e) => setAddr({ name: e.target.value })} />
                   </Labeled>
@@ -574,7 +574,7 @@ export function NewOrderClient({
                 <Labeled label={fulfillment === "ship" ? "Street *" : "Street"}>
                   <Input value={address.street} onChange={(e) => setAddr({ street: e.target.value })} />
                 </Labeled>
-                <div className="grid grid-cols-[1fr_5.5rem] gap-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
                   <Labeled label="City">
                     <Input value={address.city} onChange={(e) => setAddr({ city: e.target.value })} />
                   </Labeled>
@@ -920,7 +920,7 @@ function NewItemCard({
 
           {/* MIDDLE, product, sizes, print, notes */}
           <div className="min-w-0 flex-1 space-y-5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-dream-faint">{index + 1}.</span>
               {isCatalog ? (
                 <>
@@ -1087,7 +1087,7 @@ function NewItemCard({
                 {missingStandard.length > 0 && (
                   <div>
                     <div className="mb-1 h-4" aria-hidden />
-                    <div className="flex h-9 flex-wrap items-center gap-1">
+                    <div className="flex min-h-9 flex-wrap items-center gap-1">
                       {missingStandard.map((s) => (
                         <button
                           key={s}

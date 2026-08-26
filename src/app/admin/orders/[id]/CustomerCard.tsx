@@ -112,7 +112,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
             <DialogTitle>Edit customer details</DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5 pt-0">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2">
               <Labeled label="Company">
                 <Input value={form.company} disabled={!canEdit} onChange={(e) => setF({ company: e.target.value })} />
               </Labeled>
@@ -162,7 +162,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
               <Labeled label="Postal">
                 <Input value={form.shipPostal} disabled={!canEdit} onChange={(e) => setF({ shipPostal: e.target.value })} />
               </Labeled>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2">
                 <Labeled label="Method">
                   <Select value={form.method} disabled={!canEdit} onChange={(e) => setF({ method: e.target.value })}>
                     <option value="standard">Standard</option>

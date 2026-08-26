@@ -104,7 +104,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                 return (
                   <li
                     key={li.id}
-                    className="flex gap-4 rounded-2xl border border-dream-line bg-dream-cream/40 p-3 transition-colors hover:border-dream-purple/30"
+                    className="flex flex-wrap gap-3 rounded-2xl border border-dream-line bg-dream-cream/40 p-3 transition-colors hover:border-dream-purple/30 sm:flex-nowrap sm:gap-4"
                   >
                     {li.mockup ? (
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 border-dream-ink/10 bg-white">
@@ -116,14 +116,14 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                         style={{ backgroundColor: li.colourHex ?? "var(--color-dream-cream)" }}
                       >
                         {li.colourName && (
-                          <span className="rounded bg-white/85 px-1 text-[10px] font-medium leading-tight text-dream-ink">
+                          <span className="rounded bg-white/85 px-1 text-[14px] font-medium leading-tight text-dream-ink">
                             {li.colourName}
                           </span>
                         )}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="font-display text-[15px] font-bold text-dream-ink">{li.product_name}</div>
+                      <div className="break-words font-display text-[15px] font-bold text-dream-ink">{li.product_name}</div>
                       {li.colourName && <div className="text-sm text-dream-muted">{li.colourName}</div>}
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {Object.entries(li.sizeQuantities)
@@ -131,7 +131,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                           .map(([s, q]) => (
                             <span
                               key={s}
-                              className="inline-flex items-baseline gap-1 rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-dream-ink ring-1 ring-dream-line"
+                              className="inline-flex items-baseline gap-1 rounded-full bg-white px-2 py-0.5 text-[14px] font-medium text-dream-ink ring-1 ring-dream-line"
                             >
                               <span className="font-bold">{q}</span>
                               <span className="text-dream-muted">{s}</span>
@@ -139,9 +139,9 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                           ))}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end">
+                    <div className="ml-auto flex shrink-0 flex-col items-end">
                       <span className="font-display font-bold text-dream-ink">{formatCAD(li.line_total)}</span>
-                      <span className="mt-0.5 text-[11px] text-dream-muted">
+                      <span className="mt-0.5 text-[14px] text-dream-muted">
                         {pieces} {pieces === 1 ? "piece" : "pieces"}
                       </span>
                     </div>
@@ -155,7 +155,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
             {order.customerNote && (
               <div className="mt-4 rounded-2xl border border-dream-line bg-dream-cream/40 p-4">
                 <p className="font-display text-sm font-bold text-dream-ink">Your notes</p>
-                <p className="mt-1.5 whitespace-pre-wrap text-sm text-dream-muted">{order.customerNote}</p>
+                <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-dream-muted">{order.customerNote}</p>
               </div>
             )}
           </div>
@@ -209,7 +209,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
             </div>
           )}
 
-          <p className="mt-4 text-xs text-dream-muted">
+          <p className="mt-4 text-[14px] text-dream-muted">
             Questions?{" "}
             <Link href="/contact" className="font-semibold text-dream-purple hover:underline">
               Contact us
@@ -232,7 +232,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                 </div>
                 <div className="flex-1 pb-1">
                   <p className="text-sm text-dream-ink">{entry.text}</p>
-                  <p className="mt-0.5 text-xs text-dream-muted">
+                  <p className="mt-0.5 text-[14px] text-dream-muted">
                     {new Date(entry.at).toLocaleDateString("en-CA", {
                       year: "numeric",
                       month: "short",

@@ -376,7 +376,7 @@ export function PrintAreaEditor({
                 onPointerUp={endInteraction}
                 onPointerCancel={endInteraction}
                 className={cn(
-                  "absolute rounded-sm border-2",
+                  "absolute touch-none rounded-sm border-2",
                   a.locked ? "cursor-default border-dashed" : "cursor-move",
                   selected === i ? "border-dream-purple bg-dream-purple/15" : "border-dream-purple/60 bg-dream-purple/5"
                 )}
@@ -413,7 +413,7 @@ export function PrintAreaEditor({
                     onPointerMove={onMove}
                     onPointerUp={endInteraction}
                     onPointerCancel={endInteraction}
-                    className="absolute bottom-0 right-0 h-3 w-3 translate-x-1/2 translate-y-1/2 cursor-se-resize rounded-full border border-white bg-dream-purple"
+                    className="absolute bottom-0 right-0 h-3 w-3 translate-x-1/2 translate-y-1/2 cursor-se-resize touch-none rounded-full border border-white bg-dream-purple before:absolute before:-inset-2.5 before:content-['']"
                   />
                 )}
               </div>

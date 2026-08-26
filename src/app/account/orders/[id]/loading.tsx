@@ -12,7 +12,7 @@ export default function Loading() {
         </div>
         <Skeleton className="mt-4 h-3 w-full" />
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-4 md:grid-cols-[1.55fr_1fr]">
         <div className="space-y-4">
           <SkeletonCard lines={4} />
           <SkeletonCard lines={3} />

@@ -74,7 +74,7 @@ export default async function AdminCustomerDetailPage({
         </Link>
       </AdminHeader>
 
-      <div className="space-y-6 px-8 py-6">
+      <div className="space-y-6 px-4 py-6 sm:px-8">
         {/* Profile header */}
         <Card>
           <CardContent className="flex flex-wrap items-center gap-4 py-5">

@@ -76,7 +76,7 @@ const STEPS: Step[] = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative mx-auto max-w-[1550px] px-6 pb-32 pt-12 sm:pt-28 lg:px-10 lg:pb-40 lg:pt-0">
+    <section id="how-it-works" className="relative mx-auto max-w-[1550px] px-6 pb-24 pt-12 sm:pb-32 sm:pt-28 lg:px-10 lg:pb-40 lg:pt-0">
       {/* Mobile-only scallops at the bottom edge, white bumps coming up
           from the next section (ShopByCategories, bg-white) into HIW.
           Matches the pattern used on /contact and /services. */}
@@ -92,12 +92,12 @@ export default function HowItWorks() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="28" rx="60" ry="28" fill="#ffffff" />
+            <ellipse cx="60" cy="29" rx="60" ry="29" fill="#ffffff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#hiw-bottom-scallop)" />
       </svg>
-      <h2 className="mt-6 text-center font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-4xl lg:mt-10">
+      <h2 className="mt-6 text-center font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-4xl lg:mt-10">
         How It Works
       </h2>
       <p className="mx-auto mt-4 max-w-2xl text-center text-base text-dream-ink-soft sm:text-lg">
@@ -134,7 +134,11 @@ export default function HowItWorks() {
             key={step.n}
             className="relative flex min-w-0 flex-col items-center overflow-x-clip text-center lg:overflow-x-visible"
           >
-            <div className="relative flex h-[340px] w-full max-w-[460px] items-center justify-center sm:h-[400px] lg:h-[440px]">
+            {/* Mobile height is sized to the actual scaled art: the dogs are
+                1344x828, so at scale-[0.7] the tallest (520px wide) renders
+                ~224px. 340px left ~58px of dead space above and below each of
+                the four stacked steps. */}
+            <div className="relative flex h-[260px] w-full max-w-[460px] items-center justify-center sm:h-[400px] lg:h-[440px]">
               <div
                 className={`relative z-10 flex items-center justify-center scale-[0.7] sm:scale-100 sm:translate-x-[var(--dog-ox)] sm:translate-y-[var(--dog-oy)] ${
                   step.n === 1 ? "max-sm:-translate-x-1" : ""
@@ -146,19 +150,22 @@ export default function HowItWorks() {
                   } as CSSProperties
                 }
               >
+              {/* In the 2-col band (sm to lg) the authored 450-520px dogs sit
+                  in ~256-450px columns, so cap them at 42vw there; base and
+                  lg+ keep the authored width (the lg overlap is intentional). */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={step.dog}
                 alt={step.dogAlt}
                 loading="lazy"
                 decoding="async"
-                className="relative z-10 h-auto max-w-none shrink-0"
-                style={{ width: step.dogWidth }}
+                className="relative z-10 h-auto w-[var(--dog-w)] max-w-none shrink-0 sm:w-[min(var(--dog-w),42vw)] lg:w-[var(--dog-w)]"
+                style={{ "--dog-w": step.dogWidth } as CSSProperties}
               />
               </div>
             </div>
 
-            <h3 className="-mt-4 font-daruma text-[30px] text-dream-ink sm:text-3xl">
+            <h3 className="-mt-4 font-daruma text-[24px] text-dream-ink sm:text-3xl">
               {step.title}
             </h3>
 

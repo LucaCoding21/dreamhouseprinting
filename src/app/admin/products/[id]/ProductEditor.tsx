@@ -391,7 +391,7 @@ export function ProductEditor({
           </Card>
         </div>
 
-      <div className="grid gap-6 px-8 py-6 lg:grid-cols-3">
+      <div className="grid gap-6 px-4 py-6 sm:px-8 lg:grid-cols-3">
         {/* Main config */}
         <div className="space-y-6 lg:col-span-2">
           <Card id="pe-details" className={cn("scroll-mt-24 transition-shadow", stepRing("pe-details"))}>
@@ -658,7 +658,7 @@ export function ProductEditor({
                       </span>
                     )}
                   </div>
-                  <div className="overflow-hidden rounded-lg border border-dream-line">
+                  <div className="overflow-x-auto rounded-lg border border-dream-line">
                     <table className="w-full text-sm tabular-nums">
                       <thead>
                         <tr className="bg-dream-bg text-[11px] uppercase tracking-wide text-dream-muted">

@@ -74,17 +74,21 @@ export function ShopQtyControl({ className }: { className?: string }) {
   // Keep the raw text separate so partial entries ("5" on the way to "50")
   // don't get clamped mid-keystroke; qty stays the source of truth. Synced
   // during render (not an effect) when qty changes elsewhere (preset chips).
-  const [text, setText] = useState(String(qty));
+  // A preset chip already shows the active number, so echoing it in the field
+  // too just made the same "10" appear twice. The field holds the custom value
+  // only, and otherwise shows an example of what to type.
+  const [text, setText] = useState(PRESETS.includes(qty) ? "" : String(qty));
   const [lastQty, setLastQty] = useState(qty);
   if (qty !== lastQty) {
     setLastQty(qty);
-    setText(String(qty));
+    setText(PRESETS.includes(qty) ? "" : String(qty));
   }
 
   const commit = () => {
+    if (text.trim() === "") return; // cleared: leave the preset as it is
     const n = Number(text);
     if (Number.isFinite(n) && n >= QTY_MIN) setQty(n);
-    else setText(String(qty));
+    else setText(PRESETS.includes(qty) ? "" : String(qty));
   };
 
   return (
@@ -100,7 +104,7 @@ export function ShopQtyControl({ className }: { className?: string }) {
             aria-pressed={qty === n}
             onClick={() => setQty(n)}
             className={cn(
-              "cursor-pointer rounded-full px-3 py-1.5 font-display text-[13px] font-semibold transition",
+              "cursor-pointer rounded-full px-3 py-1.5 font-display text-[14px] font-semibold transition",
               qty === n
                 ? "bg-dream-purple text-white"
                 : "border border-dream-line bg-white text-dream-ink hover:border-dream-purple/50",
@@ -119,9 +123,10 @@ export function ShopQtyControl({ className }: { className?: string }) {
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
+          placeholder="e.g. 75"
           aria-label="Quantity to price the catalog at"
           className={cn(
-            "h-[34px] w-16 rounded-full border bg-white text-center font-display text-[13px] font-semibold text-dream-ink outline-none transition",
+            "h-[34px] w-[4.5rem] rounded-full border bg-white text-center font-display text-[14px] font-semibold text-dream-ink outline-none transition placeholder:font-medium placeholder:text-dream-ink/40",
             "border-dream-line hover:border-dream-purple/50 focus:border-dream-purple focus:ring-2 focus:ring-dream-purple/25",
             "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
             !PRESETS.includes(qty) && "border-dream-purple ring-2 ring-dream-purple/25",

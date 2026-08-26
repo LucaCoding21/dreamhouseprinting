@@ -134,7 +134,7 @@ export function ProofPanel({
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <path d="M14 2v6h6" />
                     </svg>
-                    <span className="text-xs font-semibold">PDF proof</span>
+                    <span className="text-[14px] font-semibold">PDF proof</span>
                   </span>
                 ) : (
                   /* Proofs arrive at any aspect ratio, fix the width and let the box
@@ -142,7 +142,7 @@ export function ProofPanel({
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={p.image} alt={`Proof ${i + 1}`} className="block h-auto w-full" />
                 )}
-                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-dream-ink/70 py-1.5 text-xs font-semibold text-white transition-colors group-hover:bg-dream-purple/85">
+                <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-dream-ink/70 py-1.5 text-[14px] font-semibold text-white transition-colors group-hover:bg-dream-purple/85">
                   <IconZoom className="h-3.5 w-3.5" />
                   {multiple ? `View ${i + 1}` : "View full size"}
                 </span>
@@ -194,7 +194,7 @@ export function ProofPanel({
                     Julian will review your notes and send an updated proof. We’ll email you when it’s ready.
                   </p>
                   {proof.change_request_comment && (
-                    <p className="mt-2 text-sm text-dream-ink">You asked: “{proof.change_request_comment}”</p>
+                    <p className="mt-2 break-words text-sm text-dream-ink">You asked: “{proof.change_request_comment}”</p>
                   )}
                 </div>
                 <div className="mt-3 flex justify-end">
@@ -328,7 +328,7 @@ export function ProofPanel({
             </>
           )}
 
-          <div className="relative max-h-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+          <div className="relative max-h-full w-fit max-w-full sm:max-w-4xl" onClick={(e) => e.stopPropagation()}>
             {isPdf(proofs[zoomIndex].image) ? (
               <iframe
                 src={proofs[zoomIndex].image}
@@ -341,7 +341,7 @@ export function ProofPanel({
                 alt={`Proof ${zoomIndex + 1}, full size`}
                 width={1400}
                 height={1400}
-                className="max-h-[85vh] w-auto rounded-lg bg-white object-contain shadow-2xl"
+                className="max-h-[85dvh] w-auto max-w-full rounded-lg bg-white object-contain shadow-2xl"
               />
             )}
             {multiple && (

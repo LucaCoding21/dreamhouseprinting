@@ -54,7 +54,7 @@ export const TH = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "border-b border-dream-line px-4 py-3 text-xs font-medium uppercase tracking-wide text-dream-muted",
+      "border-b border-dream-line px-4 py-3 text-[14px] font-medium uppercase tracking-wide text-dream-muted",
       className,
     )}
     {...props}

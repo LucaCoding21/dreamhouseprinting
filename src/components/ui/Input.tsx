@@ -11,7 +11,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         aria-invalid={ariaInvalid}
         className={cn(
-          "w-full rounded-lg border border-dream-line bg-white px-3 py-2 text-sm text-dream-ink",
+          // text-base below sm is deliberate: iOS Safari auto-zooms the page
+          // whenever a focused field is under 16px, which left the portal
+          // zoomed in and horizontally scrolled after every tap. 16px on
+          // phones stops that; sm+ keeps the original 14px.
+          "w-full rounded-lg border border-dream-line bg-white px-3 py-2 text-base text-dream-ink sm:text-sm",
           "placeholder:text-dream-faint",
           "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40 focus-visible:border-dream-purple",
           "disabled:cursor-not-allowed disabled:opacity-60",

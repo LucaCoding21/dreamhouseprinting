@@ -197,6 +197,41 @@ const TOOLS: { id: Tool; label: string; icon: string }[] = [
   { id: "clipart", label: "Clipart", icon: "/designer/tool-clipart.svg" },
 ];
 
+/**
+ * Bottom tab bar on phones. Same targets as the desktop icon rail (garment
+ * colour + the three art tools + notes), in the order the reference designers
+ * use: the garment first, then ways to put art on it, then notes.
+ */
+const MOBILE_TABS: {
+  id: Tool;
+  label: string;
+  icon?: string;
+  node?: React.ReactNode;
+}[] = [
+  {
+    id: "colour",
+    label: "Product",
+    node: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
+        <path d="M8.5 3 5 4.6 3 8.4l2.6 1.7L6.4 9v11.5h11.2V9l.8 1.1L21 8.4l-2-3.8L15.5 3a3.5 3.5 0 0 1-7 0Z" />
+      </svg>
+    ),
+  },
+  { id: "upload", label: "Images", icon: "/designer/upload.svg" },
+  { id: "text", label: "Text", icon: "/designer/tool-text.svg" },
+  { id: "clipart", label: "Clipart", icon: "/designer/tool-clipart.svg" },
+  {
+    id: "notes",
+    label: "Notes",
+    node: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
+        <path d="M4 4.5h16v10.5l-4 4.5H4z" />
+        <path d="M8 9h8M8 13h5" />
+      </svg>
+    ),
+  },
+];
+
 function svgToDataUrl(svg: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -305,6 +340,11 @@ export function DesignerClient(props: Props) {
   // its customer production note at placement.
   const [customerNote, setCustomerNote] = useState(edit?.customerNote ?? "");
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
+  // The tool panel is its own scroll container. On phones it is a sheet, so a
+  // long tool (the clip-art tray) left the NEXT tool opening mid-scroll, with
+  // its heading above the fold. Reset to the top whenever the tool changes or
+  // the sheet reopens.
+  const panelRef = useRef<HTMLDivElement | null>(null);
   // Which zone new art lands in, by print-area id. Only ever ambiguous when the
   // active side has more than one zone, where the customer picks with the zone
   // pills. Null falls back to the active side's first zone.
@@ -319,6 +359,30 @@ export function DesignerClient(props: Props) {
   // Zoom of the canvas stage. Single mode fits one canvas at 1; "see both"
   // drops it so two fit side by side.
   const [zoom, setZoom] = useState(1);
+  // Width available in the canvas stage; each canvas auto-fits to it (phones)
+  // and `zoom` multiplies that fit factor (see ScaledBox).
+  const stageAreaRef = useRef<HTMLDivElement | null>(null);
+  const [stageMaxW, setStageMaxW] = useState<number | null>(null);
+  useEffect(() => {
+    const el = stageAreaRef.current;
+    if (!el) return;
+    const update = () => {
+      // 0 while the work area is display:none (review phase); keep the last
+      // real measurement so canvases don't jump when it comes back.
+      // Measure the CONTENT box: clientWidth includes padding, and the stage's
+      // padding is not the same at every breakpoint. Subtracting a hardcoded
+      // 32 (the old p-4) made the fit width too generous on any other padding,
+      // which overflowed the canvas and collapsed its centring margin.
+      if (el.clientWidth <= 0) return;
+      const cs = getComputedStyle(el);
+      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (w > 0) setStageMaxW(w);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   // Single = one side shown big (default); both = side-by-side. Only meaningful
   // when the product has more than one decorated view.
   const [viewMode, setViewMode] = useState<"single" | "both">("single");
@@ -350,6 +414,9 @@ export function DesignerClient(props: Props) {
   const [helpTopic, setHelpTopic] = useState<null | "measurement" | "colours">(null);
   // Print-vs-embroidery guide modal. Null = closed; the value is the open tab.
   const [methodGuideTab, setMethodGuideTab] = useState<MethodKey | null>(null);
+  // Mobile only: the top method pill's dropdown (desktop picks the method
+  // inside the tool panel, which has room for it).
+  const [methodMenuOpen, setMethodMenuOpen] = useState(false);
   const [designName, setDesignName] = useState(edit?.name || props.productName);
   const [leadEmail, setLeadEmail] = useState(edit?.leadEmail || props.accountEmail || "");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -600,7 +667,7 @@ export function DesignerClient(props: Props) {
   useEffect(() => {
     requestAnimationFrame(() => views.forEach((v) => canvasRefs.current[v]?.recalcOffset()));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, viewMode, activeView]);
+  }, [zoom, viewMode, activeView, stageMaxW]);
 
   // Undo/redo state reflects whichever canvas is currently active.
   useEffect(() => {
@@ -663,6 +730,20 @@ export function DesignerClient(props: Props) {
     views.forEach((v) => canvasRefs.current[v]?.discardSelection());
     setSelection(null);
     if (views.length > 1 && viewMode === "both") setActiveView(null);
+  }
+
+  useEffect(() => {
+    if (leftOpen) panelRef.current?.scrollTo({ top: 0 });
+  }, [tool, leftOpen]);
+
+  /** Below lg the tool panel is a sheet OVER the canvas, so once a piece of art
+   *  has landed the customer wants to see it, not the form that added it. Drop
+   *  the sheet on phones only; on desktop the panel is a column beside the
+   *  canvas and closing it would just make the workspace jump. */
+  function closeSheetOnMobile() {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setLeftOpen(false);
+    }
   }
 
   /** Focus a canvas (tool target) and scroll it into view. */
@@ -894,6 +975,7 @@ export function DesignerClient(props: Props) {
       // Upload the ORIGINAL file as the print-ready source (full-quality PDF/vector).
       artworkFiles.current.push({ id, file });
       onCanvasChange(v);
+      closeSheetOnMobile();
       if (info) setUploadMsg({ tone: "info", text: info });
     } catch {
       setUploadMsg({
@@ -919,6 +1001,7 @@ export function DesignerClient(props: Props) {
       zone: targetZone(v),
     });
     onCanvasChange(v);
+    closeSheetOnMobile();
   }
 
   async function addClipart(svg: string) {
@@ -927,6 +1010,7 @@ export function DesignerClient(props: Props) {
     snapshot(v);
     await canvasRefs.current[v]?.addImageFromUrl(svgToDataUrl(svg), targetZone(v));
     onCanvasChange(v);
+    closeSheetOnMobile();
   }
 
   function applyTextColor(hex: string) {
@@ -967,7 +1051,7 @@ export function DesignerClient(props: Props) {
   // panels stay in sync off the single `methodId` state.
   const methodPicker = priceableMethods.length > 0 && (
     <>
-      <div className="mt-5 flex items-center gap-1.5 text-xs font-medium text-dream-muted">
+      <div className="mt-5 flex items-center gap-1.5 text-[14px] font-medium text-dream-muted">
         Print method
         <HelpDot
           label="Compare print and embroidery"
@@ -982,7 +1066,7 @@ export function DesignerClient(props: Props) {
             onClick={() => setMethodId(m.id)}
             aria-pressed={methodId === m.id}
             className={cn(
-              "whitespace-nowrap rounded-xl border px-2 py-2.5 text-xs font-semibold transition-colors",
+              "whitespace-nowrap rounded-xl border px-2 py-2.5 text-[14px] font-semibold transition-colors",
               methodId === m.id
                 ? "border-dream-purple bg-dream-lavender-soft text-dream-ink"
                 : "border-dream-line text-dream-muted hover:border-dream-line-strong"
@@ -1339,13 +1423,24 @@ export function DesignerClient(props: Props) {
             (home), cart, and account; "Back to product" lives on the left rail. */}
         <header className="flex shrink-0 items-center justify-between border-b border-dream-ink/15 bg-dream-lavender-soft px-4 py-2.5 sm:px-6">
           <Link href="/" className="flex shrink-0 items-center" aria-label="Dreamhouse Printing home">
+            {/* Same split as SiteNav: compact mark on phones, full lockup from
+                md up. Both render with one hidden per breakpoint, so there is no
+                layout shift and no client-side width check. */}
             <Image
-              src="/dreamhouse-logo-nav.svg"
+              src="/dreamhouse-logo-mark-v2.svg"
               alt="Dreamhouse Printing"
-              width={457}
-              height={298}
+              width={498}
+              height={508}
               priority
-              className="h-9 w-auto sm:h-10"
+              className="h-10 w-auto md:hidden"
+            />
+            <Image
+              src="/dreamhouse-logo-wide-v2.svg"
+              alt="Dreamhouse Printing"
+              width={1579}
+              height={493}
+              priority
+              className="hidden h-11 w-auto md:block"
             />
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -1366,17 +1461,27 @@ export function DesignerClient(props: Props) {
       <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden", phase !== "design" && "hidden")}>
         {/* Left, clean white column: flat icon rail + product/tools panel.
             Collapses to just the rail (lg:w-20) when leftOpen is false. */}
+        {/* Below lg this is a bottom SHEET over the canvas, opened by the tool
+            tabs pinned to the bottom of the editor; the phone screen belongs to
+            the artwork, the way the reference designers do it. At lg+ it is the
+            original left column and nothing here applies. */}
         <aside
           className={cn(
-            "flex shrink-0 bg-white transition-[width] duration-200 lg:overflow-hidden lg:border-r lg:border-dream-line",
-            leftOpen ? "lg:w-[23rem]" : "lg:w-20"
+            "flex shrink-0 flex-col bg-white transition-[width] duration-200 lg:flex-row lg:overflow-hidden lg:border-r lg:border-dream-line",
+            leftOpen ? "lg:w-[23rem]" : "lg:w-20",
+            // The offset must equal the tab bar's height exactly, or a strip of
+            // canvas shows between the two. That bar is py-2.5 (10px) + a
+            // min-h-[3.75rem] (60px) tab + pb-2.5 (10px) = 5rem, plus the
+            // safe-area inset it also carries. It was 5.5rem, hence an 8px gap.
+            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:rounded-t-3xl max-lg:border-t max-lg:border-dream-line max-lg:shadow-[0_-10px_30px_-12px_rgba(27,20,88,0.35)]",
+            !leftOpen && "max-lg:hidden"
           )}
         >
           {/* Vertical icon rail. Its spacing scales with viewport height so the
               whole stack (Notes and the contact link are last) stays reachable on
               short laptop screens, where a fixed gap used to push them past the
               clipped bottom edge. overflow-y-auto is the backstop below that. */}
-          <div className="no-scrollbar flex shrink-0 flex-row items-center gap-5 border-b border-dream-line px-3 py-3 lg:w-20 lg:flex-col lg:gap-[clamp(0.75rem,2.2vh,2.25rem)] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-[clamp(0.75rem,2vh,1.75rem)] lg:[&>*]:shrink-0">
+          <div className="no-scrollbar hidden shrink-0 flex-row items-center gap-4 overflow-x-auto border-b border-dream-line px-3 py-3 [&>*]:shrink-0 sm:gap-5 lg:flex lg:w-20 lg:flex-col lg:gap-[clamp(0.75rem,2.2vh,2.25rem)] lg:overflow-x-visible lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-[clamp(0.75rem,2vh,1.75rem)]">
             {/* Single panel toggle, pinned to the top of the always-visible rail,
                 same spot whether open or closed; the chevron just flips. */}
             <button
@@ -1405,14 +1510,14 @@ export function DesignerClient(props: Props) {
                   {leftOpen && <rect x="3" y="4.5" width="6" height="15" rx="2.5" fill="currentColor" stroke="none" />}
                 </svg>
               </span>
-              <span className="text-[11px] font-semibold text-dream-ink">{leftOpen ? "Hide" : "Show"}</span>
+              <span className="text-[14px] font-semibold text-dream-ink">{leftOpen ? "Hide" : "Show"}</span>
             </button>
             <Link
               href={`/shop/${props.productId}`}
               className="flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
             >
               <BackArrowIcon />
-              <span className="text-[11px] font-semibold text-dream-ink">Back</span>
+              <span className="text-[14px] font-semibold text-dream-ink">Back</span>
             </Link>
             {/* Colour is its own tool and the default landing tab, it sits above
                 Upload in the rail so picking a garment colour is the first step. */}
@@ -1442,7 +1547,7 @@ export function DesignerClient(props: Props) {
                 <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
                 <circle cx="17.5" cy="13.5" r="1.1" fill="currentColor" stroke="none" />
               </svg>
-              <span className={cn("font-semibold", tool === "colour" ? "text-[10px] text-white" : "text-[11px] text-dream-ink")}>
+              <span className={cn("font-semibold", tool === "colour" ? "text-[14px] text-white" : "text-[14px] text-dream-ink")}>
                 Colour
               </span>
             </button>
@@ -1468,7 +1573,7 @@ export function DesignerClient(props: Props) {
                     height={20}
                     className={cn("h-5 w-auto", isActive && "[filter:brightness(0)_invert(1)]")}
                   />
-                  <span className={cn("font-semibold", isActive ? "text-[10px] text-white" : "text-[11px] text-dream-ink")}>
+                  <span className={cn("font-semibold", isActive ? "text-[14px] text-white" : "text-[14px] text-dream-ink")}>
                     {t.label}
                   </span>
                 </button>
@@ -1497,7 +1602,7 @@ export function DesignerClient(props: Props) {
                 <path d="M4 4.5h16v10.5l-4 4.5H4z" />
                 <path d="M8 9h8M8 13h5" />
               </svg>
-              <span className={cn("font-semibold", tool === "notes" ? "text-[10px] text-white" : "text-[11px] text-dream-ink")}>
+              <span className={cn("font-semibold", tool === "notes" ? "text-[14px] text-white" : "text-[14px] text-dream-ink")}>
                 Notes
               </span>
               {customerNote.trim() && (
@@ -1513,25 +1618,48 @@ export function DesignerClient(props: Props) {
               className="flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
             >
               <SupportIcon />
-              <span className="text-[11px] font-semibold text-dream-ink">Support</span>
+              <span className="text-[14px] font-semibold text-dream-ink">Support</span>
             </Link>
           </div>
 
+          {/* Sheet header (mobile only): just an explicit close, since the tool
+              tab that opened it sits behind the sheet. No grab bar, the sheet
+              is not draggable and the handle promised a gesture we don't have. */}
+          <div className="flex items-center justify-end px-4 pt-1.5 pb-0 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setLeftOpen(false)}
+              aria-label="Close panel"
+              className="-my-1 -mr-1 flex h-11 w-11 items-center justify-center rounded-full text-dream-ink-soft transition-colors hover:bg-dream-cream hover:text-dream-ink"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </div>
+
           {/* Panel, scrolls within the fixed-height aside; hidden when collapsed */}
-          <div className={cn("no-scrollbar min-w-0 flex-1 overflow-y-auto p-5 lg:p-6", !leftOpen && "hidden")}>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Garment</div>
-            <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
-            {sizeRange && <p className="mt-1 text-xs text-dream-muted">Sizes {sizeRange}</p>}
+          <div ref={panelRef} className={cn("no-scrollbar max-h-[50dvh] min-w-0 flex-1 overflow-y-auto p-5 pt-0 lg:max-h-none lg:p-6", !leftOpen && "hidden")}>
+            {/* Garment identity, desktop only. In the mobile sheet it repeated
+                above every tool and ate height the tool itself needs; the
+                product is already named on the canvas and in the cart. */}
+            <div className="hidden lg:block">
+              <div className="text-[14px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Garment</div>
+              <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
+              {sizeRange && <p className="mt-1 text-[14px] text-dream-muted">Sizes {sizeRange}</p>}
+            </div>
 
             {/* Colour picker, its own tab and nothing else: the tools each stay
                 on their own tab so this one is only about the garment. */}
             {tool === "colour" && (
               <>
             <div className="mt-4 flex items-baseline justify-between gap-2">
-              <span className="text-xs font-medium text-dream-muted">Colour</span>
-              <span className="truncate text-xs font-bold text-dream-purple">{colourName || "Pick one"}</span>
+              <span className="text-[14px] font-medium text-dream-muted">Colour</span>
+              <span className="truncate text-[14px] font-bold text-dream-purple">{colourName || "Pick one"}</span>
             </div>
-            <div className="mt-3 grid grid-cols-6 gap-x-2 gap-y-2.5 px-2.5 py-2.5">
+            {/* auto-fill instead of a fixed 6 columns: the swatch is capped at a
+                small size and the row simply fits as many as the panel allows,
+                so a 79-colour garment is a compact block at any width rather
+                than six large discs per row. */}
+            <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(1.85rem,1fr))] gap-2 px-1.5 py-2.5">
               {props.colours.map((c) => {
                 const selected = colourName === c.name;
                 return (
@@ -1561,7 +1689,7 @@ export function DesignerClient(props: Props) {
                     {selected && (
                       <svg
                         viewBox="0 0 24 24"
-                        className="pointer-events-none absolute h-3.5 w-3.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+                        className="pointer-events-none absolute h-3 w-3 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
                         fill="none"
                         stroke="#fff"
                         strokeWidth="3.5"
@@ -1578,16 +1706,16 @@ export function DesignerClient(props: Props) {
               </>
             )}
 
-            <hr className="my-6 border-dream-line" />
+            <hr className="my-6 hidden border-dream-line lg:block" />
 
             {/* Tool panels, one per tab, each its own card. The colour tab has
                 no tools of its own, so the whole section sits out. */}
             {tool !== "colour" && (
               <>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Design tools</div>
+            <div className="hidden text-[14px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft lg:block">Design tools</div>
 
             {activeView === null && (
-              <p className="mt-2 rounded-lg bg-dream-sun/25 px-3 py-2 text-xs font-semibold text-dream-ink">
+              <p className="mt-2 rounded-lg bg-dream-sun/25 px-3 py-2 text-[14px] font-semibold text-dream-ink">
                 Click a shirt side to start adding art.
               </p>
             )}
@@ -1599,7 +1727,7 @@ export function DesignerClient(props: Props) {
                 re-homes it on its own. */}
             {activeView !== null && displayViewSpots.length > 1 && (
               <div className="mt-3">
-                <div className="text-xs font-medium text-dream-muted">Print location</div>
+                <div className="text-[14px] font-medium text-dream-muted">Print location</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {displayViewSpots.map((pa) => {
                     const selected = pa.id === activeSpot?.id;
@@ -1610,7 +1738,7 @@ export function DesignerClient(props: Props) {
                         onClick={() => setActiveSpotId(pa.id)}
                         aria-pressed={selected}
                         className={cn(
-                          "rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
+                          "rounded-full px-3 py-1.5 text-[14px] font-bold transition-colors",
                           selected
                             ? "bg-dream-purple text-white"
                             : "bg-dream-cream text-dream-ink hover:bg-dream-lavender/40",
@@ -1633,7 +1761,7 @@ export function DesignerClient(props: Props) {
               </div>
             )}
 
-            <div className="mt-3 space-y-4">
+            <div className="space-y-4 max-lg:mt-0 lg:mt-3">
               {tool === "upload" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
                 <>
@@ -1644,15 +1772,15 @@ export function DesignerClient(props: Props) {
                     className="mt-3 flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-dream-line-strong px-3 py-7 text-center transition-colors hover:border-dream-purple hover:bg-white/70 disabled:cursor-wait disabled:opacity-70 disabled:hover:border-dream-line-strong disabled:hover:bg-transparent"
                   >
                     <Image src="/designer/upload.svg" alt="" width={26} height={26} className="h-6 w-auto" />
-                    <span className="text-sm font-bold text-dream-ink">
+                    <span className="text-[15px] lg:text-sm font-bold text-dream-ink">
                       {uploadBusy ? "Reading your file…" : "Drop a file or click to browse"}
                     </span>
-                    <span className="text-xs text-dream-faint">PNG, SVG, JPG, PDF up to 50 MB</span>
+                    <span className="text-[14px] text-dream-faint">PNG, SVG, JPG, PDF up to 50 MB</span>
                   </button>
                   {uploadMsg && (
                     <p
                       className={cn(
-                        "mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed",
+                        "mt-3 rounded-lg px-3 py-2 text-[14px] leading-relaxed",
                         uploadMsg.tone === "error"
                           ? "bg-dream-peach/40 text-dream-ink"
                           : "bg-dream-sun/25 text-dream-ink",
@@ -1661,11 +1789,11 @@ export function DesignerClient(props: Props) {
                       {uploadMsg.text}
                     </p>
                   )}
-                  <p className="mt-3 text-xs leading-relaxed text-dream-muted">
+                  <p className="mt-3 text-[14px] leading-relaxed text-dream-muted">
                     Not print-ready? We&apos;ll touch up your art, free.
                   </p>
                   {activeSpot?.maxWidthIn && activeSpot?.maxHeightIn ? (
-                    <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+                    <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
                       {activeSpot.name} prints up to {activeSpot.maxWidthIn} × {activeSpot.maxHeightIn} in.
                     </p>
                   ) : null}
@@ -1680,12 +1808,12 @@ export function DesignerClient(props: Props) {
                   <h3 className="font-display text-base font-bold text-dream-ink">Add text</h3>
                   <button
                     onClick={addText}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dream-line bg-white px-3 py-3 text-sm font-semibold text-dream-ink transition-colors hover:border-dream-purple"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dream-line bg-white px-3 py-3 text-[15px] lg:text-sm font-semibold text-dream-ink transition-colors hover:border-dream-purple"
                   >
                     <Image src="/designer/tool-text.svg" alt="" width={16} height={16} className="h-4 w-auto" />
                     Add a text box
                   </button>
-                  <div className="mt-3 text-xs font-medium text-dream-muted">Font</div>
+                  <div className="mt-3 text-[14px] font-medium text-dream-muted">Font</div>
                   {/* Collapsed dropdown, tap to expand a previewed list. Each row
                       renders its own label in its own face so the customer sees
                       what they're picking. Expands inline; the panel scrolls. */}
@@ -1748,7 +1876,7 @@ export function DesignerClient(props: Props) {
                           as artwork or start a conversation with a sample. Opens
                           contact in a new tab so the in-progress design stays put. */}
                       <div className="mt-1 border-t border-dream-line px-3 py-2.5">
-                        <p className="text-xs leading-relaxed text-dream-muted">
+                        <p className="text-[14px] leading-relaxed text-dream-muted">
                           Don&apos;t see the font you need? Upload your text as artwork, or{" "}
                           <a
                             href="/contact"
@@ -1766,7 +1894,7 @@ export function DesignerClient(props: Props) {
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     {/* Font size: stepper + editable number */}
                     <div>
-                      <div className="text-xs font-medium text-dream-muted">Size</div>
+                      <div className="text-[14px] font-medium text-dream-muted">Size</div>
                       <div className="mt-2 flex items-center overflow-hidden rounded-lg border border-dream-line bg-white">
                         <button
                           type="button"
@@ -1783,7 +1911,7 @@ export function DesignerClient(props: Props) {
                           value={fontSize}
                           onChange={(e) => applyFontSize(Number(e.target.value) || fontSize)}
                           aria-label="Font size"
-                          className="h-9 w-full min-w-0 border-x border-dream-line text-center text-sm font-semibold text-dream-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          className="h-9 w-full min-w-0 border-x border-dream-line text-center text-[15px] lg:text-sm font-semibold text-dream-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                         <button
                           type="button"
@@ -1797,7 +1925,7 @@ export function DesignerClient(props: Props) {
                     </div>
                     {/* Alignment: left / center / right */}
                     <div>
-                      <div className="text-xs font-medium text-dream-muted">Align</div>
+                      <div className="text-[14px] font-medium text-dream-muted">Align</div>
                       <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-dream-line bg-white p-1">
                         {(["left", "center", "right"] as const).map((a) => (
                           <button
@@ -1808,7 +1936,7 @@ export function DesignerClient(props: Props) {
                             aria-label={`Align ${a}`}
                             title={`Align ${a}`}
                             className={cn(
-                              "flex h-7 items-center justify-center rounded-md transition-colors",
+                              "flex h-10 items-center justify-center rounded-md transition-colors lg:h-7",
                               textAlign === a ? "bg-dream-lavender-soft text-dream-purple" : "text-dream-muted hover:bg-dream-cream"
                             )}
                           >
@@ -1819,7 +1947,7 @@ export function DesignerClient(props: Props) {
                     </div>
                   </div>
 
-                  <div className="mt-3 text-xs font-medium text-dream-muted">Text colour</div>
+                  <div className="mt-3 text-[14px] font-medium text-dream-muted">Text colour</div>
                   <div className="mt-2 grid grid-cols-8 gap-1.5">
                     {TEXT_COLORS.map((hex) => {
                       const selected = textColor.toLowerCase() === hex;
@@ -1878,7 +2006,7 @@ export function DesignerClient(props: Props) {
                       />
                     ))}
                   </div>
-                  <p className="mt-3 text-xs leading-relaxed text-dream-faint">Tap a graphic to drop it on, then drag to place it.</p>
+                  <p className="mt-3 text-[14px] leading-relaxed text-dream-faint">Tap a graphic to drop it on, then drag to place it.</p>
                 </>
                 </div>
               )}
@@ -1895,17 +2023,17 @@ export function DesignerClient(props: Props) {
                 real person instead of faking a mockup. When sleeves ARE live the
                 copy narrows to the truly custom asks. */}
             <div className="mt-5 rounded-2xl border border-dream-line bg-dream-cream/50 p-4">
-              <h3 className="font-display text-sm font-bold text-dream-ink">
+              <h3 className="font-display text-[15px] lg:text-sm font-bold text-dream-ink">
                 Want it {sleeveEnabled ? "somewhere custom" : "on the sleeve or somewhere else"}?
               </h3>
-              <p className="mt-1.5 text-xs leading-relaxed text-dream-muted">
+              <p className="mt-1.5 text-[14px] leading-relaxed text-dream-muted">
                 The designer covers {sleeveEnabled ? "front, back, and sleeve" : "front and back"}. For{" "}
                 {sleeveEnabled ? "tags, inside labels, or other custom spots" : "sleeves, tags, or anything custom"}, leave us a note and we&apos;ll send you a proof.
               </p>
               <button
                 type="button"
                 onClick={openNotes}
-                className="mt-3 inline-flex items-center gap-1.5 font-display text-xs font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+                className="mt-3 inline-flex items-center gap-1.5 font-display text-[14px] font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
               >
                 Leave a note
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -1925,8 +2053,8 @@ export function DesignerClient(props: Props) {
         {/* Center, grid-backed canvas stage (full bleed) */}
         <main className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0" style={GRID_BG}>
           {/* Floating top bar */}
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex items-center justify-between px-4">
-            <span className={cn(GLASS, "pointer-events-auto px-3 py-1.5 font-display text-xs font-bold text-dream-ink")}>
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto hidden w-full max-w-[100rem] items-center justify-between px-4 lg:flex">
+            <span className={cn(GLASS, "pointer-events-auto px-3 py-1.5 font-display text-[14px] font-bold text-dream-ink")}>
               {views.length <= 1
                 ? "Design preview"
                 : viewMode === "both"
@@ -1940,7 +2068,7 @@ export function DesignerClient(props: Props) {
                 <IconBtn label="Zoom out" disabled={zoomIdx <= 0} onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}>
                   <MinusIcon />
                 </IconBtn>
-                <button onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-2 text-xs font-semibold text-dream-muted hover:text-dream-ink">
+                <button onClick={() => setZoom(1)} className="h-8 min-w-[3rem] rounded-full px-2 text-[14px] font-semibold text-dream-muted hover:text-dream-ink">
                   {Math.round(zoom * 100)}%
                 </button>
                 <IconBtn label="Zoom in" disabled={zoomIdx >= ZOOM_STEPS.length - 1} onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}>
@@ -1958,12 +2086,134 @@ export function DesignerClient(props: Props) {
             </div>
           </div>
 
+          {/* ---- Mobile chrome (below lg). The phone layout follows the
+               reference: a method pill on top, undo/redo floating at the left,
+               a vertical stack of side thumbnails + zoom at the right, and the
+               tool tabs pinned to the bottom of the editor. ---- */}
+          <div className="pointer-events-none absolute inset-x-0 top-2.5 z-20 flex items-start justify-center gap-2 px-2.5 lg:hidden">
+            {/* Method pill: "<SIDE> - PRINT METHOD | <method>" */}
+            <div className="pointer-events-auto relative min-w-0">
+              <button
+                type="button"
+                onClick={() => priceableMethods.length > 1 && setMethodMenuOpen((o) => !o)}
+                aria-expanded={methodMenuOpen}
+                aria-haspopup={priceableMethods.length > 1 ? "menu" : undefined}
+                className={cn(GLASS, "flex min-h-[2.75rem] max-w-full items-center gap-2 px-3.5 py-2 text-left")}
+              >
+                <span className="truncate text-[14px] font-bold uppercase tracking-wide text-dream-muted">
+                  {VIEW_LABEL[displayView]} · print method
+                </span>
+                <span aria-hidden className="h-4 w-px shrink-0 bg-dream-line" />
+                <span className="truncate font-display text-[14px] font-bold text-dream-ink">
+                  {method?.name ?? "Print"}
+                </span>
+                {priceableMethods.length > 1 && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 text-dream-muted transition-transform", methodMenuOpen && "rotate-180")} aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+                )}
+              </button>
+              {/* Menu is anchored to the pill's RIGHT edge, under the chevron
+                  that opens it, with a light shadow so it sits on the canvas
+                  without dropping a slab of shade over the garment. */}
+              {methodMenuOpen && priceableMethods.length > 1 && (
+                <div className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-2xl border border-dream-line bg-white p-1 shadow-[0_6px_16px_-10px_rgba(27,20,88,0.3)]">
+                  {priceableMethods.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setMethodId(m.id);
+                        setMethodMenuOpen(false);
+                      }}
+                      aria-pressed={methodId === m.id}
+                      className={cn(
+                        "block w-full rounded-xl px-3 py-2 text-left text-[14px] font-semibold transition-colors",
+                        methodId === m.id ? "bg-dream-lavender-soft text-dream-ink" : "text-dream-muted hover:bg-dream-cream"
+                      )}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Undo / redo, left edge */}
+          <div className="absolute left-2.5 top-16 z-10 flex flex-col gap-1.5 lg:hidden">
+            <MobileChip label="Undo" disabled={!canUndo} onClick={undo}><UndoIcon /></MobileChip>
+            <MobileChip label="Redo" disabled={!canRedo} onClick={redo}><RedoIcon /></MobileChip>
+          </div>
+
+          {/* Side switcher (garment thumbnails) + zoom, right edge */}
+          <div className="absolute right-2.5 top-16 z-10 flex flex-col gap-1.5 lg:hidden">
+            {views.map((v) => {
+              const on = v === displayView;
+              const thumb = imageForView(colour, v);
+              return (
+                <button
+                  key={v}
+                  onClick={() => showSide(v)}
+                  aria-pressed={on}
+                  className={cn(
+                    "flex w-[3.75rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1.5 ring-1 backdrop-blur-md transition-colors",
+                    on ? "ring-2 ring-dream-purple" : "ring-dream-ink/[0.06]"
+                  )}
+                >
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumb} alt="" className="h-8 w-8 object-contain" />
+                  ) : (
+                    <span aria-hidden className="grid h-8 w-8 place-items-center text-dream-faint">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l18 18" /><path d="M21 15V5a2 2 0 0 0-2-2H9" /><path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14" /></svg>
+                    </span>
+                  )}
+                  <span className={cn("text-[14px] font-bold leading-none", on ? "text-dream-purple" : "text-dream-muted")}>
+                    {VIEW_LABEL[v]}
+                  </span>
+                </button>
+              );
+            })}
+            {/* Zoom in and zoom out as their own chips, matching the Undo/Redo
+                pair on the other side. The level rides on the "in" chip. */}
+            <MobileChip
+              label={`${Math.round(zoom * 100)}%`}
+              srLabel={`Zoom in, currently ${Math.round(zoom * 100)} percent`}
+              disabled={zoomIdx >= ZOOM_STEPS.length - 1}
+              onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M11 8v6M8 11h6" /></svg>
+            </MobileChip>
+            <MobileChip
+              label="Zoom out"
+              disabled={zoomIdx <= 0}
+              onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M8 11h6" /></svg>
+            </MobileChip>
+          </div>
+
+          {/* Continue, bottom-right corner. Its own corner, away from both the
+              tool tabs below and the canvas controls above, so the next-step
+              action can't be caught by a stray tap. */}
+          <button
+            onClick={goToReview}
+            className="absolute bottom-3 right-2.5 z-20 inline-flex min-h-[2.75rem] items-center gap-2 rounded-full bg-dream-purple px-5 font-display text-sm font-bold text-white transition-transform active:translate-y-px lg:hidden"
+          >
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+
           {/* Canvases, every decorated side side by side, each editable. The
               active one is ringed; clicking a canvas makes it the tool target. */}
           <div
+            ref={stageAreaRef}
             onMouseDown={clearActive}
-            className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-5 overflow-auto p-4 pt-16 pb-20"
+            className="flex min-h-0 flex-1 overflow-auto p-4 pt-16 pb-20 max-lg:pt-24 max-lg:pb-6"
           >
+            {/* m-auto (not justify/items-center) so overflowing content stays
+                reachable by scrolling; centered margins collapse to 0 when the
+                canvases outgrow the stage instead of clipping the leading edge. */}
+            <div className="m-auto flex max-w-full flex-wrap items-center justify-center gap-5">
             {views.map((v) => {
               const isActive = viewMode === "both" && views.length > 1 && v === activeView;
               const loading = !loadedViews.has(v);
@@ -1990,16 +2240,16 @@ export function DesignerClient(props: Props) {
                   {viewMode === "both" && views.length > 1 && (
                     <span
                       className={cn(
-                        "mb-2 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors",
+                        "mb-2 rounded-full px-3 py-1 text-[14px] font-bold uppercase tracking-wide transition-colors",
                         isActive ? "bg-dream-ink text-white" : "bg-white text-dream-muted ring-1 ring-dream-ink/10"
                       )}
                     >
                       {VIEW_LABEL[v]}
                     </span>
                   )}
+                  <ScaledBox scale={zoom} maxWidth={stageMaxW}>
                   <div
-                    className={cn("relative w-fit rounded-2xl bg-white ring-1 ring-dream-ink/[0.05] p-2 transition-transform duration-150 sm:p-2.5", isActive && "ring-2 ring-dream-purple")}
-                    style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
+                    className={cn("relative w-fit rounded-2xl bg-white ring-1 ring-dream-ink/[0.05] p-2 sm:p-2.5", isActive && "ring-2 ring-dream-purple")}
                   >
                     <div className="mx-auto w-fit">
                       <DesignCanvas
@@ -2032,12 +2282,12 @@ export function DesignerClient(props: Props) {
                     {/* Out-of-bounds heads-up, subtle, non-blocking. Never
                         intercepts canvas clicks (pointer-events-none). */}
                     {!loading && viewOutOfBounds(v) && (
-                      <div className="pointer-events-none absolute right-2 top-2 z-10 max-w-[13rem]">
-                        <div className="flex items-start gap-1.5 rounded-xl bg-dream-sun/95 px-2.5 py-1.5 text-left ring-1 ring-dream-ink/10 backdrop-blur-sm">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0 text-dream-ink" aria-hidden>
+                      <div className="pointer-events-none absolute inset-x-2 bottom-full z-10 mb-2 flex justify-center">
+                        <div className="flex max-w-[18rem] items-start gap-2 rounded-xl bg-dream-sun/95 px-3 py-2 text-left ring-1 ring-dream-ink/10 backdrop-blur-sm lg:max-w-[15rem] lg:gap-1.5 lg:px-2.5 lg:py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px h-[17px] w-[17px] shrink-0 text-dream-ink lg:h-3.5 lg:w-3.5" aria-hidden>
                             <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
                           </svg>
-                          <p className="text-[11px] font-semibold leading-snug text-dream-ink">
+                          <p className="text-[14px] font-semibold leading-snug text-dream-ink lg:text-[14px]">
                             Some art is outside the print lines. We&apos;ll double-check it.
                           </p>
                         </div>
@@ -2056,13 +2306,13 @@ export function DesignerClient(props: Props) {
                           </svg>
                         </div>
                         <h3 className="font-display text-sm font-bold text-dream-ink">No sleeve photo for this colour</h3>
-                        <p className="max-w-[15rem] text-xs leading-relaxed text-dream-muted">
+                        <p className="max-w-[15rem] text-[14px] leading-relaxed text-dream-muted">
                           Your sleeve art is saved. We&apos;ll place it for you, or leave a note and we&apos;ll mock it up.
                         </p>
                         <button
                           type="button"
                           onClick={openNotes}
-                          className="mt-0.5 inline-flex items-center gap-1 font-display text-xs font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+                          className="mt-0.5 inline-flex items-center gap-1 font-display text-[14px] font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
                         >
                           Leave a note
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -2070,16 +2320,18 @@ export function DesignerClient(props: Props) {
                       </div>
                     )}
                   </div>
+                  </ScaledBox>
                 </div>
               );
             })}
+            </div>
           </div>
 
           {/* Floating bottom bar, side switch (left) + selected-object actions */}
           <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-wrap items-center justify-start gap-2 px-4">
             {/* Side switch, pick which side to design; "See both" shows them together */}
             {views.length > 1 && (
-              <div className={cn(GLASS, "pointer-events-auto inline-flex items-center gap-1 p-1.5")}>
+              <div className={cn(GLASS, "pointer-events-auto hidden items-center gap-1 p-1.5 lg:inline-flex")}>
                 {views.map((v) => {
                   const on = viewMode === "single" && v === activeView;
                   // Sleeve on a colour with no side photo: keep the pill but flag
@@ -2092,7 +2344,7 @@ export function DesignerClient(props: Props) {
                       aria-pressed={on}
                       title={sleeveNoPhoto ? "No sleeve photo for this colour, we place it for you" : undefined}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold transition-colors",
+                        "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold transition-colors",
                         on ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
                       )}
                     >
@@ -2111,7 +2363,7 @@ export function DesignerClient(props: Props) {
                   onClick={() => setMode(viewMode === "both" ? "single" : "both")}
                   aria-pressed={viewMode === "both"}
                   className={cn(
-                    "rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors",
+                    "rounded-full px-3.5 py-1.5 text-[14px] font-bold transition-colors",
                     viewMode === "both" ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
                   )}
                 >
@@ -2125,24 +2377,24 @@ export function DesignerClient(props: Props) {
               centered) so they're easy to find, unlike the old bottom bar. Shows
               only while something is selected. */}
           {selection && (
-            <div className="pointer-events-none absolute inset-y-0 right-3 z-10 flex items-center">
-              <div className={cn(GLASS, "pointer-events-auto flex w-48 flex-col p-1.5")}>
+            <div className="pointer-events-none absolute inset-x-2 bottom-20 z-10 flex justify-center sm:inset-x-auto sm:inset-y-0 sm:bottom-auto sm:right-[max(0.75rem,calc(50%-50rem))] sm:items-center sm:justify-start">
+              <div className={cn(GLASS, "no-scrollbar pointer-events-auto flex max-w-full flex-row items-center gap-0.5 overflow-x-auto p-2 sm:w-48 sm:flex-col sm:items-stretch sm:gap-0 sm:overflow-visible sm:p-1.5")}>
                 <RailBtn label="Duplicate" onClick={duplicate}><DuplicateIcon /></RailBtn>
                 <RailBtn label="Flip horizontal" onClick={() => flip("h")}><FlipHIcon /></RailBtn>
                 <RailBtn label="Flip vertical" onClick={() => flip("v")}><FlipVIcon /></RailBtn>
                 <RailBtn label="Center in box" onClick={centerArt}><CenterIcon /></RailBtn>
-                <span aria-hidden className="my-1 h-px w-full bg-dream-line" />
+                <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
                 <RailBtn label="Bring forward" onClick={() => layer("forward")}><ForwardIcon /></RailBtn>
                 <RailBtn label="Send backward" onClick={() => layer("back")}><BackwardIcon /></RailBtn>
                 {selection.isText && (
                   <label
                     title="Text colour"
-                    className="relative flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-semibold text-dream-ink transition-colors hover:bg-dream-cream"
+                    className="relative flex shrink-0 cursor-pointer items-center gap-2.5 rounded-lg p-2 text-[14px] font-semibold text-dream-ink transition-colors hover:bg-dream-cream sm:w-full sm:px-2.5 sm:py-2"
                   >
                     <span className="grid h-5 w-5 shrink-0 place-items-center">
                       <span className="h-4 w-4 rounded-full ring-1 ring-inset ring-dream-ink/20" style={{ backgroundColor: textColor }} />
                     </span>
-                    <span className="whitespace-nowrap">Text colour</span>
+                    <span className="hidden whitespace-nowrap sm:inline">Text colour</span>
                     <input
                       type="color"
                       value={textColor}
@@ -2152,7 +2404,7 @@ export function DesignerClient(props: Props) {
                     />
                   </label>
                 )}
-                <span aria-hidden className="my-1 h-px w-full bg-dream-line" />
+                <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
                 <RailBtn label="Delete" onClick={deleteActive} danger><TrashIcon /></RailBtn>
               </div>
             </div>
@@ -2160,9 +2412,73 @@ export function DesignerClient(props: Props) {
         </main>
         </div>
 
-        {/* Design footer, pricing & quantity live on the review screen; this advances to it */}
+        {/* Tool tabs, pinned to the bottom of the editor on phones (the mock's
+            bottom bar). A tab opens its panel as the sheet above; tapping the
+            open tab again closes it. Desktop keeps the left icon rail. */}
         {phase === "design" && (
-          <div className="shrink-0 border-t border-dream-line bg-white px-4 py-2">
+          <nav
+            aria-label="Design tools"
+            className="z-40 flex shrink-0 items-stretch justify-around border-t border-dream-line bg-white px-1 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] lg:hidden"
+          >
+            {MOBILE_TABS.map((t) => {
+              const on = tool === t.id && leftOpen;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    if (tool === t.id && leftOpen) {
+                      setLeftOpen(false);
+                      return;
+                    }
+                    if (t.id === "notes") openNotes();
+                    else {
+                      setTool(t.id);
+                      setLeftOpen(true);
+                    }
+                  }}
+                  aria-pressed={on}
+                  className={cn(
+                    "relative flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors",
+                    on ? "text-dream-purple" : "text-dream-ink-soft"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "grid h-11 w-11 place-items-center rounded-2xl transition-colors",
+                      on && "bg-dream-lavender-soft"
+                    )}
+                  >
+                    {/* The tool SVGs are already brand purple, so the active
+                        state is the lavender pill behind the icon plus a full
+                        opacity glyph; inactive dims instead of recolouring. */}
+                    {t.icon ? (
+                      <Image
+                        src={t.icon}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className={cn("h-[22px] w-auto transition-opacity", on ? "opacity-100" : "opacity-55")}
+                      />
+                    ) : (
+                      <span className={cn("transition-opacity", on ? "opacity-100" : "opacity-55")}>{t.node}</span>
+                    )}
+                  </span>
+                  <span className="text-[14px] font-bold leading-[1.15]">{t.label}</span>
+                  {t.id === "notes" && customerNote.trim() && (
+                    <span aria-hidden className="absolute right-[22%] top-1.5 h-1.5 w-1.5 rounded-full bg-dream-sun" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+
+        {/* Design footer, pricing & quantity live on the review screen; this
+            advances to it. Below lg the Continue action floats over the canvas
+            instead, so the tool tabs own the bottom edge. */}
+        {phase === "design" && (
+          <div className="hidden shrink-0 border-t border-dream-line bg-white px-4 py-2 lg:block">
             <div className="mx-auto flex max-w-[1400px] items-center justify-end gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <p className={cn("hidden truncate text-sm sm:block", error ? "font-medium text-dream-danger" : "text-dream-muted")}>
@@ -2192,13 +2508,13 @@ export function DesignerClient(props: Props) {
             {/* Item (left) + details (right). The preview fills the left region
                 and is top-aligned + sticky so it stays put while the form on the
                 right grows/scrolls (typing a quantity no longer shifts it). */}
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pt-8 pb-20 sm:px-6 lg:flex-row lg:items-start lg:gap-12 lg:px-8 lg:pt-12 lg:pb-28">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pt-4 pb-6 sm:px-6 sm:pt-8 sm:pb-20 lg:flex-row lg:items-start lg:gap-12 lg:px-8 lg:pt-12 lg:pb-28">
               {/* Preview, centered in the left region, pinned in place. The
                   back button sits at its top-left corner. */}
               <div className="relative flex min-h-[260px] items-center justify-center self-stretch p-3 lg:sticky lg:top-12 lg:min-h-[60vh] lg:flex-1 lg:self-start lg:pr-16">
                 <button
                   onClick={() => setPhase("design")}
-                  className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 font-display text-sm font-bold text-dream-ink transition-colors hover:text-dream-purple lg:-left-2 lg:top-0"
+                  className="absolute left-0 top-0 z-10 inline-flex items-center gap-1 font-display text-sm font-bold text-dream-purple transition-colors hover:text-dream-purple-dark lg:-left-2 lg:top-0"
                 >
                   <svg className="shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
                   Back to designing
@@ -2244,13 +2560,17 @@ export function DesignerClient(props: Props) {
                     "Colours" reads as thread (embroidery) or ink (print). */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">What we&apos;re printing</div>
-                    <span className="text-xs font-semibold text-dream-muted">
+                    <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">What we&apos;re printing</div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-dream-lavender-soft px-2.5 py-1 text-[14px] font-bold text-dream-purple-dark sm:bg-transparent sm:px-0 sm:py-0 sm:font-semibold sm:text-dream-muted">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 sm:hidden" aria-hidden>
+                        <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z" />
+                        <circle cx="12" cy="10" r="2.4" />
+                      </svg>
                       {decoratedSpots.length} {decoratedSpots.length === 1 ? "location" : "locations"}
                     </span>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-dream-line">
-                    <div className="grid grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3 bg-dream-cream px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-dream-muted">
+                    <div className="hidden grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3 bg-dream-cream px-4 py-2.5 text-[14px] font-bold uppercase tracking-wide text-dream-muted sm:grid">
                       <span>Location</span>
                       <span>Method</span>
                       <span className="flex items-center gap-1.5">
@@ -2265,7 +2585,7 @@ export function DesignerClient(props: Props) {
                     {/* One row per decorated ZONE. A left chest and a full front
                         on the same side are two prints, so they get two rows;
                         both point at that side's mockup. */}
-                    {decoratedSpots.map((s) => {
+                    {decoratedSpots.map((s, rowIdx) => {
                       const v = s.view;
                       const art = spotArt[s.id];
                       const pIdx = previews.findIndex((p) => p.view === v);
@@ -2290,12 +2610,17 @@ export function DesignerClient(props: Props) {
                         }
                         className={cn(
                           "border-t border-dream-line px-4 py-3.5 text-sm text-dream-ink first:border-t-0",
+                          // Below sm the column header above is display:none but
+                          // still the container's first child, so `first:` never
+                          // matches the first VISIBLE row and its border doubled
+                          // up with the container's own top edge.
+                          rowIdx === 0 && "max-sm:border-t-0",
                           interactive &&
                             "cursor-pointer transition-colors hover:bg-dream-cream/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dream-purple/40",
                           isActivePreview && "bg-dream-lavender-mist",
                         )}
                       >
-                        <div className="grid grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:grid sm:grid-cols-[0.9fr_0.9fr_1.1fr_auto]">
                           <span className="flex items-center gap-1.5 font-semibold">
                             {s.name || VIEW_LABEL[v]}
                             {interactive && (
@@ -2310,12 +2635,12 @@ export function DesignerClient(props: Props) {
                               ? `${art.metrics.widthIn}″ W × ${art.metrics.heightIn}″ H`
                               : "-"}
                           </span>
-                          <span className="justify-self-end whitespace-nowrap rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-xs font-bold text-dream-purple">
+                          <span className="whitespace-nowrap rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-[14px] font-bold text-dream-purple sm:justify-self-end">
                             {art?.colours ? formatColourChip(art.colours, isEmbroidery ? "thread" : "ink") : "-"}
                           </span>
                         </div>
                         {art?.outside && (
-                          <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-dream-warn-soft px-2.5 py-1.5 text-xs font-medium leading-snug text-dream-warn">
+                          <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-dream-warn-soft px-2.5 py-1.5 text-[14px] font-medium leading-snug text-dream-warn">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0" aria-hidden>
                               <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
                             </svg>
@@ -2333,7 +2658,7 @@ export function DesignerClient(props: Props) {
                     different shirt colours; each colour is priced on its own qty. */}
                 <div className="space-y-4">
                   <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
+                    <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
                     <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">How many of each size? Need another shirt colour? Add one below.</p>
                   </div>
 
@@ -2376,20 +2701,20 @@ export function DesignerClient(props: Props) {
                 <div className="mt-8 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Your price</p>
+                      <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Your price</p>
                       <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
                         {formatCAD(breakdown.unitPrice)}
                         <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
                       </p>
                       {priceMeta.discountPct > 0 && (
-                        <p className="mt-1.5 flex items-center gap-1.5 text-xs">
+                        <p className="mt-1.5 flex items-center gap-1.5 text-[14px]">
                           <span className="text-dream-muted line-through">{formatCAD(priceMeta.anchorPerUnit)}</span>
                           <span className="rounded-full bg-dream-sun px-2 py-0.5 font-bold text-dream-ink">Save {priceMeta.discountPct}%</span>
                         </p>
                       )}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Quantity</p>
+                      <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Quantity</p>
                       <p className="font-display text-xl font-bold leading-none text-dream-ink">
                         {quantity || 0} unit{quantity === 1 ? "" : "s"}
                       </p>
@@ -2397,11 +2722,11 @@ export function DesignerClient(props: Props) {
                   </div>
                   {nextTier && quantity > 0 && (
                     <div className="mt-3 flex items-center gap-2.5">
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-sun px-2.5 py-1 font-display text-xs font-extrabold text-dream-ink">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-sun px-2.5 py-1 font-display text-[14px] font-extrabold text-dream-ink">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.3-8.3a1 1 0 0 0 0-1.4L12 2Z" /><path d="M6.5 6.5h.01" /></svg>
                         Save {nextTier.pct}%
                       </span>
-                      <span className="text-xs font-semibold text-dream-ink">Add {nextTier.add} more {nextTier.add === 1 ? "item" : "items"} to unlock</span>
+                      <span className="text-[14px] font-semibold text-dream-ink">Add {nextTier.add} more {nextTier.add === 1 ? "item" : "items"} to unlock</span>
                     </div>
                   )}
                   {/* Running subtotal + what's still to come, so the per-unit
@@ -2409,10 +2734,10 @@ export function DesignerClient(props: Props) {
                       Shipping is free; tax is added at checkout once we know
                       the province (this screen has no address yet). */}
                   <div className="mt-3 flex items-center justify-between gap-3 border-t border-dream-lavender-soft pt-2.5">
-                    <span className="text-xs font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
+                    <span className="text-[14px] font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
                     <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
                   </div>
-                  <p className="mt-1.5 text-xs font-medium leading-relaxed text-dream-muted">
+                  <p className="mt-1.5 text-[14px] font-medium leading-relaxed text-dream-muted">
                     Free shipping. Tax and any rush you request are added at checkout, and final pricing is confirmed on your proof before you pay.
                   </p>
                 </div>
@@ -2424,9 +2749,9 @@ export function DesignerClient(props: Props) {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19ZM17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">Estimated delivery</p>
+                    <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-muted">Estimated delivery</p>
                     <p className="mt-1 font-display text-lg font-bold leading-tight text-dream-ink">In hands by {fmtDate(inHands.end)}</p>
-                    <p className="mt-2 text-xs leading-relaxed text-dream-muted">
+                    <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
                       Proof in ~1 business day, then ships once you approve. Dates firm up on your proof.
                     </p>
                   </div>
@@ -2468,23 +2793,26 @@ export function DesignerClient(props: Props) {
             {/* Sticky checkout bar, pinned to the bottom of the viewport so the
                 CTA is always reachable while the form above scrolls. */}
             <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3 sm:px-6">
-              <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+              <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
                 {anyOutOfBounds && !error && (
-                  <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-dream-warn sm:mr-auto">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+                  // dream-warn on a 20% sun wash is two pale yellows on top of
+                  // each other; ink text on the solid brand yellow is the same
+                  // notice the canvas uses, and is actually readable.
+                  <p className="flex min-w-0 items-start gap-2 rounded-xl bg-dream-sun/95 px-3 py-2.5 text-[14px] font-semibold leading-snug text-dream-ink sm:mr-auto sm:bg-transparent sm:p-0 sm:text-[14px] sm:font-medium sm:text-dream-warn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mt-px h-4 w-4 shrink-0 sm:h-[13px] sm:w-[13px]" aria-hidden>
                       <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
                     </svg>
                     Some art sits outside the print lines. We&apos;ll double-check it before printing.
                   </p>
                 )}
-                <p className={cn("min-w-0 text-sm sm:text-right", error ? "font-medium text-dream-danger" : quantity < 1 ? "text-dream-muted" : "text-dream-faint")}>
+                <p className={cn("min-w-0 text-sm max-sm:text-center max-sm:text-[14px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < 1 ? "text-dream-muted" : "text-dream-faint")}>
                   {error ?? (quantity < 1 ? "Please enter more than 0 items." : "No payment now. We send a proof to approve first.")}
                 </p>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-col-reverse max-sm:gap-1">
                   <button
                     onClick={() => saveDesign("designs")}
                     disabled={busy !== null}
-                    className="inline-flex items-center justify-center rounded-full border border-dream-line bg-white px-5 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60"
+                    className="inline-flex items-center justify-center rounded-full border border-dream-line bg-white px-5 py-3 font-display text-sm font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60 max-sm:w-full max-sm:border-0 max-sm:bg-transparent max-sm:py-2 max-sm:text-dream-purple"
                   >
                     {busy === "save" ? "Saving…" : "Save & share"}
                   </button>
@@ -2494,7 +2822,7 @@ export function DesignerClient(props: Props) {
                       setShowSave(true);
                     }}
                     disabled={busy !== null || quantity < 1}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full max-sm:py-3.5"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5.4 8.2c4.4-.5 8.9-.5 13.3 0 .5 3.7.8 7.4.9 11.1-5.1.6-10.2.6-15.2 0 .1-3.7.4-7.4 1-11.1Z" /><path d="M8.6 8c-.2-2 .6-4.2 2.6-4.7 1.7-.4 3.4.6 4 2.2.3.8.3 1.7.2 2.5" /></svg>
                     Add to cart
@@ -2566,7 +2894,7 @@ export function DesignerClient(props: Props) {
                 placeholder="you@email.com"
               />
               {props.accountEmail && (
-                <p className="mt-1.5 text-xs text-dream-muted">
+                <p className="mt-1.5 text-[14px] text-dream-muted">
                   This design saves to your account ({props.accountEmail}). The email above is just where we send updates and your proof.
                 </p>
               )}
@@ -2623,7 +2951,7 @@ function NoteCard({
   return (
     <div className={cn("rounded-2xl border border-dream-line bg-dream-cream/50 p-4", className)}>
       <h3 className="font-display text-base font-bold text-dream-ink">Leave a note</h3>
-      <p className="mt-1.5 text-xs leading-relaxed text-dream-muted">
+      <p className="mt-1.5 text-[14px] leading-relaxed text-dream-muted lg:text-[14px]">
         Have some notes about this order? Leave us a note and we&apos;ll do our best to accommodate your request.
       </p>
       <textarea
@@ -2633,9 +2961,9 @@ function NoteCard({
         rows={5}
         maxLength={2000}
         placeholder="Print size, exact placement, a deadline, anything we should know…"
-        className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-sm leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-dream-faint focus:border-dream-purple"
+        className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-base leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-dream-faint focus:border-dream-purple lg:text-sm"
       />
-      <p className="mt-2 text-xs text-dream-faint">Saved with your design and sent to our team with your order.</p>
+      <p className="mt-2 text-[14px] text-dream-faint lg:text-[14px]">Saved with your design and sent to our team with your order.</p>
     </div>
   );
 }
@@ -2648,8 +2976,50 @@ function ReviewStepper({ className }: { className?: string }) {
     { label: "Quantity & sizes", state: "current" as const },
     { label: "Approve & pay", state: "upcoming" as const },
   ];
+  const currentIdx = steps.findIndex((s) => s.state === "current");
+  const current = steps[currentIdx] ?? steps[0];
+  const next = steps[currentIdx + 1];
+
   return (
-    <ol className={cn("flex items-center", className)}>
+    <>
+    {/* Phones: three circles with two of the three labels suppressed read as
+        meaningless dots with a cramped circle jammed against the edge. A
+        "step N of 3" line over a segmented bar says the same thing in less
+        room, keeps the CURRENT step named, and still promises what comes
+        after (payment is last, and only after the proof). */}
+    <div className={cn("sm:hidden", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-display text-base font-bold text-dream-ink">{current.label}</p>
+        <div className="shrink-0 text-right">
+          <p className="text-[14px] font-semibold text-dream-muted tabular-nums">
+            Step {currentIdx + 1} of {steps.length}
+          </p>
+          {next && (
+            <p className="mt-0.5 text-[14px] text-dream-faint">Next: {next.label}</p>
+          )}
+        </div>
+      </div>
+      <div className="mt-2 flex gap-1.5" aria-hidden>
+        {steps.map((s, i) => (
+          <span
+            key={s.label}
+            className={cn(
+              // One hue that fills up, rather than navy-then-yellow-then-grey:
+              // done is solid purple, the current step a lighter tint of the
+              // same purple, and what's left is the plain rule colour.
+              "h-1.5 flex-1 rounded-full",
+              i < currentIdx
+                ? "bg-dream-purple"
+                : i === currentIdx
+                  ? "bg-dream-lavender"
+                  : "bg-dream-line"
+            )}
+          />
+        ))}
+      </div>
+    </div>
+
+    <ol className={cn("hidden items-center sm:flex", className)}>
       {steps.map((s, i) => (
         <li key={s.label} className={cn("flex items-center gap-2.5", i < steps.length - 1 && "flex-1")}>
           <span
@@ -2669,8 +3039,7 @@ function ReviewStepper({ className }: { className?: string }) {
           <span
             className={cn(
               "whitespace-nowrap text-sm font-bold",
-              s.state === "upcoming" ? "text-dream-muted" : "text-dream-ink",
-              s.state === "upcoming" && "hidden sm:inline"
+              s.state === "upcoming" ? "text-dream-muted" : "text-dream-ink"
             )}
           >
             {s.label}
@@ -2679,6 +3048,7 @@ function ReviewStepper({ className }: { className?: string }) {
         </li>
       ))}
     </ol>
+    </>
   );
 }
 
@@ -2740,7 +3110,7 @@ function ColorwayBlock({
           const active = v > 0;
           return (
             <label key={s.name} className="flex min-w-[3rem] flex-1 flex-col items-center gap-1.5">
-              <span className="font-display text-xs font-bold text-dream-ink">{s.name}</span>
+              <span className="font-display text-[14px] font-bold text-dream-ink">{s.name}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -2924,6 +3294,50 @@ function ColourSelect({
 
 /** Small "?" affordance on a spec-table column header. Stops propagation so it
  *  never triggers the row/preview click behind it. */
+/**
+ * Scales its child visually (CSS transform) while keeping the LAYOUT box in
+ * sync with the scaled size, so zooming in extends the stage's scroll area
+ * (a bare transform never does) and phones can shrink a 520px canvas to fit.
+ * The effective scale is `scale` × fit-to-maxWidth (fit caps at 1). Fabric
+ * pointer math already tolerates ancestor transforms (the old zoom relied on
+ * it), so canvas interactions keep working at any scale.
+ */
+function ScaledBox({
+  scale,
+  maxWidth,
+  children,
+}: {
+  scale: number;
+  maxWidth: number | null;
+  children: React.ReactNode;
+}) {
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    // offsetWidth/Height are layout sizes, unaffected by the transform.
+    const update = () => setNatural({ w: el.offsetWidth, h: el.offsetHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const fit = natural && maxWidth ? Math.min(1, maxWidth / natural.w) : 1;
+  const s = scale * fit;
+  return (
+    <div style={natural ? { width: natural.w * s, height: natural.h * s } : undefined}>
+      <div
+        ref={innerRef}
+        className="w-fit"
+        style={{ transform: `scale(${s})`, transformOrigin: "top left" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function HelpDot({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -2933,9 +3347,42 @@ function HelpDot({ label, onClick }: { label: string; onClick: () => void }) {
         e.stopPropagation();
         onClick();
       }}
-      className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-dream-muted/60 text-[9.5px] font-bold normal-case leading-none text-dream-muted transition-colors hover:border-dream-purple hover:text-dream-purple"
+      className="relative grid h-4 w-4 shrink-0 place-items-center rounded-full border border-dream-muted/60 text-[9.5px] font-bold normal-case leading-none text-dream-muted transition-colors before:absolute before:-inset-2 before:content-[''] hover:border-dream-purple hover:text-dream-purple"
     >
       ?
+    </button>
+  );
+}
+
+/**
+ * Mobile canvas chip: an icon over its label, sized for a thumb, on the same
+ * frosted ground as the rest of the phone chrome. Matches the width of the side
+ * switcher beside it so the two rails read as one system.
+ */
+function MobileChip({
+  children,
+  label,
+  srLabel,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  label: string;
+  /** Accessible name, when the visible label is a value rather than an action
+   *  (the zoom chip shows "115%" but is the zoom-IN button). */
+  srLabel?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      aria-label={srLabel ?? label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-[3.75rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1.5 text-dream-ink ring-1 ring-dream-ink/[0.06] backdrop-blur-md transition-opacity disabled:opacity-40"
+    >
+      <span className="grid h-8 w-8 place-items-center">{children}</span>
+      <span className="text-[14px] font-bold leading-none text-dream-muted">{label}</span>
     </button>
   );
 }
@@ -2977,13 +3424,15 @@ function RailBtn({
   return (
     <button
       onClick={onClick}
+      title={label}
+      aria-label={label}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold transition-colors",
+        "flex shrink-0 items-center gap-2.5 rounded-lg p-2.5 text-left text-[14px] font-semibold transition-colors max-sm:min-h-[3rem] max-sm:min-w-[3rem] max-sm:justify-center sm:w-full sm:px-2.5 sm:py-2",
         danger ? "text-dream-danger hover:bg-dream-danger-soft" : "text-dream-ink hover:bg-dream-cream"
       )}
     >
-      <span className="grid h-5 w-5 shrink-0 place-items-center">{children}</span>
-      <span className="whitespace-nowrap">{label}</span>
+      <span className="grid h-[1.6rem] w-[1.6rem] shrink-0 place-items-center sm:h-5 sm:w-5">{children}</span>
+      <span className="hidden whitespace-nowrap sm:inline">{label}</span>
     </button>
   );
 }
@@ -3099,7 +3548,14 @@ function AlignIcon({ align }: { align: "left" | "center" | "right" }) {
   const short = align === "left" ? "M4 12h9" : align === "right" ? "M11 12h9" : "M7 12h10";
   const shorter = align === "left" ? "M4 18h6" : align === "right" ? "M14 18h6" : "M9 18h6";
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      className="h-[22px] w-[22px] lg:h-4 lg:w-4"
+    >
       <path d="M4 6h16" />
       <path d={short} />
       <path d="M4 15h16" />
