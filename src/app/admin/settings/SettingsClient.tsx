@@ -266,7 +266,7 @@ function CheckoutTab({ settings }: { settings: CheckoutSettings }) {
             <Textarea id="co-footnote" rows={2} value={draft.footnote} onChange={(e) => set({ footnote: e.target.value })} />
           </Field>
           <div className="flex justify-end">
-            <Button variant="primary" loading={pending} onClick={save}>
+            <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
               Save checkout settings
             </Button>
           </div>
@@ -317,7 +317,7 @@ function PickupAddressCard({ settings }: { settings: BusinessSettings }) {
           />
         </Field>
         <div className="flex justify-end">
-          <Button variant="primary" loading={pending} onClick={save}>
+          <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
             Save pickup address
           </Button>
         </div>
@@ -391,7 +391,7 @@ function PaymentsTab({ settings }: { settings: PaymentSettings }) {
             &ldquo;E-transfers to verify&rdquo;. Check your bank, then confirm it on the order to mark it paid.
           </p>
           <div className="flex justify-end">
-            <Button variant="primary" loading={pending} onClick={save}>
+            <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
               Save payment settings
             </Button>
           </div>
@@ -426,7 +426,10 @@ function StaffTab({ staff }: { staff: StaffRow[] }) {
               <TD>
                 <span className="font-medium text-dream-ink">{s.name ?? "-"}</span>
               </TD>
-              <TD className="text-dream-muted">{s.email ?? "-"}</TD>
+              <TD className="text-dream-muted">
+                {/* Capped so a long address cannot widen the staff table. */}
+                <span className="block max-w-[16rem] truncate">{s.email ?? "-"}</span>
+              </TD>
               <TD>
                 <Badge variant={s.role === "staff_admin" ? "purple" : "info"}>
                   {s.role.replace(/_/g, " ")}
@@ -516,7 +519,7 @@ function EmailTemplatesTab({ templates }: { templates: Record<string, EmailTempl
               />
             </Field>
             <div className="flex justify-end">
-              <Button variant="primary" loading={pending} onClick={save}>
+              <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
                 Save
               </Button>
             </div>

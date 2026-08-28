@@ -114,7 +114,8 @@ function QtyBreakTable({
             aria-label={`Remove the ${row.minQty || "new"} piece row`}
             title={rows.length <= 1 ? "Keep at least one row" : "Remove this row"}
             disabled={rows.length <= 1}
-            className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-dream-faint"
+            // -m-1 p-2 keeps the row's footprint but gives the finger 30px.
+            className="-m-1 shrink-0 rounded p-2 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-dream-faint"
             onClick={() => onChange(rows.filter((_, j) => j !== i))}
           >
             {REMOVE_ICON}
@@ -123,7 +124,7 @@ function QtyBreakTable({
       ))}
       <button
         type="button"
-        className="text-xs font-semibold text-dream-purple hover:underline"
+        className="py-1 text-xs font-semibold text-dream-purple hover:underline"
         onClick={() => onChange([...rows, { id: newRowId(), minQty: "", price: "" }])}
       >
         + Add row
@@ -425,7 +426,7 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
                     type="button"
                     aria-label={`Remove the ${row.days || "new"} day rush option`}
                     title="Remove this rush option"
-                    className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                    className="-m-1 shrink-0 rounded p-2 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
                     onClick={() => setRushRows(rushRows.filter((_, j) => j !== i))}
                   >
                     {REMOVE_ICON}
@@ -439,7 +440,7 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
               )}
               <button
                 type="button"
-                className="text-xs font-semibold text-dream-purple hover:underline"
+                className="py-1 text-xs font-semibold text-dream-purple hover:underline"
                 onClick={() => setRushRows([...rushRows, { id: newRowId(), days: "", pct: "" }])}
               >
                 + Add rush option
@@ -450,7 +451,7 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
       </Card>
 
       <div className="flex justify-end">
-        <Button variant="primary" loading={pending} onClick={save}>
+        <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
           Save pricing
         </Button>
       </div>
@@ -522,7 +523,7 @@ export function AddonsTab({ settings }: { settings: AddonSettings }) {
             ))}
           </div>
           <div className="flex justify-end">
-            <Button variant="primary" loading={pending} onClick={save}>
+            <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
               Save add-on charges
             </Button>
           </div>

@@ -84,7 +84,12 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
         <div className="space-y-0.5">
           {company && <div className="font-semibold text-dream-ink">{company}</div>}
           {name && <div className={cn(company ? "text-dream-muted" : "font-semibold text-dream-ink")}>{name}</div>}
-          {phone && <div className="text-dream-muted">{phone}</div>}
+          {phone && (
+            // tel:/mailto: so the shop can dial or write straight from a phone.
+            <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="block text-dream-muted hover:underline">
+              {phone}
+            </a>
+          )}
           {email && (
             <a href={`mailto:${email}`} className="block truncate text-dream-purple hover:underline">
               {email}
@@ -111,7 +116,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
           <DialogHeader>
             <DialogTitle>Edit customer details</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5 pt-0">
+          <div className="max-h-[70dvh] space-y-4 overflow-y-auto p-5 pt-0">
             <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2">
               <Labeled label="Company">
                 <Input value={form.company} disabled={!canEdit} onChange={(e) => setF({ company: e.target.value })} />

@@ -98,33 +98,33 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
 
           <dl className="space-y-1 text-sm">
             {methodLabel && (
-              <div className="flex justify-between">
-                <dt className="text-dream-muted">Method</dt>
-                <dd className="text-dream-ink">{methodLabel}</dd>
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-dream-muted">Method</dt>
+                <dd className="min-w-0 truncate text-dream-ink">{methodLabel}</dd>
               </div>
             )}
             {order.etransfer_reported_at && !order.paid_at && (
-              <div className="flex justify-between">
-                <dt className="text-dream-muted">E-transfer reported</dt>
-                <dd className="text-dream-ink">{fmtDay(order.etransfer_reported_at)}</dd>
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-dream-muted">E-transfer reported</dt>
+                <dd className="min-w-0 truncate text-dream-ink">{fmtDay(order.etransfer_reported_at)}</dd>
               </div>
             )}
             {order.invoice_sent_at && (
-              <div className="flex justify-between">
-                <dt className="text-dream-muted">Invoice sent</dt>
-                <dd className="text-dream-ink">{fmtDay(order.invoice_sent_at)}</dd>
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-dream-muted">Invoice sent</dt>
+                <dd className="min-w-0 truncate text-dream-ink">{fmtDay(order.invoice_sent_at)}</dd>
               </div>
             )}
             {order.invoice_amount != null && (
-              <div className="flex justify-between">
-                <dt className="text-dream-muted">Invoiced</dt>
-                <dd className="text-dream-ink">{formatCAD(order.invoice_amount)}</dd>
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-dream-muted">Invoiced</dt>
+                <dd className="min-w-0 truncate text-dream-ink">{formatCAD(order.invoice_amount)}</dd>
               </div>
             )}
             {order.paid_at && (
-              <div className="flex justify-between">
-                <dt className="text-dream-muted">Paid</dt>
-                <dd className="text-dream-ink">{fmtDay(order.paid_at)}</dd>
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-dream-muted">Paid</dt>
+                <dd className="min-w-0 truncate text-dream-ink">{fmtDay(order.paid_at)}</dd>
               </div>
             )}
           </dl>
@@ -195,7 +195,9 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
                   setDueDate(next);
                   run(() => setDueDateAction(order.id, next || null), next ? "Due date saved" : "Due date cleared");
                 }}
-                className="mt-0.5 w-full rounded-md border border-dream-line bg-white px-1 py-0.5 text-sm font-semibold text-dream-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple"
+                // Sized like the shared Input primitive: 16px text below sm or
+                // iOS Safari zooms the page on focus.
+                className="mt-0.5 h-9 w-full rounded-lg border border-dream-line bg-white px-2 text-base font-semibold text-dream-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple sm:text-sm"
               />
             ) : (
               <div className="mt-0.5 truncate text-sm font-semibold text-dream-ink">

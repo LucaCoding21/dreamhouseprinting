@@ -21,7 +21,9 @@ export function MeasureHelpDot() {
         // Colours without stopping on the help dot.
         tabIndex={-1}
         onClick={() => setOpen(true)}
-        className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-dream-line text-[9px] font-bold text-dream-muted transition-colors hover:bg-dream-purple hover:text-white"
+        // The dot itself stays 14px; the transparent ::before ring around it
+        // makes the tap target ~28px without changing anything visually.
+        className="relative flex h-3.5 w-3.5 items-center justify-center rounded-full bg-dream-line text-[9px] font-bold text-dream-muted transition-colors before:absolute before:-inset-[7px] before:content-[''] hover:bg-dream-purple hover:text-white"
       >
         ?
       </button>

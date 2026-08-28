@@ -68,7 +68,7 @@ export default async function AdminCustomerDetailPage({
       <AdminHeader title={profile.name ?? profile.email ?? "Customer"}>
         <Link
           href="/admin/customers"
-          className="text-sm font-medium text-dream-muted hover:text-dream-ink"
+          className="inline-block py-1 text-sm font-medium text-dream-muted hover:text-dream-ink"
         >
           ← All customers
         </Link>
@@ -91,7 +91,7 @@ export default async function AdminCustomerDetailPage({
                 </div>
               )}
             </div>
-            <div className="flex gap-6">
+            <div className="flex flex-wrap gap-6">
               <div>
                 <div className="text-xs uppercase tracking-wide text-dream-muted">Orders</div>
                 <div className="font-display text-2xl font-bold text-dream-ink">

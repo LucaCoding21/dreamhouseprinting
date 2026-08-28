@@ -16,7 +16,7 @@ export function AdminPageSkeleton({
   return (
     <div>
       <AdminHeader title={title} />
-      <div className="space-y-6 px-8 py-6">
+      <div className="space-y-6 px-4 py-6 sm:px-8">
         {children ?? (
           <>
             <div className="flex gap-2">

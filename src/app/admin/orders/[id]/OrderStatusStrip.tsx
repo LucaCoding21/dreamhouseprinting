@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
@@ -27,6 +27,21 @@ export function OrderStatusStrip({ detail, canEdit }: { detail: Detail; canEdit:
   const status = order.status as OrderStatus;
   const stageIdx = statusStageIndex(status);
   const [confirmTo, setConfirmTo] = useState<OrderStatus | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  // Phones scroll the stepper sideways (5 fixed-width stages don't fit at
+  // 375px), so the stage the order is actually on has to be brought into view.
+  // scrollLeft is set directly rather than via scrollIntoView, which would also
+  // scroll the page vertically to the strip on every load.
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return;
+    const stage = el.children[Math.max(stageIdx, 0)] as HTMLElement | undefined;
+    if (!stage) return;
+    const box = el.getBoundingClientRect();
+    const rect = stage.getBoundingClientRect();
+    el.scrollLeft += rect.left - box.left - (box.width - rect.width) / 2;
+  }, [stageIdx]);
 
   const pricing = (order.pricing ?? {}) as { total?: number };
   const total = pricing.total ?? 0;
@@ -53,82 +68,94 @@ export function OrderStatusStrip({ detail, canEdit }: { detail: Detail; canEdit:
         <Badge variant={paymentBadge}>{payment === "paid_in_full" ? "Paid" : payment.replace(/_/g, " ")}</Badge>
       </div>
 
-      <div className="mt-5 flex items-start border-t border-dream-line pt-5">
-        {TRACKER_STAGES.map((stage, i) => {
-          const done = stageIdx >= 0 && i < stageIdx;
-          const current = stageIdx === i;
-          const target = stageTargetStatus(stage.key, order.fulfillment_method);
-          const clickable = canEdit && target !== status;
-          return (
-            <div key={stage.key} className="relative flex flex-1 flex-col items-center text-center">
-              {i > 0 && (
-                <span
-                  className={cn(
-                    "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2",
-                    stageIdx >= 0 && i <= stageIdx ? "bg-dream-success" : "bg-dream-line-strong",
-                  )}
-                />
-              )}
-              <button
-                type="button"
-                disabled={!clickable || pending}
-                onClick={() => move(target)}
-                title={
-                  clickable
-                    ? `Move this order to ${STATUS_META[target].label}`
-                    : current
-                      ? "Current stage"
-                      : undefined
-                }
-                className={cn(
-                  "group relative z-10 flex flex-col items-center",
-                  clickable ? "cursor-pointer" : "cursor-default",
-                )}
+      <div className="mt-5 border-t border-dream-line pt-5">
+        {/* py-1 below sm keeps the current stage's ring-4 from being clipped by
+            the scroll container; sm+ is the original fluid flex row. */}
+        <div
+          ref={stripRef}
+          className="no-scrollbar flex items-start overflow-x-auto scroll-px-4 py-1 sm:overflow-x-visible sm:py-0"
+        >
+          {TRACKER_STAGES.map((stage, i) => {
+            const done = stageIdx >= 0 && i < stageIdx;
+            const current = stageIdx === i;
+            const target = stageTargetStatus(stage.key, order.fulfillment_method);
+            const clickable = canEdit && target !== status;
+            return (
+              <div
+                key={stage.key}
+                // sm+ is `flex-1` spelled out longhand so it cannot lose a
+                // shorthand-vs-longhand ordering fight with shrink-0.
+                className="relative flex w-[76px] shrink-0 flex-col items-center text-center sm:w-auto sm:shrink sm:grow sm:basis-0"
               >
-                <span
+                {i > 0 && (
+                  <span
+                    className={cn(
+                      "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2",
+                      stageIdx >= 0 && i <= stageIdx ? "bg-dream-success" : "bg-dream-line-strong",
+                    )}
+                  />
+                )}
+                <button
+                  type="button"
+                  disabled={!clickable || pending}
+                  onClick={() => move(target)}
+                  title={
+                    clickable
+                      ? `Move this order to ${STATUS_META[target].label}`
+                      : current
+                        ? "Current stage"
+                        : undefined
+                  }
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-shadow",
-                    done && "border-dream-success bg-dream-success text-white",
-                    current && "border-dream-purple bg-dream-purple text-white ring-4 ring-dream-lavender-soft",
-                    !done && !current && "border-transparent bg-dream-bg text-dream-faint",
-                    clickable && "group-hover:ring-4 group-hover:ring-dream-purple/20",
+                    "group relative z-10 flex flex-col items-center",
+                    clickable ? "cursor-pointer" : "cursor-default",
                   )}
                 >
-                  {done ? (
-                    <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden>
-                      <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <span
-                  className={cn(
-                    "mt-2 px-1 text-[11px] font-medium",
-                    current ? "text-dream-ink" : "text-dream-muted",
-                    clickable && "group-hover:text-dream-purple",
-                  )}
-                >
-                  {stage.label}
-                </span>
-              </button>
-              {current && (
-                <span
-                  className={cn(
-                    "mt-0.5 px-1 text-[11px] font-semibold",
-                    status === "changes_requested" ? "text-dream-warn" : "text-dream-purple",
-                  )}
-                >
-                  {STATUS_META[status].label}
-                </span>
-              )}
-            </div>
-          );
-        })}
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-shadow",
+                      done && "border-dream-success bg-dream-success text-white",
+                      current && "border-dream-purple bg-dream-purple text-white ring-4 ring-dream-lavender-soft",
+                      !done && !current && "border-transparent bg-dream-bg text-dream-faint",
+                      clickable && "group-hover:ring-4 group-hover:ring-dream-purple/20",
+                    )}
+                  >
+                    {done ? (
+                      <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden>
+                        <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      i + 1
+                    )}
+                  </span>
+                  <span
+                    className={cn(
+                      "mt-2 px-1 text-[11px] font-medium",
+                      current ? "text-dream-ink" : "text-dream-muted",
+                      clickable && "group-hover:text-dream-purple",
+                    )}
+                  >
+                    {stage.label}
+                  </span>
+                </button>
+                {current && (
+                  <span
+                    className={cn(
+                      "mt-0.5 px-1 text-[11px] font-semibold",
+                      status === "changes_requested" ? "text-dream-warn" : "text-dream-purple",
+                    )}
+                  >
+                    {STATUS_META[status].label}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {canEdit && (
-        <p className="mt-4 text-center text-[11px] text-dream-faint">
+        <p className="mt-4 text-center text-xs text-dream-faint">
           Click any stage to move the order there. Going back (a reprint, a redo) asks first.
         </p>
       )}

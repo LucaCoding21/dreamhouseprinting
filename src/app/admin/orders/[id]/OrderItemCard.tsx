@@ -348,7 +348,7 @@ export function OrderItemCard({
                           className="flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
                         >
                           <Image src={m.url!} alt={`${m.view} mockup`} width={56} height={56} className="min-h-0 w-full flex-1 object-contain" />
-                          <span className="text-[9px] font-medium capitalize text-dream-muted">{m.view}</span>
+                          <span className="text-[10px] font-medium capitalize text-dream-muted">{m.view}</span>
                         </button>
                       ))}
                     </div>
@@ -391,9 +391,9 @@ export function OrderItemCard({
                               <img src={p.image} alt="Older proof" className="min-h-0 w-full flex-1 object-contain" />
                             )
                           ) : (
-                            <span className="text-[9px] text-dream-faint">No file</span>
+                            <span className="text-[10px] text-dream-faint">No file</span>
                           )}
-                          <span className="text-[9px] font-medium text-dream-muted">{relativeTime(p.created_at)}</span>
+                          <span className="text-[10px] font-medium text-dream-muted">{relativeTime(p.created_at)}</span>
                         </button>
                       ))}
                     </div>
@@ -415,7 +415,7 @@ export function OrderItemCard({
                   onClick={onCollapse}
                   aria-label="Collapse line"
                   title="Collapse line"
-                  className="rounded p-1 text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink"
+                  className="rounded p-1 text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink max-sm:p-2.5"
                 >
                   <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 rotate-90" aria-hidden>
                     <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -427,14 +427,16 @@ export function OrderItemCard({
                 value={item.productName}
                 disabled={!can.edit}
                 onChange={(e) => onPatch((p) => ({ ...p, productName: e.target.value }))}
-                className="min-w-32 flex-1 font-semibold text-dream-ink"
+                // Phone: the name owns the first line (-order-1 hops it above the
+                // reorder/collapse controls), everything else follows below.
+                className="min-w-32 flex-1 font-semibold text-dream-ink max-sm:-order-1 max-sm:min-w-full"
               />
               <Select
                 value={item.productionStatus}
                 disabled={!can.edit}
                 title="Production status for this line"
                 onChange={(e) => onPatch((p) => ({ ...p, productionStatus: e.target.value as LineProductionStatus }))}
-                className="h-9 w-40 shrink-0"
+                className="h-9 w-40 max-sm:w-auto max-sm:flex-1 sm:shrink-0"
               >
                 {LINE_PRODUCTION_STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -446,7 +448,7 @@ export function OrderItemCard({
                 <button
                   type="button"
                   aria-label="Remove item"
-                  className="rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                  className="rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger max-sm:p-2.5"
                   onClick={onRemove}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-4 w-4" aria-hidden>
@@ -472,7 +474,7 @@ export function OrderItemCard({
               )}
 
               {/* Line ops: where the blanks come from and whether they're in hand. */}
-              <div className="ml-auto flex flex-wrap items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center gap-2 max-sm:w-full">
                 <label className="inline-flex items-center gap-1.5">
                   <span className={LBL}>Supplier</span>
                   <Select
@@ -529,8 +531,9 @@ export function OrderItemCard({
                     // Narrow, centred boxes: a size run is 1-3 digits per size,
                     // wide inputs just push the run off the card. Long custom
                     // names ("One size") get a wider column; the label never
-                    // wraps so every input sits on the same baseline.
-                    <div key={s} className={cn(s.length > 4 ? "w-16" : "w-11")}>
+                    // wraps so every input sits on the same baseline. On phones
+                    // the columns are a touch wider so 3 digits still fit.
+                    <div key={s} className={cn(s.length > 4 ? "w-16" : "w-12 sm:w-11")}>
                       <div
                         title={s}
                         className="mb-1 h-4 truncate whitespace-nowrap text-center text-xs font-semibold uppercase leading-4 text-dream-muted"
@@ -545,27 +548,31 @@ export function OrderItemCard({
                         placeholder="0"
                         disabled={!can.edit}
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
-                        className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="h-9 px-0.5 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
                       {/* Standard sizes are permanent columns (a zero simply
-                          doesn't save); only custom sizes get an X. */}
+                          doesn't save); only custom sizes get an X. The padding
+                          plus negative margin on phones grows the tap area
+                          without moving the glyph. */}
                       {can.edit && !SIZE_ORDER.includes(s.toUpperCase()) && (
-                        <button
-                          type="button"
-                          aria-label={`Remove size ${s}`}
-                          title={`Remove size ${s}`}
-                          tabIndex={-1}
-                          className="mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
-                          onClick={() => removeSize(s)}
-                        >
-                          ×
-                        </button>
+                        <div className="mt-1 flex justify-center">
+                          <button
+                            type="button"
+                            aria-label={`Remove size ${s}`}
+                            title={`Remove size ${s}`}
+                            tabIndex={-1}
+                            className="box-content block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger max-sm:-m-1.5 max-sm:p-1.5"
+                            onClick={() => removeSize(s)}
+                          >
+                            ×
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
                 })}
                 {can.edit && (
-                  <div className="w-24">
+                  <div className="w-28 sm:w-24">
                     <div className="mb-1 text-center text-[10px] font-semibold uppercase text-dream-faint">Eg. S or M</div>
                     <div className="flex items-center gap-1">
                       <Input
@@ -577,7 +584,9 @@ export function OrderItemCard({
                             addSize();
                           }
                         }}
-                        className="h-9 text-center text-xs"
+                        // text-base under sm keeps iOS from zooming on focus;
+                        // the narrower padding buys that 16px room to sit in.
+                        className="h-9 text-center text-base max-sm:px-1 sm:text-xs"
                       />
                       <Button variant="secondary" size="sm" className="h-9" onClick={addSize} disabled={!newSize.trim()}>
                         Add
@@ -599,15 +608,18 @@ export function OrderItemCard({
               {(product?.printAreas ?? []).some((pa) => pa.sizeLimits.length > 0) && (
                 <div className="rounded-lg bg-dream-bg px-3 py-2 text-xs text-dream-muted">
                   <span className="font-semibold text-dream-ink">Max print by garment size: </span>
+                  {/* One area per line on phones; the " | " separator only earns
+                      its keep when they run together on one line. */}
                   {(product?.printAreas ?? [])
                     .filter((pa) => pa.sizeLimits.length > 0)
-                    .map(
-                      (pa) =>
-                        `${pa.name}: ${pa.sizeLimits
+                    .map((pa, i, arr) => (
+                      <span key={i} className="block sm:inline">
+                        {`${pa.name}: ${pa.sizeLimits
                           .map((r) => `${r.label} ${formatInches(r.maxWidthIn, r.maxHeightIn)}`)
-                          .join(" · ")}`,
-                    )
-                    .join("  |  ")}
+                          .join(" · ")}`}
+                        {i < arr.length - 1 && <span className="hidden sm:inline">{"  |  "}</span>}
+                      </span>
+                    ))}
                 </div>
               )}
               {item.spots.map((spot, si) => (
@@ -716,7 +728,8 @@ export function OrderItemCard({
                   {can.pricing && (
                     <button
                       type="button"
-                      className="font-semibold text-dream-purple hover:underline"
+                      // -my-1 cancels the tap padding, so the box keeps its height.
+                      className="-my-1 py-1 font-semibold text-dream-purple hover:underline"
                       onClick={() =>
                         onPatch((p) => ({
                           ...p,
@@ -731,7 +744,7 @@ export function OrderItemCard({
                   {can.edit && (
                     <button
                       type="button"
-                      className="text-dream-muted hover:underline"
+                      className="-my-1 py-1 text-dream-muted hover:underline"
                       onClick={() => onPatch((p) => ({ ...p, priceSuggestion: null }))}
                     >
                       Keep current price

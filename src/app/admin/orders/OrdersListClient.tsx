@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
@@ -86,6 +88,7 @@ export function OrdersListClient({
   const [tab, setTab] = useState(
     initialTab && TABS.some((t) => t.key === initialTab) ? initialTab : "all"
   );
+  const [query, setQuery] = useState("");
 
   const count = (m: (r: Row) => boolean) => rows.filter(m).length;
   const tabMatch = (key: string) => TABS.find((t) => t.key === key)!.match;
@@ -97,7 +100,14 @@ export function OrdersListClient({
     { label: "Shipped", tab: "shipped", value: count(tabMatch("shipped")) },
   ];
 
-  const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r));
+  // Search narrows what the active tab shows; the tab counts above stay
+  // unfiltered so the numbers keep matching the stat cards.
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (r: Row) =>
+    !q ||
+    [r.orderNumber, r.customerName, r.customerEmail].some((v) => v?.toLowerCase().includes(q));
+
+  const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r) && matchesQuery(r));
 
   return (
     <div>
@@ -111,26 +121,52 @@ export function OrdersListClient({
               type="button"
               onClick={() => setTab(s.tab)}
               className={cn(
-                "rounded-xl border p-4 text-left transition-colors",
+                "rounded-xl border p-3 text-left transition-colors sm:p-4",
                 tab === s.tab
                   ? "border-dream-purple bg-dream-surface ring-1 ring-dream-purple"
                   : "border-dream-line bg-dream-surface hover:border-dream-purple/50"
               )}
             >
-              <div className="font-display text-3xl font-bold text-dream-ink">{s.value}</div>
+              <div className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">{s.value}</div>
               <div className="text-sm text-dream-muted">{s.label}</div>
             </button>
           ))}
         </div>
 
-        {/* Tabs */}
-        <div className="mb-4 flex flex-wrap gap-1 border-b border-dream-line">
+        {/* Search: filters the rows the active tab already matched. */}
+        <div className="relative mb-4 max-w-full sm:max-w-sm">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dream-faint"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search orders"
+            aria-label="Search orders"
+            className="pl-9"
+          />
+        </div>
+
+        {/* Tabs: one scrolling row on phones (the page itself cannot scroll
+            sideways, body is overflow-x clipped), the usual wrap from md up. */}
+        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-dream-line no-scrollbar md:flex-wrap md:overflow-x-visible">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={cn(
-                "border-b-2 px-3 py-2 text-sm font-medium",
+                "shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium",
                 tab === t.key ? "border-dream-purple text-dream-purple" : "border-transparent text-dream-muted hover:text-dream-ink"
               )}
             >
@@ -142,7 +178,51 @@ export function OrdersListClient({
         {visible.length === 0 ? (
           <EmptyState title="No orders here" description="Orders placed in the designer land here automatically." />
         ) : (
-          <div className="rounded-xl border border-dream-line bg-dream-surface">
+          <>
+            {/* Phones: the 8-column table is unreadable, so the same rows render
+                as a tap-through list at the same density as the dashboard queues. */}
+            <div className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface md:hidden">
+              {visible.map((r) => {
+                const meta = STATUS_META[r.status as OrderStatus];
+                const ih = inHands(r.dueDate);
+                const pay = paymentMeta(r);
+                const thumb = r.mockups[0];
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/admin/orders/${r.id}`}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-dream-bg"
+                  >
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded border border-dream-line bg-dream-bg">
+                      {thumb && (
+                        <Image src={thumb} alt="" width={44} height={44} className="h-full w-full object-contain" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-dream-ink">{r.orderNumber ?? "Order"}</div>
+                      <div className="truncate text-xs text-dream-muted">
+                        {r.customerName ?? r.customerEmail ?? "-"}
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? r.status}</Badge>
+                        <Badge variant={pay.variant}>{pay.label}</Badge>
+                      </div>
+                      {r.latestNote && (
+                        <div className="mt-1 truncate text-xs text-dream-muted">{r.latestNote}</div>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-medium text-dream-ink">{formatCAD(r.total)}</div>
+                      <div className={cn("text-xs", ih.urgent ? "text-dream-danger" : "text-dream-muted")}>
+                        {ih.label}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="hidden rounded-xl border border-dream-line bg-dream-surface md:block">
             <Table>
               <THead>
                 <TR>
@@ -199,7 +279,8 @@ export function OrdersListClient({
                 })}
               </TBody>
             </Table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

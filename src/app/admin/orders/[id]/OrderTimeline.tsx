@@ -142,7 +142,11 @@ export function OrderTimeline({
             placeholder="Write a message to the customer…"
             // Naming the actual inbox on the button is the safeguard the dropdown
             // never gave: you cannot click send without seeing who receives it.
+            // A phone-width button truncates the address away, so below sm the
+            // caption carries the recipient instead of the label.
             submitLabel={recipient ? `Email ${recipient}` : "Send to customer"}
+            shortLabel={recipient ? "Email customer" : undefined}
+            caption={recipient ? `Sends to ${recipient}` : undefined}
             toast="Message sent to the customer"
             tone="info"
           />
@@ -168,8 +172,8 @@ function NoteHeader({
   badgeClass?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-sm font-bold text-dream-ink">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-dream-ink">
         {note.actor}
         <span className="ml-1 font-normal text-dream-muted">@ {fmtWhen(note.at)}</span>
       </span>
@@ -195,6 +199,8 @@ function Composer({
   canEdit,
   placeholder,
   submitLabel,
+  shortLabel,
+  caption,
   toast,
   tone = "primary",
 }: {
@@ -203,6 +209,10 @@ function Composer({
   canEdit: boolean;
   placeholder: string;
   submitLabel: string;
+  /** Phone-width stand-in for submitLabel when the full one would truncate. */
+  shortLabel?: string;
+  /** Phone-only line under the composer, carries what the short label drops. */
+  caption?: string;
   toast: string;
   tone?: "primary" | "info";
 }) {
@@ -210,33 +220,43 @@ function Composer({
   const [note, setNote] = useState("");
 
   return (
-    <div className="flex flex-wrap items-start gap-2 border-t border-dream-line pt-3">
-      <Textarea
-        rows={1}
-        placeholder={placeholder}
-        value={note}
-        disabled={!canEdit}
-        onChange={(e) => setNote(e.target.value)}
-        className="min-h-10 flex-1 basis-64"
-      />
-      <Button
-        variant={tone === "info" ? "secondary" : "primary"}
-        loading={pending}
-        disabled={!canEdit || !note.trim()}
-        className={cn(
-          "max-w-full truncate",
-          tone === "info" && "border-dream-info/40 text-dream-info hover:bg-dream-info-soft",
-        )}
-        onClick={() =>
-          run(async () => {
-            const r = await addOrderNoteAction(orderId, note, visibility);
-            if (!r.error) setNote("");
-            return r;
-          }, toast)
-        }
-      >
-        {submitLabel}
-      </Button>
+    <div className="border-t border-dream-line pt-3">
+      <div className="flex flex-wrap items-start gap-2">
+        <Textarea
+          rows={1}
+          placeholder={placeholder}
+          value={note}
+          disabled={!canEdit}
+          onChange={(e) => setNote(e.target.value)}
+          className="min-h-10 flex-1 basis-64"
+        />
+        <Button
+          variant={tone === "info" ? "secondary" : "primary"}
+          loading={pending}
+          disabled={!canEdit || !note.trim()}
+          className={cn(
+            "max-w-full truncate",
+            tone === "info" && "border-dream-info/40 text-dream-info hover:bg-dream-info-soft",
+          )}
+          onClick={() =>
+            run(async () => {
+              const r = await addOrderNoteAction(orderId, note, visibility);
+              if (!r.error) setNote("");
+              return r;
+            }, toast)
+          }
+        >
+          {shortLabel ? (
+            <>
+              <span className="sm:hidden">{shortLabel}</span>
+              <span className="hidden sm:inline">{submitLabel}</span>
+            </>
+          ) : (
+            submitLabel
+          )}
+        </Button>
+      </div>
+      {caption && <p className="mt-1.5 text-xs text-dream-muted sm:hidden">{caption}</p>}
     </div>
   );
 }

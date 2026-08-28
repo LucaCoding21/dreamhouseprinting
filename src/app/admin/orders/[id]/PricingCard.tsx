@@ -216,7 +216,9 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
                   <button
                     key={kind}
                     type="button"
-                    className="text-xs font-semibold text-dream-purple hover:underline"
+                    // Negative margin keeps the row height it had before the
+                    // tap padding was added.
+                    className="-my-1.5 py-1.5 text-xs font-semibold text-dream-purple hover:underline"
                     onClick={() => {
                       const row = newAdjustment();
                       setAdjKinds((m) => ({ ...m, [row.id]: kind }));
@@ -239,13 +241,15 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
             const setRow = (patch: Partial<PriceAdjustment>) =>
               patchAdjustments(adjustments.map((row, j) => (j === i ? { ...row, ...patch } : row)));
             return (
-              <div key={a.id} className="flex items-center gap-1.5 text-sm">
+              // Phone: the name takes the whole first line, the picker, the
+              // amount, and the delete share the second. sm+ stays one row.
+              <div key={a.id} className="flex flex-wrap items-center gap-1.5 text-sm sm:flex-nowrap">
                 <Input
                   value={a.label}
                   disabled={!can.pricing}
                   placeholder={kind === "fee" ? "e.g. Delivery fee" : "e.g. Loyalty discount"}
                   onChange={(e) => setRow({ label: e.target.value })}
-                  className="h-8 min-w-0 flex-1"
+                  className="h-8 w-full min-w-0 sm:w-auto sm:flex-1"
                 />
                 <Select
                   value={kind}
@@ -278,7 +282,8 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
                   <button
                     type="button"
                     aria-label={`Remove ${adjustmentLabel(a)}`}
-                    className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                    // -m-1 p-2 grows the tap target without moving anything.
+                    className="-m-1 shrink-0 rounded p-2 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
                     onClick={() => patchAdjustments(adjustments.filter((_, j) => j !== i))}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>

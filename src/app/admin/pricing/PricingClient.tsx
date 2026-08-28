@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Field } from "@/components/ui/Field";
 import { Label } from "@/components/ui/Label";
 import { Badge } from "@/components/ui/Badge";
@@ -108,7 +109,19 @@ function PriceLists({
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
-      <nav aria-label="Price lists" className="shrink-0 space-y-1 lg:w-64">
+      {/* Below lg the master list would stack as ~6 rows to scroll past on the
+          way to the editor every time, so the picker collapses to a select. */}
+      <Field label="Price list" className="lg:hidden">
+        <Select value={selected?.profile.id ?? ""} onChange={(e) => setSelectedId(e.target.value)}>
+          {profiles.map((p) => (
+            <option key={p.profile.id} value={p.profile.id}>
+              {p.profile.name} ({p.productCount})
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <nav aria-label="Price lists" className="hidden shrink-0 space-y-1 lg:block lg:w-64">
         {profiles.map((p) => {
           const on = p.profile.id === selected?.profile.id;
           const span = tierSpan(p);
@@ -298,7 +311,9 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
                       type="button"
                       aria-label="Remove tier"
                       onClick={() => removeRow(d, i)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-dream-muted hover:bg-dream-bg hover:text-dream-ink"
+                      // ::before lifts the tap target to 32px without resizing
+                      // the 28px hover chip.
+                      className="relative flex h-7 w-7 items-center justify-center rounded-md text-dream-muted before:absolute before:-inset-0.5 before:content-[''] hover:bg-dream-bg hover:text-dream-ink"
                     >
                       ✕
                     </button>
@@ -306,6 +321,7 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
                 ))}
                 </div>
                 <div>
+                  {/* Button size sm is already h-8, so the tap target clears 32px. */}
                   <Button variant="ghost" size="sm" onClick={() => addRow(d)}>
                     + Add tier
                   </Button>

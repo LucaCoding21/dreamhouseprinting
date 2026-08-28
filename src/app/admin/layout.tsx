@@ -35,8 +35,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         />
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip">
           {/* Ultrawide guard: keep admin content readable on 2560px+ monitors
-              without affecting anything below 1800px. */}
-          <div className="mx-auto w-full max-w-[1800px]">{children}</div>
+              without affecting anything below 1800px. The bottom padding is
+              clearance for the fixed mobile tab bar, which the scroll container
+              knows nothing about. */}
+          <div className="mx-auto w-full max-w-[1800px] pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+            {children}
+          </div>
         </div>
       </div>
     </ToastProvider>

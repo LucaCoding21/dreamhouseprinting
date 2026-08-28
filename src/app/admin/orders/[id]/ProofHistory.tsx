@@ -43,11 +43,21 @@ export function ProofHistory({ detail }: { detail: Detail }) {
                     ) : (
                       <Image src={p.image} alt="" width={48} height={48} className="h-full w-full object-contain" />
                     ))}
-                  <span className="absolute inset-0 flex items-center justify-center bg-dream-ink/50 opacity-0 transition-opacity group-hover:opacity-100">
+                  {/* Touch has no hover. Rather than dim a 48px thumb
+                      permanently, the scrim stays a md-hover affordance and
+                      phones get a corner glyph that leaves the proof visible. */}
+                  <span className="absolute inset-0 hidden items-center justify-center bg-dream-ink/50 opacity-0 transition-opacity md:flex md:group-hover:opacity-100">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-white" aria-hidden>
                       <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
                     </svg>
                   </span>
+                  {p.image && (
+                    <span className="absolute bottom-0 right-0 flex items-center justify-center rounded-tl bg-dream-ink/70 p-0.5 md:hidden">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-white" aria-hidden>
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+                      </svg>
+                    </span>
+                  )}
                 </button>
                 <div className="min-w-0 flex-1">
                   <Badge variant={p.status === "approved" ? "success" : p.status === "changes_requested" ? "warn" : p.status === "pending" && detail.order.status !== "proof_ready" ? "neutral" : "info"}>
@@ -67,7 +77,7 @@ export function ProofHistory({ detail }: { detail: Detail }) {
                       href={p.image}
                       target="_blank"
                       rel="noopener"
-                      className="text-xs font-medium text-dream-purple hover:underline"
+                      className="py-1 text-xs font-medium text-dream-purple hover:underline"
                     >
                       View proof
                     </a>

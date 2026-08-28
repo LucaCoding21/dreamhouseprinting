@@ -79,7 +79,10 @@ export function TabsList({ className, children, ...props }: TabsListProps) {
       role="tablist"
       onKeyDown={onKeyDown}
       className={cn(
-        "flex flex-wrap items-center gap-1 border-b border-dream-line",
+        // Phones scroll the row sideways: wrapping would leave the active
+        // trigger's -mb-px underline floating mid-block on a non-last row.
+        "flex flex-nowrap overflow-x-auto no-scrollbar sm:flex-wrap sm:overflow-visible",
+        "items-center gap-1 border-b border-dream-line",
         className,
       )}
       {...props}

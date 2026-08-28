@@ -76,7 +76,9 @@ export function QuoteRequests({ quotes }: { quotes: QuoteRequestItem[] }) {
           {visible.map((q) => {
             const busy = pendingId === q.id;
             return (
-              <li key={q.id} className="flex items-center gap-3 px-4 py-3">
+              // Wraps on phones so the buttons drop to their own row instead of
+              // squeezing the name and message down to a few characters.
+              <li key={q.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <div className="h-11 w-11 shrink-0 overflow-hidden rounded border border-dream-line bg-dream-bg">
                   {q.thumbnail && (
                     <Image
@@ -99,7 +101,7 @@ export function QuoteRequests({ quotes }: { quotes: QuoteRequestItem[] }) {
                 <div className="hidden shrink-0 text-sm font-medium text-dream-ink sm:block">
                   {formatCAD(q.total)}
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
                   <Button
                     variant="primary"
                     size="sm"

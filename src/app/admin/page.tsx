@@ -354,10 +354,11 @@ export default async function AdminDashboardPage({
   return (
     <div>
       <AdminHeader title="Dashboard">
+        {/* A CSV download is desk work, so it stays off the phone header. */}
         {canViewReports && (
           <a
             href="/api/admin/reports/orders.csv"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-dream-line bg-white px-4 text-sm font-display font-medium text-dream-ink transition-colors hover:bg-dream-bg"
+            className="hidden h-10 items-center justify-center gap-2 rounded-lg border border-dream-line bg-white px-4 text-sm font-display font-medium text-dream-ink transition-colors hover:bg-dream-bg sm:inline-flex"
             download
           >
             Download CSV

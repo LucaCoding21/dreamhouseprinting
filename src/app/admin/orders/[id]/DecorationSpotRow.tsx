@@ -60,12 +60,16 @@ export function DecorationSpotRow({
 
   return (
     <div className="space-y-3 rounded-lg border border-dream-line p-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-32">
+      {/* Phone stacking order (max-sm:order-*): Location and the remove button
+          share the first line, Type takes the second, then Width, Height and
+          Colours sit side by side, Pantones last. From sm up the DOM order and
+          the fixed column widths are exactly as before. */}
+      <div className="flex flex-wrap items-end gap-3 max-sm:gap-x-2">
+        <div className="w-32 max-sm:order-1 max-sm:min-w-0 max-sm:flex-1">
           <div className={cn(LBL, "mb-1")}>Location</div>
           <Input value={spot.location} disabled={!canEdit} onChange={(e) => onPatch({ location: e.target.value })} />
         </div>
-        <div className="w-40">
+        <div className="w-40 max-sm:order-3 max-sm:w-full">
           <div className={cn(LBL, "mb-1")}>Type</div>
           <Select value={spot.type} disabled={!canEdit} onChange={(e) => onPatch({ type: e.target.value })}>
             <option value="">-</option>
@@ -78,8 +82,10 @@ export function DecorationSpotRow({
           </Select>
         </div>
         {/* Measurements are inches to 3 decimals at most (e.g. 14.325), so the
-            boxes are sized for about seven characters, not a full-width field. */}
-        <div className="w-[4.75rem]">
+            boxes are sized for about seven characters, not a full-width field.
+            Width, Height and Colours still share one row at 375px: 84 + 84 + 92
+            plus two 8px gaps is 276, inside the 279 a p-3 spot box leaves. */}
+        <div className="w-[4.75rem] max-sm:order-4 max-sm:w-[5.25rem]">
           <div className={cn(LBL, "mb-1 flex items-center gap-1")}>
             Width
             <MeasureHelpDot />
@@ -98,7 +104,7 @@ export function DecorationSpotRow({
             <span className="text-xs text-dream-muted">in</span>
           </div>
         </div>
-        <div className="w-[4.75rem]">
+        <div className="w-[4.75rem] max-sm:order-5 max-sm:w-[5.25rem]">
           <div className={cn(LBL, "mb-1 flex items-center gap-1")}>
             Height
             <MeasureHelpDot />
@@ -117,12 +123,14 @@ export function DecorationSpotRow({
             <span className="text-xs text-dream-muted">in</span>
           </div>
         </div>
-        <div className="w-[5.75rem]">
+        <div className="w-[5.75rem] max-sm:order-6">
           <div className={cn(LBL, "mb-1")}># Colours</div>
           {/* A count, so two characters is the ceiling. The designer can also
               pre-fill a word ("Full colour"), which stays editable in full. The
               steppers are for the common case: nudging 1 to 8 without typing. */}
-          <div className="flex items-center gap-1">
+          {/* Bottom-aligned under sm: the phone stepper is taller than the
+              field, and the three spec inputs should share a baseline. */}
+          <div className="flex items-center gap-1 max-sm:items-end">
             <Input
               ref={coloursRef}
               value={spot.colours}
@@ -143,7 +151,7 @@ export function DecorationSpotRow({
           </div>
         </div>
         {/* Pantones live on the main row (used constantly), not in Advanced spec. */}
-        <div className="max-w-md">
+        <div className="max-w-md max-sm:order-7 max-sm:w-full">
           <div className={cn(LBL, "mb-1")}>Pantones</div>
           <div className="flex min-h-10 flex-wrap items-center gap-1.5">
             {spot.pantones.map((code, pi) => (
@@ -153,7 +161,8 @@ export function DecorationSpotRow({
                   disabled={!canEdit}
                   placeholder="e.g. 7676 C"
                   onChange={(e) => onPatch({ pantones: spot.pantones.map((c, i) => (i === pi ? e.target.value : c)) })}
-                  className="h-9 w-24 px-1.5 text-sm"
+                  // text-base under sm keeps iOS from zooming the page on focus.
+                  className="h-9 w-24 px-1.5 text-base sm:text-sm"
                 />
                 {canEdit && (
                   <button
@@ -161,7 +170,9 @@ export function DecorationSpotRow({
                     aria-label="Remove Pantone colour"
                     // Mouse-only, so Tab runs Width, Height, Colours.
                     tabIndex={-1}
-                    className="px-0.5 text-dream-faint hover:text-dream-danger"
+                    // The negative margin cancels the tap padding, so the chip
+                    // keeps the width it has always had.
+                    className="-mx-1 px-1.5 py-2 text-dream-faint hover:text-dream-danger"
                     onClick={() => onPatch({ pantones: spot.pantones.filter((_, i) => i !== pi) })}
                   >
                     ×
@@ -173,7 +184,7 @@ export function DecorationSpotRow({
               <button
                 type="button"
                 tabIndex={-1}
-                className="whitespace-nowrap text-sm text-dream-purple hover:underline"
+                className="whitespace-nowrap py-2 text-sm text-dream-purple hover:underline"
                 onClick={() => onPatch({ pantones: [...spot.pantones, ""] })}
               >
                 + Pantone
@@ -187,7 +198,7 @@ export function DecorationSpotRow({
             type="button"
             aria-label={`Remove decoration ${index + 1}`}
             tabIndex={-1}
-            className="mb-2 ml-auto rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+            className="mb-2 ml-auto rounded p-1 text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger max-sm:order-2 max-sm:p-2.5"
             onClick={onRemove}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-4 w-4" aria-hidden>
@@ -201,7 +212,7 @@ export function DecorationSpotRow({
         <button
           type="button"
           onClick={() => setShowAdvanced((s) => !s)}
-          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-dream-muted transition-colors hover:text-dream-ink"
+          className="-my-1 flex items-center gap-1.5 py-1 text-xs font-semibold uppercase tracking-wide text-dream-muted transition-colors hover:text-dream-ink"
         >
           <svg
             viewBox="0 0 16 16"
@@ -236,7 +247,10 @@ export function DecorationSpotRow({
   );
 }
 
-/** Half-height chevron button, stacked into a compact spinner beside # Colours. */
+/**
+ * Half-height chevron button, stacked into a compact spinner beside # Colours.
+ * 18x20 is a mouse target, so phones get a 28px square instead.
+ */
 function ColourStep({
   dir,
   disabled,
@@ -256,6 +270,7 @@ function ColourStep({
       onClick={onClick}
       className={cn(
         "flex h-[18px] w-5 items-center justify-center border border-dream-line bg-white text-dream-muted transition-colors",
+        "max-sm:h-7 max-sm:w-7",
         dir === "up" ? "rounded-t-md" : "-mt-px rounded-b-md",
         disabled ? "cursor-not-allowed opacity-40" : "hover:border-dream-purple hover:text-dream-purple",
       )}

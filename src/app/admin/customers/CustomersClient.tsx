@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Input } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
@@ -43,7 +44,8 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
             { label: "Lifetime spend", value: formatCAD(rows.reduce((a, r) => a + r.totalSpent, 0)) },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-dream-line bg-dream-surface p-4">
-              <div className="font-display text-3xl font-bold text-dream-ink">{s.value}</div>
+              {/* A full CAD lifetime figure overflows a half-width tile at 375px. */}
+              <div className="truncate font-display text-2xl font-bold text-dream-ink sm:text-3xl">{s.value}</div>
               <div className="text-sm text-dream-muted">{s.label}</div>
             </div>
           ))}
@@ -67,7 +69,31 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
             }
           />
         ) : (
-          <div className="rounded-xl border border-dream-line bg-dream-surface">
+          <>
+          {/* Phones get a tappable card list instead of the five-column table. */}
+          <div className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface md:hidden">
+            {visible.map((r) => (
+              <Link
+                key={r.id}
+                href={`/admin/customers/${r.id}`}
+                className="flex items-center gap-3 p-3"
+              >
+                <Avatar name={r.name ?? r.email ?? undefined} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium text-dream-ink">{r.name ?? "-"}</div>
+                  <div className="truncate text-xs text-dream-muted">{r.email ?? "-"}</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-xs font-medium text-dream-ink">
+                    {r.orderCount} {r.orderCount === 1 ? "order" : "orders"}
+                  </div>
+                  <div className="text-xs text-dream-muted">{formatCAD(r.totalSpent)}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="hidden rounded-xl border border-dream-line bg-dream-surface md:block">
             <Table>
               <THead>
                 <TR>
@@ -86,11 +112,12 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
                     onClick={() => router.push(`/admin/customers/${r.id}`)}
                   >
                     <TD>
-                      <div className="flex items-center gap-3">
+                      {/* Capped so a long email cannot widen the whole table. */}
+                      <div className="flex max-w-[18rem] items-center gap-3">
                         <Avatar name={r.name ?? r.email ?? undefined} size="sm" />
-                        <div>
-                          <div className="font-medium text-dream-ink">{r.name ?? "-"}</div>
-                          <div className="text-xs text-dream-muted">{r.email ?? "-"}</div>
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-dream-ink">{r.name ?? "-"}</div>
+                          <div className="truncate text-xs text-dream-muted">{r.email ?? "-"}</div>
                         </div>
                       </div>
                     </TD>
@@ -103,6 +130,7 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
               </TBody>
             </Table>
           </div>
+          </>
         )}
       </div>
     </div>

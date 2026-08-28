@@ -532,7 +532,7 @@ export function NewOrderClient({
                 )
               ) : (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                  <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                     <Labeled label="Name *">
                       <Input value={guest.name} onChange={(e) => setGuest({ ...guest, name: e.target.value })} />
                     </Labeled>
@@ -552,7 +552,7 @@ export function NewOrderClient({
 
               {/* Fulfilment + shipping address, mirroring the detail's edit form */}
               <div className="space-y-3 border-t border-dream-line pt-3">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                   <Labeled label="Fulfillment">
                     <Select value={fulfillment} onChange={(e) => setFulfillment(e.target.value as "ship" | "pickup")}>
                       <option value="pickup">Pick up</option>
@@ -563,7 +563,7 @@ export function NewOrderClient({
                     <Input value={address.company} onChange={(e) => setAddr({ company: e.target.value })} />
                   </Labeled>
                 </div>
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                   <Labeled label="Contact name">
                     <Input value={address.name} onChange={(e) => setAddr({ name: e.target.value })} />
                   </Labeled>
@@ -574,7 +574,8 @@ export function NewOrderClient({
                 <Labeled label={fulfillment === "ship" ? "Street *" : "Street"}>
                   <Input value={address.street} onChange={(e) => setAddr({ street: e.target.value })} />
                 </Labeled>
-                <div className="grid grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
+                {/* A Canadian postal code does not fit 5.5rem at the phone's 16px input text. */}
+                <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_5.5rem]">
                   <Labeled label="City">
                     <Input value={address.city} onChange={(e) => setAddr({ city: e.target.value })} />
                   </Labeled>
@@ -664,7 +665,7 @@ export function NewOrderClient({
               </div>
 
               {/* Stat mini-block, same as the detail's reference cluster */}
-              <div className="grid grid-cols-3 gap-3 border-t border-dream-line pt-3">
+              <div className="grid grid-cols-1 gap-3 border-t border-dream-line pt-3 min-[420px]:grid-cols-3">
                 {[
                   { label: "In hands", value: dueDate || "-" },
                   { label: "Total pieces", value: String(pieces) },
@@ -960,7 +961,9 @@ function NewItemCard({
                     disabled={!product}
                     title="Garment colour"
                     className={cn(
-                      "flex h-10 w-44 shrink-0 items-center gap-1.5 rounded-lg border border-dream-line bg-white px-3 text-left text-sm transition-colors",
+                      // Full width on phones so it wraps under the product button
+                      // instead of squeezing it to a few characters.
+                      "flex h-10 w-full shrink-0 items-center gap-1.5 rounded-lg border border-dream-line bg-white px-3 text-left text-sm transition-colors sm:w-44",
                       product ? "hover:border-dream-purple" : "cursor-not-allowed opacity-60",
                     )}
                   >
@@ -1075,7 +1078,10 @@ function NewItemCard({
                           aria-label={`Remove size ${s}`}
                           title={`Remove size ${s}`}
                           tabIndex={-1}
-                          className="mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors hover:bg-dream-danger-soft hover:text-dream-danger"
+                          // The ::before widens the tap target without moving or
+                          // resizing the 16px glyph. It only grows downward, so
+                          // it never steals taps from the quantity input above.
+                          className="relative mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors before:absolute before:-inset-x-2 before:top-0 before:-bottom-3 before:content-[''] hover:bg-dream-danger-soft hover:text-dream-danger"
                           onClick={() => removeSize(s)}
                         >
                           ×
@@ -1095,7 +1101,7 @@ function NewItemCard({
                           onClick={() => addSizeColumn(s)}
                           title={`Add size ${s}`}
                           tabIndex={-1}
-                          className="rounded-md border border-dashed border-dream-line px-1.5 py-1 text-[10px] font-bold uppercase leading-none text-dream-faint transition-colors hover:border-dream-purple hover:text-dream-purple"
+                          className="relative rounded-md border border-dashed border-dream-line px-1.5 py-1.5 text-[10px] font-bold uppercase leading-none text-dream-faint transition-colors before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] hover:border-dream-purple hover:text-dream-purple"
                         >
                           +{s}
                         </button>
