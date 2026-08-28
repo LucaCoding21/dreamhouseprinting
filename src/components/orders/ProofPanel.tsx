@@ -60,6 +60,9 @@ export function ProofPanel({
 
   // One decision covers the whole set; the primary proof drives status + id.
   const proof = proofs[0];
+  // OrderView takes this panel down once the set is approved (approved proofs
+  // live on their line items now), so this branch is a safety net for any other
+  // caller, not the normal path.
   const decided = proof.status === "approved";
   const changesRequested = proof.status === "changes_requested";
   const multiple = proofs.length > 1;
@@ -166,11 +169,6 @@ export function ProofPanel({
                   </svg>
                   <span>Spotted something off? Reach out as soon as possible and we’ll help.</span>
                 </p>
-                {payOnApprove && (
-                  <p className="mt-2 text-sm text-dream-muted">
-                    One step left: complete your payment below and we’ll get printing.
-                  </p>
-                )}
                 <div className="mt-3">
                   <Link
                     href="/contact"

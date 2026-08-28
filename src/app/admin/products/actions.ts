@@ -3,10 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
-import { ssSearchStyles } from "@/lib/ss/client";
+import { ssListAllStyles, ssImageUrl } from "@/lib/ss/client";
 import { buildProductDraft } from "@/lib/ss/transform";
-import type { SSStyle } from "@/lib/ss/types";
-import { ssImageUrl } from "@/lib/ss/client";
 import type { Json, Database } from "@/lib/db/types";
 import type { PricingProfileRow, ProductRow } from "@/lib/db/rows";
 import { buildProductPricingRules } from "@/lib/admin/pricing";
@@ -30,26 +28,89 @@ function friendlySsError(e: unknown): string {
   return "Couldn't reach S&S Activewear. Try again in a minute.";
 }
 
-/** Search the S&S catalog (staff, products.manage). Returns a trimmed result set. */
-export async function ssSearchAction(query: string): Promise<{
-  results?: { styleID: number; brand: string; styleName: string; title: string; image: string | null }[];
-  error?: string;
-}> {
+/** One row of the bulk-import checklist. `productId` is set once imported. */
+export interface CatalogStyle {
+  styleID: number;
+  brand: string;
+  styleName: string;
+  title: string;
+  image: string | null;
+  category: string;
+  productId: string | null;
+}
+
+/**
+ * The whole S&S Canada catalog as a checklist (staff, products.manage).
+ * Julian wanted to tick off everything he stocks in one pass rather than
+ * search-and-import one style at a time, and /styles/ returns all ~1,060 rows
+ * in a single call, so the client filters locally from here.
+ */
+export async function ssCatalogAction(): Promise<{ styles?: CatalogStyle[]; error?: string }> {
   await requirePermission("products.manage");
-  if (!query || query.trim().length < 2) return { results: [] };
+  const supabase = requireSupabaseServiceClient();
+
   try {
-    const styles: SSStyle[] = await ssSearchStyles(query.trim());
-    const results = styles.slice(0, 40).map((s) => ({
+    // Already-imported styles are flagged rather than hidden, so Julian can see
+    // at a glance what he has and jump straight to the editor.
+    const [styles, { data: existing }] = await Promise.all([
+      ssListAllStyles(),
+      supabase.from("products").select("id, ss_style_id"),
+    ]);
+    const byStyleId = new Map(
+      (existing ?? [])
+        .filter((p) => p.ss_style_id)
+        .map((p) => [String(p.ss_style_id), p.id as string]),
+    );
+
+    const rows: CatalogStyle[] = styles.map((s) => ({
       styleID: s.styleID,
       brand: s.brandName,
       styleName: s.styleName,
       title: s.title,
       image: ssImageUrl(s.styleImage),
+      category: s.baseCategory ?? "",
+      productId: byStyleId.get(String(s.styleID)) ?? null,
     }));
-    return { results };
+    rows.sort(
+      (a, b) =>
+        a.brand.localeCompare(b.brand) ||
+        // numeric so 3001 sorts before 18500, not after
+        a.styleName.localeCompare(b.styleName, undefined, { numeric: true }),
+    );
+    return { styles: rows };
   } catch (e) {
     return { error: friendlySsError(e) };
   }
+}
+
+/**
+ * Cap per call. Each import makes 2 more S&S calls, so a 200-style tick-list
+ * has to arrive in chunks rather than as one request that hammers their rate
+ * limit and outlives the serverless timeout. Not exported: a "use server"
+ * module may only export async functions, so the client keeps its own copy.
+ */
+const IMPORT_BATCH_SIZE = 10;
+
+/**
+ * Import several S&S styles at once. Runs SEQUENTIALLY on purpose (be kind to
+ * S&S's rate limit) and reports per-style outcomes so the client can show the
+ * ones that failed instead of failing the whole batch.
+ */
+export async function importStylesAction(styleIds: number[]): Promise<{
+  results: { styleID: number; productId?: string; error?: string }[];
+  error?: string;
+}> {
+  await requirePermission("products.manage");
+  if (styleIds.length > IMPORT_BATCH_SIZE) {
+    return { results: [], error: `Import at most ${IMPORT_BATCH_SIZE} styles per request.` };
+  }
+
+  const results: { styleID: number; productId?: string; error?: string }[] = [];
+  for (const styleID of styleIds) {
+    const res = await importStyleAction(styleID);
+    results.push({ styleID, ...res });
+  }
+  return { results };
 }
 
 /** Import an S&S style as a shop Product (or return the existing one if already imported). */

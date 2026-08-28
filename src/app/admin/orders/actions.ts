@@ -20,6 +20,8 @@ import { mergeAddonSettings, lineAddonTotal } from "@/lib/addonSettings";
 import { resolveDiscount, type DiscountType } from "@/lib/pricing/discount";
 import { calcTax } from "@/lib/pricing/tax";
 import { isBackwardStatus } from "@/lib/orderStatus";
+import { loadCatalogProducts } from "@/lib/admin/catalog";
+import type { CatalogProduct } from "./new/shared";
 import {
   adjustmentsTotal,
   cleanAdjustments,
@@ -86,6 +88,65 @@ async function applyStatus(
   return null;
 }
 
+/**
+ * The line items on this order that have NO proof waiting to go out, by product
+ * name (falling back to "Item N" for an unnamed line). An empty array means
+ * every line is covered, OR the order has no lines at all, in which case the
+ * caller falls back to the old "is there any proof at all" check.
+ *
+ * "Covered" is deliberately strict: the proof must still be PENDING (a decided
+ * proof belongs to a previous round, so a re-send after changes needs a NEW
+ * proof on every line) and carry this line's line_item_id. A single-line order
+ * also accepts an unassigned, order-level proof, since uploadProofsAction pins
+ * new order-level uploads to the only line anyway and older rows predate that.
+ */
+async function linesMissingProof(
+  service: ReturnType<typeof requireSupabaseServiceClient>,
+  orderId: string
+): Promise<string[]> {
+  const [{ data: lines }, { data: proofs }] = await Promise.all([
+    service.from("line_items").select("id, product_name").eq("order_id", orderId).order("created_at"),
+    service.from("proofs").select("line_item_id").eq("order_id", orderId).eq("status", "pending"),
+  ]);
+  if (!lines?.length) return [];
+
+  const pending = proofs ?? [];
+  if (lines.length === 1 && pending.some((p) => !p.line_item_id)) return [];
+
+  const covered = new Set(pending.map((p) => p.line_item_id).filter(Boolean) as string[]);
+  return lines
+    .map((li, i) => ({ li, name: li.product_name?.trim() || `Item ${i + 1}` }))
+    .filter(({ li }) => !covered.has(li.id))
+    .map(({ name }) => name);
+}
+
+/**
+ * Gate on "nothing reaches the customer without a proof for every line".
+ * Returns the error to show, or null when the order is good to go.
+ * `emptyMessage` is the copy for an order with no proof on it at all.
+ */
+async function proofGateError(
+  service: ReturnType<typeof requireSupabaseServiceClient>,
+  orderId: string,
+  emptyMessage: string
+): Promise<string | null> {
+  const missing = await linesMissingProof(service, orderId);
+  if (missing.length) {
+    // Keep the toast readable when a big order is mostly uncovered.
+    const shown = missing.slice(0, 5).join(", ");
+    const rest = missing.length > 5 ? ` and ${missing.length - 5} more` : "";
+    return `Every line needs a proof before it goes to the customer. Missing: ${shown}${rest}.`;
+  }
+  // Covered, or an order with no lines: fall back to the original check that
+  // there is at least something waiting to send.
+  const { count } = await service
+    .from("proofs")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderId)
+    .eq("status", "pending");
+  return count ? null : emptyMessage;
+}
+
 export async function setOrderStatusAction(
   orderId: string,
   status: OrderStatus,
@@ -105,13 +166,11 @@ export async function setOrderStatusAction(
 
   // Minimal transition guards (one-man shop, permissive, only the dangerous moves).
   if (status === "proof_ready" && prev?.status !== "proof_ready") {
-    // No proof waiting means nothing to review, don't email an approve-and-pay CTA.
-    const { count } = await service
-      .from("proofs")
-      .select("id", { count: "exact", head: true })
-      .eq("order_id", orderId)
-      .eq("status", "pending");
-    if (!count) return { error: "Upload a proof before moving this order to Proof ready." };
+    // Nothing goes in front of the customer until every line has a proof: no
+    // proof at all means nothing to review, a partial set means they'd approve
+    // garments they never saw.
+    const gate = await proofGateError(service, orderId, "Upload a proof before moving this order to Proof ready.");
+    if (gate) return { error: gate };
   }
   if (status === "cancelled" && prev?.paid_at && !confirmed) {
     return { error: "This order is already paid. Confirm the cancellation, a refund may be owed." };
@@ -150,13 +209,10 @@ export async function sendForApprovalAction(
     return { error: "This order was cancelled, reopen it before sending it for approval." };
   }
 
-  // No proof waiting means nothing to review, don't ask for an approval on air.
-  const { count } = await service
-    .from("proofs")
-    .select("id", { count: "exact", head: true })
-    .eq("order_id", orderId)
-    .eq("status", "pending");
-  if (!count) return { error: "Upload a proof before sending this order for approval." };
+  // Every line needs a proof waiting, so the customer approves the whole order
+  // and not just the parts we happened to mock up.
+  const gate = await proofGateError(service, orderId, "Upload a proof before sending this order for approval.");
+  if (gate) return { error: gate };
 
   const resent = prev.status === "proof_ready";
   if (resent) {
@@ -689,12 +745,179 @@ export async function deleteLineItemAction(
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
-  const { error } = await service.from("line_items").delete().eq("id", lineItemId).eq("order_id", orderId);
+  // Return the deleted row so a no-op (already gone, or an id from a stale tab)
+  // surfaces as a real message instead of a success toast on an unchanged list.
+  const { data: removed, error } = await service
+    .from("line_items")
+    .delete()
+    .eq("id", lineItemId)
+    .eq("order_id", orderId)
+    .select("id, product_name");
   if (error) return { error: error.message };
+  if (!removed || removed.length === 0) {
+    return { error: "That line is no longer on this order. Refresh the page." };
+  }
   await syncOrderPricing(service, orderId);
-  await logActivity(service, orderId, "item_removed", {});
+  await logActivity(service, orderId, "item_removed", {
+    message: `Line removed: ${removed[0].product_name ?? "Untitled item"}`,
+  });
   revalidateOrder(orderId);
   return { ok: true };
+}
+
+/** A new line typed onto an existing order: a catalog garment or a freeform job. */
+export interface AddLineItemInput {
+  kind: "catalog" | "custom";
+  /** Catalog lines only; validated server-side against the products table. */
+  productId: string | null;
+  /** Display name. Catalog lines fall back to the product's own name. */
+  productName: string;
+  colourName: string | null;
+  /** Sent for optimism only; the stored hex is always read off the product row. */
+  colourHex: string | null;
+}
+
+/**
+ * The catalog for the order detail screen's "Add item" picker, the same shape
+ * the manual-order page renders. Loaded on demand (it carries every colourway),
+ * so opening an order stays cheap.
+ */
+export async function listCatalogProductsAction(): Promise<{ products?: CatalogProduct[]; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+  try {
+    return { products: await loadCatalogProducts(service) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not load the catalog." };
+  }
+}
+
+/**
+ * Add a line to an order that already exists, including one the customer
+ * submitted through the designer (Julian: "how do I add new lines and products
+ * to the order on customer submitted orders?").
+ *
+ * The row is created empty on purpose: no sizes, no price, one blank print spot
+ * pre-set to the product's own decoration method. Julian types the size run on
+ * the normal line card and the auto-reprice fills the unit price from the
+ * product's curve at the combined quantity, exactly as it does for every other
+ * edit. Nothing here guesses a price.
+ */
+export async function addLineItemAction(
+  orderId: string,
+  input: AddLineItemInput
+): Promise<{ ok?: boolean; lineItemId?: string; error?: string }> {
+  await requirePermission("orders.edit");
+  const service = requireSupabaseServiceClient();
+
+  const typedName = (input.productName ?? "").trim().slice(0, 200);
+
+  const { data: order } = await service.from("orders").select("id, status").eq("id", orderId).maybeSingle();
+  if (!order) return { error: "Order not found." };
+  if (order.status === "cancelled") {
+    return { error: "This order is cancelled. Reopen it before adding items." };
+  }
+
+  let productId: string | null = null;
+  let productName = typedName;
+  let colour: { name: string | null; hex: string | null } = { name: null, hex: null };
+  let methodId: string | null = null;
+  let methodName = "";
+
+  if (input.kind === "catalog") {
+    if (!input.productId) return { error: "Pick a product." };
+    const { data: product } = await service
+      .from("products")
+      .select("id, name, colours, allowed_decoration_method_ids")
+      .eq("id", input.productId)
+      .maybeSingle();
+    if (!product) return { error: "That product no longer exists." };
+
+    // The colour (and especially its hex) is read off the product, never taken
+    // from the client, so a tampered form can't invent a colourway.
+    const colours = ((product.colours ?? []) as unknown as ProductColourJson[]).filter((c) => c.enabled !== false);
+    const norm = (s: string) => s.trim().toLowerCase();
+    const picked = colours.find((c) => norm(c.name) === norm(input.colourName ?? ""));
+    if (!picked) return { error: "Pick a colour from this product." };
+
+    productId = product.id;
+    productName = typedName || product.name;
+    colour = { name: picked.name, hex: picked.hex ?? null };
+
+    // Screen print is the sane default when the product allows it; otherwise
+    // the first allowed method. Anything else (embroidery) prices the line on
+    // the wrong curve, the same trap the "Add print" button fell into.
+    const allowedIds = (product.allowed_decoration_method_ids ?? []) as string[];
+    if (allowedIds.length > 0) {
+      const { data: methods } = await service
+        .from("decoration_methods")
+        .select("id, name")
+        .in("id", allowedIds)
+        .eq("is_active", true)
+        .order("display_order");
+      const list = methods ?? [];
+      const chosen = list.find((m) => /screen/i.test(m.name)) ?? list[0];
+      if (chosen) {
+        methodId = chosen.id;
+        methodName = chosen.name;
+      }
+    }
+  }
+
+  if (!productName) return { error: "Give the item a name." };
+
+  // Land at the bottom of the manual queue (positions are re-indexed on save).
+  const { data: existing } = await service.from("line_items").select("decorations").eq("order_id", orderId);
+  const position =
+    (existing ?? []).reduce((max, li, i) => {
+      const dec = (li.decorations ?? {}) as Partial<LineItemDecorations>;
+      return Math.max(max, typeof dec.position === "number" ? dec.position : i);
+    }, -1) + 1;
+
+  const spot: DecorationSpot = {
+    location: "",
+    type: methodName,
+    widthIn: "",
+    heightIn: "",
+    colours: "1",
+    pantones: [],
+    puff: false,
+    spotProcess: false,
+  };
+  const decorations: LineItemDecorations = {
+    spots: [spot],
+    bagging: false,
+    sewnTags: false,
+    priceConfirmed: false,
+    supplier: "",
+    customerNotes: "",
+    productionNotes: "",
+    shippingNotes: "",
+    position,
+  };
+
+  const { data: row, error } = await service
+    .from("line_items")
+    .insert({
+      order_id: orderId,
+      product_id: productId,
+      product_name: productName,
+      colour: asJson(colour),
+      size_quantities: asJson({}),
+      decoration_method_id: methodId,
+      decorations: asJson(decorations),
+      unit_price: 0,
+      setup_fee: 0,
+      line_total: 0,
+    })
+    .select("id")
+    .single();
+  if (error) return { error: error.message };
+
+  await syncOrderPricing(service, orderId);
+  await logActivity(service, orderId, "order_edited", { message: `Line added: ${productName}` });
+  revalidateOrder(orderId);
+  return { ok: true, lineItemId: row.id };
 }
 
 /** A product colour slimmed down for the change-product picker. */
@@ -881,6 +1104,16 @@ export async function uploadProofsAction(
     return { error: "This order was cancelled, reopen it before adding a proof." };
   }
 
+  // Every line needs its own proof before the order can be sent, so an
+  // order-level upload on a one-line order is pinned to that line: the hero
+  // "Upload proof" button stays a single click for the common case, and the
+  // coverage gate is satisfied. Multi-line orders ask which line in the dialog.
+  let targetLine = lineItemId ?? null;
+  if (!targetLine) {
+    const { data: lines } = await service.from("line_items").select("id").eq("order_id", orderId).limit(2);
+    if (lines?.length === 1) targetLine = lines[0].id;
+  }
+
   // Sign every uploaded file (front / back / …); a single unsignable file
   // fails the whole batch so the customer never gets a partial proof set.
   const signed: { url: string; path: string }[] = [];
@@ -893,7 +1126,7 @@ export async function uploadProofsAction(
   const { error: pErr } = await service.from("proofs").insert(
     signed.map((s) => ({
       order_id: orderId,
-      line_item_id: lineItemId ?? null,
+      line_item_id: targetLine,
       image: s.url,
       status: "pending" as const,
       created_by: profile?.id ?? null,

@@ -58,16 +58,26 @@ export default function RootLayout({
           className="pointer-events-none fixed h-0 w-0 overflow-hidden"
         >
           <defs>
-            <filter id="rough-edges">
+            {/* Static "doodled" pill edge. Per Julian (2026-08-28) the old
+                per-pixel noise (baseFrequency 0.025) read as low-res rather
+                than hand-drawn once the button sat still. A much longer
+                wavelength gives a gentle pen wobble instead of jitter, and the
+                blur + alpha-curve pair re-crisps the displaced edge so it
+                stays anti-aliased. The hover "alive" filter below is untouched. */}
+            <filter id="rough-edges" x="-5%" y="-15%" width="110%" height="130%">
               <feTurbulence
                 type="fractalNoise"
-                baseFrequency="0.025"
+                baseFrequency="0.012"
                 numOctaves="1"
                 seed="4"
                 stitchTiles="stitch"
                 result="noise"
               />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" result="warped" />
+              <feGaussianBlur in="warped" stdDeviation="0.4" result="soft" />
+              <feComponentTransfer in="soft">
+                <feFuncA type="linear" slope="3" intercept="-1" />
+              </feComponentTransfer>
             </filter>
             <filter id="rough-edges-alive">
               <feTurbulence

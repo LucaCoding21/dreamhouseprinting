@@ -60,6 +60,14 @@ export interface OrderViewLineItem {
    * null (their thumbnail falls back to a colour swatch).
    */
   mockup: string | null;
+  /**
+   * The newest customer-visible proof filed against THIS line, so the approved
+   * artwork lives with the garment it belongs to (that is where the customer
+   * looks for it, and it survives the proof panel disappearing after approval).
+   * Same visibility rule as the `proofs` list: a pending proof only counts once
+   * the order is out for approval.
+   */
+  proof: { id: string; image: string; status: string } | null;
 }
 
 export interface OrderViewProof {
@@ -67,6 +75,8 @@ export interface OrderViewProof {
   image: string;
   status: string;
   change_request_comment: string | null;
+  /** The line item this proof is for; null for a legacy order-level upload. */
+  lineItemId: string | null;
 }
 
 /** One merged, customer-visible timeline entry (activity row or customer note). */

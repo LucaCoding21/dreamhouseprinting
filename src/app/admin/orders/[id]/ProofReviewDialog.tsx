@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
+import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { useProofUpload } from "./shared";
@@ -23,6 +24,7 @@ interface Selected {
 export function ProofReviewDialog({
   orderId,
   lineItemId,
+  lines,
   open,
   onOpenChange,
   orderNumber,
@@ -32,6 +34,13 @@ export function ProofReviewDialog({
 }: {
   orderId: string;
   lineItemId?: string;
+  /**
+   * The order's line items, for the order-level upload button. With more than
+   * one line the proof has to say which garment it is for (every line needs its
+   * own proof before the order can be sent), so the dialog asks. Ignored when
+   * `lineItemId` already pins the upload to a line.
+   */
+  lines?: { id: string; label: string }[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderNumber: string | null;
@@ -46,6 +55,11 @@ export function ProofReviewDialog({
   const [selected, setSelected] = useState<Selected[]>([]);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<Selected | null>(null);
+  const [pickedLine, setPickedLine] = useState("");
+
+  // One line (or an upload already pinned to one) needs no question asked.
+  const needsLinePick = !lineItemId && (lines?.length ?? 0) > 1;
+  const targetLine = lineItemId ?? (needsLinePick ? pickedLine : lines?.[0]?.id) ?? undefined;
 
   // Revoke all object URLs on unmount (state changes only in event handlers).
   useEffect(() => () => {
@@ -74,6 +88,7 @@ export function ProofReviewDialog({
     setSelected([]);
     setDragging(false);
     setPreview(null);
+    setPickedLine("");
   }
 
   function close(next: boolean) {
@@ -83,7 +98,8 @@ export function ProofReviewDialog({
 
   async function send() {
     if (selected.length === 0) return;
-    const r = await uploadProofs(selected.map((s) => s.file), lineItemId);
+    if (needsLinePick && !pickedLine) return;
+    const r = await uploadProofs(selected.map((s) => s.file), targetLine);
     if (r.ok) close(false);
   }
 
@@ -111,6 +127,27 @@ export function ProofReviewDialog({
               )}
             </div>
 
+            {/* Which garment is this proof for? Asked only on multi-line orders,
+                where the answer decides whether the order is cleared to send. */}
+            {needsLinePick && (
+              <div>
+                <label htmlFor="proof-line" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+                  Which item is this proof for?
+                </label>
+                <Select id="proof-line" value={pickedLine} onChange={(e) => setPickedLine(e.target.value)}>
+                  <option value="">Pick an item…</option>
+                  {(lines ?? []).map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.label}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1.5 text-xs text-dream-muted">
+                  Each item needs its own proof before the order can go out for approval.
+                </p>
+              </div>
+            )}
+
             {selected.length === 0 ? (
               <button
                 type="button"
@@ -134,7 +171,9 @@ export function ProofReviewDialog({
                   <path d="M12 16V4M7 9l5-5 5 5" />
                   <path d="M20 16v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3" />
                 </svg>
-                <span className="font-medium text-dream-ink">Drop proofs here, or click to browse</span>
+                {/* "Drop, or click" describes nothing a phone can do. */}
+                <span className="font-medium text-dream-ink sm:hidden">Tap to add proofs</span>
+                <span className="hidden font-medium text-dream-ink sm:inline">Drop proofs here, or click to browse</span>
                 <span className="text-xs text-dream-muted">Add as many as you need, front, back, and so on. PNG, JPG, or PDF.</span>
               </button>
             ) : (
@@ -184,7 +223,9 @@ export function ProofReviewDialog({
                         type="button"
                         aria-label={`Remove ${s.file.name}`}
                         onClick={() => removeAt(i)}
-                        className="absolute right-1.5 top-1.5 rounded-full bg-dream-ink/70 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        // The only way to deselect a file, so it cannot be
+                        // hover-only: visible on touch, hover-revealed from md.
+                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-dream-ink/70 text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>
                           <path d="M6 6l12 12M18 6L6 18" />
@@ -229,7 +270,7 @@ export function ProofReviewDialog({
             <Button variant="ghost" onClick={() => close(false)}>
               Cancel
             </Button>
-            <Button variant="primary" loading={uploading} disabled={selected.length === 0} onClick={send}>
+            <Button variant="primary" loading={uploading} disabled={selected.length === 0 || (needsLinePick && !pickedLine)} onClick={send}>
               {selected.length > 1 ? `Save ${selected.length} to order` : "Save to order"}
             </Button>
           </DialogFooter>

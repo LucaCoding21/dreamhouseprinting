@@ -238,6 +238,20 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
     return mockup;
   }
 
+  // Pending proofs are drafts until the admin sends the order for approval
+  // (status proof_ready). Decided proofs (approved / changes requested) stay
+  // visible as history regardless of where the order has moved since. Resolved
+  // once, so the line-item proofs and the proof list can never disagree about
+  // what the customer may see.
+  const visibleProofs = proofs.filter((p) => p.status !== "pending" || order.status === "proof_ready");
+
+  // Newest visible proof per line. Both callers load proofs newest-first, so
+  // the first hit wins.
+  const proofByLine = new Map<string, ProofRow>();
+  for (const p of visibleProofs) {
+    if (p.line_item_id && !proofByLine.has(p.line_item_id)) proofByLine.set(p.line_item_id, p);
+  }
+
   return {
     order: {
       id: order.id,
@@ -258,6 +272,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
     },
     lineItems: lineItems.map((li) => {
       const colour = (li.colour ?? {}) as { name?: string; hex?: string };
+      const proof = proofByLine.get(li.id) ?? null;
       return {
         id: li.id,
         product_name: li.product_name,
@@ -266,19 +281,16 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
         sizeQuantities: (li.size_quantities ?? {}) as Record<string, number>,
         line_total: li.line_total,
         mockup: lineMockup(li.design_id, colour.name ?? null),
+        proof: proof ? { id: proof.id, image: proof.image, status: proof.status } : null,
       };
     }),
-    // Pending proofs are drafts until the admin sends the order for approval
-    // (status proof_ready). Decided proofs (approved / changes requested) stay
-    // visible as history regardless of where the order has moved since.
-    proofs: proofs
-      .filter((p) => p.status !== "pending" || order.status === "proof_ready")
-      .map((p) => ({
-        id: p.id,
-        image: p.image,
-        status: p.status,
-        change_request_comment: p.change_request_comment,
-      })),
+    proofs: visibleProofs.map((p) => ({
+      id: p.id,
+      image: p.image,
+      status: p.status,
+      change_request_comment: p.change_request_comment,
+      lineItemId: p.line_item_id,
+    })),
     activity: buildActivity(order, activity),
     stageDates: buildStageDates(order, activity),
     latestMessage: latestMessage(order),

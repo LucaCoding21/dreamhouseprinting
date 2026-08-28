@@ -1,30 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
-import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCAD } from "@/lib/money";
 import { curveForProduct, shopPrice } from "@/lib/pricing/quote";
 import { productPrimaryImage } from "@/lib/productImage";
 import type { ProductRow, CategoryRow } from "@/lib/db/rows";
-import { ssSearchAction, importStyleAction } from "./actions";
-
-interface SearchResult {
-  styleID: number;
-  brand: string;
-  styleName: string;
-  title: string;
-  image: string | null;
-}
+import { ImportDialog } from "./ImportDialog";
 
 export function ProductsClient({
   products,
@@ -58,7 +48,40 @@ export function ProductsClient({
             }
           />
         ) : (
-          <div className="rounded-xl border border-dream-line bg-dream-surface">
+          <>
+          {/* Phones get a tappable card list, the six-column table is a blind
+              side-scroll below md. */}
+          <div className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface md:hidden">
+            {products.map((p) => {
+              const img = productPrimaryImage(p);
+              return (
+                <Link
+                  key={p.id}
+                  href={`/admin/products/${p.id}`}
+                  className="flex items-center gap-3 p-3"
+                >
+                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
+                    {img && (
+                      <Image src={img} alt="" width={44} height={44} className="h-full w-full object-contain" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-dream-ink">{p.name}</div>
+                    <div className="truncate text-xs text-dream-muted">{catName(p.category_id)}</div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                    <Badge variant={p.is_active ? "success" : "warn"}>
+                      {p.is_active ? "Live" : "Hidden"}
+                    </Badge>
+                    {p.is_featured && <Badge variant="purple">Featured</Badge>}
+                    {!curveForProduct(p) && <Badge variant="warn">No pricing</Badge>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="hidden rounded-xl border border-dream-line bg-dream-surface md:block">
             <Table>
               <THead>
                 <TR>
@@ -116,6 +139,7 @@ export function ProductsClient({
               </TBody>
             </Table>
           </div>
+          </>
         )}
       </div>
 
@@ -132,128 +156,5 @@ export function ProductsClient({
         }}
       />
     </div>
-  );
-}
-
-function ImportDialog({
-  open,
-  onClose,
-  onImported,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onImported: (productId: string) => void;
-}) {
-  const { toast } = useToast();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, startSearch] = useTransition();
-  const [importingId, setImportingId] = useState<number | null>(null);
-  const [searched, setSearched] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
-
-  function search() {
-    const q = query.trim();
-    if (q.length < 2) {
-      setHint("Type at least 2 characters, a style number (like 3001) or a brand name.");
-      return;
-    }
-    setHint(null);
-    startSearch(async () => {
-      const res = await ssSearchAction(q);
-      if (res.error) {
-        toast({ title: "Search failed", description: res.error, variant: "error" });
-        return;
-      }
-      setResults(res.results ?? []);
-      setSearched(true);
-    });
-  }
-
-  async function doImport(styleID: number) {
-    setImportingId(styleID);
-    const res = await importStyleAction(styleID);
-    setImportingId(null);
-    if (res.error || !res.productId) {
-      toast({ title: "Import failed", description: res.error ?? "Unknown error", variant: "error" });
-      return;
-    }
-    onImported(res.productId);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Import from S&amp;S Activewear</DialogTitle>
-        </DialogHeader>
-
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            search();
-          }}
-        >
-          <Input
-            autoFocus
-            placeholder="Search by style # or brand (e.g. 3001, Gildan, hoodie)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <Button type="submit" variant="primary" loading={searching}>
-            Search
-          </Button>
-        </form>
-
-        <p className="mt-2 text-xs text-dream-muted">
-          Products import as hidden drafts. You&apos;ll set the category, pricing, and print area next, then turn
-          them on.
-        </p>
-        {hint && <p className="mt-1.5 text-xs font-medium text-dream-warn">{hint}</p>}
-
-        <div className="mt-4 max-h-[55vh] overflow-y-auto">
-          {searching ? (
-            <div className="flex justify-center py-10">
-              <Spinner className="h-6 w-6 text-dream-purple" />
-            </div>
-          ) : results.length === 0 ? (
-            <p className="py-10 text-center text-sm text-dream-muted">
-              {searched
-                ? "No styles matched. Try a style number (like 3001) or a brand name. Note: we search the S&S Canada catalog, US-only styles won't appear."
-                : "Search the catalog to import a blank garment."}
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {results.map((r) => (
-                <div
-                  key={r.styleID}
-                  className="flex flex-col rounded-xl border border-dream-line p-3"
-                >
-                  <div className="mb-2 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-dream-bg">
-                    {r.image && (
-                      <Image src={r.image} alt={r.title} width={120} height={112} className="h-full object-contain" />
-                    )}
-                  </div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-dream-muted">{r.brand}</div>
-                  <div className="text-sm font-medium text-dream-ink">
-                    {r.styleName}, {r.title}
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-2"
-                    loading={importingId === r.styleID}
-                    onClick={() => doImport(r.styleID)}
-                  >
-                    Import
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

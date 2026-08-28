@@ -55,6 +55,40 @@ export function ssSearchStyles(query: string): Promise<SSStyle[]> {
   return ssGet<SSStyle[]>("/styles/", { search: query });
 }
 
+/**
+ * Whole-catalog fetch, cached in memory for an hour.
+ *
+ * GET /styles/ with no params returns every style the CA account carries
+ * (~1,060 rows, ~1.6 MB, ~700ms), which is what the admin's bulk-import
+ * checklist needs. It is deliberately NOT on Next's fetch data cache: entries
+ * there cap at 2 MB and this payload sits right against that ceiling, so it
+ * would silently fall back to uncached on every call. A module-level cache is
+ * enough here, the catalog barely moves inside an hour and a cold start just
+ * refetches.
+ */
+const CATALOG_TTL_MS = 60 * 60 * 1000;
+let catalogCache: { fetchedAt: number; styles: SSStyle[] } | null = null;
+let catalogInFlight: Promise<SSStyle[]> | null = null;
+
+export function ssListAllStyles(): Promise<SSStyle[]> {
+  if (catalogCache && Date.now() - catalogCache.fetchedAt < CATALOG_TTL_MS) {
+    return Promise.resolve(catalogCache.styles);
+  }
+  // Share one request between concurrent callers: two admins opening the
+  // dialog at once shouldn't both pull 1.6 MB.
+  if (!catalogInFlight) {
+    catalogInFlight = ssGet<SSStyle[]>("/styles/")
+      .then((styles) => {
+        catalogCache = { fetchedAt: Date.now(), styles };
+        return styles;
+      })
+      .finally(() => {
+        catalogInFlight = null;
+      });
+  }
+  return catalogInFlight;
+}
+
 /** Fetch a single style by its numeric styleID. */
 export async function ssGetStyle(styleId: string | number): Promise<SSStyle | null> {
   const data = await ssGet<SSStyle[] | SSStyle>(`/styles/${styleId}`);

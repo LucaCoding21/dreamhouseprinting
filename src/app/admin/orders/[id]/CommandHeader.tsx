@@ -43,6 +43,12 @@ const EDIT_ACTIVITY = new Set<string>([
   "price_edit",
 ]);
 
+/** "Dad Hat, Tote bag and 2 more", so a long list can't swallow the caption. */
+function nameList(names: string[]): string {
+  const shown = names.slice(0, 3).join(", ");
+  return names.length > 3 ? `${shown} and ${names.length - 3} more` : shown;
+}
+
 export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; who: string }) {
   const { order } = detail;
   const { toast } = useToast();
@@ -85,9 +91,42 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
     );
   }
 
-  // Proofs filed on the order but not yet in front of the customer. They go
-  // out all at once via "Send for approval" (status -> proof_ready).
-  const pendingProofs = detail.proofs.filter((p) => p.status === "pending").length;
+  /**
+   * Proof coverage. Proofs filed on the order are drafts until "Send for
+   * approval" puts the whole set in front of the customer, and the order can
+   * only go once EVERY line has one of its own (the server enforces the same
+   * rule in proofGateError), so nobody approves a garment they never saw.
+   * Mirrored here so the send button is simply absent rather than erroring.
+   */
+  const { pendingProofs, proofLines, missingProofLines, allLinesCovered } = useMemo(() => {
+    const pending = detail.proofs.filter((p) => p.status === "pending");
+    const lines = detail.lineItems.map((li, i) => {
+      const colour = (li.colour ?? {}) as { name?: string };
+      const name = li.product_name?.trim() || `Item ${i + 1}`;
+      return { id: li.id, name, label: [name, colour.name].filter(Boolean).join(" · ") };
+    });
+    // A one-line order also accepts an order-level (unassigned) proof: uploads
+    // are pinned to the only line now, but older rows predate that.
+    const orderLevel = pending.some((p) => !p.line_item_id);
+    const covered = new Set(pending.map((p) => p.line_item_id).filter(Boolean) as string[]);
+    const missing =
+      lines.length === 1 && orderLevel ? [] : lines.filter((l) => !covered.has(l.id)).map((l) => l.name);
+    return {
+      pendingProofs: pending.length,
+      proofLines: lines,
+      missingProofLines: missing,
+      // An order with no lines falls back to "is there any proof at all".
+      allLinesCovered: lines.length === 0 ? pending.length > 0 : missing.length === 0,
+    };
+  }, [detail.lineItems, detail.proofs]);
+
+  /** "Proofs on 1 of 3 items. Still missing: Dad Hat, Tote bag" */
+  const coverageCaption = `Proofs on ${detail.lineItems.length - missingProofLines.length} of ${
+    detail.lineItems.length
+  } ${detail.lineItems.length === 1 ? "item" : "items"}. Still missing: ${nameList(missingProofLines)}`;
+
+  /** Ready to send: a proof is waiting AND every line has one. */
+  const canSend = pendingProofs > 0 && allLinesCovered;
 
   // Latest change request (for the changes_requested callout).
   const latestChange = detail.proofs
@@ -231,7 +270,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-3xl font-bold text-dream-ink">Order {order.order_number ?? ""}</h1>
+            <h1 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">Order {order.order_number ?? ""}</h1>
             <Badge variant={status === "changes_requested" ? "warn" : "info"}>{STATUS_META[status].label}</Badge>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-dream-muted">
@@ -267,14 +306,30 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                   {who} is looking at the old version. Last edit {relativeTime(lastEditAt!)}, last sent{" "}
                   {relativeTime(lastSentAt!)}.
                 </p>
+                {!allLinesCovered && <p className="mt-0.5 text-sm text-dream-warn">{coverageCaption}</p>}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="primary" onClick={() => openSend(false)}>
-                  Send for approval
-                </Button>
-                <Button variant="ghost" onClick={() => openSend(true)}>
-                  Send without email
-                </Button>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                {/* Same rule as everywhere else: it can only go out once every
+                    line has a proof waiting. */}
+                {allLinesCovered ? (
+                  <>
+                    <Button variant="primary" className="w-full sm:w-auto" onClick={() => openSend(false)}>
+                      Send for approval
+                    </Button>
+                    <Button variant="ghost" className="w-full sm:w-auto" onClick={() => openSend(true)}>
+                      Send without email
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="primary"
+                    className="w-full sm:w-auto"
+                    disabled={!can.proofs}
+                    onClick={pickProof}
+                  >
+                    Upload proof
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -284,6 +339,9 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
 
       <ProofReviewDialog
         orderId={order.id}
+        // Order-level upload: on a multi-item order the dialog asks which item
+        // the proof is for, so every line ends up covered.
+        lines={proofLines}
         open={proofOpen}
         onOpenChange={setProofOpen}
         orderNumber={order.order_number}
@@ -493,9 +551,15 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "upload-proof":
         return (
           <div className="flex flex-wrap items-center gap-4">
-            {pendingProofs > 0 ? (
+            {canSend ? (
               <>
-                <Button variant="primary" size="lg" loading={pending} onClick={() => openSend(false)} className="min-w-48">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  loading={pending}
+                  onClick={() => openSend(false)}
+                  className="w-full sm:w-auto sm:min-w-48"
+                >
                   Send for approval
                 </Button>
                 <p className="text-sm text-dream-muted">
@@ -504,15 +568,29 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               </>
             ) : (
               <>
-                <Button variant="primary" size="lg" disabled={!can.proofs} onClick={pickProof} className="min-w-48">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  disabled={!can.proofs}
+                  onClick={pickProof}
+                  className="w-full sm:w-auto sm:min-w-48"
+                >
                   Upload proof
                 </Button>
                 <p className="text-sm text-dream-muted">
-                  Uploads just save to the order. The whole order goes to the customer when you send it for approval.
+                  {/* Part-proofed: name what's still missing, since that is the
+                      only thing standing between here and sending. */}
+                  {pendingProofs > 0
+                    ? coverageCaption
+                    : "Uploads just save to the order. The whole order goes to the customer when you send it for approval."}
                 </p>
               </>
             )}
-            <Button variant="ghost" className="ml-auto" onClick={() => setApproveConfirm(true)}>
+            <Button
+              variant="ghost"
+              className="w-full sm:ml-auto sm:w-auto"
+              onClick={() => setApproveConfirm(true)}
+            >
               Looks good, skip proof
             </Button>
           </div>
@@ -524,17 +602,17 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               Waiting on customer approval
             </Badge>
             <p className="text-sm text-dream-muted">They&rsquo;ll be asked to pay the current total the moment they approve</p>
-            <div className="ml-auto flex flex-wrap gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               {/* The banner above already offers this when the order changed. */}
-              {!changedSinceSend && pendingProofs > 0 && (
-                <Button variant="secondary" onClick={() => openSend(false)}>
+              {!changedSinceSend && canSend && (
+                <Button variant="secondary" className="w-full sm:w-auto" onClick={() => openSend(false)}>
                   Send for approval again
                 </Button>
               )}
-              <Button variant="secondary" disabled={!can.proofs} onClick={pickProof}>
+              <Button variant="secondary" className="w-full sm:w-auto" disabled={!can.proofs} onClick={pickProof}>
                 Upload new proof
               </Button>
-              <Button variant="secondary" onClick={() => setApproveConfirm(true)}>
+              <Button variant="secondary" className="w-full sm:w-auto" onClick={() => setApproveConfirm(true)}>
                 Approve on customer’s behalf
               </Button>
             </div>
@@ -548,9 +626,15 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                 Customer asked: “{latestChange.change_request_comment}”
               </div>
             )}
-            {pendingProofs > 0 ? (
+            {canSend ? (
               <div className="flex flex-wrap items-center gap-4">
-                <Button variant="primary" size="lg" loading={pending} onClick={() => openSend(false)} className="min-w-48">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  loading={pending}
+                  onClick={() => openSend(false)}
+                  className="w-full sm:w-auto sm:min-w-48"
+                >
                   Send for approval
                 </Button>
                 <p className="text-sm text-dream-muted">
@@ -560,7 +644,13 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             ) : (
               <HeroButton
                 label="Upload new proof"
-                caption="Uploads just save to the order, send it for approval when it's ready"
+                // A change request needs a NEW proof on every line, the old
+                // (now decided) ones don't count towards coverage.
+                caption={
+                  pendingProofs > 0
+                    ? coverageCaption
+                    : "Uploads just save to the order, send it for approval when it's ready"
+                }
                 disabled={!can.proofs}
                 onClick={pickProof}
               />
@@ -576,7 +666,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             <p className="text-sm text-dream-muted">
               The customer says they sent {formatCAD(total)} by Interac e-Transfer. Check your bank, then confirm.
             </p>
-            <div className="ml-auto">
+            <div className="w-full sm:ml-auto sm:w-auto">
               <EtransferVerify
                 orderId={order.id}
                 amount={total}
@@ -594,13 +684,24 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
               Approved, awaiting payment
             </Badge>
             <p className="text-sm text-dream-muted">The customer can pay from their order page any time</p>
-            <div className="ml-auto flex flex-wrap gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               {can.pricing && (
-                <Button variant="secondary" loading={pending} disabled={total <= 0} onClick={sendInvoice}>
+                <Button
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                  loading={pending}
+                  disabled={total <= 0}
+                  onClick={sendInvoice}
+                >
                   {order.invoice_sent_at ? "Re-send payment link" : "Email payment link"}
                 </Button>
               )}
-              <Button variant="secondary" loading={pending} onClick={() => run(() => setOrderStatusAction(order.id, "in_production"), "Moved to production")}>
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                loading={pending}
+                onClick={() => run(() => setOrderStatusAction(order.id, "in_production"), "Moved to production")}
+              >
                 Start production
               </Button>
             </div>
@@ -638,7 +739,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         return (
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="warn" className="px-3 py-1.5 text-sm">On hold</Badge>
-            <Button variant="primary" className="ml-auto" onClick={() => setJumpOpen(true)}>
+            <Button variant="primary" className="w-full sm:ml-auto sm:w-auto" onClick={() => setJumpOpen(true)}>
               Resume order
             </Button>
           </div>
@@ -668,7 +769,14 @@ function HeroButton({
 }) {
   return (
     <div className={cn(inline ? "" : "flex flex-wrap items-center gap-4")}>
-      <Button variant="primary" size="lg" loading={loading} disabled={disabled} onClick={onClick} className="min-w-48">
+      <Button
+        variant="primary"
+        size="lg"
+        loading={loading}
+        disabled={disabled}
+        onClick={onClick}
+        className="w-full sm:w-auto sm:min-w-48"
+      >
         {label}
       </Button>
       {caption && <p className="text-sm text-dream-muted">{caption}</p>}

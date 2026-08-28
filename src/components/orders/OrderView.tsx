@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { OrderTracker } from "@/components/portal/OrderTracker";
 import { cn } from "@/lib/cn";
@@ -6,6 +5,7 @@ import { formatCAD } from "@/lib/money";
 import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
 import { StatusTag } from "@/components/portal/StatusTag";
 import { OrderPanel } from "./OrderPanel";
+import { LineVisual } from "./LineVisual";
 import { ProofPanel } from "./ProofPanel";
 import { InvoicePanel } from "./InvoicePanel";
 import { BalanceDueBanner } from "./BalanceDueBanner";
@@ -43,6 +43,15 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
   const proofAwaitingDecision =
     proofSet.length > 0 && proofSet[0].status !== "approved" && proofSet[0].status !== "changes_requested";
 
+  // Once the set is approved the panel has nothing left to ask, and the proofs
+  // themselves now sit on the lines they belong to, so it comes down.
+  const showProofPanel = proofSet.length > 0 && proofSet[0].status !== "approved";
+
+  // Approved proofs from before per-line proofing (order-level uploads, no
+  // line_item_id) have no line to sit on, so they get their own strip rather
+  // than vanishing with the panel.
+  const looseApprovedProofs = proofs.filter((p) => p.status === "approved" && !p.lineItemId);
+
   // Admin-skipped-proof path: the order is payable but nothing on the page asks
   // for money (no pending proof, no e-transfer being verified). Shout about it.
   const showBalanceDue = payable && !proofAwaitingDecision && !order.etransfer_reported_at;
@@ -75,7 +84,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
       <OrderTracker status={order.status} stageDates={stageDates} dueDate={order.due_date} />
 
       {/* Review and approve the proof, sits directly below the status module. */}
-      {proofSet.length > 0 && (
+      {showProofPanel && (
         <ProofPanel
           proofs={proofSet}
           onApprove={actions.approveProof}
@@ -106,22 +115,15 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                     key={li.id}
                     className="flex flex-wrap gap-3 rounded-2xl border border-dream-line bg-dream-cream/40 p-3 transition-colors hover:border-dream-purple/30 sm:flex-nowrap sm:gap-4"
                   >
-                    {li.mockup ? (
-                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 border-dream-ink/10 bg-white">
-                        <Image src={li.mockup} alt="" width={80} height={80} className="h-full w-full object-contain" />
-                      </div>
-                    ) : (
-                      <div
-                        className="flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border-2 border-dream-ink/10 p-1 text-center"
-                        style={{ backgroundColor: li.colourHex ?? "var(--color-dream-cream)" }}
-                      >
-                        {li.colourName && (
-                          <span className="rounded bg-white/85 px-1 text-[14px] font-medium leading-tight text-dream-ink">
-                            {li.colourName}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    {/* Proof first, then the mockup, then a colour swatch.
+                        Clicking opens it full size. */}
+                    <LineVisual
+                      mockup={li.mockup}
+                      proof={li.proof}
+                      colourName={li.colourName}
+                      colourHex={li.colourHex}
+                      alt={[li.product_name, li.colourName].filter(Boolean).join(", ") || "Your item"}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="break-words font-display text-[15px] font-bold text-dream-ink">{li.product_name}</div>
                       {li.colourName && <div className="text-sm text-dream-muted">{li.colourName}</div>}
@@ -149,6 +151,28 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                 );
               })}
             </ul>
+
+            {/* Older orders proofed at the order level, not per item: those
+                approved proofs have no line to sit on, so they show here. */}
+            {looseApprovedProofs.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-sm font-semibold text-dream-muted">
+                  {looseApprovedProofs.length === 1 ? "Approved proof" : "Approved proofs"}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {looseApprovedProofs.map((p, i) => (
+                    <LineVisual
+                      key={p.id}
+                      mockup={null}
+                      proof={p}
+                      colourName={null}
+                      colourHex={null}
+                      alt={`Approved proof ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* What the customer told us, kept with the order so they can see
                 the note they left is attached (and what staff edited it to). */}
@@ -218,9 +242,9 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
         </OrderPanel>
       </div>
 
-      {/* The record. */}
+      {/* The record. Collapsed by default: it is a reference, not the point of the page. */}
       {activity.length > 0 && (
-        <OrderPanel title="Order history">
+        <OrderPanel title={`Order history (${activity.length})`} collapsible defaultOpen={false}>
           <ol className="space-y-4">
             {activity.map((entry, i) => (
               <li key={`${entry.at}-${i}`} className="flex gap-3">
