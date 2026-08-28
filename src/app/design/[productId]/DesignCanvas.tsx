@@ -9,6 +9,7 @@ import {
   zoneIndexForPoint,
   type NormalizedBox,
 } from "@/lib/design/printArea";
+import { ssLargeImage } from "@/lib/ss/images";
 
 export type PrintBox = NormalizedBox; // normalized 0..1
 
@@ -453,7 +454,12 @@ export const DesignCanvas = forwardRef<
         onGarmentLoaded?.();
         return;
       }
-      fabric.FabricImage.fromURL(url, { crossOrigin: "anonymous" }).then((img) => {
+      // Load the large S&S variant (1000x1250): the canvas draws the garment at
+      // up to ~1,600 device pixels wide, so the stored medium photo (500x625)
+      // upscales visibly. If a large ever 404s, fall back to the stored URL.
+      const large = ssLargeImage(url);
+      const load = (src: string) => fabric.FabricImage.fromURL(src, { crossOrigin: "anonymous" });
+      (large === url ? load(url) : load(large).catch(() => load(url))).then((img) => {
         const c = canvasRef.current;
         // A newer setGarment superseded this load, so drop the stale image.
         if (!c || seq !== garmentSeqRef.current) return;

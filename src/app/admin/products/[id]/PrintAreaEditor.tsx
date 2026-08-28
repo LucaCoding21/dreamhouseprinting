@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { useToast } from "@/components/ui/use-toast";
 import type { PrintAreaRow, ProductColourJson } from "@/lib/db/rows";
 import { effectivePrintBox, formatInches, parseSizeLimits } from "@/lib/design/printArea";
+import { ssLargeImage } from "@/lib/ss/images";
 import { savePrintAreasAction, type PrintAreaInput } from "../actions";
 
 type Colour = ProductColourJson & { enabled?: boolean };
@@ -345,8 +346,12 @@ export function PrintAreaEditor({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={`${view}:${img}`}
-                src={img}
+                src={ssLargeImage(img)}
                 alt={view}
+                onError={(e) => {
+                  // Large variant missing for this colour: show the stored medium photo.
+                  if (e.currentTarget.src !== img) e.currentTarget.src = img;
+                }}
                 onLoad={(e) => {
                   const el = e.currentTarget;
                   if (el.naturalWidth && el.naturalHeight) {
