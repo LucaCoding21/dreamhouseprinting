@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatCAD } from "@/lib/money";
 import { StatusTag } from "@/components/portal/StatusTag";
-import { IconZoom, IconClose, IconCheck } from "@/components/portal/icons";
+import { IconZoom, IconCheck } from "@/components/portal/icons";
 import { OrderPanel } from "./OrderPanel";
+import { Lightbox, isPdf } from "./Lightbox";
 import { PaymentMethodDialog } from "./PaymentMethodDialog";
 import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./types";
 
@@ -22,10 +22,6 @@ import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./typ
 
 /** Signed Storage URLs keep the original filename before the ?token, so the
  *  extension is a reliable PDF signal. */
-function isPdf(src: string): boolean {
-  return /\.pdf(\?|#|$)/i.test(src);
-}
-
 export function ProofPanel({
   proofs,
   onApprove,
@@ -66,18 +62,6 @@ export function ProofPanel({
   const decided = proof.status === "approved";
   const changesRequested = proof.status === "changes_requested";
   const multiple = proofs.length > 1;
-
-  // Lightbox keyboard nav: Esc closes, Left/Right flip through the proof set.
-  useEffect(() => {
-    if (zoomIndex === null) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setZoomIndex(null);
-      else if (e.key === "ArrowLeft") setZoomIndex((i) => (i === null ? i : (i - 1 + proofs.length) % proofs.length));
-      else if (e.key === "ArrowRight") setZoomIndex((i) => (i === null ? i : (i + 1) % proofs.length));
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [zoomIndex, proofs.length]);
 
   function approve() {
     start(async () => {
@@ -280,75 +264,15 @@ export function ProofPanel({
         </div>
 
       {zoomIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-dream-overlay/90 backdrop-blur-sm p-4 sm:p-8"
-          onClick={() => setZoomIndex(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <button
-            type="button"
-            onClick={() => setZoomIndex(null)}
-            className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-[3px] bg-white/10 text-white transition-colors hover:bg-white/20"
-            aria-label="Close"
-          >
-            <IconClose className="h-5 w-5" />
-          </button>
-
-          {multiple && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setZoomIndex((i) => (i === null ? i : (i - 1 + proofs.length) % proofs.length));
-                }}
-                className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:left-6"
-                aria-label="Previous proof"
-              >
-                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M15 5l-7 7 7 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setZoomIndex((i) => (i === null ? i : (i + 1) % proofs.length));
-                }}
-                className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:right-6"
-                aria-label="Next proof"
-              >
-                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </>
-          )}
-
-          <div className="relative max-h-full w-fit max-w-full sm:max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            {isPdf(proofs[zoomIndex].image) ? (
-              <iframe
-                src={proofs[zoomIndex].image}
-                title={`Proof ${zoomIndex + 1}, full size`}
-                className="h-[85vh] w-[85vw] max-w-4xl rounded-lg bg-white shadow-2xl"
-              />
-            ) : (
-              <Image
-                src={proofs[zoomIndex].image}
-                alt={`Proof ${zoomIndex + 1}, full size`}
-                width={1400}
-                height={1400}
-                className="max-h-[85dvh] w-auto max-w-full rounded-lg bg-white object-contain shadow-2xl"
-              />
-            )}
-            {multiple && (
-              <div className="absolute inset-x-0 -bottom-8 text-center text-sm font-semibold text-white/90">
-                {zoomIndex + 1} / {proofs.length}
-              </div>
-            )}
-          </div>
-        </div>
+        <Lightbox
+          src={proofs[zoomIndex].image}
+          title={`Proof ${zoomIndex + 1}`}
+          tag={multiple ? null : "Awaiting your approval"}
+          counter={multiple ? `${zoomIndex + 1} / ${proofs.length}` : null}
+          onClose={() => setZoomIndex(null)}
+          onPrev={multiple ? () => setZoomIndex((i) => (i === null ? i : (i - 1 + proofs.length) % proofs.length)) : undefined}
+          onNext={multiple ? () => setZoomIndex((i) => (i === null ? i : (i + 1) % proofs.length)) : undefined}
+        />
       )}
 
       {etransfer && (
