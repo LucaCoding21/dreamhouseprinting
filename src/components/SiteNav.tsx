@@ -57,13 +57,9 @@ export default function SiteNav() {
   const [spacerH, setSpacerH] = useState<number | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const lastScrollY = useRef(0);
+  // The search field lives in a drawer under the nav row at every width.
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  // Phones get a different search treatment (a rule-underlined bar dropped
-  // below the nav row) so it needs its own ref; only one of the two is ever
-  // on screen, and focusing a display:none input is a no-op, so open focuses
-  // both and the visible one wins.
-  const mobileSearchRef = useRef<HTMLInputElement | null>(null);
-  // Type-ahead suggestions for the phone search bar. /api/search runs the same
+  // Type-ahead suggestions for the search drawer. /api/search runs the same
   // query the /shop page does, so the list and the page it leads to agree.
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [searching, setSearching] = useState(false);
@@ -79,7 +75,6 @@ export default function SiteNav() {
   function openSearch() {
     setSearchOpen(true);
     setTimeout(() => {
-      mobileSearchRef.current?.focus();
       searchInputRef.current?.focus();
     }, 50);
   }
@@ -252,7 +247,7 @@ export default function SiteNav() {
             only flex-1 wing, so it takes the slack and pins to the right. */}
         {/* Phones get a shorter bar: at 105px the nav was eating 16% of an
             iPhone SE, which pushed the hero CTA under the fold. */}
-        <div className="flex items-center gap-2 pt-4 pb-4 sm:gap-4 sm:pt-6 sm:pb-6 xl:pt-6 xl:pb-6">
+        <div className="flex items-center gap-2 pt-2 pb-2 sm:gap-4 sm:pt-3.5 sm:pb-3.5">
           {/* The logo wing used to be flex-1, which paired with the icon wing to
               centre the links. Dropping flex-1 lets the links sit right beside
               the logo while the icon cluster still pushes to the right edge. */}
@@ -269,20 +264,24 @@ export default function SiteNav() {
                 run bigger than the old one without squeezing the row. */}
             <Link href="/" className="flex shrink-0 items-center pr-2 sm:pr-4 2xl:pr-8">
               <Image
-                src="/dreamhouse-logo-mark-v2.svg"
+                src="/dreamhouse-logo4-mobile.svg"
                 alt="Dreamhouse Printing"
-                width={498}
-                height={508}
+                width={566}
+                height={547}
                 priority
-                className="h-12 w-auto md:hidden"
+                // Both logo files carry ~8px of empty space above the drawing
+                // and ~40px below it (in a ~500px viewBox), so the mark sits
+                // high in its own box. A small downward shift centres it
+                // optically against the nav row.
+                className="h-11 w-auto shrink-0 translate-y-[3.9%] md:hidden"
               />
               <Image
-                src="/dreamhouse-logo-wide-v2.svg"
+                src="/dreamhouse-logo4.svg"
                 alt="Dreamhouse Printing"
-                width={1579}
-                height={493}
+                width={1668}
+                height={547}
                 priority
-                className="hidden h-[56px] w-auto md:block lg:h-[68px] xl:h-[58px] 2xl:h-[72px]"
+                className="hidden h-[52px] w-auto shrink-0 translate-y-[3.9%] md:block lg:h-[62px] xl:h-[54px] 2xl:h-[66px]"
               />
             </Link>
           </div>
@@ -290,9 +289,7 @@ export default function SiteNav() {
           {/* Nav links, desktop only, centered between the wings. */}
           <nav
             aria-label="Main"
-            className={`hidden shrink-0 items-center gap-1.5 transition-opacity xl:flex xl:pl-2 2xl:gap-3 2xl:pl-4 ${
-              searchOpen ? "max-2xl:pointer-events-none max-2xl:opacity-0" : ""
-            }`}
+            className="hidden shrink-0 items-center gap-1.5 xl:flex xl:pl-2 2xl:gap-3 2xl:pl-4"
           >
             {NAV_LINKS.map((link) =>
               link.label === "Brands" ? (
@@ -345,77 +342,29 @@ export default function SiteNav() {
           </nav>
 
           <div className="relative flex min-w-0 flex-1 items-center justify-end gap-1.5 min-[400px]:gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
-            {/* Search slot. At 2xl the OPEN form takes static width (2xl:w-72
-                only while open, so the closed state never reserves 288px and
-                squeezes the bar at the xl->2xl seam). Below 2xl the open form
-                overlays the icon cluster instead (absolute, anchored to this
-                cluster's right edge). */}
-            <div
-              className={`flex w-auto shrink-0 justify-end ${
-                searchOpen ? "2xl:w-72" : ""
+            {/* Search toggle. The field itself is the drawer under the nav row
+                (below), at every width: the pill that used to open in this
+                row overlaid the cart/account icons and, on 1536-1700px
+                screens, spilled left over the nav links. The icon stays put and
+                just toggles the drawer. */}
+            <button
+              type="button"
+              aria-label={searchOpen ? "Close search" : "Search the catalog"}
+              aria-expanded={searchOpen}
+              onClick={searchOpen ? closeSearch : openSearch}
+              className={`inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40 ${
+                searchOpen ? "bg-white/70" : ""
               }`}
             >
-            {searchOpen ? (
-              <>
-              <form
-                onSubmit={handleSearch}
-                role="search"
-                className="hidden h-11 w-64 items-center gap-2.5 rounded-full border-2 border-dream-purple/25 bg-white pl-4 pr-1.5 shadow-sm focus-within:border-dream-purple focus-within:ring-2 focus-within:ring-dream-purple/25 md:flex max-2xl:absolute max-2xl:right-0 max-2xl:top-1/2 max-2xl:z-50 max-2xl:-translate-y-1/2 max-2xl:shadow-md sm:w-72 2xl:w-full"
-              >
-                <SketchSearchIcon className="h-[22px] w-[22px] shrink-0 text-dream-purple/55" />
-                <input
-                  ref={searchInputRef}
-                  type="search"
-                  name="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search shirts, hoodies, hats…"
-                  aria-label="Search the catalog"
-                  // WebKit draws its own clear "x" inside a type=search field as
-                  // soon as it has text, which sat beside our Close button and
-                  // read as two X's. Ours stays, the native one is suppressed.
-                  className="min-w-0 flex-1 border-0 bg-transparent text-sm text-dream-ink placeholder:text-dream-purple/40 focus:outline-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
-                />
-                <button
-                  type="button"
-                  aria-label="Close search"
-                  onClick={closeSearch}
-                  className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple/70 transition-colors hover:bg-dream-purple/10 hover:text-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
-                >
-                  <SketchCloseIcon className="h-[17px] w-[17px]" />
-                </button>
-              </form>
-              {/* Phone: the icon never leaves the row and never changes shape,
-                  it just toggles the bar shut. */}
-              <button
-                type="button"
-                aria-label="Close search"
-                onClick={closeSearch}
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple md:hidden"
-              >
-                <SketchSearchIcon className="h-[25px] w-[25px]" />
-              </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                aria-label="Search the catalog"
-                onClick={openSearch}
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
-              >
-                {/* Icon sizes here are tuned to read at the same weight as the
-                    hamburger beside them (a 28px glyph), each nudged for its
-                    own viewBox padding rather than sharing one number.
-                    The translate-y aligns the glyphs on a common BOTTOM line:
-                    each one's art ends at a different height inside its own
-                    viewBox (magnifier handle 20.3/24, bag 20.7/24, account
-                    16.4/17, hamburger ~21/22), so simply centring them left
-                    four different baselines. Offsets are measured against the
-                    hamburger, the lowest-sitting of the four. */}
-                <SketchSearchIcon className="h-[25px] w-[25px] translate-y-[2px] sm:h-[28px] sm:w-[28px] sm:translate-y-[3px]" />
-              </button>
-            )}
-            </div>
+              {/* Each glyph carries a different amount of padding inside its
+                  own viewBox, so the box sizes below are chosen to render the
+                  same amount of INK (~19px on a phone, ~21px from sm), and the
+                  sub-pixel nudges put every glyph's ink centre on the button's
+                  centre line. Ink boxes measured from the path data:
+                  search 2.75..20.25/24, cart 1.95..20.85/24,
+                  account 0..16.6/17, hamburger 1..21.1/22. */}
+              <SketchSearchIcon className="h-[25px] w-[25px] translate-y-[0.5px] sm:h-[28px] sm:w-[28px] sm:translate-y-[0.5px]" />
+            </button>
 
             {/* Cart */}
             <CartNavButton />
@@ -440,7 +389,7 @@ export default function SiteNav() {
               }}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
             >
-              <AccountIcon className="h-[21px] w-[21px] translate-y-[1px] sm:h-[25px] sm:w-[25px]" />
+              <AccountIcon className="h-[19px] w-[19px] translate-y-[0.5px] sm:h-[21px] sm:w-[21px] sm:translate-y-[0.5px]" />
             </Link>
 
             {/* Quick Quote CTA, desktop only */}
@@ -525,9 +474,6 @@ export default function SiteNav() {
           </div>
         </div>
 
-        {/* Phone search: a full-width field under the nav row, underlined by a
-            single rule. The pill that used to overlay the icon cluster covered
-            the cart and account on a narrow screen. */}
       </div>
 
         {searchOpen && (
@@ -536,17 +482,22 @@ export default function SiteNav() {
           // shoved every page down by its height when search opened. Here it
           // floats over the content instead, which is what a search drawer
           // should do.
-          <div className="absolute inset-x-0 top-full z-40 border-b border-dream-ink/15 bg-dream-cream px-5 pb-4 pt-4 shadow-[0_10px_24px_-16px_rgba(27,20,88,0.4)] md:hidden xl:px-10">
+          // Search drawer: a single rule-underlined field dropped under the nav
+          // row, with product suggestions beneath it. One treatment at every
+          // width; on desktop the band is kept slim (short padding, body-size
+          // text, a max-w-md column) so it reads as a search field, not a hero.
+          <div className="absolute inset-x-0 top-full z-40 border-b border-dream-ink/15 bg-dream-cream px-5 pb-4 pt-4 shadow-[0_10px_24px_-16px_rgba(27,20,88,0.4)] md:pb-3 md:pt-2.5 xl:px-10">
+            <div className="mx-auto w-full max-w-md">
             <form onSubmit={handleSearch} role="search" className="relative">
               <input
-                ref={mobileSearchRef}
+                ref={searchInputRef}
                 type="search"
                 name="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products..."
+                placeholder="Search shirts, hoodies, hats..."
                 aria-label="Search the catalog"
-                className="w-full border-0 border-b-[1.5px] border-dream-purple/35 bg-transparent pb-1.5 pr-9 font-display text-base font-medium text-dream-ink placeholder:text-dream-purple/45 focus:border-dream-purple focus:outline-none [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                className="w-full border-0 border-b-[1.5px] border-dream-purple/35 bg-transparent pb-1.5 pr-9 font-display text-base font-medium text-dream-ink placeholder:text-dream-purple/45 focus:border-dream-purple focus:outline-none md:pb-1 md:text-[15px] [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
               />
               {/* Sits inside the field, over the rule's right end. Clears the
                   query and keeps the bar open, so it is not the same control as
@@ -555,10 +506,10 @@ export default function SiteNav() {
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
-                  mobileSearchRef.current?.focus();
+                  searchInputRef.current?.focus();
                 }}
                 aria-label="Clear search"
-                className="absolute bottom-0.5 right-0 flex h-9 w-9 items-center justify-center text-dream-purple/75 transition-colors hover:text-dream-purple"
+                className="absolute bottom-0.5 right-0 flex h-9 w-9 items-center justify-center text-dream-purple/75 transition-colors hover:text-dream-purple md:h-7 md:w-7"
               >
                 {/* Same colour as the rule it sits on, a touch heavier: at the
                     rule's own 1.5px a diagonal cross reads thinner than a
@@ -579,12 +530,12 @@ export default function SiteNav() {
                           <Link
                             href={`/shop/${r.id}`}
                             onClick={closeSearch}
-                            className="flex items-center gap-3.5 py-3"
+                            className="flex items-center gap-3.5 py-3 md:py-2"
                           >
                             {/* The image is sized by its own ratio and centred by
                                 this flex parent; stretching it to the tile and
                                 letterboxing left the artwork looking off-centre. */}
-                            <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1.5 ring-1 ring-dream-purple/15">
+                            <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1.5 ring-1 ring-dream-purple/15 md:h-11 md:w-11">
                               {r.image ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={r.image} alt="" className="max-h-full max-w-full object-contain" />
@@ -617,6 +568,7 @@ export default function SiteNav() {
                 )}
               </div>
             )}
+            </div>
           </div>
         )}
     </header>
@@ -737,7 +689,7 @@ export default function SiteNav() {
     <div
       aria-hidden="true"
       style={spacerH != null ? { height: spacerH } : undefined}
-      className="h-[77px] sm:h-[105px] lg:h-[129px] xl:h-[109px] 2xl:h-[121px]"
+      className="h-[61px] sm:h-[73px] md:h-[81px] lg:h-[91px] xl:h-[83px] 2xl:h-[95px]"
     />
     </>
   );
@@ -779,26 +731,6 @@ function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
       {...props}
     >
       <path d="M5 8.5c2.6 2.7 4.8 5 7 7.2 2.2-2.2 4.5-4.6 7-7.4" />
-    </svg>
-  );
-}
-
-/** Hand-drawn close (X), two gently curved strokes so it looks sketched
- *  rather than geometric. */
-function SketchCloseIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <path d="M6.4 6.1c3.8 3.8 7.6 7.7 11.3 11.7" />
-      <path d="M17.6 6.3c-3.7 3.9-7.5 7.7-11.2 11.6" />
     </svg>
   );
 }

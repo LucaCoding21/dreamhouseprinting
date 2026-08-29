@@ -9,7 +9,15 @@ import { formatCAD } from "@/lib/money";
 
 /** Nav cart: a sketch tote icon with an item-count badge. Clicking it opens a
  *  slide-over drawer from the right showing the full cart. */
-export default function CartNavButton() {
+/** Nav-default glyph sizing: 24/27px with the +2/+3px nudge that lands the
+ *  tote on the shared bottom baseline of the SiteNav icon cluster (see the
+ *  note on SketchSearchIcon in SiteNav). Headers without that cluster pass
+ *  their own sizing so the tote centres with whatever sits beside it. */
+// See the note in SiteNav: sized for equal ink, nudged so the ink centre
+// sits on the button centre line.
+const NAV_ICON_CLASS = "h-[24px] w-[24px] translate-y-[0.5px] sm:h-[27px] sm:w-[27px] sm:translate-y-[0.5px]";
+
+export default function CartNavButton({ iconClassName = NAV_ICON_CLASS }: { iconClassName?: string } = {}) {
   const { items, count, ready, removeItem } = useCart();
   const [open, setOpen] = useState(false);
   // The drawer is portaled to <body>: the nav header is `position: fixed` and
@@ -46,10 +54,7 @@ export default function CartNavButton() {
         onClick={() => setOpen(true)}
         className="relative inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
       >
-        {/* Matches the search / account / hamburger weight in SiteNav. */}
-        {/* translate-y matches the nav's shared bottom baseline, see the note
-            on SketchSearchIcon in SiteNav. */}
-        <CartIcon className="h-[24px] w-[24px] translate-y-[2px] sm:h-[27px] sm:w-[27px] sm:translate-y-[3px]" />
+        <CartIcon className={iconClassName} />
         {ready && count > 0 && (
           <span className="absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dream-purple px-1 text-[14px] font-bold leading-none text-white">
             {count}
@@ -80,7 +85,7 @@ export default function CartNavButton() {
           aria-modal="true"
           aria-label="Your cart"
           className={cn(
-            "absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-[-12px_0_40px_-12px_rgba(27,20,88,0.35)] transition-transform duration-300 ease-out",
+            "absolute right-0 top-0 flex h-full w-full max-w-lg flex-col bg-white shadow-[-12px_0_40px_-12px_rgba(27,20,88,0.35)] transition-transform duration-300 ease-out",
             open ? "translate-x-0" : "translate-x-full",
           )}
         >
@@ -120,13 +125,16 @@ export default function CartNavButton() {
           ) : (
             <>
               {/* Items, fills the drawer, scrolls if long */}
-              <ul className="flex-1 space-y-3 overflow-y-auto p-5">
+              <ul className="flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:p-5">
                 {items.map((item) => (
+                  // The whole card opens the design in the designer (stretched
+                  // link on the name). Remove sits above that link so it stays
+                  // its own tap target.
                   <li
                     key={item.designId}
-                    className="flex items-stretch gap-3.5 rounded-lg border border-dream-line bg-white p-2.5"
+                    className="relative flex items-stretch gap-3.5 rounded-lg border border-dream-line bg-white p-3 transition-colors hover:border-dream-purple/40"
                   >
-                    <span className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
+                    <span className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white">
                       {item.mockupUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={item.mockupUrl} alt="" className="h-full w-full object-contain" />
@@ -136,20 +144,44 @@ export default function CartNavButton() {
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="truncate font-display text-sm font-semibold text-dream-ink">{item.productName}</p>
+                        <p className="truncate font-display text-sm font-semibold text-dream-ink">
+                          {item.productId ? (
+                            <Link
+                              href={`/design/${item.productId}?design=${item.designId}&step=review`}
+                              onClick={() => setOpen(false)}
+                              className="after:absolute after:inset-0 after:rounded-lg after:content-['']"
+                            >
+                              {item.productName}
+                            </Link>
+                          ) : (
+                            item.productName
+                          )}
+                        </p>
                         <span className="shrink-0 font-display text-base font-bold text-dream-purple">
                           {formatCAD(item.total)}
                         </span>
                       </div>
                       <p className="truncate text-[14px] text-dream-muted">{item.colourSummary}</p>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.designId)}
-                        aria-label={`Remove ${item.productName}`}
-                        className="mt-auto self-end pt-2 text-[14px] font-semibold text-dream-faint transition-colors hover:text-dream-danger"
-                      >
-                        Remove
-                      </button>
+                      <div className="relative z-10 mt-auto flex items-center justify-end gap-3 pt-2 text-[14px] font-semibold">
+                        {item.productId && (
+                          <Link
+                            href={`/design/${item.productId}?design=${item.designId}&step=review`}
+                            onClick={() => setOpen(false)}
+                            className="text-dream-purple transition-colors hover:text-dream-ink"
+                          >
+                            Edit
+                          </Link>
+                        )}
+                        {item.productId && <span aria-hidden className="h-3 w-px bg-dream-line-strong" />}
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.designId)}
+                          aria-label={`Remove ${item.productName}`}
+                          className="text-dream-faint transition-colors hover:text-dream-danger"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
