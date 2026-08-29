@@ -43,7 +43,7 @@ export function DeleteDesignButton({ designId, name }: { designId: string; name:
         onClick={() => setOpen(true)}
         aria-label={`Delete draft ${name}`}
         title="Delete draft"
-        className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-dream-line bg-white/90 text-dream-muted shadow-sm backdrop-blur transition-colors hover:border-dream-danger hover:text-dream-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-danger/40"
+        className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-dream-line bg-white/90 sm:right-3 sm:top-3 text-dream-muted shadow-sm backdrop-blur transition-colors hover:border-dream-danger hover:text-dream-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-danger/40"
       >
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6" />

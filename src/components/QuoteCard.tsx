@@ -929,8 +929,9 @@ function PrintsEditor({
 
   return (
     <div>
-      {/* Hint drops under the label on phones; side by side it squeezed both. */}
-      <div className="mb-3 flex flex-col gap-y-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-3 sm:gap-y-1">
+      {/* Hint always sits under the label: opposite ends of one line read as
+          two unrelated bits of text rather than a heading and its caption. */}
+      <div className="mb-3 flex flex-col gap-y-1">
         {step ? (
           <StepLabel n={step}>Prints</StepLabel>
         ) : (

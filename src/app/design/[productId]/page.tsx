@@ -74,10 +74,10 @@ export default async function DesignPage({
   searchParams,
 }: {
   params: Promise<{ productId: string }>;
-  searchParams: Promise<{ quote?: string; design?: string; colour?: string }>;
+  searchParams: Promise<{ quote?: string; design?: string; colour?: string; step?: string }>;
 }) {
   const { productId } = await params;
-  const { quote, colour, design } = await searchParams;
+  const { quote, colour, design, step } = await searchParams;
   const loaded = await getProductForDesign(productId);
   if (!loaded) notFound();
 
@@ -143,6 +143,7 @@ export default async function DesignPage({
       startAsQuote={quote === "1"}
       initialColourName={colour && colours.some((c) => c.name === colour) ? colour : undefined}
       initialDesign={initialDesign}
+      startAtReview={step === "review" && !!initialDesign}
     />
   );
 }

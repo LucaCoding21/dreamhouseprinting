@@ -38,7 +38,7 @@ export function OrderPanel({
       {action && <div className="ml-auto flex items-center">{action}</div>}
     </>
   );
-  const body = <div className={cn("p-5", bodyClassName)}>{children}</div>;
+  const body = <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>;
 
   // Collapsible panels are a <details>: the browser owns the open state, so
   // this stays a server component and works before any JS loads.
@@ -46,7 +46,7 @@ export function OrderPanel({
     return (
       <section className={shell}>
         <details open={defaultOpen} className="group">
-          <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-transparent px-5 py-4 transition-colors hover:bg-dream-cream/40 group-open:border-dream-line [&::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-transparent px-4 py-3.5 sm:px-5 sm:py-4 transition-colors hover:bg-dream-cream/40 group-open:border-dream-line [&::-webkit-details-marker]:hidden">
             {header}
             <svg
               viewBox="0 0 24 24"
@@ -72,7 +72,7 @@ export function OrderPanel({
 
   return (
     <section className={shell}>
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-dream-line px-5 py-4">{header}</div>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-dream-line px-4 py-3.5 sm:px-5 sm:py-4">{header}</div>
       {body}
     </section>
   );

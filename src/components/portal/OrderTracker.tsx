@@ -23,12 +23,12 @@ const STAGE_DOGS: Record<number, string> = {
  * Stages without an entry fall back to DEFAULT_OVAL.
  */
 const STAGE_OVAL: Record<number, string> = {
-  0: "left-[55%] top-[84%] h-9 w-48 rounded-[100%] sm:h-11 sm:w-56", // Order received, flat shadow under the dog
-  1: "left-[52%] top-[45%] h-56 w-56 rotate-6 rounded-[46%_54%_52%_48%/56%_52%_48%_44%] sm:h-72 sm:w-72", // Proof ready, organic blob
-  3: "left-1/2 top-[80%] h-8 w-48 rounded-[100%] sm:h-10 sm:w-56", // Shipped / ready, flat shadow under the dog
-  4: "left-1/2 top-[80%] h-[37px] w-40 rounded-[100%] sm:h-[45px] sm:w-48", // Complete, slightly taller + narrower shadow
+  0: "left-[55%] top-[84%] h-7 w-36 rounded-[100%] sm:h-11 sm:w-56", // Order received, flat shadow under the dog
+  1: "left-[52%] top-[45%] h-44 w-44 rotate-6 rounded-[46%_54%_52%_48%/56%_52%_48%_44%] sm:h-72 sm:w-72", // Proof ready, organic blob
+  3: "left-1/2 top-[80%] h-6 w-36 rounded-[100%] sm:h-10 sm:w-56", // Shipped / ready, flat shadow under the dog
+  4: "left-1/2 top-[80%] h-7 w-32 rounded-[100%] sm:h-[45px] sm:w-48", // Complete, slightly taller + narrower shadow
 };
-const DEFAULT_OVAL = "left-1/2 top-[62%] h-24 w-56 rounded-[100%] sm:h-28 sm:w-64";
+const DEFAULT_OVAL = "left-1/2 top-[62%] h-20 w-44 rounded-[100%] sm:h-28 sm:w-64";
 
 /**
  * Per-stage dog sizing. Height sets the LAYOUT box (how much room it reserves);
@@ -36,11 +36,45 @@ const DEFAULT_OVAL = "left-1/2 top-[62%] h-24 w-56 rounded-[100%] sm:h-28 sm:w-6
  * can look bigger without pushing the text / widening the container.
  */
 const STAGE_DOG_SIZE: Record<number, string> = {
-  3: "h-44 -translate-y-4 scale-[1.4] sm:h-52 sm:scale-[1.4]", // Shipped / ready, big visually, small footprint
-  4: "h-52 scale-110 sm:h-64 sm:scale-110", // Complete, same footprint, a touch bigger visually
+  3: "h-36 -translate-y-3 scale-[1.4] sm:h-52 sm:scale-[1.4]", // Shipped / ready, big visually, small footprint
+  4: "h-40 scale-110 sm:h-64 sm:scale-110", // Complete, same footprint, a touch bigger visually
 };
-const DEFAULT_DOG_SIZE = "h-52 sm:h-64";
+const DEFAULT_DOG_SIZE = "h-40 sm:h-64";
 
+/**
+ * Phone status card only. Every stage frame carries 40-60% transparent padding
+ * around its drawing, so sizing by the frame made the box huge and the dog
+ * small. These are the measured bounds of the artwork inside each frame (the
+ * union across all animation frames) in source pixels, plus how wide the
+ * DRAWING itself should render. The card clips the frame to those bounds.
+ */
+const PHONE_DOG_ART: Record<
+  number,
+  {
+    canvasW: number;
+    canvasH: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    width: number;
+    /** Optional px of right margin on the clip box, which shifts the whole
+     *  illustration left. Nudging the image INSIDE the box instead would clip
+     *  it against the box edge (it cut the thought bubble on "Order received"). */
+    shiftLeft?: number;
+  }
+> = {
+  0: { canvasW: 779, canvasH: 480, x: 140, y: 33, w: 455, h: 408, width: 92, shiftLeft: 18 }, // Order received
+  1: { canvasW: 1344, canvasH: 828, x: 291, y: 90, w: 752, h: 655, width: 92 }, // Proof ready
+  2: { canvasW: 1344, canvasH: 828, x: 261, y: 273, w: 849, h: 441, width: 118 }, // In production
+  3: { canvasW: 779, canvasH: 480, x: 230, y: 123, w: 306, h: 279, width: 98 }, // Shipped / ready
+  4: { canvasW: 779, canvasH: 480, x: 221, y: 73, w: 327, h: 347, width: 88 }, // Complete
+};
+
+/** Air left around the artwork inside its clip box, as a fraction of the art.
+ *  Horizontal is looser so the drawing is not tight against the copy. */
+const PHONE_DOG_AIR_X = 0.28;
+const PHONE_DOG_AIR_Y = 0.1;
 /** Friendly one-liner shown under the stage name, keyed by tracker stage key. */
 const STAGE_COPY: Record<string, string> = {
   received: "We've got your order and we're on it.",
@@ -48,6 +82,15 @@ const STAGE_COPY: Record<string, string> = {
   production: "We're printing your order right now!",
   fulfilment: "Your order is on its way to you!",
   complete: "Delivered. Enjoy your new gear!",
+};
+
+/** Phone card sub-line, without the stage name (the headline already says it). */
+const STAGE_COPY_SHORT: Record<string, string> = {
+  received: "We've got it and we're on it.",
+  proof: "Your proof is ready for review.",
+  production: "On the press now.",
+  fulfilment: "Your order is on its way to you!",
+  complete: "Enjoy your new gear!",
 };
 
 function fmtStageDate(iso: string): string {
@@ -101,22 +144,160 @@ export function OrderTracker({
   const clamped = Math.max(0, Math.min(statusStageIndex(status), last));
   const current = TRACKER_STAGES[clamped];
   const dog = STAGE_DOGS[clamped];
+  // Map the artwork's measured bounds onto a tight box: scale the frame so the
+  // drawing lands at `width`, then offset it so the drawing sits centred.
+  const art = PHONE_DOG_ART[clamped];
+  const dogCrop = art
+    ? (() => {
+        const artH = art.width * (art.h / art.w);
+        const boxW = Math.round(art.width * (1 + PHONE_DOG_AIR_X));
+        const boxH = Math.round(artH * (1 + PHONE_DOG_AIR_Y));
+        const imgW = Math.round(art.width * (art.canvasW / art.w));
+        const imgH = Math.round(imgW * (art.canvasH / art.canvasW));
+        return {
+          boxW,
+          boxH,
+          imgW,
+          imgH,
+          left: Math.round((boxW - art.width) / 2 - (art.x / art.canvasW) * imgW),
+          shiftLeft: art.shiftLeft ?? 0,
+          top: Math.round((boxH - artH) / 2 - (art.y / art.canvasH) * imgH),
+        };
+      })()
+    : null;
+  const finished = clamped >= last;
+  const currentDate = stageDates?.[clamped] ?? null;
+  // "Complete" is the rail label; as a headline the customer reads "Delivered".
+  const headline = finished ? "Delivered" : current.label;
+  // The stage name is the headline; the date sits above it as a timestamp and
+  // the sub-line says what the stage means, so nothing is repeated.
+  const subline = STAGE_COPY_SHORT[current.key] ?? "We'll keep you posted every step of the way.";
 
   return (
-    <div className="rounded-3xl border-2 border-dream-ink/10 bg-white shadow-[5px_5px_0_0_rgba(118,100,255,0.10)]">
-      <div className="p-6 sm:p-8">
+    <>
+      {/* ---- Phone: compact status card. Headline + check, one-line summary,
+          the dog tucked to the right, and the milestone timeline folded behind
+          "View status history" (a plain <details>, no JS). ---- */}
+      <div className="rounded-2xl border border-dream-line bg-dream-lavender-mist shadow-[0_1px_2px_0_rgba(27,20,88,0.08),0_2px_6px_-2px_rgba(27,20,88,0.10)] sm:hidden">
+        <div className="p-4 pb-4">
+          <p className="text-sm font-semibold text-dream-muted">Order status</p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              {/* Only the finished state gets a marker (the green check). The
+                  in-progress stages carried a purple disc that said nothing the
+                  headline underneath it did not already say. */}
+              {currentDate && (
+                <p className="mb-1 text-[13px] font-medium text-dream-faint">{fmtStageDate(currentDate)}</p>
+              )}
+              <div className="flex items-center gap-2.5">
+                {finished && (
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-dream-success text-white">
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M5 10.5l3.5 3.5L15 6.5" />
+                    </svg>
+                  </span>
+                )}
+                <h2 className="min-w-0 font-display text-lg font-extrabold leading-none text-dream-ink">{headline}</h2>
+              </div>
+              <p className="mt-1.5 text-sm leading-snug text-dream-muted">{subline}</p>
+            </div>
+            {dog && dogCrop ? (
+              // Clipped to the artwork's own measured bounds, so the box is
+              // only as big as the drawing and none of the drawing is cut.
+              <span
+                className="relative block shrink-0 overflow-hidden"
+                style={{ width: dogCrop.boxW, height: dogCrop.boxH, marginRight: dogCrop.shiftLeft }}
+                aria-hidden
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={dog}
+                  alt=""
+                  className="absolute max-w-none"
+                  style={{ width: dogCrop.imgW, height: dogCrop.imgH, left: dogCrop.left, top: dogCrop.top }}
+                />
+              </span>
+            ) : (
+              <Image src="/how-it-works/3dog.png" alt="" width={72} height={70} className="h-20 w-auto shrink-0" />
+            )}
+          </div>
+        </div>
+
+        <details className="group border-t border-dream-ink/10">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-dream-ink [&::-webkit-details-marker]:hidden">
+            View status history
+            <svg viewBox="0 0 24 24" className="h-4 w-4 text-dream-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </summary>
+          <div className="px-4 pb-4">
+            <ol>
+              {TRACKER_STAGES.map((s, i) => {
+                const done = i < clamped;
+                const isCurrent = i === clamped;
+                const reached = i <= clamped;
+                const finish = isCurrent && clamped >= last;
+                const showCheck = done || finish;
+                const when = reached ? stageDates?.[i] : null;
+                return (
+                  <li key={s.key} className="relative flex items-center gap-3 py-1.5">
+                    {/* Bare check glyphs, no discs: five filled circles in a
+                        column read as a row of buttons. The connector line goes
+                        with them; the checks alone carry the progression. */}
+                    <span className="relative z-10 flex h-5 w-5 shrink-0 items-center justify-center">
+                      {showCheck ? (
+                        // The colour is applied inline rather than via a text-* utility: a
+                        // newly added @theme token needs a full Tailwind rebuild before
+                        // its utility exists, and until then currentColor silently
+                        // inherits ink (the check rendered black). The literal is the
+                        // same value as the token, used only as the var's fallback.
+                        <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="var(--color-dream-success-mark, #18966a)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M4 10.5l4 4L16.5 5.5" />
+                        </svg>
+                      ) : isCurrent ? (
+                        <span className="h-2.5 w-2.5 rounded-full bg-dream-purple ring-4 ring-dream-purple/15" />
+                      ) : (
+                        <span className="h-2.5 w-2.5 rounded-full border-2 border-dream-purple/30" />
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 text-sm leading-tight",
+                        isCurrent ? "font-semibold text-dream-ink" : reached ? "text-dream-ink-soft" : "text-dream-faint",
+                      )}
+                    >
+                      {s.label}
+                    </span>
+                    {when && <span className="shrink-0 text-[13px] text-dream-faint">{fmtStageDate(when)}</span>}
+                  </li>
+                );
+              })}
+            </ol>
+            {dueDate && (
+              <p className="mt-3 flex items-baseline justify-between gap-3 rounded-xl bg-white px-3.5 py-2.5 text-sm text-dream-muted">
+                <span>Estimated ready by</span>
+                <span className="shrink-0 text-right font-display font-bold text-dream-purple">{fmtReadyDate(dueDate)}</span>
+              </p>
+            )}
+          </div>
+        </details>
+      </div>
+
+      {/* ---- sm+: the playful hero. ---- */}
+      <div className="hidden rounded-3xl border-2 border-dream-ink/10 bg-white shadow-[5px_5px_0_0_rgba(118,100,255,0.10)] sm:block">
+      <div className="p-5 sm:p-8">
         {/* Title with a sketchy underline + a little twinkle */}
         <div className="relative inline-block">
-          <h2 className="font-display text-2xl font-extrabold text-dream-ink sm:text-[26px]">Order status</h2>
+          <h2 className="font-display text-lg font-extrabold text-dream-ink sm:text-[26px]">Order status</h2>
           <svg viewBox="0 0 220 10" preserveAspectRatio="none" className="absolute -bottom-1.5 left-0 h-2 w-[85%] text-dream-purple/60" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
             <path d="M2 6C40 2 120 2 218 5" />
           </svg>
         </div>
 
         {/* Current stage on the left, doodle dog on an organic blob on the right */}
-        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-center lg:gap-20">
+        <div className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-6 lg:flex-row lg:items-center lg:justify-center lg:gap-20">
           <div className="min-w-0">
-            <div className="font-display text-2xl font-extrabold leading-tight text-dream-ink sm:whitespace-nowrap sm:text-[34px] min-[400px]:text-3xl">
+            <div className="font-display text-[26px] font-extrabold leading-tight text-dream-ink sm:whitespace-nowrap sm:text-[34px]">
               {current.label}
             </div>
             <p className="mt-1.5 text-sm leading-relaxed text-dream-muted lg:whitespace-nowrap">
@@ -149,9 +330,10 @@ export function OrderTracker({
           </div>
         </div>
 
-        {/* Milestone rail, finished stages check off, the live stage is a purple
-            target that twinkles, upcoming stages are hollow with a dotted track. */}
-        <ol className="mt-8 flex w-full items-start">
+        {/* sm+: the horizontal rail. Finished stages check off, the live stage
+            is a purple target that twinkles, upcoming stages are hollow with a
+            dotted track. */}
+        <ol className="mt-8 hidden w-full items-start sm:flex">
           {TRACKER_STAGES.map((s, i) => {
             const done = i < clamped;
             const isCurrent = i === clamped;
@@ -204,7 +386,7 @@ export function OrderTracker({
         </ol>
 
         {dueDate && (
-          <div className="mt-7 flex items-center gap-4 rounded-2xl border border-dream-line bg-dream-lavender-soft/25 px-5 py-4">
+          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dream-line bg-dream-lavender-soft/25 px-4 py-3.5 sm:mt-7 sm:gap-4 sm:px-5 sm:py-4">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-dream-lavender-soft text-dream-purple">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -220,6 +402,7 @@ export function OrderTracker({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

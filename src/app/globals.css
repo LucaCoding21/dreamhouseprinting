@@ -5,7 +5,9 @@
   --color-dream-lavender-soft: #e0dffe;
   --color-dream-lavender-mist: #f0eefe;
   --color-dream-lavender-deep: #8a7bff;
-  --color-dream-purple: #7664ff;
+  /* #6856f7 (was #7664ff): white text on it is 4.93:1, AA for the 14px
+     bold button labels used everywhere. The old value was 4.17:1. */
+  --color-dream-purple: #6856f7;
   --color-dream-purple-dark: #5a48d9;
   --color-dream-purple-selected: #4334b3;
   --color-dream-ink: #1b1458;
@@ -26,12 +28,18 @@
   --color-dream-line: #e8e7f1;
   --color-dream-line-strong: #d6d4e6;
   --color-dream-muted: #6c6890;
-  --color-dream-faint: #9a97b8;
-  --color-dream-success: #18966a;
+  /* Text tones are tuned to WCAG AA (>=4.5:1) on white AND the app ground.
+     faint was #9a97b8 (2.8:1) and is used for real text (dates, hints). */
+  --color-dream-faint: #6e6b95;
+  --color-dream-success: #117a56;
+  /* Lighter green for non-text marks (tracker checks). 3.27:1 on the
+     lavender-mist card, the AA minimum for a meaningful graphic. Not for
+     text: it is under 4.5:1. */
+  --color-dream-success-mark: #18966a;
   --color-dream-success-soft: #e3f5ee;
-  --color-dream-warn: #c98a16;
+  --color-dream-warn: #8f5d06;
   --color-dream-warn-soft: #fbeecd;
-  --color-dream-danger: #d6453f;
+  --color-dream-danger: #c4342e;
   --color-dream-danger-soft: #fbe4e3;
   --color-dream-info: #3b6fe0;
   --color-dream-info-soft: #e4ecfb;
@@ -59,11 +67,39 @@ body {
   overflow-x: clip;
 }
 
+/* Bold type is drawn tighter than its regular cut, which reads as crowded at
+   small sizes. A little tracking on bold text fixes that; Archivo (display)
+   needs more of it than Inter (body). Both sit in @layer base so any explicit
+   tracking-* utility still wins, and the display rule comes second so bold
+   headings take the larger value rather than the body one. */
+@layer base {
+  .font-bold,
+  .font-extrabold,
+  .font-semibold,
+  b,
+  strong {
+    letter-spacing: 0.012em;
+  }
+  .font-display {
+    letter-spacing: 0.025em;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Designer, phone "add artwork first" pill: a short side-to-side nudge when
+   Continue is tapped on an empty canvas. */
+@keyframes empty-nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
 
 @keyframes pop-bounce {
@@ -199,16 +235,6 @@ body {
   }
 }
 
-/* Subtle highlight from the top so the lavender has a little depth */
-body {
-  background-image: radial-gradient(
-    ellipse at top,
-    rgba(255, 255, 255, 0.25),
-    transparent 60%
-  );
-  background-attachment: fixed;
-}
-
 /* ---------------------------------------------------------------------------
    Home hero, short-viewport fit
    ---------------------------------------------------------------------------
@@ -323,6 +349,10 @@ body {
 
 /* Hand-drawn rough-edge pill, background/border drawn on ::before so the
    SVG turbulence filter only distorts the shape, not the text inside. */
+.rough-pill:focus-visible {
+  outline: 3px solid var(--color-dream-ink);
+  outline-offset: 3px;
+}
 .rough-pill {
   position: relative;
   isolation: isolate;

@@ -5,7 +5,7 @@ import { getMyOrders } from "@/lib/db/orders";
 import { Button } from "@/components/ui/Button";
 import { formatCAD } from "@/lib/money";
 import { OrderListRow } from "@/components/portal/OrderRow";
-import { IconChevronRight, IconArrowRight } from "@/components/portal/icons";
+import { IconChevronRight } from "@/components/portal/icons";
 import type { OrderRow, OrderStatus } from "@/lib/db/rows";
 
 const ACTIVE_STATUSES: OrderStatus[] = [
@@ -81,13 +81,13 @@ export default async function AccountDashboardPage() {
   }
 
   return (
-    <div className="space-y-9">
+    <div className="space-y-6 sm:space-y-9">
       <Greeting firstName={firstName} />
 
       {/* PRIMARY, the single action. Only shown when a proof is waiting, so it
           never competes with the rest of the page for attention. */}
       {topProof && (
-        <section className="rounded-lg border border-dream-purple/25 bg-dream-lavender-soft/60 p-5">
+        <section className="rounded-lg border border-dream-purple/25 bg-dream-lavender-soft/60 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-bold text-dream-ink">Ready for your approval</h2>
@@ -107,8 +107,8 @@ export default async function AccountDashboardPage() {
                 {formatCAD(orderTotal(topProof))} · added {new Date(topProof.created_at).toLocaleDateString("en-CA")}
               </p>
             </div>
-            <Link href={`/account/orders/${topProof.id}`} className="shrink-0">
-              <Button variant="primary" size="sm">
+            <Link href={`/account/orders/${topProof.id}`} className="shrink-0 max-sm:w-full">
+              <Button variant="primary" size="sm" className="max-sm:w-full">
                 Review proof <IconChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </Link>
@@ -122,7 +122,7 @@ export default async function AccountDashboardPage() {
           {stats.map((s, i) => (
             <div
               key={s.label}
-              className={`px-5 py-4 ${i < 2 ? "border-b border-dream-line sm:border-b-0" : ""} ${
+              className={`px-4 py-3.5 sm:px-5 sm:py-4 ${i < 2 ? "border-b border-dream-line sm:border-b-0" : ""} ${
                 i % 2 === 0 ? "border-r border-dream-line" : ""
               } ${i === 1 ? "sm:border-r sm:border-dream-line" : ""}`}
             >
@@ -141,7 +141,7 @@ export default async function AccountDashboardPage() {
             href="/account/orders"
             className="inline-flex items-center gap-1 text-sm font-semibold text-dream-purple hover:underline"
           >
-            View all orders <IconArrowRight className="h-3.5 w-3.5" />
+            View all orders <IconChevronRight className="h-4 w-4" strokeWidth={2.2} />
           </Link>
         </div>
 
@@ -167,8 +167,8 @@ export default async function AccountDashboardPage() {
 function Greeting({ firstName }: { firstName: string }) {
   return (
     <div>
-      <h1 className="font-display text-3xl font-extrabold text-dream-ink">Hi {firstName} 👋</h1>
-      <p className="mt-1 text-dream-muted">Here’s what’s happening with your orders today.</p>
+      <h1 className="font-display text-2xl font-extrabold text-dream-ink sm:text-3xl">Hi {firstName} 👋</h1>
+      <p className="mt-1 text-sm text-dream-muted sm:text-base">Here’s what’s happening with your orders today.</p>
     </div>
   );
 }

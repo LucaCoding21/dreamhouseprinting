@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/cn";
-import { signOutAction } from "@/app/login/actions";
-import { PORTAL_NAV, isNavActive } from "./nav";
-import { IconSignOut } from "./icons";
+import { PortalMobileMenu } from "./PortalMobileMenu";
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,57 +11,37 @@ function initialsOf(name: string): string {
 }
 
 export function PortalTopbar({ name }: { name: string }) {
-  const pathname = usePathname();
-
+  // Below lg the section nav (and sign out) live in the hamburger menu, so the
+  // top bar is one slim row: logo, avatar, menu button. --portal-topbar-h
+  // tells the menu sheet where to hang from (h-9 controls + py-2.5 + border).
   return (
-    <div className="sticky top-0 z-20 border-b border-dream-line bg-[#f8f7fd]/85 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-5 py-3 lg:px-8">
+    // Solid background (was 85% + blur): content scrolling under a translucent
+    // sticky bar read as "cut off" at the top of the page.
+    <div
+      className="sticky top-0 z-40 border-b border-dream-line bg-[#f8f7fd] [--portal-topbar-h:calc(2.5rem+1.5rem+1px)]"
+    >
+      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
         {/* Logo only on mobile (desktop has it in the sidebar) */}
-        <Link href="/" className="flex items-center lg:hidden">
-          <Image src="/dreamhouse-logo-full.png" alt="Dreamhouse Printing" width={900} height={300} className="h-8 w-auto" />
+        <Link href="/" className="flex shrink-0 items-center lg:hidden">
+          <Image
+            src="/dreamhouse-logo4.svg"
+            alt="Dreamhouse Printing"
+            width={1668}
+            height={547}
+            className="h-10 w-auto"
+          />
         </Link>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-dream-purple text-[14px] font-bold text-white"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-dream-purple text-sm font-bold text-white"
             title={name}
           >
             {initialsOf(name)}
           </span>
-          {/* Mobile sign-out (desktop has it in the sidebar) */}
-          <form action={signOutAction} className="lg:hidden">
-            <button
-              aria-label="Sign out"
-              title="Sign out"
-              className="grid h-9 w-9 place-items-center rounded-full border border-dream-line bg-white text-dream-ink-soft transition-colors hover:text-dream-ink"
-            >
-              <IconSignOut className="h-4 w-4" />
-            </button>
-          </form>
+          <PortalMobileMenu name={name} />
         </div>
       </div>
-
-      {/* Mobile section nav (desktop uses the sidebar) */}
-      <nav className="flex gap-1 overflow-x-auto px-4 pb-1 lg:hidden">
-        {PORTAL_NAV.map(({ label, href, Icon }) => {
-          const active = isNavActive(href, pathname);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors",
-                active
-                  ? "border-dream-purple text-dream-purple"
-                  : "border-transparent text-dream-ink-soft hover:text-dream-ink"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
     </div>
   );
 }

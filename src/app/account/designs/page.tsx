@@ -28,14 +28,14 @@ export default async function MyDesignsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-dream-ink">My designs</h1>
-          <p className="mt-1 text-dream-muted">
+          <p className="mt-1 text-sm text-dream-muted sm:text-base">
             {list.length > 0
               ? "Pick up where you left off, or start something new."
               : "Everything you create in the designer is saved here."}
           </p>
         </div>
-        <Link href="/shop">
-          <Button variant="primary">Start a new design</Button>
+        <Link href="/shop" className="max-sm:w-full">
+          <Button variant="primary" className="max-sm:w-full">Start a new design</Button>
         </Link>
       </div>
 
@@ -60,7 +60,9 @@ export default async function MyDesignsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        // Two-up from 400px: a single full-width card with a square mockup
+        // was one design per screen on a phone.
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {list.map((d) => {
             const mock = ((d.mockup_images ?? []) as { url: string | null }[]).find((m) => m.url)?.url;
             const product = (d.products ?? null) as { name?: string; brand?: string } | null;
@@ -71,21 +73,24 @@ export default async function MyDesignsPage() {
             const isDraft = d.status === "draft";
 
             return (
-              <div key={d.id} className="relative">
+              <div key={d.id} className="relative h-full">
                 {isDraft && <DeleteDesignButton designId={d.id} name={product?.name ?? "Custom design"} />}
                 <Link
                 href={`/design/${d.product_id}?design=${d.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex flex-col overflow-hidden rounded-2xl border border-dream-line bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-dream-purple hover:shadow-[0_8px_0_0_rgba(27,20,88,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-dream-line bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-dream-purple hover:shadow-[0_8px_0_0_rgba(27,20,88,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
               >
                 {/* Mockup */}
                 <div className="relative aspect-square w-full overflow-hidden border-b border-dream-line bg-white">
                   <span
                     className={cn(
-                      "absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[14px] font-semibold shadow-sm",
+                      "absolute left-2 top-2 z-10 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold shadow-sm sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[14px]",
+                      // Draft is the quiet state (nothing has happened yet), so
+                      // it sits back as a light chip; ink on lavender-soft is
+                      // 12.6:1. Submitted keeps the solid green.
                       isDraft
-                        ? "bg-dream-muted text-white"
+                        ? "bg-dream-lavender-soft text-dream-ink"
                         : "bg-dream-success text-white",
                     )}
                   >
@@ -97,7 +102,7 @@ export default async function MyDesignsPage() {
                       alt={product?.name ?? "Saved design"}
                       fill
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      className="object-contain p-4 transition-transform duration-200 group-hover:scale-[1.05]"
+                      className="object-contain p-3 transition-transform duration-200 group-hover:scale-[1.05] sm:p-4"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
@@ -107,13 +112,13 @@ export default async function MyDesignsPage() {
                 </div>
 
                 {/* Meta */}
-                <div className="flex flex-1 flex-col gap-2 p-4">
+                <div className="flex flex-1 flex-col gap-1.5 p-3 sm:gap-2 sm:p-4">
                   {product?.brand && (
                     <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">
                       {product.brand}
                     </span>
                   )}
-                  <h3 className="line-clamp-1 font-display text-base font-semibold leading-snug text-dream-ink">
+                  <h3 className="line-clamp-2 min-h-[2.6em] font-display text-sm font-semibold leading-snug text-dream-ink sm:line-clamp-1 sm:min-h-0 sm:text-base">
                     {product?.name ?? "Custom design"}
                   </h3>
 

@@ -165,7 +165,12 @@ function QueueCard({ queue }: { queue: Queue }) {
           <h2 className="font-display text-base font-bold text-dream-ink">{queue.title}</h2>
           <Badge variant={total ? "purple" : "neutral"}>{total}</Badge>
         </div>
-        <Link href={tabHref} className="text-xs font-medium text-dream-purple hover:underline">
+        {/* Phone: bigger text with padding so the tap target is ~40px tall
+            without turning it into a button. md+ keeps the small text link. */}
+        <Link
+          href={tabHref}
+          className="-my-2 -mr-2 inline-flex shrink-0 items-center px-2 py-2 text-[15px] font-medium text-dream-purple hover:underline md:m-0 md:p-0 md:text-xs"
+        >
           {hidden > 0 ? `View all ${total}` : "View all"}
         </Link>
       </div>
@@ -208,12 +213,15 @@ function QueueCard({ queue }: { queue: Queue }) {
       {hidden > 0 && (
         <Link
           href={tabHref}
-          className="flex items-center justify-between gap-2 border-t border-dream-line px-4 py-2.5 text-sm font-medium text-dream-purple transition-colors hover:bg-dream-bg"
+          className="flex items-center justify-between gap-3 border-t border-dream-line px-4 py-3 text-[15px] font-medium text-dream-purple transition-colors hover:bg-dream-bg md:py-2.5 md:text-sm"
         >
-          <span>
+          <span className="min-w-0">
             {hidden} more {hidden === 1 ? "order" : "orders"} in this queue
           </span>
-          <span className="text-xs font-semibold uppercase tracking-wide">View all {total}</span>
+          {/* Phone: plain text at body size. md+: the small caps label. */}
+          <span className="shrink-0 text-[15px] font-medium md:text-xs md:font-semibold md:uppercase md:tracking-wide">
+            View all {total}
+          </span>
         </Link>
       )}
     </section>
@@ -388,29 +396,44 @@ export default async function AdminDashboardPage({
         {/* Unpaid balance, a read-only summary stat, plain stacked text (no box)
             so it's clearly a figure, not a clickable chip. Sits above the chips. */}
         <div title="Total value of orders that haven't been paid in full yet (excludes cancelled orders).">
-          <div className="text-xs font-semibold uppercase tracking-wide text-dream-muted">Unpaid balance</div>
-          <div className="mt-0.5 font-display text-3xl font-extrabold text-dream-ink">{formatCAD(outstanding)}</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.1em] text-dream-muted">Unpaid balance</div>
+          <div className="mt-0.5 font-display text-3xl font-extrabold tracking-wide text-dream-ink">{formatCAD(outstanding)}</div>
         </div>
 
         {/* Top strip: clickable count chips. Most anchor to their queue card
             below; Needs proof jumps straight to the orders page's Creating
             mockup tab instead (per Julian), since that's where the work
             actually happens. */}
+        {/* Phones: a tidy 2-column grid of 44px-tall rows (label left, count
+            right) instead of ragged wrapping pills; sm+ keeps the pill strip.
+            Accessibility: 44px targets on touch, a visible focus ring, the
+            count is announced as "N orders" not a bare number, and the count
+            colour is dream-purple-selected (6.8:1 on lavender-soft) because
+            the brand purple at 12px bold was 3.8:1, under AA's 4.5:1. */}
         {chips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {chips.map((q) => (
-              <Link
-                key={q.key}
-                href={q.key === "needs-proof" ? `/admin/orders?tab=${q.tab}` : `#q-${q.key}`}
-                className="inline-flex items-center gap-2 rounded-full border border-dream-line bg-dream-surface px-3 py-1.5 text-sm font-medium text-dream-ink transition-colors hover:border-dream-purple"
-              >
-                {q.title}
-                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-dream-lavender-soft px-1.5 text-xs font-bold text-dream-purple">
-                  {q.items.length}
-                </span>
-              </Link>
-            ))}
-          </div>
+          <nav aria-label="Order queues">
+            <ul className="grid auto-rows-fr grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              {chips.map((q) => (
+                <li key={q.key} className="flex min-w-0">
+                  <Link
+                    href={q.key === "needs-proof" ? `/admin/orders?tab=${q.tab}` : `#q-${q.key}`}
+                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-dream-line bg-dream-surface px-3.5 py-2 text-[15px] font-medium leading-tight text-dream-ink transition-colors hover:border-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-2 sm:inline-flex sm:min-h-0 sm:rounded-full sm:px-3 sm:py-1.5 sm:text-sm"
+                  >
+                    <span className="min-w-0">{q.title}</span>
+                    <span
+                      aria-hidden="true"
+                      className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-dream-lavender-soft px-1.5 text-[13px] font-bold text-dream-purple-selected sm:h-5 sm:min-w-5 sm:text-xs"
+                    >
+                      {q.items.length}
+                    </span>
+                    <span className="sr-only">
+                      , {q.items.length} {q.items.length === 1 ? "order" : "orders"}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         )}
 
         {/* Queue cards */}

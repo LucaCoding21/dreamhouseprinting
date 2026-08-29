@@ -195,11 +195,11 @@ export default async function PublicOrderPage({
         <div className="mx-auto flex max-w-5xl items-center px-5 py-4 lg:px-8">
           <Link href="/" className="flex items-center">
             <Image
-              src="/dreamhouse-logo-full.png"
+              src="/dreamhouse-logo4.svg"
               alt="Dreamhouse Printing"
-              width={1800}
-              height={600}
-              className="h-9 w-auto lg:h-11"
+              width={1668}
+              height={547}
+              className="h-10 w-auto lg:h-12"
             />
           </Link>
         </div>
@@ -215,7 +215,7 @@ export default async function PublicOrderPage({
           siblings={siblings}
         />
 
-        {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
+        {view.messages.length > 0 && <LatestMessageBanner messages={view.messages} />}
 
         <OrderView
           order={view.order}

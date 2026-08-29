@@ -8,7 +8,6 @@ import { serializeOrderView, resolveEtransferOption, customerNoteFrom } from "@/
 import { OrderView } from "@/components/orders/OrderView";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import { ReorderButton } from "./ReorderButton";
-import { IconArrowLeft } from "@/components/portal/icons";
 import type { OrderActivityRow } from "@/lib/db/rows";
 import { approveProofAction, requestProofChangesAction } from "./actions";
 import { payNowAction, reportEtransferAction } from "./pay-action";
@@ -74,28 +73,56 @@ export default async function OrderDetailPage({
     customerNote: customerNoteFrom(noteRow?.production_notes),
   });
 
+  const orderTitle = order.order_number
+    ? `Order ${/^\d+$/.test(order.order_number) ? "#" : ""}${order.order_number}`
+    : "Your order";
+  const placedOn = new Date(order.created_at).toLocaleDateString("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
   // space-y-4 (was 6) also sets the gaps inside OrderView, which renders its
   // sections as bare siblings so the host page owns the vertical rhythm.
   return (
-    <div className="space-y-4">
-      {view.latestMessage && <LatestMessageBanner message={view.latestMessage} />}
-
+    <div className="space-y-5">
+      {/* Just-placed confirmation, first thing on the page and solid rather
+          than a pale tint: it is the answer to "did that go through?", and as
+          a washed-out strip below the title it was easy to miss. White on
+          dream-success measures 5.3:1. */}
       {placed && (
-        <div className="rounded-xl bg-dream-success-soft px-4 py-3 text-sm text-dream-success">
-          🎉 Your order is in! We’ll review your artwork and send a proof shortly.
+        <div className="rounded-2xl bg-dream-success px-4 py-4 text-white sm:px-5">
+          <p className="font-display text-base font-extrabold">Order received</p>
+          <p className="mt-1 text-sm leading-snug text-white/90">
+            We&rsquo;re reviewing your artwork. Your proof comes by email before anything prints.
+          </p>
         </div>
       )}
 
+      {/* Top row: the two navigation actions, back to the list and Reorder,
+          both styled as buttons so they read as one control group. They sit
+          above everything, including the message banner. */}
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/account/orders"
-          className="group inline-flex items-center gap-1.5 text-sm font-medium text-dream-muted transition-colors hover:text-dream-ink"
+          className="group inline-flex h-10 items-center gap-1.5 rounded-lg border border-dream-line bg-white pl-3 pr-4 text-sm font-semibold text-dream-ink shadow-[0_1px_1px_0_rgba(27,20,88,0.05)] transition-shadow hover:border-dream-line-strong hover:bg-dream-cream hover:shadow-[0_1px_3px_0_rgba(27,20,88,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-2"
         >
-          <IconArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+          <svg viewBox="0 0 24 24" className="h-4 w-4 text-dream-purple transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M14.5 5.5L8 12l6.5 6.5" />
+          </svg>
           My orders
         </Link>
         <ReorderButton orderId={order.id} />
       </div>
+
+      {/* Page title: what this is (number + status + date). It used to first
+          appear halfway down the page inside the items card. */}
+      <div>
+        <h1 className="font-display text-[22px] font-extrabold leading-none text-dream-ink sm:text-3xl">{orderTitle}</h1>
+        <p className="mt-1 text-sm text-dream-muted">Placed {placedOn}</p>
+      </div>
+
+      {view.messages.length > 0 && <LatestMessageBanner messages={view.messages} />}
 
       <OrderView
         order={view.order}

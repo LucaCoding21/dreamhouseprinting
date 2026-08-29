@@ -29,6 +29,7 @@ export function LineVisual({
   colourHex,
   alt,
   className,
+  hideTag = false,
 }: {
   mockup: string | null;
   proof: { id: string; image: string; status: string } | null;
@@ -37,6 +38,8 @@ export function LineVisual({
   /** Describes the garment, e.g. "Jersey Tee, Black". */
   alt: string;
   className?: string;
+  /** Drop the status pill on the tile (the caller renders its own caption). */
+  hideTag?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -95,7 +98,7 @@ export function LineVisual({
         )}
 
         {/* Status on the picture, so the tile needs no caption below it. */}
-        {proof && (
+        {proof && !hideTag && (
           <span
             className={cn(
               "absolute left-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none shadow-sm",

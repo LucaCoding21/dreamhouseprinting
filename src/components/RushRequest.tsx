@@ -58,7 +58,7 @@ export function RushRequest({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border border-dream-line bg-white px-5 py-5", className)}>
+    <div className={cn("border-t border-dream-line pt-5", className)}>
       <h3 className="font-display text-lg font-bold leading-tight text-dream-ink">Request a rush</h3>
       <p className="mt-1 text-sm leading-relaxed text-dream-muted">
         We&apos;ll do our best to accommodate requested rushes.

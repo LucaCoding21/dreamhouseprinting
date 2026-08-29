@@ -126,19 +126,31 @@ function buildStageDates(order: OrderRow, activity: OrderActivityRow[]): (string
     if (typeof to !== "string") continue;
     setEarliest(statusStageIndex(to as OrderStatus), a.created_at);
   }
+
+  // Fallbacks for stages an order passed through without a status_change row.
+  // The proof stage is the common gap: proofs used to move the order without
+  // logging a transition, and an order approved in one sitting can reach
+  // production with only proof_uploaded / approval_sent to show for it. These
+  // are real timestamps for that stage, not guesses, so the rail does not show
+  // a blank date between two dated stages.
+  const PROOF_STAGE = 1;
+  if (!dates[PROOF_STAGE]) {
+    for (const a of activity) {
+      if (a.type === "approval_sent" || a.type === "proof_uploaded") {
+        setEarliest(PROOF_STAGE, a.created_at);
+      }
+    }
+  }
   return dates;
 }
 
-/** The most recent message Julian sent the customer (from customer_notes). */
-function latestMessage(order: OrderRow): OrderViewMessage | null {
+/** Every message Julian sent the customer (from customer_notes), newest first. */
+function customerMessages(order: OrderRow): OrderViewMessage[] {
   const notes = (order.customer_notes ?? []) as { at?: string; actor?: string; text?: string }[];
-  let latest: OrderViewMessage | null = null;
-  for (const n of notes) {
-    if (!n.text) continue;
-    const at = n.at ?? order.created_at;
-    if (!latest || at > latest.at) latest = { at, text: n.text, actor: n.actor ?? null };
-  }
-  return latest;
+  return notes
+    .filter((n) => !!n.text)
+    .map((n) => ({ at: n.at ?? order.created_at, text: n.text as string, actor: n.actor ?? null }))
+    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 }
 
 /**
@@ -178,7 +190,9 @@ export interface OrderViewSerialized {
   activity: OrderViewActivityEntry[];
   /** ISO date the order entered each tracker stage; null where unknown. */
   stageDates: (string | null)[];
-  /** Newest direct message from Julian, surfaced as a banner. */
+  /** Direct messages from Julian, newest first, surfaced as a banner. */
+  messages: OrderViewMessage[];
+  /** messages[0], kept for callers that only want the newest. */
   latestMessage: OrderViewMessage | null;
 }
 
@@ -193,6 +207,7 @@ const normColour = (s: string | null | undefined) => (s ?? "").trim().toLowerCas
 
 export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
   const { order, lineItems, designs, proofs, activity } = input;
+  const messages = customerMessages(order);
   // The customer sees their note exactly as THEY submitted it: the immutable
   // copy in the design's price snapshot. The admin's per-line
   // decorations.customerNotes is an editable INTERNAL record prefilled from the
@@ -291,6 +306,7 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
     })),
     activity: buildActivity(order, activity),
     stageDates: buildStageDates(order, activity),
-    latestMessage: latestMessage(order),
+    messages,
+    latestMessage: messages[0] ?? null,
   };
 }

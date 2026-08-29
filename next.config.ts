@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   // from a non-localhost origin, which silently leaves the client JS unloaded.
   // Allowing the LAN origin lets you test on a phone, or from a browser that
   // cannot reach this machine's loopback. No effect on a production build.
-  allowedDevOrigins: ["192.168.1.66", "192.168.1.68"],
+  allowedDevOrigins: ["192.168.1.66", "192.168.1.68", "10.0.0.28"],
   experimental: {
     // Designer scenes stage their images to Storage and send only markers, so
     // action bodies stay small, this is headroom for text-heavy scenes, kept

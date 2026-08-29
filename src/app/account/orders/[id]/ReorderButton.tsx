@@ -14,7 +14,8 @@ export function ReorderButton({ orderId }: { orderId: string }) {
   return (
     <Button
       variant="secondary"
-      size="sm"
+      size="md"
+      className="shadow-[0_1px_1px_0_rgba(27,20,88,0.05)]"
       loading={pending}
       onClick={() =>
         start(async () => {
