@@ -1,6 +1,7 @@
 import { IconDashboard, IconOrders, IconDesigns, IconAccount, IconHelp } from "./icons";
 
-/** Portal section links, shared by the desktop sidebar and the mobile top nav. */
+/** Portal section links, shared by the desktop sidebar and the phone
+ *  hamburger menu. */
 export const PORTAL_NAV = [
   { label: "Dashboard", href: "/account", Icon: IconDashboard },
   { label: "My Orders", href: "/account/orders", Icon: IconOrders },

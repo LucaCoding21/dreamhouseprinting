@@ -214,13 +214,15 @@ export function CartClient({
       </header>
 
       {/* Reassurance strip, three promises, each with its own icon badge so it
-          reads as a highlight rather than fine print */}
-      <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          reads as a highlight rather than fine print. On phones it is one row
+          of three small tiles (icon + title, no blurb): stacked full-width
+          cards were pushing the actual cart below the fold. */}
+      <ul className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
         {[
           {
             t: "Free proof first",
             d: "See it before it prints",
-            badge: "bg-dream-sun-soft text-dream-ink",
+            iconColor: "text-dream-purple",
             icon: (
               <>
                 <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
@@ -231,7 +233,7 @@ export function CartClient({
           {
             t: "No payment now",
             d: "Pay once you approve",
-            badge: "bg-dream-lavender-soft text-dream-purple",
+            iconColor: "text-dream-purple",
             icon: (
               <>
                 <rect x="2.5" y="6" width="19" height="13" rx="2.5" />
@@ -243,7 +245,7 @@ export function CartClient({
           {
             t: "We tidy your art",
             d: "Our team cleans it up",
-            badge: "bg-dream-peach/25 text-dream-peach",
+            iconColor: "text-dream-purple",
             icon: (
               <>
                 <path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08" />
@@ -254,16 +256,25 @@ export function CartClient({
         ].map((r) => (
           <li
             key={r.t}
-            className="flex items-center gap-3 rounded-2xl border border-dream-line bg-white px-4 py-3.5 shadow-[0_1px_0_0_rgba(27,20,88,0.04)]"
+            className="flex flex-col items-center gap-2 rounded-2xl border border-dream-line bg-white px-2 py-3 text-center sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-3.5 sm:text-left sm:shadow-[0_1px_0_0_rgba(27,20,88,0.04)]"
           >
-            <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-full", r.badge)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {r.icon}
-              </svg>
-            </span>
+            {/* Bare glyph, no tinted disc: three coloured circles in a row
+                pulled more attention than the promises they illustrate. */}
+            <svg
+              className={cn("h-5 w-5 shrink-0 sm:h-6 sm:w-6", r.iconColor)}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              {r.icon}
+            </svg>
             <div className="leading-tight">
-              <p className="text-sm font-bold text-dream-ink">{r.t}</p>
-              <p className="mt-0.5 text-[14px] text-dream-muted">{r.d}</p>
+              <p className="text-[13px] font-bold text-dream-ink sm:text-sm">{r.t}</p>
+              <p className="mt-0.5 hidden text-[14px] text-dream-muted sm:block">{r.d}</p>
             </div>
           </li>
         ))}
@@ -277,9 +288,12 @@ export function CartClient({
 
           <div className="mt-4 space-y-3.5">
             {items.map((item) => (
+              // The whole row opens the design in the designer (stretched link
+              // on the product name, see below), so a tap anywhere on a phone
+              // works. Remove sits above that link so it stays its own target.
               <div
                 key={item.designId}
-                className="group flex items-center gap-4 rounded-xl border border-dream-line bg-white p-3.5 transition-transform hover:-translate-y-0.5 sm:p-4"
+                className="group relative flex items-stretch gap-4 rounded-xl border border-dream-line bg-white p-3.5 transition-transform sm:p-4 sm:hover:-translate-y-0.5"
               >
                 {/* Mockup in a white frame */}
                 <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-white sm:h-24 sm:w-24">
@@ -291,18 +305,35 @@ export function CartClient({
                   )}
                 </span>
 
-                <div className="flex min-w-0 flex-1 flex-col gap-2 self-stretch sm:flex-row sm:items-stretch sm:justify-between sm:gap-3">
-                  {/* Left: name + colour · quantity, pinned to the top */}
-                  <div className="flex min-w-0 flex-col justify-start gap-1">
-                    <p className="truncate font-display text-base font-bold text-dream-ink sm:text-lg">{item.productName}</p>
-                    <p className="truncate text-sm text-dream-muted">{item.colourSummary}</p>
+                {/* Name + colour on the left, price pinned to the top-right,
+                    Edit / Remove to the bottom-right, at every width. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-2 self-stretch">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <p className="truncate font-display text-base font-bold text-dream-ink sm:text-lg">
+                        {item.productId ? (
+                          <Link
+                            href={`/design/${item.productId}?design=${item.designId}&step=review`}
+                            className="after:absolute after:inset-0 after:rounded-xl after:content-['']"
+                          >
+                            {item.productName}
+                          </Link>
+                        ) : (
+                          item.productName
+                        )}
+                      </p>
+                      <p className="truncate text-sm text-dream-muted">{item.colourSummary}</p>
+                    </div>
+                    <span className="shrink-0 font-display text-lg font-extrabold text-dream-purple">
+                      {formatCAD(item.total)}
+                    </span>
                   </div>
-                  {/* Right: actions pinned top, price pinned bottom */}
-                  <div className="flex shrink-0 items-center justify-between gap-2 sm:flex-col sm:items-end">
-                    <div className="flex items-center gap-3 text-[14px] font-semibold">
+
+                  <div className="mt-auto flex justify-end">
+                    <div className="relative z-10 flex items-center gap-3 text-[14px] font-semibold">
                       {item.productId && (
                         <Link
-                          href={`/design/${item.productId}?design=${item.designId}`}
+                          href={`/design/${item.productId}?design=${item.designId}&step=review`}
                           className="inline-flex items-center gap-1 text-dream-purple transition-colors hover:text-dream-ink"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
@@ -319,7 +350,6 @@ export function CartClient({
                         Remove
                       </button>
                     </div>
-                    <span className="font-display text-lg font-extrabold text-dream-purple">{formatCAD(item.total)}</span>
                   </div>
                 </div>
               </div>
@@ -334,7 +364,7 @@ export function CartClient({
             <div className="border-b border-dream-line-strong bg-dream-lavender-soft px-5 py-4 sm:px-6">
               <SectionHeading n={2}>Send the proof</SectionHeading>
               <p className="mt-1.5 text-sm text-dream-ink-soft">
-                We&rsquo;ll email your proof here and ship once you approve it.
+                We&rsquo;ll email your proof here first.
               </p>
             </div>
 

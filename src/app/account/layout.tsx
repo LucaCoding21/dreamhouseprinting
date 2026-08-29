@@ -31,7 +31,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         <PortalSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <PortalTopbar name={name} />
-          <main className="mx-auto w-full max-w-6xl px-5 py-8 lg:px-8">{children}</main>
+          <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-5 sm:py-8 lg:px-8">{children}</main>
         </div>
       </div>
     </ToastProvider>

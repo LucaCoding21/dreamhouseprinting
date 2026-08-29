@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { signOutAction } from "@/app/login/actions";
@@ -37,8 +38,19 @@ export function AdminTopBar({
     <>
       <header className="z-30 shrink-0 bg-dream-ink text-white">
         <div className="flex h-14 items-center gap-x-4 px-4">
-          {/* Brand, back to the admin home */}
-          <Link href="/admin" className="flex shrink-0 items-baseline gap-2 rounded-lg px-1 py-1">
+          {/* Brand, back to the admin home. The mark sits on a light chip: the
+              logo is purple artwork and this bar is dream-ink, so on the bare
+              navy it reads at about 2.9:1. */}
+          <Link href="/admin" className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white">
+              <Image
+                src="/dreamhouse-logo4-mobile.svg"
+                alt=""
+                width={566}
+                height={547}
+                className="h-6 w-auto translate-y-[3.9%]"
+              />
+            </span>
             <span className="font-display text-[15px] font-bold leading-none">Dreamhouse</span>
             <span className="text-[11px] font-semibold uppercase tracking-widest text-white/40">Admin</span>
           </Link>

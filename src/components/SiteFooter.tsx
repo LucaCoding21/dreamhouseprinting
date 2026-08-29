@@ -10,6 +10,8 @@ const PRODUCT_LINKS = [
 ];
 
 const COMPANY_LINKS = [
+  { label: "About", href: "/about" },
+  { label: "How to order", href: "/how-to-order" },
   { label: "Services", href: "/services" },
   { label: "FAQ", href: "/services#faq" },
   { label: "Contact", href: "/contact" },
@@ -45,11 +47,11 @@ export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
           <div className="col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center">
               <Image
-                src="/dreamhouse-logo-full.png"
+                src="/dreamhouse-logo4.svg"
                 alt="Dreamhouse Printing"
-                width={1800}
-                height={600}
-                className="h-14 w-auto lg:h-[100px]"
+                width={1668}
+                height={547}
+                className="h-14 w-auto lg:h-[84px]"
               />
             </Link>
             <p className="mt-3 max-w-[320px] text-[14px] leading-relaxed text-dream-ink-soft">

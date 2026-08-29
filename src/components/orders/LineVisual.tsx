@@ -30,6 +30,7 @@ export function LineVisual({
   colourHex,
   alt,
   className,
+  hideTag = false,
 }: {
   mockup: string | null;
   proof: { id: string; image: string; status: string } | null;
@@ -38,6 +39,8 @@ export function LineVisual({
   /** Describes the garment, e.g. "Jersey Tee, Black". */
   alt: string;
   className?: string;
+  /** Drop the caption under the thumb (the caller renders its own). */
+  hideTag?: boolean;
 }) {
   const [zoom, setZoom] = useState(false);
 
@@ -80,7 +83,7 @@ export function LineVisual({
         type="button"
         onClick={() => setZoom(true)}
         aria-label={`View ${proof ? "proof" : "mockup"} full size: ${alt}`}
-        className="group block h-20 w-20 overflow-hidden rounded-xl border-2 border-dream-ink/10 bg-white transition-colors hover:border-dream-purple/40"
+        className="group block h-20 w-20 overflow-hidden rounded-xl border border-dream-line bg-dream-bg p-1.5 transition-colors hover:border-dream-purple/40"
       >
         {pdf ? (
           <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-dream-muted">
@@ -96,6 +99,7 @@ export function LineVisual({
       </button>
 
       {/* What am I looking at, and that it opens. */}
+      {!hideTag && (
       <span
         className={cn(
           "mt-1 flex items-center justify-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
@@ -109,6 +113,7 @@ export function LineVisual({
         {!proof && <IconZoom className="h-3 w-3" />}
         {proof ? (approved ? "Approved proof" : "Proof") : "View full size"}
       </span>
+      )}
 
       {zoom && (
         <div

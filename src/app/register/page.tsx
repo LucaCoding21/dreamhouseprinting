@@ -17,7 +17,10 @@ export default async function RegisterPage({
       footer={
         <span>
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-dream-purple hover:underline">
+          <Link
+            href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
+            className="font-semibold text-dream-purple hover:underline"
+          >
             Log in
           </Link>
         </span>

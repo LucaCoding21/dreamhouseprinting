@@ -31,7 +31,10 @@ export default async function LoginPage({
       footer={
         <span>
           New here?{" "}
-          <Link href="/register" className="font-semibold text-dream-purple hover:underline">
+          <Link
+            href={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
+            className="font-semibold text-dream-purple hover:underline"
+          >
             Create an account
           </Link>
         </span>

@@ -64,7 +64,7 @@ export function AccountForm({
           <Field label="Phone">
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
-          <Button variant="primary" loading={pending} onClick={saveProfile}>
+          <Button variant="primary" loading={pending} onClick={saveProfile} className="w-full sm:w-auto">
             Save profile
           </Button>
         </CardContent>
@@ -75,8 +75,8 @@ export function AccountForm({
           <CardTitle>Notifications</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
               <div className="font-medium text-dream-ink">Email updates</div>
               <p className="text-sm text-dream-muted">Order status, proof ready, and shipping notifications.</p>
             </div>
