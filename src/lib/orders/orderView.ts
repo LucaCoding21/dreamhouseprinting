@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { STATUS_META, statusStageIndex, TRACKER_STAGES } from "@/lib/orderStatus";
 import { mergePaymentSettings, etransferOption } from "@/lib/paymentSettings";
 import { normalizeAdjustments } from "@/lib/orders/pricingMath";
+import { customerCanSeeProof } from "@/lib/orders/proofVisibility";
 import type { OrderStatus } from "@/lib/db/rows";
 import type { OrderRow, LineItemRow, DesignRow, ProofRow, OrderActivityRow } from "@/lib/db/rows";
 import type { Database } from "@/lib/db/types";
@@ -238,12 +239,9 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
     return mockup;
   }
 
-  // Pending proofs are drafts until the admin sends the order for approval
-  // (status proof_ready). Decided proofs (approved / changes requested) stay
-  // visible as history regardless of where the order has moved since. Resolved
-  // once, so the line-item proofs and the proof list can never disagree about
-  // what the customer may see.
-  const visibleProofs = proofs.filter((p) => p.status !== "pending" || order.status === "proof_ready");
+  // Which proofs the customer may see (rule in proofVisibility.ts). Resolved
+  // once, so the line-item proofs and the proof list can never disagree.
+  const visibleProofs = proofs.filter((p) => customerCanSeeProof(p.status, order.status));
 
   // Newest visible proof per line. Both callers load proofs newest-first, so
   // the first hit wins.

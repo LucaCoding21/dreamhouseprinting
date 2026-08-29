@@ -774,7 +774,10 @@ export function OrderItemCard({
       <ProofLightbox
         src={mockupPreview.url}
         kind="image"
-        title={`${mockupPreview.view} mockup`}
+        title={[orderNumber ? `Order #${orderNumber}` : null, item.productName || "item", `${mockupPreview.view} mockup`]
+          .filter(Boolean)
+          .join(" · ")}
+        fileStem={fileSlug(orderNumber, item.productName, `mockup-${mockupPreview.view}`)}
         open={!!mockupPreview}
         onOpenChange={(o) => !o && setMockupPreview(null)}
       />
@@ -783,13 +786,26 @@ export function OrderItemCard({
       <ProofLightbox
         src={proofPreview.image}
         kind={fileKind(proofPreview.image)}
-        title={`Proof · ${proofPreview.status.replace(/_/g, " ")}`}
+        title={[orderNumber ? `Order #${orderNumber}` : null, item.productName || "item", `Proof, ${proofPreview.status.replace(/_/g, " ")}`]
+          .filter(Boolean)
+          .join(" · ")}
+        fileStem={fileSlug(orderNumber, item.productName, "proof")}
         open={!!proofPreview}
         onOpenChange={(o) => !o && setProofPreview(null)}
       />
     )}
     </>
   );
+}
+
+/** "order-1119-jersey-tee-proof", the download name for a line's artwork. */
+function fileSlug(orderNumber: string | null, productName: string, kind: string): string {
+  return [orderNumber ? `order-${orderNumber}` : null, productName, kind]
+    .filter(Boolean)
+    .join("-")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /** The S&S blank this garment came from, the brand + style number Julian reorders by. */

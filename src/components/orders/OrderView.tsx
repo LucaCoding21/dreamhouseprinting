@@ -44,8 +44,14 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
     proofSet.length > 0 && proofSet[0].status !== "approved" && proofSet[0].status !== "changes_requested";
 
   // Once the set is approved the panel has nothing left to ask, and the proofs
-  // themselves now sit on the lines they belong to, so it comes down.
-  const showProofPanel = proofSet.length > 0 && proofSet[0].status !== "approved";
+  // themselves now sit on the lines they belong to, so it comes down. A
+  // pending proof only asks for a decision while the order is at proof_ready:
+  // one uploaded after approval (the press-ready artwork) shows on its line
+  // but must not re-open the approval step.
+  const showProofPanel =
+    proofSet.length > 0 &&
+    proofSet[0].status !== "approved" &&
+    (proofSet[0].status !== "pending" || order.status === "proof_ready");
 
   // Approved proofs from before per-line proofing (order-level uploads, no
   // line_item_id) have no line to sit on, so they get their own strip rather

@@ -361,6 +361,8 @@ export function OrderItemsSection({
                       product={product}
                       design={design}
                       proofsForItem={proofsByItem.get(it.id) ?? []}
+                      orderNumber={order.order_number}
+                      orderStatus={order.status}
                       setupFee={setupById.get(it.id) ?? 0}
                       onExpand={() => toggleCollapsed(it.id)}
                       onRemove={can.edit ? () => setRemoving(it) : undefined}
@@ -417,6 +419,8 @@ export function OrderItemsSection({
                     product={product}
                     design={design}
                     proofsForItem={proofsByItem.get(it.id) ?? []}
+                    orderNumber={order.order_number}
+                    orderStatus={order.status}
                     setupFee={setupById.get(it.id) ?? 0}
                     onRemove={can.edit ? () => setRemoving(it) : undefined}
                     onMoveUp={() => moveItem(idx, -1)}

@@ -11,6 +11,7 @@ import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { itemQty, type ItemState, type OrderProduct } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { DesignRow, ProofRow } from "@/lib/db/rows";
+import { customerCanSeeProof } from "@/lib/orders/proofVisibility";
 
 /**
  * One print spot as a single readable clause: "Front center · Screen print ·
@@ -34,6 +35,8 @@ export function CompactItemRow({
   product,
   design,
   proofsForItem,
+  orderNumber,
+  orderStatus,
   setupFee,
   onExpand,
   onRemove,
@@ -48,6 +51,9 @@ export function CompactItemRow({
   design: DesignRow | undefined;
   /** Proofs filed against this line, newest first (see getAdminOrder). */
   proofsForItem: ProofRow[];
+  /** For download filenames and the "customer can't see this yet" hint. */
+  orderNumber?: string | null;
+  orderStatus?: string;
   setupFee: number;
   /** When set, shows a chevron to expand this line back to the detailed card. */
   onExpand?: () => void;
@@ -64,8 +70,19 @@ export function CompactItemRow({
   // Once a proof exists it IS what is getting printed, so it replaces the
   // customer's own mockup here exactly as it does on the detailed card.
   // Julian: "the photo is still the original photo not the PDF mock up".
-  const proof = proofsForItem.find((p) => p.image)?.image ?? null;
+  const proofRow = proofsForItem.find((p) => p.image) ?? null;
+  const proof = proofRow?.image ?? null;
   const thumb = proof ?? mockup;
+  // The admin sees the proof here, but the customer page still shows the
+  // mockup until the order is sent for approval. Say so, or "the photo is
+  // still the original photo" comes back as a bug report.
+  const hiddenFromCustomer = !!proofRow && !!orderStatus && !customerCanSeeProof(proofRow.status, orderStatus);
+  const fileStem = [orderNumber ? `order-${orderNumber}` : null, it.productName, proof ? "proof" : "mockup"]
+    .filter(Boolean)
+    .join("-")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   const thumbKind = proof ? fileKind(proof) : "image";
   const qty = itemQty(it);
   const unit = Number(it.unitPrice) || 0;
@@ -100,13 +117,25 @@ export function CompactItemRow({
         <button
           type="button"
           onClick={() => setPreview(true)}
-          title={proof ? "Latest proof, click to view full size" : "Mockup, click to view full size"}
+          title={
+            hiddenFromCustomer
+              ? "Latest proof. Not on the customer's page yet, send the order for approval to show it."
+              : proof
+                ? "Latest proof, click to view full size"
+                : "Mockup, click to view full size"
+          }
           // A purple edge is the same cue the detailed card uses for "this is
           // the proof, not the customer's mockup".
-          className={`h-10 w-10 shrink-0 overflow-hidden rounded border bg-dream-bg ${
+          className={`relative h-10 w-10 shrink-0 overflow-hidden rounded border bg-dream-bg ${
             proof ? "border-dream-purple/60" : "border-transparent"
           }`}
         >
+          {hiddenFromCustomer && (
+            <span
+              aria-label="Not visible to the customer yet"
+              className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-dream-sun ring-1 ring-white"
+            />
+          )}
           {thumbKind === "pdf" ? (
             <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-dream-muted">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4" aria-hidden>
@@ -192,7 +221,10 @@ export function CompactItemRow({
         <ProofLightbox
           src={thumb}
           kind={thumbKind}
-          title={proof ? `Proof · ${it.productName || "item"}` : `Mockup · ${it.productName || "item"}`}
+          title={[orderNumber ? `Order #${orderNumber}` : null, it.productName || "item", proof ? "Proof" : "Mockup"]
+            .filter(Boolean)
+            .join(" · ")}
+          fileStem={fileStem}
           open={preview}
           onOpenChange={setPreview}
         />
