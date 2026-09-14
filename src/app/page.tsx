@@ -66,7 +66,7 @@ export default function Home() {
         href="/contact#coastal-reign"
         className="block bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
       >
-        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-2 py-2 text-center text-[clamp(10px,3.3vw,13px)] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-2 py-2 text-center text-[clamp(10px,2.9vw,13px)] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
           {/* Condensed on mobile AND fluid-sized (2.9vw) so it always sits on
               ONE line down to 320px, both competitor names stay the hook. */}
           <span className="sm:hidden">

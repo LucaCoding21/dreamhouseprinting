@@ -514,7 +514,7 @@ function Products() {
 
 function FAQ() {
   return (
-    <section id="faq" className="relative bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40 scroll-mt-24">
+    <section id="faq" className="relative overflow-x-clip bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40 scroll-mt-24">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
