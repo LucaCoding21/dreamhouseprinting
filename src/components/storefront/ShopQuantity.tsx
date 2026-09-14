@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { cn } from "@/lib/cn";
+import { MIN_ONLINE_ORDER_QTY } from "@/lib/orders/minimum";
 
 /**
  * Universal shop quantity: one number shared by every catalog card, so the
@@ -16,10 +17,11 @@ import { cn } from "@/lib/cn";
  * the whole grid instantly, no navigation.
  */
 
-const QTY_MIN = 1;
+// Never price the grid below the self-serve minimum: nobody can order that.
+const QTY_MIN = MIN_ONLINE_ORDER_QTY;
 const QTY_MAX = 1000;
 export const DEFAULT_SHOP_QTY = 25; // matches the product page's DEFAULT_QTY
-const PRESETS = [10, 25, 50, 100];
+const PRESETS = [MIN_ONLINE_ORDER_QTY, 25, 50, 100];
 const STORAGE_KEY = "dh_shop_qty";
 
 const ShopQtyContext = createContext<{

@@ -6,16 +6,19 @@ import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { priceFromCurveForPrints, MAX_LOCATIONS } from "@/lib/pricing/quote";
 import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
+import { MIN_ONLINE_ORDER_QTY, SMALL_ORDER_HELP_HREF } from "@/lib/orders/minimum";
 
 const DECO_LABEL: Record<QuoteDecoration, string> = {
   screen: "Screen print",
   embroidery: "Embroidery",
 };
 
-const QTY_MIN = 1;
+// The estimate can't go below the self-serve minimum: a price the customer
+// can't actually order at would only be a bait. Smaller runs go via quick quote.
+const QTY_MIN = MIN_ONLINE_ORDER_QTY;
 const QTY_MAX = 1000;
 const DEFAULT_QTY = 25;
-const PRESETS = [10, 25, 50, 100, 250];
+const PRESETS = [MIN_ONLINE_ORDER_QTY, 25, 50, 100, 250];
 
 /**
  * Interactive "Detailed Quote" on the product page (replaces the old static
@@ -345,6 +348,13 @@ export function DetailedQuote({
           </div>
         </div>
       </Row>
+      <p className="-mt-1 text-[14px] leading-relaxed text-dream-muted">
+        Online orders start at {MIN_ONLINE_ORDER_QTY} pieces. Need fewer?{" "}
+        <Link href={SMALL_ORDER_HELP_HREF} className="font-semibold text-dream-purple underline-offset-2 hover:underline">
+          Get a quick quote
+        </Link>
+        .
+      </p>
 
       {/* Grounded price summary, the hero of the panel */}
       <div className="rounded-xl border border-dream-lavender-soft bg-dream-lavender-mist px-4 py-3.5">

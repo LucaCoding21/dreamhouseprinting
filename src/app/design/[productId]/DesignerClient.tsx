@@ -31,6 +31,7 @@ import { HelpPrompt } from "@/components/support/HelpPrompt";
 import { MethodGuideModal, type MethodKey } from "@/components/storefront/MethodGuideModal";
 import { cn } from "@/lib/cn";
 import { useCart } from "@/lib/cart/CartContext";
+import { MIN_ONLINE_ORDER_QTY, SMALL_ORDER_HELP_HREF, minimumOrderMessage, piecesShortOfMinimum } from "@/lib/orders/minimum";
 import { formatCAD, roundCents } from "@/lib/money";
 import {
   curveForProduct,
@@ -1271,6 +1272,13 @@ export function DesignerClient(props: Props) {
     }
     if (destination === "cart" && quantity < 1) {
       setSaveError("Add at least one size & quantity first.");
+      return;
+    }
+    // Self-serve minimum. "Save & share" is exempt: a draft can sit at any
+    // quantity, only adding it to the cart (the path to a real order) is gated.
+    // The server re-checks this in placeOrderAction.
+    if (destination === "cart" && quantity < MIN_ONLINE_ORDER_QTY) {
+      setSaveError(minimumOrderMessage(quantity));
       return;
     }
     // Snapshot every canvas; figure out which views actually carry art.
@@ -2762,7 +2770,14 @@ export function DesignerClient(props: Props) {
                 <div className="space-y-4">
                   <div>
                     <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
-                    <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">How many of each size? Need another shirt colour? Add one below.</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">
+                      How many of each size? Need another shirt colour? Add one below. Online orders start at {MIN_ONLINE_ORDER_QTY} pieces
+                      (all colours combined). Need fewer?{" "}
+                      <Link href={SMALL_ORDER_HELP_HREF} className="font-semibold text-dream-purple underline-offset-2 hover:underline">
+                        Get a quick quote
+                      </Link>{" "}
+                      instead.
+                    </p>
                   </div>
 
                   <ColorwayBlock
@@ -2821,6 +2836,11 @@ export function DesignerClient(props: Props) {
                       <p className="font-display text-xl font-bold leading-none text-dream-ink">
                         {quantity || 0} unit{quantity === 1 ? "" : "s"}
                       </p>
+                      {quantity > 0 && quantity < MIN_ONLINE_ORDER_QTY && (
+                        <p className="mt-1.5 text-[14px] font-semibold text-dream-warn">
+                          {piecesShortOfMinimum(quantity)} more to reach the {MIN_ONLINE_ORDER_QTY}-piece minimum
+                        </p>
+                      )}
                     </div>
                   </div>
                   {nextTier && quantity > 0 && (
@@ -2908,8 +2928,13 @@ export function DesignerClient(props: Props) {
                     Some art sits outside the print lines. We&apos;ll double-check it before printing.
                   </p>
                 )}
-                <p className={cn("min-w-0 text-sm max-sm:text-center max-sm:text-[14px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < 1 ? "text-dream-muted" : "text-dream-faint")}>
-                  {error ?? (quantity < 1 ? "Please enter more than 0 items." : "No payment now. We send a proof to approve first.")}
+                <p className={cn("min-w-0 text-sm max-sm:text-center max-sm:text-[14px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < MIN_ONLINE_ORDER_QTY ? "text-dream-muted" : "text-dream-faint")}>
+                  {error ??
+                    (quantity < 1
+                      ? `Enter your sizes to continue. Online orders start at ${MIN_ONLINE_ORDER_QTY} pieces.`
+                      : quantity < MIN_ONLINE_ORDER_QTY
+                        ? minimumOrderMessage(quantity)
+                        : "No payment now. We send a proof to approve first.")}
                 </p>
                 <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-col-reverse max-sm:gap-1">
                   <button
@@ -2933,7 +2958,7 @@ export function DesignerClient(props: Props) {
                       }
                       setShowSave(true);
                     }}
-                    disabled={busy !== null || quantity < 1}
+                    disabled={busy !== null || quantity < MIN_ONLINE_ORDER_QTY}
                     className="inline-flex min-w-[11rem] items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full max-sm:min-w-0 max-sm:py-3.5"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5.4 8.2c4.4-.5 8.9-.5 13.3 0 .5 3.7.8 7.4.9 11.1-5.1.6-10.2.6-15.2 0 .1-3.7.4-7.4 1-11.1Z" /><path d="M8.6 8c-.2-2 .6-4.2 2.6-4.7 1.7-.4 3.4.6 4 2.2.3.8.3 1.7.2 2.5" /></svg>

@@ -22,6 +22,7 @@ import {
 } from "@/components/RushRequest";
 import { OrderPlacingOverlay } from "@/components/OrderPlacingOverlay";
 import { placeCartOrdersAction } from "./actions";
+import { MIN_ONLINE_ORDER_QTY, SMALL_ORDER_HELP_HREF, piecesShortOfMinimum } from "@/lib/orders/minimum";
 
 export interface CartPrefill {
   firstName: string;
@@ -66,6 +67,10 @@ export function CartClient({
   // added below, on top of the combined subtotal, so a two-design cart pays the
   // percentage once against the whole job.
   const subtotal = items.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  // Self-serve minimum, per design (each carted design becomes its own order,
+  // so each has to clear the bar on its own). The server re-checks this in
+  // placeOrderAction; blocking here just saves the customer a failed submit.
+  const underMinimum = items.filter((i) => (Number(i.quantity) || 0) < MIN_ONLINE_ORDER_QTY);
   // Setup is already amortized into the curve price, so the fee base is just the
   // subtotal. The server re-derives this per order at placement; this is the
   // customer-facing preview of the same math.
@@ -83,6 +88,14 @@ export function CartClient({
   async function request() {
     setError(null);
     setNotice(null);
+    if (underMinimum.length > 0) {
+      setError(
+        `Online orders start at ${MIN_ONLINE_ORDER_QTY} pieces per design. ${
+          underMinimum.length === 1 ? "One design is" : `${underMinimum.length} designs are`
+        } under that, tap Edit to add sizes.`
+      );
+      return;
+    }
     const required: (keyof CartPrefill)[] = ["firstName", "lastName", "email", "phone", "street", "city", "province", "postal"];
     const missing = required.find((k) => !contact[k]?.trim());
     if (missing) {
@@ -323,6 +336,14 @@ export function CartClient({
                         )}
                       </p>
                       <p className="truncate text-sm text-dream-muted">{item.colourSummary}</p>
+                      {(Number(item.quantity) || 0) < MIN_ONLINE_ORDER_QTY && (
+                        <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-dream-warn-soft px-2.5 py-1 text-[14px] font-semibold text-dream-warn">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0" aria-hidden>
+                            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                          </svg>
+                          {MIN_ONLINE_ORDER_QTY}-piece minimum, add {piecesShortOfMinimum(Number(item.quantity) || 0)} more
+                        </p>
+                      )}
                     </div>
                     <span className="shrink-0 font-display text-lg font-extrabold text-dream-purple">
                       {formatCAD(item.total)}
@@ -508,9 +529,20 @@ export function CartClient({
               {notice && <p className="mt-3 rounded-xl bg-dream-success-soft px-3 py-2 text-sm text-dream-success">{notice}</p>}
               {error && <p className="mt-3 rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{error}</p>}
 
+              {underMinimum.length > 0 && !error && (
+                <p className="mt-3 rounded-xl bg-dream-warn-soft px-3 py-2 text-sm text-dream-warn">
+                  Online orders start at {MIN_ONLINE_ORDER_QTY} pieces per design.{" "}
+                  {underMinimum.length === 1 ? "One design is" : `${underMinimum.length} designs are`} under that, tap Edit to add
+                  sizes. Need a smaller run?{" "}
+                  <Link href={SMALL_ORDER_HELP_HREF} className="font-semibold underline underline-offset-2">
+                    Get a quick quote
+                  </Link>
+                  .
+                </p>
+              )}
               <button
                 onClick={request}
-                disabled={busy || count === 0}
+                disabled={busy || count === 0 || underMinimum.length > 0}
                 className="rough-pill rough-pill-filled mt-4 flex w-full items-center justify-center px-6 py-3.5 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
                 {busy ? "Submitting…" : count === 1 ? "Submit order" : "Submit orders"}
