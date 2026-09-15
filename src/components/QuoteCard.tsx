@@ -604,10 +604,11 @@ export default function QuoteCard() {
               {/* Sticky action bar, keeps the locked-in price and the primary
                   CTA glued to the bottom of the screen through every step.
                   Opaque yellow bg so it cleanly covers fields it floats over.
-                  On phones the price and buttons stack (a single squeezed row
-                  collided badly); from sm up they sit side by side as a pill. */}
-              <div className="sticky bottom-4 z-20 mt-8 rounded-3xl border-2 border-dream-ink/20 bg-dream-sun px-4 py-3 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:rounded-full sm:px-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  On phones it is ONE short row (price left, Back/Next right)
+                  with the summary line hidden: the stacked version ate a third
+                  of the screen and sat over the field being edited. */}
+              <div className="sticky bottom-3 z-20 mt-6 rounded-full border-2 border-dream-ink/20 bg-dream-sun px-3.5 py-2 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:bottom-4 sm:mt-8 sm:px-5 sm:py-3">
+                <div className="flex items-center justify-between gap-2.5 sm:gap-3">
                   <div className="min-w-0">
                     {formPerUnit > 0 ? (
                       <div className="flex items-baseline gap-1.5">
@@ -625,7 +626,7 @@ export default function QuoteCard() {
                         Custom quote
                       </span>
                     )}
-                    <div className="mt-0.5 truncate text-[14px] font-semibold text-dream-ink/65">
+                    <div className="mt-0.5 hidden truncate text-[14px] font-semibold text-dream-ink/65 sm:block">
                       {formPerUnit > 0 && effectiveQty > 0
                         ? `≈ $${(roundDisplayPrice(formPerUnit) * effectiveQty).toLocaleString()} total · `
                         : ""}
@@ -641,12 +642,12 @@ export default function QuoteCard() {
                         : ""}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={onBack}
                       disabled={submitting}
-                      className="h-12 flex-1 rounded-xl border-2 border-dream-ink/70 bg-transparent px-4 font-display text-base font-semibold text-dream-ink transition active:scale-[0.98] disabled:opacity-50 sm:flex-none"
+                      className="h-11 rounded-xl border-2 border-dream-ink/70 bg-transparent px-3 font-display text-sm font-semibold text-dream-ink transition active:scale-[0.98] disabled:opacity-50 sm:h-12 sm:px-4 sm:text-base"
                     >
                       Back
                     </button>
@@ -654,7 +655,7 @@ export default function QuoteCard() {
                       <button
                         type="button"
                         onClick={onNext}
-                        className="h-12 flex-1 rounded-xl border-2 border-dream-ink bg-white px-6 font-display text-lg font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:flex-none"
+                        className="h-11 rounded-xl border-2 border-dream-ink bg-white px-5 font-display text-base font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:h-12 sm:px-6 sm:text-lg"
                       >
                         Next
                       </button>
@@ -1328,8 +1329,9 @@ function StepProduct({
             placeholder="How many pieces total?"
             className={inputCls}
           />
-          <div className="mt-2 flex items-center justify-between text-[14px]">
-            <span className="text-dream-ink-soft">Minimum order is 12 pieces.</span>
+          {/* No minimum here on purpose: Julian takes any size by quick quote,
+              the 20-piece floor only applies to self-serve online orders. */}
+          <div className="mt-2 flex items-center justify-end text-[14px]">
             <button
               type="button"
               onClick={() => update("sizesLater", false)}

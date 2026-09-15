@@ -293,8 +293,12 @@ export function DesignerClient(props: Props) {
   const [activeView, setActiveView] = useState<View | null>(views[0] ?? "front");
   // Colour is the default landing tab, the first thing a customer sees.
   const [tool, setTool] = useState<Tool>("colour");
-  // Left panel collapse, shrinks the column to just the icon rail.
+  // Left panel collapse, shrinks the column to just the icon rail (desktop).
   const [leftOpen, setLeftOpen] = useState(true);
+  // Phone tool sheet. Separate from leftOpen so it can start CLOSED: with the
+  // colour sheet open on load, the first thing a customer saw on a phone was a
+  // swatch grid over their shirt. Tapping a bottom tab opens it.
+  const [sheetOpen, setSheetOpen] = useState(false);
   // Feedback under the upload dropzone: a rejected file (error) or a heads-up
   // like "showing page 1 of a multi-page PDF" (info). Cleared on each new pick.
   const [uploadMsg, setUploadMsg] = useState<{ tone: "error" | "info"; text: string } | null>(null);
@@ -786,6 +790,7 @@ export function DesignerClient(props: Props) {
   function openNotes() {
     setTool("notes");
     setLeftOpen(true);
+    setSheetOpen(true);
     requestAnimationFrame(() => noteRef.current?.focus());
   }
 
@@ -1540,7 +1545,7 @@ export function DesignerClient(props: Props) {
             // min-h-[3.75rem] (60px) tab + pb-2.5 (10px) = 5rem, plus the
             // safe-area inset it also carries. It was 5.5rem, hence an 8px gap.
             "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:rounded-t-3xl max-lg:border-t max-lg:border-dream-line max-lg:shadow-[0_-10px_30px_-12px_rgba(27,20,88,0.35)]",
-            !leftOpen && "max-lg:hidden"
+            !sheetOpen && "max-lg:hidden"
           )}
         >
           {/* Vertical icon rail. Its spacing scales with viewport height so the
@@ -1694,7 +1699,7 @@ export function DesignerClient(props: Props) {
           <div className="flex items-center justify-end px-4 pt-1.5 pb-0 lg:hidden">
             <button
               type="button"
-              onClick={() => setLeftOpen(false)}
+              onClick={() => setSheetOpen(false)}
               aria-label="Close panel"
               className="-my-1 -mr-1 flex h-11 w-11 items-center justify-center rounded-full text-dream-ink-soft transition-colors hover:bg-dream-cream hover:text-dream-ink"
             >
@@ -2519,21 +2524,20 @@ export function DesignerClient(props: Props) {
             className="z-40 flex shrink-0 items-stretch justify-around border-t border-dream-line bg-white px-1 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] lg:hidden"
           >
             {MOBILE_TABS.map((t) => {
-              const on = tool === t.id && leftOpen;
+              const on = tool === t.id && sheetOpen;
               return (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => {
-                    if (tool === t.id && leftOpen) {
-                      setLeftOpen(false);
+                    if (tool === t.id && sheetOpen) {
+                      setSheetOpen(false);
                       return;
                     }
                     if (t.id === "notes") openNotes();
-                    else {
-                      setTool(t.id);
-                      setLeftOpen(true);
-                    }
+                    else setTool(t.id);
+                    setLeftOpen(true);
+                    setSheetOpen(true);
                   }}
                   aria-pressed={on}
                   className={cn(

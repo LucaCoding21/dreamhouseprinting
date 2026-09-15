@@ -392,7 +392,10 @@ export function CartClient({
             <div className="px-5 py-5 sm:px-6">
               {/* Your contact */}
               <p className="text-[14px] font-bold uppercase tracking-[0.04em] text-dream-purple">Your contact</p>
-              <div className="mt-3 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+              {/* Always two explicit columns: with grid-cols-1 below 400px the
+                  col-span-2 fields created an implicit auto column sized by the
+                  input's intrinsic width, squeezing "First name" into a wrap. */}
+              <div className="mt-3 grid grid-cols-2 gap-3">
                 <Field label="First name" htmlFor="c-first" required>
                   <Input id="c-first" value={contact.firstName} onChange={(e) => set("firstName", e.target.value)} />
                 </Field>
@@ -450,7 +453,7 @@ export function CartClient({
               )}
 
               {/* Address */}
-              <div className="mt-3 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+              <div className="mt-3 grid grid-cols-2 gap-3">
                 <Field label="Street address" htmlFor="c-street" required className="col-span-2">
                   <Input id="c-street" value={contact.street} onChange={(e) => set("street", e.target.value)} />
                 </Field>

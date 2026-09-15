@@ -111,20 +111,22 @@ export function RushRequest({
                       }
                       aria-pressed={on}
                       className={cn(
-                        "flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border px-3 py-2.5 text-left transition-colors sm:px-3.5",
+                        "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors sm:px-3.5",
                         on
                           ? "border-dream-purple bg-dream-lavender-mist"
                           : "border-dream-line bg-white hover:border-dream-purple/50",
                       )}
                     >
-                      <span className="font-display text-sm font-bold text-dream-ink">
-                        {t.days} business days
+                      {/* Label with the percentage underneath, fee pill on the
+                          right: one row per tier at any width. Side by side, the
+                          3-day row (longest fee) used to wrap or truncate while
+                          the other two fit, so the three rows read differently. */}
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className="font-display text-sm font-bold text-dream-ink">{t.days} business days</span>
+                        <span className="text-[13px] font-semibold text-dream-muted">+{t.pct}% on your order</span>
                       </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        <span className="text-[14px] font-semibold text-dream-muted">+{t.pct}%</span>
-                        <span className="rounded-full bg-dream-sun px-2.5 py-0.5 font-display text-[14px] font-extrabold text-dream-ink">
-                          +{formatCAD(fee)}
-                        </span>
+                      <span className="shrink-0 rounded-full bg-dream-sun px-2.5 py-0.5 font-display text-[14px] font-extrabold text-dream-ink">
+                        +{formatCAD(fee)}
                       </span>
                     </button>
                   );
