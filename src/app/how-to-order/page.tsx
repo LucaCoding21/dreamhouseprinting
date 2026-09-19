@@ -58,8 +58,8 @@ const GOOD_TO_KNOW: GoodToKnow[] = [
     body: "Vector files are best, but high-res PNGs and JPEGs work great too. No design yet? We can point you to designers we love, or you can start in Canva.",
   },
   {
-    title: "Order any quantity",
-    body: "There's no minimum. Pricing is quantity-based, so bigger runs cost less per piece. For small orders, DTF keeps things affordable.",
+    title: "Order 20 or more",
+    body: "Our minimum is 20 pieces per design. Pricing is quantity-based, so bigger runs cost less per piece. For smaller runs, DTF keeps things affordable.",
   },
   {
     title: "Know your timeline",
@@ -71,6 +71,10 @@ const FAQS = [
   {
     q: "How do I place an order?",
     a: "Two ways: design it yourself in the online designer, or send us a quick quote request. Either way, we review everything, send you a proof to approve, and once you pay we get printing.",
+  },
+  {
+    q: "What's your minimum order?",
+    a: "20 pieces per design, across all sizes and colours. That applies however you reach us: the online designer, a quick quote, or email.",
   },
   {
     q: "Do I pay before or after the proof?",

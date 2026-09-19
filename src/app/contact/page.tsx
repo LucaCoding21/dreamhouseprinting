@@ -234,6 +234,7 @@ export default function ContactPage() {
                     >
                       admin@dreamhouseprinting.com
                     </a>
+                    . Minimum order is 20 pieces.
                   </p>
                 </div>
               </form>
@@ -246,7 +247,7 @@ export default function ContactPage() {
               kicker="Email"
               heading="admin@dreamhouseprinting.com"
               href="mailto:admin@dreamhouseprinting.com"
-              hint="Best for design files, mockups, and back-and-forth."
+              hint="Best for design files, mockups, and back-and-forth. Minimum order is 20 pieces."
               icon={<EmailIcon />}
             />
             <ContactCard

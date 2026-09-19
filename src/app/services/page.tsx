@@ -155,7 +155,7 @@ const FAQS = [
   },
   {
     q: "Is there a minimum order size?",
-    a: "There's no minimum order size, but pricing is quantity based and DTF is definitely preferable for small orders. We will do screen printing and embroidery for small orders, but the cost will be higher due to the set up involved.",
+    a: "Our minimum order is 20 pieces per design, whether you order online, request a quick quote, or email us. Pricing is quantity based, so bigger runs cost less per piece, and DTF is the most affordable option for smaller runs.",
   },
   {
     q: "What's the quickest you can do an order?",

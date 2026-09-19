@@ -791,11 +791,11 @@ function Calculator({
           )}
 
           <div>
-            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="mb-4">
               <StepLabel n={quantityStep}>Quantity</StepLabel>
-              <span className="rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-[12px] font-semibold text-dream-purple">
-                Minimum order {MIN_ONLINE_ORDER_QTY} pieces
-              </span>
+              <div className="mt-1 text-[13px] font-semibold text-dream-purple">
+                * Minimum order {MIN_ONLINE_ORDER_QTY} pieces
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
