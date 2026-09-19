@@ -5,6 +5,7 @@ import {
   SUBMISSIONS_TABLE,
   getSupabaseAdmin,
 } from "@/lib/supabase";
+import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
 import {
   PRINT_LOCATION_LABEL,
   SIZE_KEYS,
@@ -378,6 +379,16 @@ export async function POST(request: Request) {
     if (!data) {
       return NextResponse.json(
         { error: "Missing required contact fields" },
+        { status: 400 },
+      );
+    }
+
+    // Same 20-piece floor as self-serve orders. The client already blocks
+    // this, so a hit here is a hand-built request, not a real customer.
+    const requestedQty = Number(data.quantity) || 0;
+    if (requestedQty < MIN_ONLINE_ORDER_QTY) {
+      return NextResponse.json(
+        { error: minimumOrderMessage(requestedQty) },
         { status: 400 },
       );
     }

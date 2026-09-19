@@ -19,6 +19,7 @@ import {
   type SizeBreakdown,
   type SizeKey,
 } from "@/lib/formTypes";
+import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
 import {
   AVAILABLE_DECORATIONS,
   calculateQuoteByLocation,
@@ -377,9 +378,11 @@ export default function QuoteCard() {
       if (data.sizesLater) {
         if (!data.quantity.trim()) errs.quantity = "How many pieces total?";
         else if (Number(data.quantity) <= 0) errs.quantity = "Quantity must be a positive number.";
+        else if (Number(data.quantity) < MIN_ONLINE_ORDER_QTY) errs.quantity = minimumOrderMessage(Number(data.quantity));
       } else {
         const total = sumSizes(data.sizes);
         if (total <= 0) errs.sizes = "Enter at least one size count.";
+        else if (total < MIN_ONLINE_ORDER_QTY) errs.sizes = minimumOrderMessage(total);
       }
       if (data.placements.length === 0)
         errs.placements = "Add at least one print location.";
@@ -784,8 +787,11 @@ function Calculator({
           )}
 
           <div>
-            <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">
-              Quantity
+            <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="font-display text-[13px] font-bold text-dream-ink">Quantity</span>
+              <span className="rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-[12px] font-semibold text-dream-purple">
+                Minimum order {MIN_ONLINE_ORDER_QTY} pieces
+              </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
@@ -807,10 +813,10 @@ function Calculator({
             {useCustomQty && (
               <input
                 type="number"
-                min="1"
+                min={MIN_ONLINE_ORDER_QTY}
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                placeholder="How many?"
+                placeholder={`How many? (min ${MIN_ONLINE_ORDER_QTY})`}
                 autoFocus
                 className="mt-2 w-32 rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
               />
@@ -1023,6 +1029,9 @@ function PriceCard({
   }
 
   const hasQty = quantity > 0;
+  // The estimate still shows below the minimum (so a customer typing 15 sees
+  // what 15 would cost), but locking it in is held until they reach 20.
+  const underMin = hasQty && quantity < MIN_ONLINE_ORDER_QTY;
   return (
     <div className="mt-1 rounded-2xl bg-dream-sun px-6 py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
       <div className="flex items-center justify-between">
@@ -1048,7 +1057,10 @@ function PriceCard({
       {!hasQty && (
         <div className="mt-2 text-xs text-dream-ink/55">Enter a quantity to see your price</div>
       )}
-      {hasQty && (
+      {underMin && (
+        <div className="mt-3 text-sm font-semibold text-dream-ink/70">{minimumOrderMessage(quantity)}</div>
+      )}
+      {hasQty && !underMin && (
         <button
           type="button"
           onClick={onLockIn}
@@ -1193,14 +1205,14 @@ function StepProduct({
             id="qty"
             type="number"
             inputMode="numeric"
-            min={1}
+            min={MIN_ONLINE_ORDER_QTY}
             value={data.quantity}
             onChange={(e) => update("quantity", e.target.value)}
-            placeholder="How many pieces total?"
+            placeholder={`How many pieces total? (minimum ${MIN_ONLINE_ORDER_QTY})`}
             className={inputCls}
           />
           <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-dream-ink-soft">Minimum order is 12 pieces.</span>
+            <span className="text-dream-ink-soft">Minimum order is {MIN_ONLINE_ORDER_QTY} pieces.</span>
             <button
               type="button"
               onClick={() => update("sizesLater", false)}
