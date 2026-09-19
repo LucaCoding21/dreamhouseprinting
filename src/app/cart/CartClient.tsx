@@ -22,7 +22,7 @@ import {
 } from "@/components/RushRequest";
 import { OrderPlacingOverlay } from "@/components/OrderPlacingOverlay";
 import { placeCartOrdersAction } from "./actions";
-import { MIN_ONLINE_ORDER_QTY, SMALL_ORDER_HELP_HREF, piecesShortOfMinimum } from "@/lib/orders/minimum";
+import { MIN_ONLINE_ORDER_QTY, piecesShortOfMinimum } from "@/lib/orders/minimum";
 
 export interface CartPrefill {
   firstName: string;
@@ -534,13 +534,9 @@ export function CartClient({
 
               {underMinimum.length > 0 && !error && (
                 <p className="mt-3 rounded-xl bg-dream-warn-soft px-3 py-2 text-sm text-dream-warn">
-                  Online orders start at {MIN_ONLINE_ORDER_QTY} pieces per design.{" "}
+                  Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces per design.{" "}
                   {underMinimum.length === 1 ? "One design is" : `${underMinimum.length} designs are`} under that, tap Edit to add
-                  sizes. Need a smaller run?{" "}
-                  <Link href={SMALL_ORDER_HELP_HREF} className="font-semibold underline underline-offset-2">
-                    Get a quick quote
-                  </Link>
-                  .
+                  sizes.
                 </p>
               )}
               <button

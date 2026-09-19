@@ -21,6 +21,7 @@ import {
   type SizeBreakdown,
   type SizeKey,
 } from "@/lib/formTypes";
+import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
 import {
   AVAILABLE_DECORATIONS,
   calculateQuoteForPrints,
@@ -349,9 +350,11 @@ export default function QuoteCard() {
       if (data.sizesLater) {
         if (!data.quantity.trim()) errs.quantity = "How many pieces total?";
         else if (Number(data.quantity) <= 0) errs.quantity = "Quantity must be a positive number.";
+        else if (Number(data.quantity) < MIN_ONLINE_ORDER_QTY) errs.quantity = minimumOrderMessage(Number(data.quantity));
       } else {
         const total = sumSizes(data.sizes);
         if (total <= 0) errs.sizes = "Enter at least one size count.";
+        else if (total < MIN_ONLINE_ORDER_QTY) errs.sizes = minimumOrderMessage(total);
       }
       if (prints.length === 0) errs.prints = "Add at least one print.";
     }
@@ -788,8 +791,11 @@ function Calculator({
           )}
 
           <div>
-            <div className="mb-3">
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
               <StepLabel n={quantityStep}>Quantity</StepLabel>
+              <span className="rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-[12px] font-semibold text-dream-purple">
+                Minimum order {MIN_ONLINE_ORDER_QTY} pieces
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
@@ -811,7 +817,7 @@ function Calculator({
                   clears it (value is only bound while useCustomQty is on). */}
               <input
                 type="number"
-                min="1"
+                min={MIN_ONLINE_ORDER_QTY}
                 inputMode="numeric"
                 value={useCustomQty ? quantity : ""}
                 onChange={(e) => {
@@ -1139,6 +1145,9 @@ function PriceCard({
   }
 
   const hasQty = quantity > 0;
+  // The estimate still shows below the minimum (so a customer typing 15 sees
+  // what 15 would cost), but locking it in is held until they reach 20.
+  const underMin = hasQty && quantity < MIN_ONLINE_ORDER_QTY;
   return (
     <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
       {/* Caption sits above the label, and both are sentence case with no
@@ -1176,7 +1185,12 @@ function PriceCard({
       {!hasQty && (
         <div className="mt-2 text-[14px] text-dream-ink/55">Enter a quantity to see your price</div>
       )}
-      {hasQty && (
+      {underMin && (
+        <div className="mt-3 text-right text-[14px] font-semibold text-dream-ink/70 sm:text-left">
+          {minimumOrderMessage(quantity)}
+        </div>
+      )}
+      {hasQty && !underMin && (
         <button
           type="button"
           onClick={onLockIn}
@@ -1323,14 +1337,12 @@ function StepProduct({
             id="qty"
             type="number"
             inputMode="numeric"
-            min={1}
+            min={MIN_ONLINE_ORDER_QTY}
             value={data.quantity}
             onChange={(e) => update("quantity", e.target.value)}
-            placeholder="How many pieces total?"
+            placeholder={`How many pieces total? (minimum ${MIN_ONLINE_ORDER_QTY})`}
             className={inputCls}
           />
-          {/* No minimum here on purpose: Julian takes any size by quick quote,
-              the 20-piece floor only applies to self-serve online orders. */}
           <div className="mt-2 flex items-center justify-end text-[14px]">
             <button
               type="button"

@@ -31,7 +31,7 @@ import { HelpPrompt } from "@/components/support/HelpPrompt";
 import { MethodGuideModal, type MethodKey } from "@/components/storefront/MethodGuideModal";
 import { cn } from "@/lib/cn";
 import { useCart } from "@/lib/cart/CartContext";
-import { MIN_ONLINE_ORDER_QTY, SMALL_ORDER_HELP_HREF, minimumOrderMessage, piecesShortOfMinimum } from "@/lib/orders/minimum";
+import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage, piecesShortOfMinimum } from "@/lib/orders/minimum";
 import { formatCAD, roundCents } from "@/lib/money";
 import {
   curveForProduct,
@@ -2775,12 +2775,8 @@ export function DesignerClient(props: Props) {
                   <div>
                     <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
                     <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">
-                      How many of each size? Need another shirt colour? Add one below. Online orders start at {MIN_ONLINE_ORDER_QTY} pieces
-                      (all colours combined). Need fewer?{" "}
-                      <Link href={SMALL_ORDER_HELP_HREF} className="font-semibold text-dream-purple underline-offset-2 hover:underline">
-                        Get a quick quote
-                      </Link>{" "}
-                      instead.
+                      How many of each size? Need another shirt colour? Add one below. Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces
+                      (all colours combined).
                     </p>
                   </div>
 
@@ -2935,7 +2931,7 @@ export function DesignerClient(props: Props) {
                 <p className={cn("min-w-0 text-sm max-sm:text-center max-sm:text-[14px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < MIN_ONLINE_ORDER_QTY ? "text-dream-muted" : "text-dream-faint")}>
                   {error ??
                     (quantity < 1
-                      ? `Enter your sizes to continue. Online orders start at ${MIN_ONLINE_ORDER_QTY} pieces.`
+                      ? `Enter your sizes to continue. Our minimum order is ${MIN_ONLINE_ORDER_QTY} pieces.`
                       : quantity < MIN_ONLINE_ORDER_QTY
                         ? minimumOrderMessage(quantity)
                         : "No payment now. We send a proof to approve first.")}
