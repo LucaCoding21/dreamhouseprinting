@@ -234,6 +234,7 @@ export default function ContactPage() {
                     >
                       admin@dreamhouseprinting.com
                     </a>
+                    . Minimum order is 20 pieces.
                   </p>
                 </div>
               </form>
@@ -246,7 +247,7 @@ export default function ContactPage() {
               kicker="Email"
               heading="admin@dreamhouseprinting.com"
               href="mailto:admin@dreamhouseprinting.com"
-              hint="Best for design files, mockups, and back-and-forth."
+              hint="Best for design files, mockups, and back-and-forth. Minimum order is 20 pieces."
               icon={<EmailIcon />}
             />
             <ContactCard
@@ -271,7 +272,7 @@ export default function ContactPage() {
                 href="/#quick-quote"
                 className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
               >
-                Start a quote →
+                Start a quote
               </Link>
             </div>
           </aside>
@@ -477,7 +478,7 @@ function SentState({ onReset }: { onReset: () => void }) {
           onClick={onReset}
           className="font-display text-sm font-bold uppercase tracking-[0.18em] text-dream-purple underline-offset-4 hover:underline"
         >
-          Send another →
+          Send another
         </button>
       </div>
     </div>

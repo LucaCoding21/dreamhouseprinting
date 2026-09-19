@@ -787,11 +787,11 @@ function Calculator({
           )}
 
           <div>
-            <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-display text-[13px] font-bold text-dream-ink">Quantity</span>
-              <span className="rounded-full bg-dream-lavender-soft px-2.5 py-0.5 text-[12px] font-semibold text-dream-purple">
-                Minimum order {MIN_ONLINE_ORDER_QTY} pieces
-              </span>
+            <div className="mb-3">
+              <div className="font-display text-[13px] font-bold text-dream-ink">Quantity</div>
+              <div className="mt-0.5 text-[12px] font-semibold text-dream-purple">
+                * Minimum order {MIN_ONLINE_ORDER_QTY} pieces
+              </div>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
