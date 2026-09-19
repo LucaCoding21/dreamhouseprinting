@@ -19,6 +19,12 @@ type Category = {
    *  square in a square frame, so object-cover crops nothing and
    *  object-position alone does nothing at all. */
   photoPan?: string;
+  /** Pan used below the sm breakpoint (single-column cards). Falls back to
+   *  photoPan. The mobile card is much wider relative to the photo, so the
+   *  desktop pan overshoots and shoves the subject off the left edge. */
+  photoPanMobile?: string;
+  /** Scale used below the sm breakpoint. Falls back to photoScale. */
+  photoScaleMobile?: number;
 };
 
 const CATEGORIES: Category[] = [
@@ -34,6 +40,8 @@ const CATEGORIES: Category[] = [
     photo: true,
     photoScale: 1.3,
     photoPan: "-15%",
+    photoPanMobile: "-5%",
+    photoScaleMobile: 1.12,
   },
   {
     label: "Hoodies",
@@ -112,16 +120,17 @@ export default function ShopByCategories() {
                 height={400}
                 className={
                   cat.photo
-                    ? "absolute inset-0 z-10 h-full w-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-transform duration-300 ease-out group-hover:scale-105"
+                    ? "absolute inset-0 z-10 h-full w-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-transform duration-300 ease-out group-hover:scale-105 [transform:scale(var(--photo-scale))_translateX(var(--photo-pan))] sm:[transform:scale(var(--photo-scale-sm))_translateX(var(--photo-pan-sm))]"
                     : "relative z-10 h-auto transition-transform duration-300 ease-out group-hover:scale-105"
                 }
                 style={
                   cat.photo
-                    ? cat.photoScale || cat.photoPan
-                      ? {
-                          transform: `scale(${cat.photoScale ?? 1})${cat.photoPan ? ` translateX(${cat.photoPan})` : ""}`,
-                        }
-                      : undefined
+                    ? ({
+                        "--photo-scale": cat.photoScaleMobile ?? cat.photoScale ?? 1,
+                        "--photo-scale-sm": cat.photoScale ?? 1,
+                        "--photo-pan": cat.photoPanMobile ?? cat.photoPan ?? "0",
+                        "--photo-pan-sm": cat.photoPan ?? "0",
+                      } as CSSProperties)
                     : { width: cat.imageWidth }
                 }
               />
