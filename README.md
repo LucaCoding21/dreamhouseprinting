@@ -119,4 +119,4 @@ On submit:
 
 ## Deploy
 
-Works as-is on Vercel. Set the same env vars in the Vercel project settings. The API route uses the Node.js runtime (`export const runtime = "nodejs"`) so multipart uploads work. Pushes to `main` deploy production; other branches get preview deployments (see the Vercel dashboard for URLs).
+Works as-is on Vercel. Set the same env vars in the Vercel project settings. The API route uses the Node.js runtime (`export const runtime = "nodejs"`) so multipart uploads work. Pushes to `main` deploy production; other branches get preview deployments (see the Vercel dashboard for the URLs).
