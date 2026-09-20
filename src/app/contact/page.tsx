@@ -17,7 +17,7 @@ type Topic = (typeof TOPICS)[number]["value"];
 const inputCls =
   "w-full rounded-2xl border border-dream-ink/15 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition hover:border-dream-ink/40 focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20 disabled:opacity-60";
 
-// 12 sun rays around the submit button — same recipe used elsewhere on the site.
+// 12 sun rays around the submit button, same recipe used elsewhere on the site.
 const SUBMIT_RAYS = Array.from({ length: 12 }, (_, i) => {
   const angle = i * 30;
   const rad = (angle * Math.PI) / 180;
@@ -75,12 +75,12 @@ export default function ContactPage() {
         <SiteNav />
       </div>
 
-      {/* Rough-edge filter for sun rays — local copy so this page is self-contained. */}
+      {/* Rough-edge filter for sun rays, local copy so this page is self-contained. */}
       <RoughEdgeFilter />
 
       <Hero />
 
-      <section className="relative bg-dream-cream pb-10 pt-20 lg:pb-32 lg:pt-28">
+      <section className="relative bg-dream-cream pb-6 pt-20 lg:pb-10 lg:pt-28">
         <svg
           aria-hidden="true"
           preserveAspectRatio="xMidYMid"
@@ -93,7 +93,7 @@ export default function ContactPage() {
               height="28"
               patternUnits="userSpaceOnUse"
             >
-              <ellipse cx="60" cy="0" rx="60" ry="28" fill="#e0dffe" />
+              <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#e0dffe" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#contact-hero-scallop)" />
@@ -117,14 +117,15 @@ export default function ContactPage() {
                 </div>
 
                 <Field label="What's this about?">
-                  <div className="flex flex-wrap gap-2">
+                  {/* Two per row on a phone (a fixed grid), free-flowing from sm. */}
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     {TOPICS.map((t) => (
                       <button
                         key={t.value}
                         type="button"
                         onClick={() => setTopic(t.value)}
                         disabled={submitting}
-                        className={`rounded-full px-4 py-2 font-display text-[13px] font-semibold transition disabled:opacity-60 ${
+                        className={`whitespace-nowrap rounded-full px-3 py-2.5 text-center font-display text-[14px] font-semibold transition disabled:opacity-60 sm:px-4 sm:py-2 ${
                           topic === t.value
                             ? "bg-dream-purple text-white"
                             : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"
@@ -185,7 +186,7 @@ export default function ContactPage() {
                     placeholder="Tell us a bit about what you're thinking…"
                     className={`${inputCls} resize-none`}
                   />
-                  <span className="mt-1.5 block text-right text-[12px] text-dream-ink-soft">
+                  <span className="mt-1.5 block text-right text-[14px] text-dream-ink-soft">
                     {form.message.length}/1000
                   </span>
                 </Field>
@@ -226,19 +227,28 @@ export default function ContactPage() {
                     </button>
                   </div>
 
-                  <p className="text-[13px] text-dream-ink-soft">
-                    Or just email{" "}
-                    <a
-                      href="mailto:admin@dreamhouseprinting.com"
-                      className="font-semibold text-dream-ink underline-offset-4 hover:underline"
-                    >
-                      admin@dreamhouseprinting.com
-                    </a>
-                    . Minimum order is 20 pieces.
+                  <p className="text-[14px] leading-relaxed text-dream-ink-soft">
+                    <span className="block">
+                      Or email{" "}
+                      <a
+                        href="mailto:admin@dreamhouseprinting.com"
+                        className="font-semibold text-dream-ink underline-offset-4 hover:underline"
+                      >
+                        admin@dreamhouseprinting.com
+                      </a>
+                    </span>
+                    <span className="block">Minimum order is 20 pieces.</span>
                   </p>
                 </div>
               </form>
             )}
+          </div>
+
+          {/* Phones: the pointers sit right under the form, where someone
+              about to write actually sees them. Desktop keeps them as the
+              full-width section further down. */}
+          <div className="lg:hidden">
+            <BeforeYouWrite inline />
           </div>
 
           {/* Sidebar */}
@@ -258,7 +268,7 @@ export default function ContactPage() {
             />
 
             <div className="rounded-[28px] bg-dream-sun px-7 py-7 text-dream-ink">
-              <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-black">
+              <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-black">
                 Already know what you want?
               </span>
               <h3 className="mt-3 font-display text-[24px] font-bold leading-tight text-black sm:text-[26px]">
@@ -270,7 +280,7 @@ export default function ContactPage() {
               </p>
               <Link
                 href="/#quick-quote"
-                className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
+                className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-display text-[14px] font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition hover:-translate-y-0.5 active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)]"
               >
                 Start a quote
               </Link>
@@ -279,34 +289,20 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* Coastal Reign — scroll target for the green banner strip (/contact#coastal-reign).
+      {/* Price match, scroll target for the green banner strip (/contact#coastal-reign).
           scroll-mt clears the fixed mobile nav so the heading isn't tucked under it. */}
       <section
         id="coastal-reign"
         className="scroll-mt-28 bg-dream-cream pb-4 lg:pb-10"
       >
         <div className="mx-auto max-w-[1280px] px-6 md:px-8 lg:px-10">
-          <div className="rounded-[28px] border-2 border-dream-ink bg-dream-lavender-soft px-7 py-8 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:px-10 sm:py-10">
-            <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
-              Coastal Reign orders
-            </span>
-            <h2 className="mt-3 font-display text-[26px] font-bold leading-tight text-dream-ink sm:text-[30px]">
-              Submitting a Coastal Reign order for a price matching discount?
-            </h2>
-            <p className="mt-3 max-w-[680px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-base">
-              Orders from Coastal Reign can be submitted with a link. Just make
-              sure your order is showing as{" "}
-              <span className="font-semibold text-dream-ink">
-                &ldquo;Pending Mockup Approval&rdquo;
-              </span>
-              , then drop the link in the message above and we&apos;ll take it
-              from there.
-            </p>
-          </div>
+          <PriceMatchCard />
         </div>
       </section>
 
-      <BeforeYouWrite />
+      <div className="hidden lg:block">
+        <BeforeYouWrite />
+      </div>
 
       <SiteFooter />
     </main>
@@ -319,8 +315,8 @@ export default function ContactPage() {
 
 function Hero() {
   return (
-    <section className="relative flex min-h-[440px] flex-col justify-center bg-dream-lavender-soft lg:min-h-[560px]">
-      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-20 pt-24 text-center md:px-8 lg:px-10 lg:pb-28 lg:pt-32">
+    <section className="relative flex flex-col justify-center bg-dream-lavender-soft">
+      <div className="mx-auto flex w-full max-w-[820px] flex-col items-center px-6 pb-16 pt-10 text-center md:px-8 lg:pb-20 lg:pt-14 lg:px-10">
         <h1 className="font-display text-[44px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px] lg:text-[76px]">
           Let&apos;s{" "}
           <span className="relative inline-block">
@@ -340,10 +336,128 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Before-you-write — small set of pointers so people don't write blind
+// Price-match submission, Coastal Reign / Get Bold order links
 // ────────────────────────────────────────────────────────────────────────────
 
-function BeforeYouWrite() {
+function PriceMatchCard() {
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", email: "", link: "" });
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const message = `[Price match]\n\nOrder link: ${form.link.trim()}`;
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          message,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.error ?? "Something went wrong. Try again?");
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError("Couldn't reach the server. Check your connection and retry.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const compactInputCls =
+    "rounded-xl border border-dream-ink/15 bg-white px-3.5 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/40 outline-none transition hover:border-dream-ink/40 focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20 disabled:opacity-60";
+
+  return (
+    <div className="rounded-[24px] border-2 border-dream-ink bg-dream-lavender-soft px-6 py-5 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:px-8 sm:py-6">
+      <h2 className="font-display text-[19px] font-bold leading-tight text-dream-ink sm:text-[21px]">
+        Ordering from Coastal Reign or Get Bold?
+      </h2>
+      <p className="mt-1 text-[13.5px] leading-relaxed text-dream-ink-soft sm:text-[14px]">
+        Drop your order link and we&apos;ll beat their price. Coastal Reign
+        orders need to show{" "}
+        <span className="font-semibold text-dream-ink">
+          &ldquo;Pending Mockup Approval&rdquo;
+        </span>{" "}
+        first.
+      </p>
+
+      {sent ? (
+        <p className="mt-3 text-[14px] font-semibold text-dream-ink">
+          Got it! We&apos;ll email you our price within a business day.
+        </p>
+      ) : (
+        <form
+          onSubmit={onSubmit}
+          className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center"
+        >
+          <input
+            type="url"
+            name="link"
+            required
+            disabled={submitting}
+            value={form.link}
+            onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))}
+            placeholder="Order link"
+            aria-label="Order link"
+            className={`${compactInputCls} sm:flex-1`}
+            inputMode="url"
+          />
+          <input
+            type="text"
+            name="name"
+            required
+            disabled={submitting}
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Name"
+            aria-label="Name"
+            className={`${compactInputCls} sm:w-36`}
+            autoComplete="name"
+          />
+          <input
+            type="email"
+            name="email"
+            required
+            disabled={submitting}
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            placeholder="Email"
+            aria-label="Email"
+            className={`${compactInputCls} sm:w-52`}
+            autoComplete="email"
+            inputMode="email"
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rough-pill rough-pill-filled cursor-pointer self-start px-6 py-2.5 font-display text-[14px] font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60 sm:self-auto"
+          >
+            {submitting ? "Sending…" : "Submit"}
+          </button>
+        </form>
+      )}
+
+      {error ? (
+        <p className="mt-2 text-sm font-medium text-red-800">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Before-you-write, small set of pointers so people don't write blind
+// ────────────────────────────────────────────────────────────────────────────
+
+function BeforeYouWrite({ inline = false }: { inline?: boolean }) {
   const items = [
     {
       n: "01",
@@ -353,7 +467,7 @@ function BeforeYouWrite() {
     {
       n: "02",
       title: "Share artwork if you have it",
-      body: "Vector (.ai .eps .pdf) or 300dpi .png is ideal. A sketch works too.",
+      body: "We can vectorize or work with sketches depending on the size of your order. AI art is generally not suitable for decoration unless it is a simple logo or design due to the lack of resolution and blended lines.",
     },
     {
       n: "03",
@@ -362,11 +476,39 @@ function BeforeYouWrite() {
     },
   ];
 
+  // `inline` is the phone version tucked under the contact form: no section
+  // padding, a smaller left-aligned heading, and the three cards stacked.
+  if (inline) {
+    return (
+      <div>
+        <span className="font-display text-[13px] font-bold uppercase tracking-[0.12em] text-dream-purple">
+          Before you write
+        </span>
+        <h2 className="mt-2 font-display text-[26px] font-bold leading-tight tracking-tight text-dream-ink">
+          Three things that speed it up.
+        </h2>
+        <div className="mt-5 grid gap-4">
+          {items.map((item) => (
+            <div key={item.n} className="rough-card relative px-6 py-5">
+              <div className="flex items-baseline gap-2.5">
+                <span className="font-display text-[13px] font-bold text-dream-purple">{item.n}</span>
+                <h3 className="font-display text-[17px] font-bold leading-tight text-dream-ink">
+                  {item.title}
+                </h3>
+              </div>
+              <p className="mt-2 text-[14px] leading-relaxed text-dream-ink-soft">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="relative pb-24 pt-20 lg:pb-32 lg:pt-28">
       <div className="relative mx-auto max-w-[1280px] px-6 lg:px-10">
         <div className="text-center">
-          <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+          <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-dream-purple">
             Before you write
           </span>
           <h2 className="mt-4 font-display text-[40px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px]">
@@ -377,7 +519,7 @@ function BeforeYouWrite() {
         <div className="mt-14 grid gap-5 sm:grid-cols-3 sm:gap-6">
           {items.map((item) => (
             <div key={item.n} className="rough-card relative px-7 py-7">
-              <span className="font-display text-[13px] font-bold text-dream-purple">
+              <span className="font-display text-[14px] font-bold text-dream-purple">
                 {item.n}
               </span>
               <h3 className="mt-2 font-display text-[20px] font-bold leading-tight text-dream-ink">
@@ -417,13 +559,13 @@ function ContactCard({
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <span className="font-display text-[11px] font-bold uppercase tracking-[0.14em] text-dream-purple">
+        <span className="font-display text-[14px] font-bold uppercase tracking-[0.14em] text-dream-purple">
           {kicker}
         </span>
         <p className="mt-1 break-words font-display text-[15px] font-bold leading-tight text-dream-ink sm:text-[18px]">
           {heading}
         </p>
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-dream-ink-soft sm:mt-2 sm:text-[13px]">
+        <p className="mt-1.5 text-[14px] leading-relaxed text-dream-ink-soft sm:mt-2 sm:text-[14px]">
           {hint}
         </p>
       </div>
@@ -494,7 +636,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
+      <span className="mb-1.5 block text-[14px] font-semibold text-dream-ink">
         {label}
       </span>
       {children}

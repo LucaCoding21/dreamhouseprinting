@@ -1,0 +1,3755 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import CartNavButton from "@/components/CartNavButton";
+import { AccountIcon } from "@/components/AccountIcon";
+import {
+  DesignCanvas,
+  type DesignCanvasHandle,
+  type PrintAreaSpec,
+  type ArtMetrics,
+  type ArtDescriptor,
+} from "./DesignCanvas";
+import {
+  analyzeImageSource,
+  analyzePdfColours,
+  formatColourChip,
+  formatColourValue,
+  mergeAnalyses,
+  normalizeCssColour,
+  pricingColourCount,
+  type ColourAnalysis,
+} from "@/lib/design/colourCount";
+import { saveDraftAction, type DesignSubmitInput } from "./actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog";
+import { Field } from "@/components/ui/Field";
+import { Input } from "@/components/ui/Input";
+import { HelpPrompt } from "@/components/support/HelpPrompt";
+import { MethodGuideModal, type MethodKey } from "@/components/storefront/MethodGuideModal";
+import { cn } from "@/lib/cn";
+import { useCart } from "@/lib/cart/CartContext";
+import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage, piecesShortOfMinimum } from "@/lib/orders/minimum";
+import { formatCAD, roundCents } from "@/lib/money";
+import {
+  curveForProduct,
+  decorationForMethodSlug,
+  nextCurveBreak,
+  priceFromCurveForPrints,
+} from "@/lib/pricing/quote";
+import { fmtDate, inHandsWindow } from "@/lib/turnaround";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { swatchStyle } from "@/lib/swatch";
+import { DESIGNER_FONTS, type DesignerFont } from "@/lib/fonts";
+import {
+  MAX_UPLOAD_BYTES,
+  classifyFile,
+  formatSize,
+  readImageDataUrl,
+  renderPdfFirstPage,
+} from "@/lib/design/uploadArt";
+import type { ProductColourJson, PrintAreaPositionJson } from "@/lib/db/rows";
+
+type View = "front" | "back" | "sleeve";
+type Tool = "colour" | "upload" | "text" | "clipart" | "notes";
+
+interface PrintAreaLite {
+  id: string;
+  name: string;
+  view: string;
+  position: PrintAreaPositionJson;
+  maxWidthIn: number | null;
+  maxHeightIn: number | null;
+}
+interface MethodLite {
+  id: string;
+  name: string;
+  slug: string;
+  setup_fee: number;
+  per_unit_cost: number;
+  per_color_cost: number;
+}
+
+/** A saved design loaded for editing, rehydrates the canvas + review state. */
+export interface InitialDesign {
+  designId: string;
+  name: string | null;
+  leadEmail: string | null;
+  colourName: string | null;
+  methodId: string | null;
+  primarySizeQty: Record<string, number>;
+  extraColorways: { colourName: string; sizeQty: Record<string, number> }[];
+  /** Per-view Fabric canvas JSON, loaded into each canvas once its garment is ready. */
+  scenes: Record<string, object>;
+  /** Note the customer left last time ("Leave a note"). */
+  customerNote: string | null;
+}
+
+interface Props {
+  productId: string;
+  productName: string;
+  brand: string | null;
+  description: string | null;
+  stockStatus: string;
+  pricing: {
+    // Garment retail unit (post-markup, already public). Replaces the confidential
+    // wholesale_cost + markup, which must not reach the client. Feeds the cost-plus
+    // fallback below as calcPrice's `base_price` so its output is identical.
+    garmentRetail: number;
+    pricing_rules: unknown;
+  };
+  leadTimeDays: number;
+  colours: ProductColourJson[];
+  sizes: { name: string; inStock: boolean }[];
+  printAreas: PrintAreaLite[];
+  methods: MethodLite[];
+  isLoggedIn: boolean;
+  accountEmail: string | null;
+  startAsQuote: boolean;
+  /** Colour the customer picked on the product page; defaults to the first. */
+  initialColourName?: string;
+  /** When set, the designer reopens this saved design for editing. */
+  initialDesign?: InitialDesign | null;
+  /** Open straight on the review step (quantity & sizes) once the saved art has
+   *  loaded. The cart's Edit links use this: from the cart, "edit" means the
+   *  order details, not the artwork, and the canvas is one tap away anyway. */
+  startAtReview?: boolean;
+}
+
+function normView(v: string): View {
+  if (v === "back") return "back";
+  if (v === "left_sleeve" || v === "right_sleeve" || v === "sleeve") return "sleeve";
+  return "front";
+}
+const VIEW_LABEL: Record<View, string> = { front: "Front", back: "Back", sleeve: "Sleeve" };
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** What the designer tracks for one print zone. See the `spotArt` state. */
+interface SpotArt {
+  hasArt: boolean;
+  outside: boolean;
+  metrics: ArtMetrics | null;
+  colours: ColourAnalysis | null;
+}
+const EMPTY_SPOT_ART: SpotArt = { hasArt: false, outside: false, metrics: null, colours: null };
+
+function imageForView(colour: ProductColourJson | undefined, view: View): string | null {
+  if (!colour) return null;
+  const img = colour.images;
+  if (view === "back") return img.back ?? img.front;
+  // Sleeve NEVER falls back to the front image: a front photo behind sleeve art
+  // would be misleading. No side photo -> null (the sleeve slot shows a
+  // placeholder card instead of a fake garment).
+  if (view === "sleeve") return img.side ?? null;
+  return img.front;
+}
+
+const ZOOM_STEPS = [0.6, 0.75, 0.9, 1, 1.15, 1.35, 1.6];
+
+// Quick-pick text colours (common ink colours). 15 presets + a custom picker
+// fill two rows of eight. Lowercase so selection matching is case-insensitive.
+const TEXT_COLORS = [
+  "#ffffff", "#d1d5db", "#6b7280", "#111111", "#1b1458", "#2563eb", "#38bdf8", "#14b8a6",
+  "#16a34a", "#facc15", "#f97316", "#ef4444", "#be123c", "#ec4899", "#7c3aed",
+];
+
+// A graph-paper grid that bleeds behind the whole canvas column.
+const GRID_BG: React.CSSProperties = {
+  backgroundColor: "#fbfaff",
+  backgroundImage:
+    "linear-gradient(to right, rgba(118,100,255,0.10) 1px, transparent 1px), linear-gradient(to bottom, rgba(118,100,255,0.10) 1px, transparent 1px)",
+  backgroundSize: "26px 26px",
+};
+
+// Floating canvas toolbars, frosted glass, no drop shadow, so the chrome sits
+// light over the grid instead of reading as a raised surface.
+const GLASS = "rounded-2xl bg-white/60 ring-1 ring-dream-ink/[0.06] backdrop-blur-md";
+
+// A small built-in clip-art tray. Each entry is an inline SVG rendered onto the
+// Fabric canvas as an image (the canvas loads any image URL, including data
+// URLs). The star reuses the brand-purple star icon supplied for the toolbar.
+const CLIPART: { name: string; svg: string }[] = [
+  {
+    name: "Star",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.7 7-6.3-3.8L5.4 21l1.7-7L1.7 9.5l7.1-.6z" fill="#7664ff"/></svg>`,
+  },
+  {
+    name: "Heart",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#ff5d8f"/></svg>`,
+  },
+  {
+    name: "Circle",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#1b1458"/></svg>`,
+  },
+  {
+    name: "Bolt",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="#ffc83d"/></svg>`,
+  },
+  {
+    name: "Burst",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><path d="M12 1l2 5 5-2-2 5 5 2-5 2 2 5-5-2-2 5-2-5-5 2 2-5-5-2 5-2-2-5 5 2z" fill="#7664ff"/></svg>`,
+  },
+  {
+    name: "Smile",
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffc83d"/><circle cx="9" cy="10" r="1.3" fill="#1b1458"/><circle cx="15" cy="10" r="1.3" fill="#1b1458"/><path d="M8 14c1 1.6 2.4 2.4 4 2.4s3-.8 4-2.4" fill="none" stroke="#1b1458" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  },
+];
+
+const TOOLS: { id: Tool; label: string; icon: string }[] = [
+  { id: "upload", label: "Upload", icon: "/designer/upload.svg" },
+  { id: "text", label: "Text", icon: "/designer/tool-text.svg" },
+  { id: "clipart", label: "Clipart", icon: "/designer/tool-clipart.svg" },
+];
+
+/**
+ * Bottom tab bar on phones. Same targets as the desktop icon rail (garment
+ * colour + the three art tools + notes), in the order the reference designers
+ * use: the garment first, then ways to put art on it, then notes.
+ */
+const MOBILE_TABS: {
+  id: Tool;
+  label: string;
+  icon?: string;
+  node?: React.ReactNode;
+}[] = [
+  {
+    id: "colour",
+    label: "Product",
+    node: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
+        <path d="M8.5 3 5 4.6 3 8.4l2.6 1.7L6.4 9v11.5h11.2V9l.8 1.1L21 8.4l-2-3.8L15.5 3a3.5 3.5 0 0 1-7 0Z" />
+      </svg>
+    ),
+  },
+  { id: "upload", label: "Images", icon: "/designer/upload.svg" },
+  { id: "text", label: "Text", icon: "/designer/tool-text.svg" },
+  { id: "clipart", label: "Clipart", icon: "/designer/tool-clipart.svg" },
+  {
+    id: "notes",
+    label: "Notes",
+    node: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
+        <path d="M4 4.5h16v10.5l-4 4.5H4z" />
+        <path d="M8 9h8M8 13h5" />
+      </svg>
+    ),
+  },
+];
+
+function svgToDataUrl(svg: string) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+export function DesignerClient(props: Props) {
+  const router = useRouter();
+  const { addItem, items: cartItems } = useCart();
+  // The row this design lives in once saved. Starts as the design being edited
+  // (opened from the cart or My Designs), and is set after the first fresh save,
+  // so every later save UPDATES that row instead of inserting a new one. This is
+  // what stops a double-tap on "Add to cart" (or a re-add after coming back
+  // from sign-up) from creating a second design and a second cart line.
+  const savedDesignIdRef = useRef<string | null>(null);
+  // One Fabric canvas per decorated view (front/back/...), all mounted at once
+  // and editable side by side. Keyed by view.
+  const canvasRefs = useRef<Record<string, DesignCanvasHandle | null>>({});
+  const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Per-view undo/redo stacks (each canvas owns its own history).
+  const histories = useRef<Record<string, object[]>>({});
+  const futures = useRef<Record<string, object[]>>({});
+
+  // Sleeve is a live designable view only when the product has a sleeve print
+  // area AND at least one colourway ships a real S&S "side" photo to design
+  // against. Without a side photo we never fake it on the front image, we hand
+  // the sleeve off to a human instead (see the handoff card below). When only
+  // SOME colours have a side photo, the sleeve view stays but shows a friendly
+  // placeholder on the colours that don't (art is kept in state either way).
+  const hasSleeveArea = useMemo(
+    () => props.printAreas.some((p) => normView(p.view) === "sleeve"),
+    [props.printAreas]
+  );
+  const anyColourHasSide = useMemo(
+    () => props.colours.some((c) => !!c.images?.side),
+    [props.colours]
+  );
+  const sleeveEnabled = hasSleeveArea && anyColourHasSide;
+  const views = useMemo(() => {
+    const set = new Set<View>(props.printAreas.map((p) => normView(p.view)));
+    const base = (["front", "back"] as View[]).filter((v) => set.has(v));
+    if (sleeveEnabled) base.push("sleeve");
+    return base;
+  }, [props.printAreas, sleeveEnabled]);
+
+  const edit = props.initialDesign ?? null;
+  const [colourName, setColourName] = useState(
+    edit?.colourName ?? props.initialColourName ?? props.colours[0]?.name ?? "",
+  );
+  // The canvas that tool actions (upload/text/clip-art/undo) target. The user
+  // switches it by clicking a canvas or the "Adding to" pills. Null = nothing
+  // active (only possible in side-by-side "both" mode, after a click on the
+  // neutral editor background clears the selection).
+  const [activeView, setActiveView] = useState<View | null>(views[0] ?? "front");
+  // Colour is the default landing tab, the first thing a customer sees.
+  const [tool, setTool] = useState<Tool>("colour");
+  // Left panel collapse, shrinks the column to just the icon rail (desktop).
+  const [leftOpen, setLeftOpen] = useState(true);
+  // Phone tool sheet. Separate from leftOpen so it can start CLOSED: with the
+  // colour sheet open on load, the first thing a customer saw on a phone was a
+  // swatch grid over their shirt. Tapping a bottom tab opens it.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // Feedback under the upload dropzone: a rejected file (error) or a heads-up
+  // like "showing page 1 of a multi-page PDF" (info). Cleared on each new pick.
+  const [uploadMsg, setUploadMsg] = useState<{ tone: "error" | "info"; text: string } | null>(null);
+  // True while a picked file is being read/rasterized (PDFs take a beat).
+  const [uploadBusy, setUploadBusy] = useState(false);
+  // The customer price curve (products.pricing_rules.quote), the same table
+  // the product page quotes. When present it is THE pricing engine here too.
+  const curve = useMemo(
+    () => curveForProduct({ pricing_rules: props.pricing.pricing_rules as never }),
+    [props.pricing.pricing_rules]
+  );
+  // Methods the customer can pick. When the product has a curve (the normal
+  // case), only offer methods the curve can price, otherwise DTF/vinyl would
+  // fall through to the uncalibrated cost-plus fallback and underprice the job.
+  const priceableMethods = useMemo(
+    () =>
+      curve
+        ? props.methods.filter((m) => {
+            const d = decorationForMethodSlug(m.slug);
+            return d !== null && (curve.breaks[d] ?? []).length > 0;
+          })
+        : props.methods,
+    [curve, props.methods]
+  );
+  const [methodId, setMethodId] = useState(
+    (edit?.methodId && priceableMethods.some((m) => m.id === edit.methodId) ? edit.methodId : null) ??
+      priceableMethods[0]?.id ??
+      null,
+  );
+  // Per-size quantity breakdown, collected on the review screen. Total quantity
+  // is derived from the sum and drives pricing.
+  const [sizeQty, setSizeQty] = useState<Record<string, number>>(edit?.primarySizeQty ?? {});
+  // Additional garment colourways for the same artwork, each with its own size
+  // breakdown. The primary (canvas) colour + sizeQty is the first colourway;
+  // these are the "Add another colour" rows on the review screen.
+  const [extraColorways, setExtraColorways] = useState<
+    { id: string; colourName: string; sizeQty: Record<string, number> }[]
+  >(() => (edit?.extraColorways ?? []).map((c, i) => ({ id: `cw-${i}`, ...c })));
+  // Everything we know about the art in one print zone, keyed by print-area id.
+  // A side can carry SEVERAL zones (a left chest beside a full front), and each
+  // is its own print: its own measurement, its own colour count, its own price.
+  // So this is keyed by zone, not by side.
+  //   metrics  physical print size (W″ × H″), from where the art was placed and
+  //            scaled inside the inch-true box
+  //   colours  colour analysis, exact for vectors/text, a quantized estimate
+  //            (or "full colour") for rasters, null while an image resolves
+  //   outside  art spilling past this zone's box, a friendly heads-up only
+  const [spotArt, setSpotArt] = useState<Record<string, SpotArt>>({});
+  // Analysis is cached per image source, so undo/redo/colour swaps (same data
+  // URLs) never re-run it. `pending` guards duplicate in-flight analyses.
+  const analysisCache = useRef(new Map<string, ColourAnalysis>());
+  const pendingAnalyses = useRef(new Set<string>());
+  // "Leave a note": free text the customer can add anywhere in the flow. Saved
+  // with the design (price_snapshot.customerNote) and copied onto the order as
+  // its customer production note at placement.
+  const [customerNote, setCustomerNote] = useState(edit?.customerNote ?? "");
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
+  // The tool panel is its own scroll container. On phones it is a sheet, so a
+  // long tool (the clip-art tray) left the NEXT tool opening mid-scroll, with
+  // its heading above the fold. Reset to the top whenever the tool changes or
+  // the sheet reopens.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  // Which zone new art lands in, by print-area id. Only ever ambiguous when the
+  // active side has more than one zone, where the customer picks with the zone
+  // pills. Null falls back to the active side's first zone.
+  const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
+  // Which canvas currently has a selected object (drives the selection rail).
+  // isText gates the text-only colour control.
+  const [selection, setSelection] = useState<{ view: View; isText: boolean } | null>(null);
+  // Views whose garment image has finished loading (for the per-canvas shimmer).
+  const [loadedViews, setLoadedViews] = useState<Set<View>>(new Set());
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  // Zoom of the canvas stage. Single mode fits one canvas at 1; "see both"
+  // drops it so two fit side by side.
+  const [zoom, setZoom] = useState(1);
+  // Width available in the canvas stage; each canvas auto-fits to it (phones)
+  // and `zoom` multiplies that fit factor (see ScaledBox).
+  const stageAreaRef = useRef<HTMLDivElement | null>(null);
+  const [stageMaxW, setStageMaxW] = useState<number | null>(null);
+  useEffect(() => {
+    const el = stageAreaRef.current;
+    if (!el) return;
+    const update = () => {
+      // 0 while the work area is display:none (review phase); keep the last
+      // real measurement so canvases don't jump when it comes back.
+      // Measure the CONTENT box: clientWidth includes padding, and the stage's
+      // padding is not the same at every breakpoint. Subtracting a hardcoded
+      // 32 (the old p-4) made the fit width too generous on any other padding,
+      // which overflowed the canvas and collapsed its centring margin.
+      if (el.clientWidth <= 0) return;
+      const cs = getComputedStyle(el);
+      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (w > 0) setStageMaxW(w);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Single = one side shown big (default); both = side-by-side. Only meaningful
+  // when the product has more than one decorated view.
+  const [viewMode, setViewMode] = useState<"single" | "both">("single");
+  const [busy, setBusy] = useState<null | "save" | "submit">(null);
+  const [error, setError] = useState<string | null>(null);
+  // Bumped each time Continue is refused on an empty canvas. Keys the phone
+  // hint pill so its nudge animation restarts even when the message text is
+  // unchanged (same string = no re-render otherwise).
+  const [emptyNudge, setEmptyNudge] = useState(0);
+  // Two-screen flow: design the artwork, then a review screen collects the
+  // quantity and shows pricing before the order is placed.
+  // Opening from the cart lands straight on the review step. Starting the
+  // phase there (rather than switching once the saved art has loaded) means the
+  // canvas screen never flashes on the way, which is what it did on a phone.
+  // The canvases still mount behind it, so the mockups can be exported.
+  const [phase, setPhase] = useState<"design" | "review">(
+    props.startAtReview && props.initialDesign ? "review" : "design",
+  );
+  // Mockups of the design (one per decorated side), shown on the left of the
+  // review screen. The customer flips between them with the front/back toggle.
+  const [previews, setPreviews] = useState<{ view: View; url: string }[]>([]);
+  const [previewIdx, setPreviewIdx] = useState(0);
+  const [textColor, setTextColor] = useState("#1b1458");
+  // Text size + alignment: applied to the selected text object and used as the
+  // default for newly added text. Alignment matters mostly for multi-line text.
+  const [fontSize, setFontSize] = useState(40);
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("center");
+  // Currently-selected text font (identified by its CSS family string). New text
+  // boxes use it; picking a font also restyles the selected text object.
+  const [textFontCss, setTextFontCss] = useState(DESIGNER_FONTS[0].css);
+  const textFont = DESIGNER_FONTS.find((f) => f.css === textFontCss) ?? DESIGNER_FONTS[0];
+  // The font picker is a collapsed dropdown (there are many faces now) that
+  // expands to a previewed list instead of a big always-open grid.
+  const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  // "Save your design" modal, gates the checkout funnel, captures a name + lead
+  // email before we send the customer into checkout.
+  const [showSave, setShowSave] = useState(false);
+  // "?" help dialog on the review spec table (measurement / colour count).
+  const [helpTopic, setHelpTopic] = useState<null | "measurement" | "colours">(null);
+  // Print-vs-embroidery guide modal. Null = closed; the value is the open tab.
+  const [methodGuideTab, setMethodGuideTab] = useState<MethodKey | null>(null);
+  // Mobile only: the top method pill's dropdown (desktop picks the method
+  // inside the tool panel, which has room for it).
+  const [methodMenuOpen, setMethodMenuOpen] = useState(false);
+  const [designName, setDesignName] = useState(edit?.name || props.productName);
+  const [leadEmail, setLeadEmail] = useState(edit?.leadEmail || props.accountEmail || "");
+  // Already in the cart: the primary CTA reads "Update cart" and saving replaces
+  // the existing cart line (addItem dedupes on designId) rather than adding one.
+  const inCart = !!edit && cartItems.some((i) => i.designId === edit.designId);
+  // We can save without the "Name your design" dialog when an email is already
+  // on hand (signed in, or reopening a saved design that carries one).
+  const canSkipSaveDialog = EMAIL_RE.test(leadEmail.trim());
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const artworkFiles = useRef<{ id: string; file: File }[]>([]);
+
+  const colour = props.colours.find((c) => c.name === colourName);
+  // Does the current garment colour ship a side photo? Drives the sleeve canvas
+  // vs. placeholder swap. The sleeve view stays mounted either way, so art on it
+  // is preserved across colour swaps.
+  const currentColourHasSide = !!colour?.images?.side;
+  const method = priceableMethods.find((m) => m.id === methodId) ?? null;
+  // Every zone on a side, in the admin's order. A side commonly has one, but a
+  // shirt can carry a left chest AND a full front, and both are drawn and
+  // priced independently.
+  const spotsForView = (v: View) => props.printAreas.filter((p) => normView(p.view) === v);
+  const specsForView = (v: View): PrintAreaSpec[] =>
+    spotsForView(v).map((pa) => ({
+      id: pa.id,
+      box: pa.position,
+      name: pa.name,
+      maxWidthIn: pa.maxWidthIn,
+      maxHeightIn: pa.maxHeightIn,
+    }));
+  // Which side to SHOW when nothing is active: keeps single-view mode from ever
+  // blanking. The visible "active" ring still tracks the raw (nullable) activeView.
+  const displayView: View = activeView ?? views[0] ?? "front";
+
+  // The zone tools act on: the pill the customer picked, else the first zone on
+  // the side being shown.
+  const displayViewSpots = spotsForView(displayView);
+  const activeSpot = displayViewSpots.find((p) => p.id === activeSpotId) ?? displayViewSpots[0] ?? null;
+
+  /** Which zone on `v` new art should land in: the picked one if it lives on
+   *  this side, else that side's first zone. */
+  function targetZone(v: View) {
+    const i = spotsForView(v).findIndex((p) => p.id === activeSpotId);
+    return i >= 0 ? i : 0;
+  }
+
+  const sizeRange =
+    props.sizes.length > 0 ? `${props.sizes[0].name} to ${props.sizes[props.sizes.length - 1].name}` : null;
+
+  // Every zone across every side, flat and in a stable order, with the side it
+  // belongs to. This is the list the review table, the pricing and the saved
+  // spec all walk.
+  const allSpots = useMemo(
+    () =>
+      views.flatMap((v) =>
+        spotsForView(v).map((pa, i) => ({
+          id: pa.id,
+          view: v,
+          name: pa.name,
+          /** Index within its own side, which is what the canvas API takes. */
+          zone: i,
+        })),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [views, props.printAreas],
+  );
+
+  /** Zones that actually carry art. Each one is a separate print. */
+  const decoratedSpots = useMemo(
+    () => allSpots.filter((s) => spotArt[s.id]?.hasArt),
+    [allSpots, spotArt],
+  );
+
+  /** Decorated zones, which the curve prices as separate print locations. A
+   *  left chest plus a full front is two prints even though it is one side. */
+  const locationCount = Math.max(1, decoratedSpots.length);
+
+  // Pricing colour count, derived from the artwork (was a hardcoded 1). Exact
+  // vector counts are used as-is; raster estimates and "full colour" are
+  // provisional, the artist confirms the count (and price) at proofing, and
+  // nothing is charged before the invoice.
+  //
+  // One entry per decorated ZONE, each with ITS OWN colour count, because Julian
+  // charges each print separately (confirmed 2026-07-31). This used to collapse
+  // to the highest count across sides, which under-quoted a 3-colour front plus
+  // a 2-colour back and left the customer to meet the difference at proofing.
+  const prints = useMemo(
+    () =>
+      decoratedSpots.map((s) => {
+        const a = spotArt[s.id]?.colours ?? null;
+        return { colours: a ? pricingColourCount(a) : 1 };
+      }),
+    [decoratedSpots, spotArt],
+  );
+
+  /** Highest count across prints, for the saved snapshot's summary field. */
+  const inkColours = useMemo(
+    () => (prints.length ? Math.max(...prints.map((p) => p.colours)) : 1),
+    [prints],
+  );
+
+  // Colourways share one job price: the quantity break applies to the COMBINED
+  // quantity (same artwork and screens across garment colours), matching how
+  // the product page and the industry price a run.
+  const colourwayList = useMemo(
+    () => [
+      { colourName, sizeQty },
+      ...extraColorways.map((e) => ({ colourName: e.colourName, sizeQty: e.sizeQty })),
+    ],
+    [colourName, sizeQty, extraColorways]
+  );
+  const colourwayQty = useMemo(
+    () =>
+      colourwayList.map((cw) =>
+        Object.values(cw.sizeQty).reduce((s, n) => s + (n > 0 ? n : 0), 0)
+      ),
+    [colourwayList]
+  );
+  const quantity = colourwayQty.reduce((s, n) => s + n, 0);
+
+  // Job pricing, the customer curve whenever the product has one and the
+  // method maps onto it. Curve prices are all-inclusive, so setup is $0.
+  // Products without a curve fall back to the platform cost-plus engine.
+  const curveDecoration = decorationForMethodSlug(method?.slug);
+  const jobPrice = useMemo(() => {
+    const qty = Math.max(quantity, 1);
+    if (curve && curveDecoration) {
+      const r = priceFromCurveForPrints(curve, { qty, prints, decoration: curveDecoration });
+      if (r.available) {
+        return {
+          engine: "curve" as const,
+          unitPrice: roundCents(r.perUnit),
+          setupTotal: 0,
+          anchorPerUnit: roundCents(r.anchorPerUnit),
+          discountPct: r.discountPct,
+        };
+      }
+    }
+    // No curve, no price. There used to be a cost-plus fallback here, but it was
+    // never calibrated against Julian's list and quoted a single tee at $9.88
+    // where the real price is $66.25. Refusing beats guessing: products are given
+    // a price list at import and cannot go live without one, so this is
+    // unreachable in the shop.
+    return {
+      engine: "unpriced" as const,
+      unitPrice: 0,
+      setupTotal: 0,
+      anchorPerUnit: 0,
+      discountPct: 0,
+    };
+  }, [quantity, curve, curveDecoration, prints]);
+
+  const pricedColorways = useMemo(
+    () =>
+      colourwayList.map((cw, i) => ({
+        colourName: cw.colourName,
+        hex: props.colours.find((c) => c.name === cw.colourName)?.hex ?? null,
+        sizeQty: cw.sizeQty,
+        quantity: colourwayQty[i],
+        unitPrice: jobPrice.unitPrice,
+        lineTotal: roundCents(jobPrice.unitPrice * colourwayQty[i]),
+      })),
+    [colourwayList, colourwayQty, jobPrice.unitPrice, props.colours]
+  );
+
+  const grandSubtotal = roundCents(pricedColorways.reduce((s, c) => s + c.lineTotal, 0));
+  // No rush line here: rush is requested at checkout (it applies to the whole
+  // order, not one design), so this design's total is goods + setup only.
+  const breakdown = {
+    unitPrice: jobPrice.unitPrice,
+    subtotal: grandSubtotal,
+    setupTotal: jobPrice.setupTotal,
+    rush: 0,
+    total: roundCents(grandSubtotal + jobPrice.setupTotal),
+  };
+  // Pre-discount unit price + savings for the headline estimate box (matches
+  // the instant-estimate box on the product page, incl. its qty-12 anchor).
+  const priceMeta = { anchorPerUnit: jobPrice.anchorPerUnit, discountPct: jobPrice.discountPct };
+
+  // Next quantity break within reach, powers the "add N more to save X%"
+  // nudge. Reads the curve's own tiers; falls back to platform bulkTiers.
+  const nextTier = useMemo(() => {
+    if (curve && curveDecoration && jobPrice.engine === "curve") {
+      const next = nextCurveBreak(curve, {
+        qty: quantity,
+        colours: inkColours,
+        locations: locationCount,
+        decoration: curveDecoration,
+      });
+      return next ? { add: next.add, pct: next.savePct } : null;
+    }
+    const rules = (props.pricing.pricing_rules ?? {}) as { bulkTiers?: { minQty: number; discountPct: number }[] };
+    const tiers = (rules.bulkTiers ?? []).slice().sort((a, b) => a.minQty - b.minQty);
+    const next = tiers.find((t) => quantity < t.minQty && t.discountPct > priceMeta.discountPct);
+    return next ? { add: next.minQty - quantity, pct: next.discountPct } : null;
+  }, [curve, curveDecoration, jobPrice.engine, quantity, inkColours, locationCount, props.pricing.pricing_rules, priceMeta.discountPct]);
+
+  // Estimated in-hands window for an order placed today (shared with checkout
+  // review so both screens project the same date).
+  const inHands = useMemo(() => inHandsWindow(new Date(), props.leadTimeDays), [props.leadTimeDays]);
+
+  const colorwayId = useRef(edit?.extraColorways.length ?? 0);
+  const usedColours = new Set(colourwayList.map((c) => c.colourName));
+  function addColorway() {
+    const next = props.colours.find((c) => !usedColours.has(c.name)) ?? props.colours[0];
+    if (!next) return;
+    setExtraColorways((rows) => [...rows, { id: `cw-${colorwayId.current++}`, colourName: next.name, sizeQty: {} }]);
+  }
+  function removeColorway(id: string) {
+    setExtraColorways((rows) => rows.filter((r) => r.id !== id));
+  }
+  function setColorwayColour(id: string, name: string) {
+    setExtraColorways((rows) => rows.map((r) => (r.id === id ? { ...r, colourName: name } : r)));
+  }
+  function setColorwaySize(id: string, size: string, val: number) {
+    setExtraColorways((rows) => rows.map((r) => (r.id === id ? { ...r, sizeQty: { ...r.sizeQty, [size]: val } } : r)));
+  }
+
+  // (Re)load every mounted canvas's garment + print area when the colour changes.
+  // Art on each canvas is preserved, only the garment backdrop swaps.
+  useEffect(() => {
+    setLoadedViews(new Set());
+    views.forEach((v) => {
+      const c = canvasRefs.current[v];
+      if (!c) return;
+      c.setGarment(imageForView(colour, v));
+      c.setPrintAreas(specsForView(v));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colourName]);
+
+  // Warm every designer font up front so text renders in the right face on the
+  // first paint (Fabric draws with whatever's loaded at paint time). Re-render
+  // the canvases once they're ready in case a saved design used a custom font.
+  useEffect(() => {
+    if (typeof document === "undefined" || !document.fonts?.load) return;
+    let cancelled = false;
+    Promise.all(
+      DESIGNER_FONTS.map((f) =>
+        document.fonts.load(`${f.weight} 40px ${JSON.stringify(f.family)}`).catch(() => {})
+      )
+    ).then(() => {
+      if (cancelled) return;
+      Object.values(canvasRefs.current).forEach((c) => c?.renderAll());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Keep each Fabric canvas's cached offset in sync with the CSS zoom transform.
+  // Also re-measure after a canvas is un-hidden (single<->both / side switch),
+  // since a display:none canvas reports a stale/zero offset.
+  useEffect(() => {
+    requestAnimationFrame(() => views.forEach((v) => canvasRefs.current[v]?.recalcOffset()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom, viewMode, activeView, stageMaxW]);
+
+  // Undo/redo state reflects whichever canvas is currently active.
+  useEffect(() => {
+    setCanUndo(activeView ? (histories.current[activeView]?.length ?? 0) > 0 : false);
+    setCanRedo(activeView ? (futures.current[activeView]?.length ?? 0) > 0 : false);
+  }, [activeView]);
+
+  function refreshUndo(v: View) {
+    setCanUndo((histories.current[v]?.length ?? 0) > 0);
+    setCanRedo((futures.current[v]?.length ?? 0) > 0);
+  }
+
+  // Delete / Backspace removes the selected object, unless a text box is being
+  // edited (those keys edit the text) or focus is in a form field.
+  useEffect(() => {
+    if (!selection) return;
+    const v = selection.view;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (canvasRefs.current[v]?.isEditingText()) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      e.preventDefault();
+      deleteActiveOn(v);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
+  // Keyboard undo / redo on the active canvas: Cmd/Ctrl+Z undo,
+  // Cmd/Ctrl+Shift+Z or Ctrl+Y redo. Ignored while editing a text box or typing
+  // in a form field so the shortcut doesn't fight native text undo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (phase !== "design") return;
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      const key = e.key.toLowerCase();
+      const isUndo = key === "z" && !e.shiftKey;
+      const isRedo = (key === "z" && e.shiftKey) || key === "y";
+      if (!isUndo && !isRedo) return;
+      if (activeView && canvasRefs.current[activeView]?.isEditingText()) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      e.preventDefault();
+      if (isRedo) void redo();
+      else void undo();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, phase]);
+
+  /** Click on the neutral editor background: drop every canvas's object
+   *  selection, and (in side-by-side mode) clear the active-canvas highlight so
+   *  nothing looks selected. Single-view / single mode keep a target so the
+   *  tools always have somewhere to place art. */
+  function clearActive() {
+    views.forEach((v) => canvasRefs.current[v]?.discardSelection());
+    setSelection(null);
+    if (views.length > 1 && viewMode === "both") setActiveView(null);
+  }
+
+  useEffect(() => {
+    if (leftOpen) panelRef.current?.scrollTo({ top: 0 });
+  }, [tool, leftOpen]);
+
+  /** Below lg the tool panel is a sheet OVER the canvas, so once a piece of art
+   *  has landed the customer wants to see it, not the form that added it. Drop
+   *  the sheet on phones only; on desktop the panel is a column beside the
+   *  canvas and closing it would just make the workspace jump. */
+  function closeSheetOnMobile() {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setLeftOpen(false);
+    }
+  }
+
+  /** Focus a canvas (tool target) and scroll it into view. */
+  function focusView(v: View) {
+    setActiveView(v);
+    stageRefs.current[v]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+
+  /** Open the "Leave a note" panel and drop the cursor in it. Every note
+   *  affordance routes through here, these used to be "Message us" links that
+   *  bounced the customer out of the designer into the contact form. */
+  function openNotes() {
+    setTool("notes");
+    setLeftOpen(true);
+    setSheetOpen(true);
+    requestAnimationFrame(() => noteRef.current?.focus());
+  }
+
+  /** Switch single/both view mode, picking a zoom that fits. Three canvases
+   *  (front + back + sleeve) need a smaller zoom to sit side by side than two. */
+  function setMode(m: "single" | "both") {
+    setViewMode(m);
+    setZoom(m === "both" ? 0.75 : 1);
+  }
+
+  /** In single mode, show one side and make it the tool target. */
+  function showSide(v: View) {
+    setMode("single");
+    focusView(v);
+  }
+
+  function snapshot(v: View) {
+    const c = canvasRefs.current[v];
+    if (!c) return;
+    (histories.current[v] ??= []).push(c.exportScene());
+    if (histories.current[v].length > 30) histories.current[v].shift();
+    futures.current[v] = [];
+    refreshUndo(v);
+  }
+
+  /** Record a USER transform/text-edit for undo: `preScene` is the state before
+   *  the change (captured by the canvas at gesture start). */
+  function commitModify(v: View, preScene: object) {
+    (histories.current[v] ??= []).push(preScene);
+    if (histories.current[v].length > 30) histories.current[v].shift();
+    futures.current[v] = [];
+    refreshUndo(v);
+    onCanvasChange(v);
+  }
+
+  async function undo() {
+    const v = activeView;
+    if (!v) return;
+    const c = canvasRefs.current[v];
+    const hist = histories.current[v];
+    if (!c || !hist || hist.length === 0) return;
+    (futures.current[v] ??= []).push(c.exportScene());
+    const scene = hist.pop()!;
+    setSelection(null);
+    refreshUndo(v);
+    // Wait for the scene to actually land before re-measuring, or the
+    // art/bounds/colour recompute reads the half-loaded canvas.
+    await c.loadScene(scene);
+    onCanvasChange(v);
+  }
+
+  async function redo() {
+    const v = activeView;
+    if (!v) return;
+    const c = canvasRefs.current[v];
+    const fut = futures.current[v];
+    if (!c || !fut || fut.length === 0) return;
+    (histories.current[v] ??= []).push(c.exportScene());
+    const scene = fut.pop()!;
+    setSelection(null);
+    refreshUndo(v);
+    await c.loadScene(scene);
+    onCanvasChange(v);
+  }
+
+  /** Analyze an image source once and cache it. PDFs get their original file's
+   *  drawing commands read (exact) with a raster fallback on the preview PNG. */
+  async function ensureAnalysis(src: string, pdfFile?: File) {
+    if (analysisCache.current.has(src) || pendingAnalyses.current.has(src)) return;
+    pendingAnalyses.current.add(src);
+    try {
+      let a: ColourAnalysis | null = null;
+      if (pdfFile) a = await analyzePdfColours(pdfFile);
+      if (!a) a = await analyzeImageSource(src);
+      analysisCache.current.set(src, a);
+    } catch {
+      analysisCache.current.set(src, { kind: "full" });
+    } finally {
+      pendingAnalyses.current.delete(src);
+      refreshAllColours();
+    }
+  }
+
+  /** Merge one zone's art descriptors into a single colour analysis. Text fills
+   *  are exact; images come from the cache (missing ones are kicked off async
+   *  and the whole side re-runs when they land). Null means "still resolving". */
+  function coloursFromDescriptors(descs: ArtDescriptor[]): ColourAnalysis | null {
+    if (descs.length === 0) return null;
+    const analyses: ColourAnalysis[] = [];
+    let pending = false;
+    for (const d of descs) {
+      if (d.type === "text") {
+        const hex = normalizeCssColour(d.fill);
+        analyses.push({ kind: "exact", colours: hex ? [hex] : [] });
+      } else {
+        const a = analysisCache.current.get(d.src);
+        if (a) analyses.push(a);
+        else {
+          pending = true;
+          void ensureAnalysis(d.src);
+        }
+      }
+    }
+    return pending ? null : mergeAnalyses(analyses);
+  }
+
+  /** Re-read one side's canvas and refresh the record for every zone on it.
+   *  The canvas reports per zone, so a side holding a left chest and a full
+   *  front updates both independently from one pass. */
+  function onCanvasChange(v: View) {
+    const c = canvasRefs.current[v];
+    if (!c) return;
+    const spots = spotsForView(v);
+    if (spots.length === 0) return;
+    const report = c.zoneReport();
+    setSpotArt((prev) => {
+      const next = { ...prev };
+      spots.forEach((pa, i) => {
+        const r = report[i];
+        next[pa.id] = r
+          ? {
+              hasArt: r.hasArt,
+              outside: r.outside,
+              metrics: r.metrics,
+              colours: coloursFromDescriptors(r.descriptors),
+            }
+          : EMPTY_SPOT_ART;
+      });
+      return next;
+    });
+  }
+
+  /** Re-read every side. Used when an async image analysis lands, since it can
+   *  change the colour count of any zone that references that image. */
+  function refreshAllColours() {
+    views.forEach(onCanvasChange);
+  }
+
+  // Saved-design rehydration: each view's art is loaded into its canvas once,
+  // after the garment image is ready (so the print rect is in place). We pull
+  // from the ref and delete the entry so later colour swaps don't reload it.
+  const pendingScenes = useRef<Record<string, object>>(edit?.scenes ?? {});
+  // One-shot: jump to the review step after the LAST saved side has rehydrated
+  // (the mockups on that screen are exported from the canvases, so they must
+  // hold the art first). Cleared on first use so a later colour swap, which
+  // re-fires onGarmentLoaded, never yanks the customer back to review.
+  const autoReviewRef = useRef(!!props.startAtReview && !!edit);
+  // True while that first auto-render is still pending, so the review screen
+  // shows a placeholder instead of "Preview unavailable".
+  const [awaitingSavedArt, setAwaitingSavedArt] = useState(!!props.startAtReview && !!edit);
+  async function loadInitialScene(v: View) {
+    const scene = pendingScenes.current[v];
+    if (!scene) return;
+    delete pendingScenes.current[v];
+    const c = canvasRefs.current[v];
+    if (!c) return;
+    try {
+      await c.loadScene(scene);
+      onCanvasChange(v);
+    } finally {
+      // Runs even if this side's scene failed to load, so one bad side can't
+      // strand a cart "Edit" on the canvas instead of the review step.
+      if (autoReviewRef.current && views.every((view) => !pendingScenes.current[view])) {
+        autoReviewRef.current = false;
+        setAwaitingSavedArt(false);
+        // Fills in the mockups now that every side has its art. Already on the
+        // review step, so this only populates it.
+        goToReview();
+      }
+    }
+  }
+
+  function onSelectionChange(v: View, has: boolean, isText?: boolean) {
+    if (has) setActiveView(v);
+    setSelection((prev) => (has ? { view: v, isText: !!isText } : prev?.view === v ? null : prev));
+    // Sync the text controls to the newly selected text object so size / align /
+    // colour reflect what the customer clicked (rather than the last-used values).
+    if (has && isText) {
+      const p = canvasRefs.current[v]?.getActiveTextProps();
+      if (p) {
+        setFontSize(Math.round(p.fontSize));
+        setTextAlign(p.textAlign === "center" ? "center" : p.textAlign === "right" ? "right" : "left");
+        setTextColor(p.fill);
+      }
+    }
+  }
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadMsg(null);
+
+    // 1. Size gate, reject before reading so a huge file never loads into memory.
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadMsg({
+        tone: "error",
+        text: `That file is ${formatSize(file.size)}, the max is ${formatSize(MAX_UPLOAD_BYTES)}. Try compressing it, or upload a vector (SVG/PDF).`,
+      });
+      return;
+    }
+
+    // 2. Type gate, only preview formats the browser can actually draw.
+    const kind = classifyFile(file);
+    if (kind.kind === "unsupported") {
+      setUploadMsg({ tone: "error", text: kind.message });
+      return;
+    }
+
+    const v = activeView;
+    if (!v) {
+      setUploadMsg({ tone: "error", text: "Click a shirt side (front or back) first, then upload your art." });
+      return;
+    }
+    const id = crypto.randomUUID();
+    setUploadBusy(true);
+    try {
+      // 3. Build the on-canvas preview: rasterize page 1 for PDFs, else read directly.
+      let dataUrl: string;
+      let info: string | null = null;
+      if (kind.kind === "pdf") {
+        const { dataUrl: png, numPages } = await renderPdfFirstPage(file);
+        dataUrl = png;
+        if (numPages > 1) info = `Multi-page PDF, showing page 1 of ${numPages}. We print from your full file.`;
+      } else {
+        dataUrl = await readImageDataUrl(file);
+      }
+
+      // Kick off the colour analysis keyed by the on-canvas source. For PDFs we
+      // read the original file's drawing commands (exact when possible).
+      void ensureAnalysis(dataUrl, kind.kind === "pdf" ? file : undefined);
+
+      snapshot(v);
+      await canvasRefs.current[v]?.addImageFromUrl(dataUrl, targetZone(v));
+      // Upload the ORIGINAL file as the print-ready source (full-quality PDF/vector).
+      artworkFiles.current.push({ id, file });
+      onCanvasChange(v);
+      closeSheetOnMobile();
+      if (info) setUploadMsg({ tone: "info", text: info });
+    } catch {
+      setUploadMsg({
+        tone: "error",
+        text: "We couldn't read that file. Try a PNG, JPG, SVG, or PDF.",
+      });
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  function addText() {
+    // Add an editable text object; the customer double-clicks on the canvas to edit it.
+    const v = activeView;
+    if (!v) return;
+    snapshot(v);
+    canvasRefs.current[v]?.addText("Your text", {
+      fontFamily: textFont.css,
+      fontWeight: textFont.weight,
+      fill: textColor,
+      fontSize,
+      textAlign,
+      zone: targetZone(v),
+    });
+    onCanvasChange(v);
+    closeSheetOnMobile();
+  }
+
+  async function addClipart(svg: string) {
+    const v = activeView;
+    if (!v) return;
+    snapshot(v);
+    await canvasRefs.current[v]?.addImageFromUrl(svgToDataUrl(svg), targetZone(v));
+    onCanvasChange(v);
+    closeSheetOnMobile();
+  }
+
+  function applyTextColor(hex: string) {
+    setTextColor(hex);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    canvasRefs.current[v]?.setActiveColor(hex);
+  }
+
+  function applyTextFont(font: DesignerFont) {
+    setTextFontCss(font.css);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    canvasRefs.current[v]?.setActiveFont(font.css, font.weight);
+  }
+
+  function applyFontSize(nRaw: number) {
+    const n = Math.max(8, Math.min(200, Math.round(nRaw)));
+    setFontSize(n);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    // Snapshot only when it actually mutates a selected text object (changing the
+    // default for the next text box shouldn't create an undo step).
+    if (selection?.isText && selection.view === v) snapshot(v);
+    canvasRefs.current[v]?.setActiveFontSize(n);
+  }
+
+  function applyTextAlign(a: "left" | "center" | "right") {
+    setTextAlign(a);
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    if (selection?.isText && selection.view === v) snapshot(v);
+    canvasRefs.current[v]?.setActiveTextAlign(a);
+  }
+
+  // Print-method picker, shown inside each tool panel (upload/text). Drives
+  // decoration pricing and tells Julian how the job is made. Shared so both
+  // panels stay in sync off the single `methodId` state.
+  const methodPicker = priceableMethods.length > 0 && (
+    <>
+      <div className="mt-5 flex items-center gap-1.5 text-[14px] font-medium text-dream-muted">
+        Print method
+        <HelpDot
+          label="Compare print and embroidery"
+          onClick={() => setMethodGuideTab(isEmbroidery ? "embroidery" : "print")}
+        />
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        {priceableMethods.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setMethodId(m.id)}
+            aria-pressed={methodId === m.id}
+            className={cn(
+              "whitespace-nowrap rounded-xl border px-2 py-2.5 text-[14px] font-semibold transition-colors",
+              methodId === m.id
+                ? "border-dream-purple bg-dream-lavender-soft text-dream-ink"
+                : "border-dream-line text-dream-muted hover:border-dream-line-strong"
+            )}
+          >
+            {m.name}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
+  function layer(dir: "forward" | "back") {
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    const c = canvasRefs.current[v];
+    if (!c) return;
+    snapshot(v);
+    if (dir === "forward") c.bringForward();
+    else c.sendBackward();
+    onCanvasChange(v);
+  }
+
+  async function duplicate() {
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    snapshot(v);
+    await canvasRefs.current[v]?.duplicateActive();
+    onCanvasChange(v);
+  }
+
+  function flip(axis: "h" | "v") {
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    snapshot(v);
+    canvasRefs.current[v]?.flipActive(axis);
+    onCanvasChange(v);
+  }
+
+  function centerArt() {
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    snapshot(v);
+    canvasRefs.current[v]?.centerActiveInPrintArea();
+    onCanvasChange(v);
+  }
+
+  function deleteActiveOn(v: View) {
+    snapshot(v);
+    canvasRefs.current[v]?.deleteActive();
+    setSelection((prev) => (prev?.view === v ? null : prev));
+    onCanvasChange(v);
+  }
+
+  function deleteActive() {
+    const v = selection?.view ?? activeView;
+    if (!v) return;
+    deleteActiveOn(v);
+  }
+
+  async function stageUploads(items: { id: string; bucket: string; name: string; kind: string; blob: Blob }[]) {
+    if (items.length === 0) return {} as Record<string, { bucket: string; path: string }>;
+    const res = await fetch("/api/design/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ files: items.map((i) => ({ id: i.id, bucket: i.bucket, name: i.name, kind: i.kind, size: i.blob.size })) }),
+    });
+    if (!res.ok) {
+      let msg = "Upload preparation failed";
+      try {
+        const j = (await res.json()) as { error?: string };
+        if (j?.error) msg = j.error;
+      } catch {
+        /* non-JSON body, keep the generic message */
+      }
+      throw new Error(msg);
+    }
+    const { uploads } = (await res.json()) as { uploads: { id: string; bucket: string; path: string; token: string }[] };
+    const supabase = createSupabaseBrowserClient();
+    const map: Record<string, { bucket: string; path: string }> = {};
+    for (const u of uploads) {
+      const item = items.find((i) => i.id === u.id)!;
+      const { error: upErr } = await supabase.storage.from(u.bucket).uploadToSignedUrl(u.path, u.token, item.blob, {
+        contentType: item.blob.type || "application/octet-stream",
+      });
+      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+      map[u.id] = { bucket: u.bucket, path: u.path };
+    }
+    return map;
+  }
+
+  function dataUrlToBlob(dataUrl: string): Blob {
+    const comma = dataUrl.indexOf(",");
+    const head = dataUrl.slice(0, comma);
+    const body = dataUrl.slice(comma + 1);
+    const mime = /^data:([^;,]+)/.exec(head)?.[1] ?? "image/png";
+    // Not everything is base64: clip-art SVGs are utf8/percent-encoded
+    // (`data:image/svg+xml;utf8,…`), atob() on those throws.
+    if (!/;base64$/i.test(head)) {
+      let text = body;
+      try {
+        text = decodeURIComponent(body);
+      } catch {
+        /* body wasn't percent-encoded, use it raw */
+      }
+      return new Blob([text], { type: mime });
+    }
+    const bin = atob(body);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  /** Design -> review. Requires at least one decorated side before continuing. */
+  function goToReview() {
+    setError(null);
+    // One mockup per decorated side (front, back, …), in view order, so the
+    // review screen can flip between them.
+    const shots = views
+      .filter((v) => canvasRefs.current[v]?.hasObjects())
+      .map((v) => ({ view: v, url: canvasRefs.current[v]?.exportMockup() ?? "" }))
+      .filter((s) => s.url);
+    if (shots.length === 0) {
+      setError("Add some artwork or text to your design first.");
+      setEmptyNudge((n) => n + 1);
+      return;
+    }
+    setPreviews(shots);
+    setPreviewIdx(0);
+    setPhase("review");
+  }
+
+  /**
+   * Persist the current design as a draft, then route on. "cart" adds the saved
+   * design to the lite cart (carrying the name + lead email from the save modal)
+   * and sends the customer to /cart; "designs" parks the draft in My Designs. The
+   * actual Order is NOT created here, it's placed from the cart at checkout.
+   */
+  async function saveDesign(
+    destination: "cart" | "designs",
+    extras?: { name?: string; leadEmail?: string }
+  ) {
+    setError(null);
+    setSaveError(null);
+    // Route errors to the modal when we're in the add-to-cart flow, else inline.
+    const reportErr = (msg: string) => {
+      if (destination === "cart") setSaveError(msg);
+      else setError(msg);
+    };
+    // "Save & share" parks the draft in My Designs, which needs an account.
+    // "Add to cart" allows guests (they save with just an email + cookie).
+    if (!props.isLoggedIn && destination === "designs") {
+      router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
+      return;
+    }
+    if (destination === "cart" && quantity < 1) {
+      setSaveError("Add at least one size & quantity first.");
+      return;
+    }
+    // Self-serve minimum. "Save & share" is exempt: a draft can sit at any
+    // quantity, only adding it to the cart (the path to a real order) is gated.
+    // The server re-checks this in placeOrderAction.
+    if (destination === "cart" && quantity < MIN_ONLINE_ORDER_QTY) {
+      setSaveError(minimumOrderMessage(quantity));
+      return;
+    }
+    // Snapshot every canvas; figure out which views actually carry art.
+    const allScenes: Record<string, object> = {};
+    const viewsArt: View[] = [];
+    for (const v of views) {
+      const c = canvasRefs.current[v];
+      if (!c) continue;
+      allScenes[v] = c.exportScene();
+      if (c.hasObjects()) viewsArt.push(v);
+    }
+    if (viewsArt.length === 0) {
+      reportErr("Add some artwork or text to your design first.");
+      return;
+    }
+
+    setBusy(destination === "cart" ? "submit" : "save");
+    // Stays false unless we hand off to another page. On that path busy is left
+    // set, so the buttons stay disabled while Next renders the destination
+    // instead of re-enabling for a beat and inviting a second click.
+    let navigated = false;
+    try {
+      // Export one mockup per decorated view (front + back proofs).
+      const uploadItems: { id: string; bucket: string; name: string; kind: string; blob: Blob }[] = [];
+      const mockupViews: View[] = [];
+      for (const v of viewsArt) {
+        const data = canvasRefs.current[v]?.exportMockup();
+        if (data) {
+          uploadItems.push({ id: "mockup-" + v, bucket: "designs", name: `mockup-${v}.png`, kind: "mockup", blob: dataUrlToBlob(data) });
+          mockupViews.push(v);
+        }
+      }
+      for (const af of artworkFiles.current) {
+        uploadItems.push({ id: af.id, bucket: "artwork", name: af.file.name, kind: "artwork", blob: af.file });
+      }
+
+      // Strip embedded data-URL art out of the scene payload. A big photo or a
+      // rasterized PDF page is megabytes of base64, and the scene JSON travels
+      // through a server action (1MB default cap, the "Body exceeded 1 MB
+      // limit" bug). Each unique image is staged to Storage alongside the
+      // mockups; the scene carries a `dh-staged:<path>` marker that the server
+      // rewrites to a signed URL. Re-opened designs already hold https srcs,
+      // which pass through untouched.
+      const sceneSrcIds = new Map<string, string>(); // data URL -> staged item id
+      const walkSceneImages = (objs: unknown[], fn: (rec: Record<string, unknown>) => void) => {
+        for (const o of objs) {
+          if (!o || typeof o !== "object") continue;
+          const rec = o as Record<string, unknown>;
+          if (typeof rec.src === "string") fn(rec);
+          if (Array.isArray(rec.objects)) walkSceneImages(rec.objects, fn);
+        }
+      };
+      const sceneObjects = (s: object) => ((s as { objects?: unknown[] }).objects ?? []);
+      Object.values(allScenes).forEach((s) =>
+        walkSceneImages(sceneObjects(s), (rec) => {
+          const src = rec.src as string;
+          if (!src.startsWith("data:") || sceneSrcIds.has(src)) return;
+          // Tiny images (built-in clip art) stay inline, a storage round-trip
+          // costs more than the bytes it saves.
+          if (src.length < 32 * 1024) return;
+          const id = `scene-img-${sceneSrcIds.size}`;
+          sceneSrcIds.set(src, id);
+          const blob = dataUrlToBlob(src);
+          const ext = blob.type.includes("svg") ? "svg" : blob.type.includes("jpeg") ? "jpg" : "png";
+          uploadItems.push({ id, bucket: "designs", name: `${id}.${ext}`, kind: "scene-image", blob });
+        })
+      );
+
+      const staged = await stageUploads(uploadItems);
+
+      // Swap each scene image's data URL for its staged-path marker.
+      Object.values(allScenes).forEach((s) =>
+        walkSceneImages(sceneObjects(s), (rec) => {
+          const id = sceneSrcIds.get(rec.src as string);
+          if (id && staged[id]) rec.src = `dh-staged:${staged[id].path}`;
+        })
+      );
+
+      const mockups = mockupViews.map((v) => ({ view: v, bucket: "designs", path: staged["mockup-" + v].path }));
+      const artwork = artworkFiles.current
+        .filter((af) => staged[af.id])
+        .map((af) => ({ name: af.file.name, bucket: "artwork", path: staged[af.id].path }));
+
+      const input: DesignSubmitInput = {
+        productId: props.productId,
+        designId: savedDesignIdRef.current ?? edit?.designId,
+        name: extras?.name,
+        leadEmail: extras?.leadEmail,
+        colourName,
+        colourHex: colour?.hex,
+        // Per-size breakdown of the primary colour (first colourway).
+        sizeQuantities: sizeQty,
+        // Every colourway with quantity, one order line item each.
+        colorways: pricedColorways
+          .filter((c) => c.quantity > 0)
+          .map((c) => ({
+            colourName: c.colourName,
+            colourHex: c.hex ?? undefined,
+            sizeQuantities: c.sizeQty,
+            quantity: c.quantity,
+            unitPrice: c.unitPrice,
+            lineTotal: c.lineTotal,
+          })),
+        decorationMethodId: methodId,
+        printAreaIds: decoratedSpots.map((s) => s.id),
+        scenes: allScenes,
+        sceneImages: [...sceneSrcIds.values()]
+          .filter((id) => staged[id])
+          .map((id) => ({ bucket: staged[id].bucket, path: staged[id].path })),
+        mockups,
+        artwork,
+        priceSnapshot: {
+          unitPrice: breakdown.unitPrice,
+          subtotal: breakdown.subtotal,
+          setupTotal: breakdown.setupTotal,
+          total: breakdown.total,
+          quantity,
+          // No rush/neededBy here: the customer asks for those at checkout, so
+          // they belong to the order rather than the design. placeOrderAction
+          // still falls back to a snapshot rush for designs saved before this.
+          ...(customerNote.trim() ? { customerNote: customerNote.trim() } : {}),
+          inkColours,
+          // One row per decorated ZONE (real measurement + colour count),
+          // pre-fills the admin decoration sheet so the artist starts from real
+          // values. A left chest and a full front on the same side are two rows,
+          // because they are two prints to set up, charge and produce.
+          decorationSpots: decoratedSpots.map((s) => {
+            const art = spotArt[s.id];
+            return {
+              view: s.view,
+              location: s.name || VIEW_LABEL[s.view],
+              type: method?.name ?? "",
+              widthIn: art?.metrics ? String(art.metrics.widthIn) : "",
+              heightIn: art?.metrics ? String(art.metrics.heightIn) : "",
+              colours: art?.colours ? formatColourValue(art.colours) : "",
+            };
+          }),
+        },
+        asQuote: true,
+      };
+
+      const res = await saveDraftAction(input);
+      if (res.needsLogin) {
+        router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
+        return;
+      }
+      if (res.error) {
+        reportErr(res.error);
+        return;
+      }
+      if (res.designId) {
+        savedDesignIdRef.current = res.designId;
+        navigated = true;
+        if (destination === "cart") {
+          // Summarize colourways for the cart row, then drop it in and head to
+          // the cart. Same artwork, possibly several garment colours.
+          const activeColorways = pricedColorways.filter((c) => c.quantity > 0);
+          const colourSummary =
+            activeColorways.length > 1
+              ? `${activeColorways.length} colours · ${quantity} pcs`
+              : `${activeColorways[0]?.colourName ?? colourName} · ${quantity} pcs`;
+          addItem({
+            designId: res.designId,
+            productId: props.productId,
+            productName: extras?.name?.trim() || props.productName,
+            colourSummary,
+            quantity,
+            total: breakdown.total,
+            mockupUrl: previews[0]?.url ?? null,
+            addedAt: Date.now(),
+          });
+          router.push("/cart");
+        } else {
+          router.push("/account/designs");
+        }
+      }
+    } catch (e) {
+      reportErr(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      if (!navigated) setBusy(null);
+    }
+  }
+
+  const zoomIdx = ZOOM_STEPS.indexOf(zoom) === -1 ? 3 : ZOOM_STEPS.indexOf(zoom);
+  // Any decorated zone with art spilling past its box (drives the review
+  // heads-up). Informational only, never gates checkout.
+  const anyOutOfBounds = decoratedSpots.some((s) => spotArt[s.id]?.outside);
+  /** Zones on a side whose art spills out, for the on-canvas warning pill. */
+  const viewOutOfBounds = (v: View) =>
+    spotsForView(v).some((pa) => spotArt[pa.id]?.outside);
+  // Embroidery is decorated in thread; screen print / DTF in ink. Label the
+  // colour count accordingly so the spec reads in the customer's terms.
+  const isEmbroidery = (method?.name ?? "").toLowerCase().includes("embroid");
+  const colourKindLabel = isEmbroidery ? "Thread colours" : "Ink colours";
+
+  return (
+    <div className="bg-dream-lavender-soft text-dream-ink">
+      {/* App screen, exactly one viewport tall; each column scrolls on its own.
+          The shirt-details section + footer below sit in normal page flow, so
+          the whole page scrolls past the editor to reveal them. */}
+      <div className="flex h-dvh flex-col overflow-hidden">
+        {/* Slim designer header, the full store nav is intentionally dropped
+            here so the canvas gets as much height as possible. Just the logo
+            (home), cart, and account; "Back to product" lives on the left rail. */}
+        <header className="flex shrink-0 items-center justify-between border-b border-dream-ink/15 bg-dream-lavender-soft px-4 py-2.5 sm:px-6">
+          <Link href="/" className="flex shrink-0 items-center" aria-label="Dreamhouse Printing home">
+            {/* Same split as SiteNav: compact mark on phones, full lockup from
+                md up. Both render with one hidden per breakpoint, so there is no
+                layout shift and no client-side width check. */}
+            <Image
+              src="/dreamhouse-logo4-mobile.svg"
+              alt="Dreamhouse Printing"
+              width={566}
+              height={547}
+              priority
+              className="h-12 w-auto md:hidden"
+            />
+            <Image
+              src="/dreamhouse-logo4.svg"
+              alt="Dreamhouse Printing"
+              width={1668}
+              height={547}
+              priority
+              className="hidden h-14 w-auto md:block"
+            />
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* No baseline nudge here: the SiteNav offsets exist to line the
+                glyphs up with the hamburger, which this header does not have.
+                Both glyphs are sized so their ART (not their viewBox) reads
+                ~20px tall and sits centred in its 40px button. */}
+            <CartNavButton iconClassName="h-[26px] w-[26px]" />
+            <Link
+              href="/account"
+              aria-label="Your account"
+              title="Your account"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-dream-purple transition-transform hover:-translate-y-0.5 hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+            >
+              <AccountIcon className="h-[21px] w-[21px]" />
+            </Link>
+          </div>
+        </header>
+
+      {/* Full-bleed work area. Stays mounted (hidden) during the review phase so
+          the canvases keep their artwork for mockup export. */}
+      <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden", phase !== "design" && "hidden")}>
+        {/* Left, clean white column: flat icon rail + product/tools panel.
+            Collapses to just the rail (lg:w-20) when leftOpen is false. */}
+        {/* Below lg this is a bottom SHEET over the canvas, opened by the tool
+            tabs pinned to the bottom of the editor; the phone screen belongs to
+            the artwork, the way the reference designers do it. At lg+ it is the
+            original left column and nothing here applies. */}
+        <aside
+          className={cn(
+            "flex shrink-0 flex-col bg-white transition-[width] duration-200 lg:flex-row lg:overflow-hidden lg:border-r lg:border-dream-line",
+            leftOpen ? "lg:w-[26rem]" : "lg:w-20",
+            // The offset must equal the tab bar's height exactly, or a strip of
+            // canvas shows between the two. That bar is py-2.5 (10px) + a
+            // min-h-[3.75rem] (60px) tab + pb-2.5 (10px) = 5rem, plus the
+            // safe-area inset it also carries. It was 5.5rem, hence an 8px gap.
+            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:rounded-t-3xl max-lg:border-t max-lg:border-dream-line max-lg:shadow-[0_-10px_30px_-12px_rgba(27,20,88,0.35)]",
+            !sheetOpen && "max-lg:hidden"
+          )}
+        >
+          {/* Vertical icon rail. Its spacing scales with viewport height so the
+              whole stack (Notes and the contact link are last) stays reachable on
+              short laptop screens, where a fixed gap used to push them past the
+              clipped bottom edge. overflow-y-auto is the backstop below that. */}
+          <div className="no-scrollbar hidden shrink-0 flex-row items-center gap-4 overflow-x-auto border-b border-dream-line px-3 py-3 [&>*]:shrink-0 sm:gap-5 lg:flex lg:w-20 lg:flex-col lg:gap-[clamp(0.75rem,2.2vh,2.25rem)] lg:overflow-x-visible lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-[clamp(0.75rem,2vh,1.75rem)]">
+            {/* Single panel toggle, pinned to the top of the always-visible rail,
+                same spot whether open or closed; the chevron just flips. */}
+            <button
+              onClick={() => setLeftOpen((o) => !o)}
+              aria-label={leftOpen ? "Hide panel" : "Show panel"}
+              aria-expanded={leftOpen}
+              className="flex flex-col items-center gap-1.5 transition-transform hover:-translate-y-0.5"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-dream-lavender-soft text-dream-purple">
+                {/* Sidebar/panel glyph (not a back arrow) so it can't be confused
+                    with the "Back" nav link directly below. The left column fills
+                    in when the panel is open to signal its current state. */}
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+                  <path d="M9 4.5v15" />
+                  {leftOpen && <rect x="3" y="4.5" width="6" height="15" rx="2.5" fill="currentColor" stroke="none" />}
+                </svg>
+              </span>
+              <span className="text-[14px] font-semibold text-dream-ink">{leftOpen ? "Hide" : "Show"}</span>
+            </button>
+            <Link
+              href={`/shop/${props.productId}`}
+              className="flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
+            >
+              <BackArrowIcon />
+              <span className="text-[14px] font-semibold text-dream-ink">Back</span>
+            </Link>
+            {/* Colour is its own tool and the default landing tab, it sits above
+                Upload in the rail so picking a garment colour is the first step. */}
+            <button
+              onClick={() => {
+                setTool("colour");
+                setLeftOpen(true);
+              }}
+              aria-pressed={tool === "colour"}
+              className={cn(
+                "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
+                tool === "colour" && "h-14 w-14 rounded-lg bg-dream-ink pt-1.5 shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+              )}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn("h-5 w-5", tool === "colour" ? "text-white" : "text-dream-ink")}
+                aria-hidden
+              >
+                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.83-.44-1.12-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h1.99c3.05 0 5.56-2.5 5.56-5.55C21.96 6.01 17.46 2 12 2z" />
+                <circle cx="8.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
+                <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
+                <circle cx="17.5" cy="13.5" r="1.1" fill="currentColor" stroke="none" />
+              </svg>
+              <span className={cn("font-semibold", tool === "colour" ? "text-[14px] text-white" : "text-[14px] text-dream-ink")}>
+                Colour
+              </span>
+            </button>
+            {TOOLS.map((t) => {
+              const isActive = tool === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setTool(t.id);
+                    setLeftOpen(true);
+                  }}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
+                    isActive && "h-14 w-14 rounded-lg bg-dream-ink pt-1.5 shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+                  )}
+                >
+                  <Image
+                    src={t.icon}
+                    alt=""
+                    width={20}
+                    height={20}
+                    className={cn("h-5 w-auto", isActive && "[filter:brightness(0)_invert(1)]")}
+                  />
+                  <span className={cn("font-semibold", isActive ? "text-[14px] text-white" : "text-[14px] text-dream-ink")}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+            {/* Notes, where "Message us" used to send people off to the contact
+                form. The note travels with the design instead. */}
+            <button
+              onClick={openNotes}
+              aria-pressed={tool === "notes"}
+              className={cn(
+                "flex flex-col items-center justify-center gap-2 transition-transform hover:-translate-y-0.5",
+                tool === "notes" && "h-14 w-14 rounded-lg bg-dream-ink pt-1.5 shadow-[0_4px_10px_-8px_rgba(27,20,88,0.4)]"
+              )}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn("h-5 w-5", tool === "notes" ? "text-white" : "text-dream-ink")}
+                aria-hidden
+              >
+                <path d="M4 4.5h16v10.5l-4 4.5H4z" />
+                <path d="M8 9h8M8 13h5" />
+              </svg>
+              <span className={cn("font-semibold", tool === "notes" ? "text-[14px] text-white" : "text-[14px] text-dream-ink")}>
+                Notes
+              </span>
+              {customerNote.trim() && (
+                <span aria-hidden className="-mt-1 h-1.5 w-1.5 rounded-full bg-dream-sun" />
+              )}
+            </button>
+            <div className="hidden lg:block lg:flex-1" />
+            <Link
+              href="/contact"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Opens contact in a new tab so your design stays open"
+              className="flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
+            >
+              <SupportIcon />
+              <span className="text-[14px] font-semibold text-dream-ink">Support</span>
+            </Link>
+          </div>
+
+          {/* Sheet header (mobile only): just an explicit close, since the tool
+              tab that opened it sits behind the sheet. No grab bar, the sheet
+              is not draggable and the handle promised a gesture we don't have. */}
+          <div className="flex items-center justify-end px-4 pt-1.5 pb-0 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setSheetOpen(false)}
+              aria-label="Close panel"
+              className="-my-1 -mr-1 flex h-11 w-11 items-center justify-center rounded-full text-dream-ink-soft transition-colors hover:bg-dream-cream hover:text-dream-ink"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </div>
+
+          {/* Panel, scrolls within the fixed-height aside; hidden when collapsed */}
+          <div ref={panelRef} className={cn("no-scrollbar max-h-[50dvh] min-w-0 flex-1 overflow-y-auto p-5 pt-0 lg:max-h-none lg:p-6", !leftOpen && "hidden")}>
+            {/* Garment identity, desktop only. In the mobile sheet it repeated
+                above every tool and ate height the tool itself needs; the
+                product is already named on the canvas and in the cart. */}
+            <div className="hidden lg:block">
+              <div className="text-[14px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft">Garment</div>
+              <h2 className="mt-1 font-display text-base font-extrabold leading-snug text-dream-ink">{props.productName}</h2>
+              {sizeRange && <p className="mt-1 text-[14px] text-dream-muted">Sizes {sizeRange}</p>}
+            </div>
+
+            {/* Colour picker, its own tab and nothing else: the tools each stay
+                on their own tab so this one is only about the garment. */}
+            {tool === "colour" && (
+              <>
+            <div className="mt-4 flex items-baseline justify-between gap-2">
+              <span className="text-[14px] font-medium text-dream-muted">Colour</span>
+              <span className="truncate text-[14px] font-bold text-dream-purple">{colourName || "Pick one"}</span>
+            </div>
+            {/* auto-fill instead of a fixed 6 columns: the swatch is capped at a
+                small size and the row simply fits as many as the panel allows,
+                so a 79-colour garment is a compact block at any width rather
+                than six large discs per row. */}
+            <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(1.85rem,1fr))] gap-2 px-1.5 py-2.5">
+              {props.colours.map((c) => {
+                const selected = colourName === c.name;
+                return (
+                  <button
+                    key={c.name}
+                    title={c.name}
+                    aria-label={c.name}
+                    aria-pressed={selected}
+                    onClick={() => setColourName(c.name)}
+                    className={cn(
+                      "relative flex aspect-square items-center justify-center rounded-full transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple",
+                      selected && "scale-105"
+                    )}
+                  >
+                    {/* swatch face with an inset ring so white/light colours stay
+                        visible. swatchStyle (not a bare hex) so two-tone names
+                        like "Natural/Black" split diagonally, matching the shop
+                        page and the colourway pickers on the review screen. */}
+                    <span
+                      className={cn(
+                        "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15 transition-shadow",
+                        selected && "ring-2 ring-dream-purple"
+                      )}
+                      style={swatchStyle(c)}
+                    />
+                    {/* selected check, drops a contrasting tick on the chosen swatch */}
+                    {selected && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="pointer-events-none absolute h-3 w-3 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+                        fill="none"
+                        stroke="#fff"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m5 13 4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+              </>
+            )}
+
+            <hr className="my-6 hidden border-dream-line lg:block" />
+
+            {/* Tool panels, one per tab, each its own card. The colour tab has
+                no tools of its own, so the whole section sits out. */}
+            {tool !== "colour" && (
+              <>
+            <div className="hidden text-[14px] font-semibold uppercase tracking-[0.06em] text-dream-ink-soft lg:block">Design tools</div>
+
+            {activeView === null && (
+              <p className="mt-2 rounded-lg bg-dream-sun/25 px-3 py-2 text-[14px] font-semibold text-dream-ink">
+                Click a shirt side to start adding art.
+              </p>
+            )}
+
+            {/* Zone picker. Only shown when the side being edited has more than
+                one print area (a left chest beside a full front), since with a
+                single zone there is nothing to choose. Picking a zone decides
+                where NEW art lands; dragging art from one box to another
+                re-homes it on its own. */}
+            {activeView !== null && displayViewSpots.length > 1 && (
+              <div className="mt-3">
+                <div className="text-[14px] font-medium text-dream-muted">Print location</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {displayViewSpots.map((pa) => {
+                    const selected = pa.id === activeSpot?.id;
+                    return (
+                      <button
+                        key={pa.id}
+                        type="button"
+                        onClick={() => setActiveSpotId(pa.id)}
+                        aria-pressed={selected}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-[14px] font-bold transition-colors",
+                          selected
+                            ? "bg-dream-purple text-white"
+                            : "bg-dream-cream text-dream-ink hover:bg-dream-lavender/40",
+                        )}
+                      >
+                        {pa.name}
+                        {spotArt[pa.id]?.hasArt && (
+                          <span
+                            className={cn(
+                              "ml-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle",
+                              selected ? "bg-white" : "bg-dream-purple",
+                            )}
+                            aria-hidden
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4 max-lg:mt-0 lg:mt-3">
+              {tool === "upload" && (
+                <div className="rounded-2xl bg-dream-cream/60 p-4">
+                <>
+                  <h3 className="font-display text-base font-bold text-dream-ink">Upload artwork</h3>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadBusy}
+                    className="mt-3 flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-dream-line-strong px-3 py-7 text-center transition-colors hover:border-dream-purple hover:bg-white/70 disabled:cursor-wait disabled:opacity-70 disabled:hover:border-dream-line-strong disabled:hover:bg-transparent"
+                  >
+                    <Image src="/designer/upload.svg" alt="" width={26} height={26} className="h-6 w-auto" />
+                    <span className="text-[15px] lg:text-sm font-bold text-dream-ink">
+                      {uploadBusy ? "Reading your file…" : "Drop a file or click to browse"}
+                    </span>
+                    <span className="text-[14px] text-dream-faint">PNG, SVG, JPG, PDF up to 50 MB</span>
+                  </button>
+                  {uploadMsg && (
+                    <p
+                      className={cn(
+                        "mt-3 rounded-lg px-3 py-2 text-[14px] leading-relaxed",
+                        uploadMsg.tone === "error"
+                          ? "bg-dream-peach/40 text-dream-ink"
+                          : "bg-dream-sun/25 text-dream-ink",
+                      )}
+                    >
+                      {uploadMsg.text}
+                    </p>
+                  )}
+                  <p className="mt-3 text-[14px] leading-relaxed text-dream-muted">
+                    Not print-ready? We&apos;ll touch up your art, free.
+                  </p>
+                  {activeSpot?.maxWidthIn && activeSpot?.maxHeightIn ? (
+                    <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
+                      {activeSpot.name} prints up to {activeSpot.maxWidthIn} × {activeSpot.maxHeightIn} in.
+                    </p>
+                  ) : null}
+                  {methodPicker}
+                </>
+                </div>
+              )}
+
+              {tool === "text" && (
+                <div className="rounded-2xl bg-dream-cream/60 p-4">
+                <>
+                  <h3 className="font-display text-base font-bold text-dream-ink">Add text</h3>
+                  <button
+                    onClick={addText}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dream-line bg-white px-3 py-3 text-[15px] lg:text-sm font-semibold text-dream-ink transition-colors hover:border-dream-purple"
+                  >
+                    <Image src="/designer/tool-text.svg" alt="" width={16} height={16} className="h-4 w-auto" />
+                    Add a text box
+                  </button>
+                  <div className="mt-3 text-[14px] font-medium text-dream-muted">Font</div>
+                  {/* Collapsed dropdown, tap to expand a previewed list. Each row
+                      renders its own label in its own face so the customer sees
+                      what they're picking. Expands inline; the panel scrolls. */}
+                  <button
+                    type="button"
+                    onClick={() => setFontMenuOpen((o) => !o)}
+                    aria-expanded={fontMenuOpen}
+                    className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-dream-line bg-white px-3 py-2.5 text-left transition-colors hover:border-dream-line-strong"
+                  >
+                    <span className="truncate text-lg leading-none text-dream-ink" style={{ fontFamily: textFont.css }}>
+                      {textFont.label}
+                    </span>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={cn("shrink-0 text-dream-muted transition-transform", fontMenuOpen && "rotate-180")}
+                      aria-hidden
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                  {fontMenuOpen && (
+                    <div className="no-scrollbar mt-1.5 max-h-64 space-y-0.5 overflow-y-auto rounded-lg border border-dream-line bg-white p-1">
+                      {DESIGNER_FONTS.map((f) => {
+                        const selected = textFontCss === f.css;
+                        return (
+                          <button
+                            key={f.label}
+                            type="button"
+                            onClick={() => {
+                              applyTextFont(f);
+                              setFontMenuOpen(false);
+                            }}
+                            aria-pressed={selected}
+                            title={f.label}
+                            style={{ fontFamily: f.css }}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-lg leading-none transition-colors",
+                              selected ? "bg-dream-lavender-soft text-dream-ink" : "text-dream-ink hover:bg-dream-cream"
+                            )}
+                          >
+                            <span className="truncate">{f.label}</span>
+                            {selected && (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-dream-purple" aria-hidden>
+                                <path d="M20 6L9 17l-5-5" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {/* Bespoke-font escape hatch. Framed as "bring your art /
+                          talk to us" on purpose: we don't want to invite endless
+                          one-off font requests, so the ask is to upload the text
+                          as artwork or start a conversation with a sample. Opens
+                          contact in a new tab so the in-progress design stays put. */}
+                      <div className="mt-1 border-t border-dream-line px-3 py-2.5">
+                        <p className="text-[14px] leading-relaxed text-dream-muted">
+                          Don&apos;t see the font you need? Upload your text as artwork, or{" "}
+                          <a
+                            href="/contact"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+                          >
+                            talk to us
+                          </a>{" "}
+                          and send a sample. We&apos;ll set it up on your proof.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {/* 3:2 split rather than halves: the stepper is two 36px
+                      buttons plus a number field, and at half width the field
+                      was ~30px, so "40" sat jammed between the buttons. */}
+                  <div className="mt-3 grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
+                    {/* Font size: stepper + editable number */}
+                    <div>
+                      <div className="text-[14px] font-medium text-dream-muted">Size</div>
+                      <div className="mt-2 flex items-center overflow-hidden rounded-lg border border-dream-line bg-white">
+                        <button
+                          type="button"
+                          onClick={() => applyFontSize(fontSize - 2)}
+                          aria-label="Smaller text"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center text-dream-ink transition-colors hover:bg-dream-cream"
+                        >
+                          <MinusIcon />
+                        </button>
+                        <input
+                          type="number"
+                          min={8}
+                          max={200}
+                          value={fontSize}
+                          onChange={(e) => applyFontSize(Number(e.target.value) || fontSize)}
+                          aria-label="Font size"
+                          className="h-9 w-full min-w-0 border-x border-dream-line text-center text-[15px] lg:text-sm font-semibold text-dream-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => applyFontSize(fontSize + 2)}
+                          aria-label="Bigger text"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center text-dream-ink transition-colors hover:bg-dream-cream"
+                        >
+                          <PlusIcon />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Alignment: left / center / right */}
+                    <div>
+                      <div className="text-[14px] font-medium text-dream-muted">Align</div>
+                      <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-dream-line bg-white p-1">
+                        {(["left", "center", "right"] as const).map((a) => (
+                          <button
+                            key={a}
+                            type="button"
+                            onClick={() => applyTextAlign(a)}
+                            aria-pressed={textAlign === a}
+                            aria-label={`Align ${a}`}
+                            title={`Align ${a}`}
+                            className={cn(
+                              "flex h-10 items-center justify-center rounded-md transition-colors lg:h-7",
+                              textAlign === a ? "bg-dream-lavender-soft text-dream-purple" : "text-dream-muted hover:bg-dream-cream"
+                            )}
+                          >
+                            <AlignIcon align={a} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-[14px] font-medium text-dream-muted">Text colour</div>
+                  <div className="mt-2 grid grid-cols-8 gap-1.5">
+                    {TEXT_COLORS.map((hex) => {
+                      const selected = textColor.toLowerCase() === hex;
+                      return (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => applyTextColor(hex)}
+                          aria-label={hex}
+                          aria-pressed={selected}
+                          title={hex}
+                          className={cn(
+                            "aspect-square rounded-full transition-transform hover:scale-110",
+                            selected ? "ring-2 ring-dream-purple" : "ring-1 ring-inset ring-dream-ink/15"
+                          )}
+                          style={{ backgroundColor: hex }}
+                        />
+                      );
+                    })}
+                    {/* Custom colour, opens the native picker for anything else. */}
+                    <label
+                      title="Custom colour"
+                      className={cn(
+                        "relative aspect-square cursor-pointer rounded-full transition-transform hover:scale-110",
+                        TEXT_COLORS.includes(textColor.toLowerCase()) ? "ring-1 ring-inset ring-dream-ink/15" : "ring-2 ring-dream-purple"
+                      )}
+                      style={{ background: "conic-gradient(from 0deg, #ef4444, #facc15, #16a34a, #38bdf8, #7c3aed, #ec4899, #ef4444)" }}
+                    >
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(e) => applyTextColor(e.target.value)}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        aria-label="Custom text colour"
+                      />
+                    </label>
+                  </div>
+
+                  {methodPicker}
+                </>
+                </div>
+              )}
+
+              {tool === "clipart" && (
+                <div className="rounded-2xl bg-dream-cream/60 p-4">
+                <>
+                  <h3 className="font-display text-base font-bold text-dream-ink">Clip art</h3>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {CLIPART.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => addClipart(c.svg)}
+                        title={c.name}
+                        className="flex aspect-square items-center justify-center rounded-xl border border-dream-line bg-white p-2.5 transition-colors hover:border-dream-purple [&>svg]:h-full [&>svg]:w-auto"
+                        dangerouslySetInnerHTML={{ __html: c.svg }}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[14px] leading-relaxed text-dream-faint">Tap a graphic to drop it on, then drag to place it.</p>
+                </>
+                </div>
+              )}
+
+              {tool === "notes" && (
+                <NoteCard value={customerNote} onChange={setCustomerNote} textareaRef={noteRef} />
+              )}
+            </div>
+              </>
+            )}
+
+            {/* Placements the online designer can't cover (tags, inside labels,
+                and sleeves on products without a sleeve area) are handed off to a
+                real person instead of faking a mockup. When sleeves ARE live the
+                copy narrows to the truly custom asks. */}
+            <div className="mt-5 rounded-2xl border border-dream-line bg-dream-cream/50 p-4">
+              <h3 className="font-display text-[15px] lg:text-sm font-bold text-dream-ink">
+                Want it {sleeveEnabled ? "somewhere custom" : "on the sleeve or somewhere else"}?
+              </h3>
+              <p className="mt-1.5 text-[14px] leading-relaxed text-dream-muted">
+                The designer covers {sleeveEnabled ? "front, back, and sleeve" : "front and back"}. For{" "}
+                {sleeveEnabled ? "tags, inside labels, or other custom spots" : "sleeves, tags, or anything custom"}, leave us a note and we&apos;ll send you a proof.
+              </p>
+              <button
+                type="button"
+                onClick={openNotes}
+                className="mt-3 inline-flex items-center gap-1.5 font-display text-[14px] font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+              >
+                Leave a note
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/svg+xml,application/pdf"
+              hidden
+              onChange={onPickFile}
+            />
+          </div>
+        </aside>
+
+        {/* Center, grid-backed canvas stage (full bleed) */}
+        <main className="relative flex min-h-[60vh] flex-1 flex-col overflow-hidden lg:min-h-0" style={GRID_BG}>
+          {/* Floating top bar */}
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 mx-auto hidden w-full max-w-[100rem] items-center justify-between px-4 lg:flex">
+            <span className={cn(GLASS, "pointer-events-auto px-3 py-1.5 font-display text-[14px] font-bold text-dream-ink")}>
+              {views.length <= 1
+                ? "Design preview"
+                : viewMode === "both"
+                  ? "Front & back"
+                  : activeView
+                    ? `Editing the ${VIEW_LABEL[activeView].toLowerCase()}`
+                    : "Pick a side to edit"}
+            </span>
+            <div className="pointer-events-auto flex items-center gap-2">
+              <div className={cn(GLASS, "inline-flex items-center gap-0.5 p-1")}>
+                <IconBtn label="Zoom out" disabled={zoomIdx <= 0} onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}>
+                  <MinusIcon />
+                </IconBtn>
+                <button onClick={() => setZoom(1)} className="h-8 min-w-[3rem] rounded-full px-2 text-[14px] font-semibold text-dream-muted hover:text-dream-ink">
+                  {Math.round(zoom * 100)}%
+                </button>
+                <IconBtn label="Zoom in" disabled={zoomIdx >= ZOOM_STEPS.length - 1} onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}>
+                  <PlusIcon />
+                </IconBtn>
+              </div>
+              <div className={cn(GLASS, "inline-flex items-center gap-0.5 p-1")}>
+                <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>
+                  <UndoIcon />
+                </IconBtn>
+                <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>
+                  <RedoIcon />
+                </IconBtn>
+              </div>
+            </div>
+          </div>
+
+          {/* ---- Mobile chrome (below lg). The phone layout follows the
+               reference: a method pill on top, undo/redo floating at the left,
+               a vertical stack of side thumbnails + zoom at the right, and the
+               tool tabs pinned to the bottom of the editor. ---- */}
+          <div className="pointer-events-none absolute inset-x-0 top-2.5 z-20 flex items-start justify-center gap-2 px-2.5 lg:hidden">
+            {/* Method pill: "<SIDE> - PRINT METHOD | <method>" */}
+            <div className="pointer-events-auto relative min-w-0">
+              <button
+                type="button"
+                onClick={() => priceableMethods.length > 1 && setMethodMenuOpen((o) => !o)}
+                aria-expanded={methodMenuOpen}
+                aria-haspopup={priceableMethods.length > 1 ? "menu" : undefined}
+                className={cn(GLASS, "flex min-h-[2.75rem] max-w-full items-center gap-2 px-3.5 py-2 text-left")}
+              >
+                <span className="truncate text-[14px] font-bold uppercase tracking-wide text-dream-muted">
+                  {VIEW_LABEL[displayView]} · print method
+                </span>
+                <span aria-hidden className="h-4 w-px shrink-0 bg-dream-line" />
+                <span className="truncate font-display text-[14px] font-bold text-dream-ink">
+                  {method?.name ?? "Print"}
+                </span>
+                {priceableMethods.length > 1 && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 text-dream-muted transition-transform", methodMenuOpen && "rotate-180")} aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+                )}
+              </button>
+              {/* Menu is anchored to the pill's RIGHT edge, under the chevron
+                  that opens it, with a light shadow so it sits on the canvas
+                  without dropping a slab of shade over the garment. */}
+              {methodMenuOpen && priceableMethods.length > 1 && (
+                <div className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-2xl border border-dream-line bg-white p-1 shadow-[0_6px_16px_-10px_rgba(27,20,88,0.3)]">
+                  {priceableMethods.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setMethodId(m.id);
+                        setMethodMenuOpen(false);
+                      }}
+                      aria-pressed={methodId === m.id}
+                      className={cn(
+                        "block w-full rounded-xl px-3 py-2 text-left text-[14px] font-semibold transition-colors",
+                        methodId === m.id ? "bg-dream-lavender-soft text-dream-ink" : "text-dream-muted hover:bg-dream-cream"
+                      )}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Undo / redo, left edge */}
+          <div className="absolute left-2.5 top-16 z-10 flex flex-col gap-1.5 lg:hidden">
+            <MobileChip label="Undo" disabled={!canUndo} onClick={undo}><UndoIcon /></MobileChip>
+            <MobileChip label="Redo" disabled={!canRedo} onClick={redo}><RedoIcon /></MobileChip>
+          </div>
+
+          {/* Side switcher (garment thumbnails) + zoom, right edge */}
+          <div className="absolute right-2.5 top-16 z-10 flex flex-col gap-1.5 lg:hidden">
+            {views.map((v) => {
+              const on = v === displayView;
+              const thumb = imageForView(colour, v);
+              return (
+                <button
+                  key={v}
+                  onClick={() => showSide(v)}
+                  aria-pressed={on}
+                  className={cn(
+                    "flex w-[3.75rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1.5 ring-1 backdrop-blur-md transition-colors",
+                    on ? "ring-2 ring-dream-purple" : "ring-dream-ink/[0.06]"
+                  )}
+                >
+                  {thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumb} alt="" className="h-8 w-8 object-contain" />
+                  ) : (
+                    <span aria-hidden className="grid h-8 w-8 place-items-center text-dream-faint">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l18 18" /><path d="M21 15V5a2 2 0 0 0-2-2H9" /><path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14" /></svg>
+                    </span>
+                  )}
+                  <span className={cn("text-[14px] font-bold leading-none", on ? "text-dream-purple" : "text-dream-muted")}>
+                    {VIEW_LABEL[v]}
+                  </span>
+                </button>
+              );
+            })}
+            {/* Zoom in and zoom out as their own chips, matching the Undo/Redo
+                pair on the other side. The level rides on the "in" chip. */}
+            <MobileChip
+              label={`${Math.round(zoom * 100)}%`}
+              srLabel={`Zoom in, currently ${Math.round(zoom * 100)} percent`}
+              disabled={zoomIdx >= ZOOM_STEPS.length - 1}
+              onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M11 8v6M8 11h6" /></svg>
+            </MobileChip>
+            <MobileChip
+              label="Zoom out"
+              disabled={zoomIdx <= 0}
+              onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M8 11h6" /></svg>
+            </MobileChip>
+          </div>
+
+          {/* Phone-only hint while the design is empty. The desktop footer shows
+              the same message inline, but below lg that footer is hidden, so a
+              tap on Continue used to do nothing visible. Once Continue has been
+              refused, it turns red and nudges (re-keyed so it can repeat). */}
+          {decoratedSpots.length === 0 && (
+            <div
+              key={emptyNudge}
+              className={cn(
+                "pointer-events-none absolute bottom-[3.75rem] right-2.5 z-20 max-w-[calc(100%-1.25rem)] rounded-xl px-3 py-2 text-[13px] font-semibold leading-snug shadow-[0_2px_0_0_rgba(27,20,88,0.08)] ring-1 backdrop-blur-md lg:hidden",
+                emptyNudge > 0
+                  ? "animate-[empty-nudge_0.45s_ease-out] bg-dream-danger-soft text-dream-danger ring-dream-danger/20"
+                  : "bg-white/85 text-dream-ink ring-dream-ink/[0.06]"
+              )}
+              role="status"
+            >
+              {emptyNudge > 0 ? error ?? "Add some artwork or text to your design first." : "Add artwork or text to continue"}
+            </div>
+          )}
+
+          {/* Continue, bottom-right corner. Its own corner, away from both the
+              tool tabs below and the canvas controls above, so the next-step
+              action can't be caught by a stray tap. Muted (not disabled) while
+              the canvas is empty: a tap still explains what's missing. */}
+          <button
+            onClick={goToReview}
+            aria-disabled={decoratedSpots.length === 0}
+            className={cn(
+              "absolute bottom-3 right-2.5 z-20 inline-flex min-h-[2.75rem] items-center gap-2 rounded-full px-5 font-display text-sm font-bold text-white transition-transform active:translate-y-px lg:hidden",
+              decoratedSpots.length === 0 ? "bg-dream-purple/45" : "bg-dream-purple"
+            )}
+          >
+            Continue
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+
+          {/* Canvases, every decorated side side by side, each editable. The
+              active one is ringed; clicking a canvas makes it the tool target. */}
+          <div
+            ref={stageAreaRef}
+            onMouseDown={clearActive}
+            className="flex min-h-0 flex-1 overflow-auto p-4 pt-16 pb-20 max-lg:pt-24 max-lg:pb-6"
+          >
+            {/* m-auto (not justify/items-center) so overflowing content stays
+                reachable by scrolling; centered margins collapse to 0 when the
+                canvases outgrow the stage instead of clipping the leading edge. */}
+            <div className="m-auto flex max-w-full flex-wrap items-center justify-center gap-5">
+            {views.map((v) => {
+              const isActive = viewMode === "both" && views.length > 1 && v === activeView;
+              const loading = !loadedViews.has(v);
+              // In single mode only the shown side is visible; the others stay
+              // mounted (so their art is preserved + still exports) but hidden.
+              // Falls back to displayView so nothing is active never blanks it.
+              // "See both" keeps the classic front-and-back pair: the sleeve
+              // stays mounted-but-hidden there and is reached via its own pill.
+              const hidden = viewMode === "single" ? v !== displayView : v === "sleeve";
+              return (
+                <div
+                  key={v}
+                  ref={(el) => {
+                    stageRefs.current[v] = el;
+                  }}
+                  onMouseDown={(e) => {
+                    // Keep the outside-click handler on the neutral background from
+                    // firing when a canvas itself is clicked.
+                    e.stopPropagation();
+                    setActiveView(v);
+                  }}
+                  className={cn("flex shrink-0 flex-col items-center", hidden && "hidden")}
+                >
+                  {viewMode === "both" && views.length > 1 && (
+                    <span
+                      className={cn(
+                        "mb-2 rounded-full px-3 py-1 text-[14px] font-bold uppercase tracking-wide transition-colors",
+                        isActive ? "bg-dream-ink text-white" : "bg-white text-dream-muted ring-1 ring-dream-ink/10"
+                      )}
+                    >
+                      {VIEW_LABEL[v]}
+                    </span>
+                  )}
+                  <ScaledBox scale={zoom} maxWidth={stageMaxW}>
+                  <div
+                    className={cn("relative w-fit rounded-2xl bg-white ring-1 ring-dream-ink/[0.05] p-2 sm:p-2.5", isActive && "ring-2 ring-dream-purple")}
+                  >
+                    <div className="mx-auto w-fit">
+                      <DesignCanvas
+                        ref={(h) => {
+                          canvasRefs.current[v] = h;
+                        }}
+                        onSelectionChange={(has, isText) => onSelectionChange(v, has, isText)}
+                        onChange={() => onCanvasChange(v)}
+                        onRequestDelete={() => deleteActiveOn(v)}
+                        onModifyCommit={(pre) => commitModify(v, pre)}
+                        onGarmentLoaded={() => {
+                          setLoadedViews((s) => new Set(s).add(v));
+                          // Recompute art-vs-box now that the print rect is
+                          // redrawn against the (possibly new-aspect) garment.
+                          // loadInitialScene re-checks again once a saved scene
+                          // finishes loading; both paths are idempotent.
+                          loadInitialScene(v);
+                          onCanvasChange(v);
+                        }}
+                      />
+                    </div>
+
+                    {/* Loading shimmer */}
+                    {loading && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60">
+                        <span className="h-8 w-8 animate-spin rounded-full border-2 border-dream-line border-t-dream-purple" />
+                      </div>
+                    )}
+
+                    {/* Out-of-bounds heads-up, subtle, non-blocking. Never
+                        intercepts canvas clicks (pointer-events-none). */}
+                    {!loading && viewOutOfBounds(v) && (
+                      <div className="pointer-events-none absolute inset-x-2 bottom-full z-10 mb-2 flex justify-center">
+                        <div className="flex max-w-[18rem] items-start gap-2 rounded-xl bg-dream-sun/95 px-3 py-2 text-left ring-1 ring-dream-ink/10 backdrop-blur-sm lg:max-w-[15rem] lg:gap-1.5 lg:px-2.5 lg:py-1.5">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px h-[17px] w-[17px] shrink-0 text-dream-ink lg:h-3.5 lg:w-3.5" aria-hidden>
+                            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                          </svg>
+                          <p className="text-[14px] font-semibold leading-snug text-dream-ink lg:text-[14px]">
+                            Some art is outside the print lines. We&apos;ll double-check it.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sleeve without a side photo for THIS colour: a friendly
+                        placeholder over the (still-mounted) canvas. Any sleeve art
+                        stays in the canvas instance, so switching to a colour that
+                        has a side photo brings it right back. */}
+                    {v === "sleeve" && !currentColourHasSide && (
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-2xl bg-dream-cream p-6 text-center">
+                        <div className="grid h-11 w-11 place-items-center rounded-full bg-white ring-1 ring-dream-line">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-dream-purple" aria-hidden>
+                            <path d="M3 3l18 18" /><path d="M21 15V5a2 2 0 0 0-2-2H9" /><path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14" /><path d="M8.5 8.5a1 1 0 1 0 0 .01" /><path d="M21 15l-5-5-4 4" />
+                          </svg>
+                        </div>
+                        <h3 className="font-display text-sm font-bold text-dream-ink">No sleeve photo for this colour</h3>
+                        <p className="max-w-[15rem] text-[14px] leading-relaxed text-dream-muted">
+                          Your sleeve art is saved. We&apos;ll place it for you, or leave a note and we&apos;ll mock it up.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={openNotes}
+                          className="mt-0.5 inline-flex items-center gap-1 font-display text-[14px] font-bold text-dream-purple transition-transform hover:-translate-y-0.5"
+                        >
+                          Leave a note
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  </ScaledBox>
+                </div>
+              );
+            })}
+            </div>
+          </div>
+
+          {/* Floating bottom bar, side switch (left) + selected-object actions */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-wrap items-center justify-start gap-2 px-4">
+            {/* Side switch, pick which side to design; "See both" shows them together */}
+            {views.length > 1 && (
+              <div className={cn(GLASS, "pointer-events-auto hidden items-center gap-1 p-1.5 lg:inline-flex")}>
+                {views.map((v) => {
+                  const on = viewMode === "single" && v === activeView;
+                  // Sleeve on a colour with no side photo: keep the pill but flag
+                  // that this colour will use the placeholder handoff.
+                  const sleeveNoPhoto = v === "sleeve" && !currentColourHasSide;
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => showSide(v)}
+                      aria-pressed={on}
+                      title={sleeveNoPhoto ? "No sleeve photo for this colour, we place it for you" : undefined}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[14px] font-bold transition-colors",
+                        // Selected = filled square-cornered block, not a pill
+                        // (per Julian).
+                        on ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
+                      )}
+                    >
+                      {VIEW_LABEL[v]}
+                      {sleeveNoPhoto && (
+                        <span
+                          aria-hidden
+                          className={cn("h-1.5 w-1.5 rounded-full", on ? "bg-white/80" : "bg-dream-sun")}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+                <span aria-hidden className="mx-1 h-6 w-px bg-dream-line" />
+                <button
+                  onClick={() => setMode(viewMode === "both" ? "single" : "both")}
+                  aria-pressed={viewMode === "both"}
+                  className={cn(
+                    "rounded-lg px-3.5 py-2 text-[14px] font-bold transition-colors",
+                    viewMode === "both" ? "bg-dream-purple text-white" : "text-dream-muted hover:text-dream-ink"
+                  )}
+                >
+                  See both
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Selection rail, object actions live here (right edge, vertically
+              centered) so they're easy to find, unlike the old bottom bar. Shows
+              only while something is selected. On lg+ it is centred in the band
+              BELOW the floating zoom/undo bar (top-16) rather than the whole
+              stage: on a short desktop window a full-height centre put it over
+              those controls. If the band is shorter than the rail, it scrolls. */}
+          {selection && (
+            <div className="pointer-events-none absolute inset-x-2 bottom-20 z-10 flex justify-center sm:inset-x-auto sm:inset-y-0 sm:bottom-auto sm:right-[max(0.75rem,calc(50%-50rem))] sm:items-center sm:justify-start lg:inset-y-auto lg:bottom-4 lg:top-16">
+              <div className={cn(GLASS, "no-scrollbar pointer-events-auto flex max-w-full flex-row items-center gap-0.5 overflow-x-auto p-2 sm:w-48 sm:flex-col sm:items-stretch sm:gap-0 sm:overflow-visible sm:p-1.5 lg:max-h-full lg:overflow-y-auto")}>
+                <RailBtn label="Duplicate" onClick={duplicate}><DuplicateIcon /></RailBtn>
+                <RailBtn label="Flip horizontal" onClick={() => flip("h")}><FlipHIcon /></RailBtn>
+                <RailBtn label="Flip vertical" onClick={() => flip("v")}><FlipVIcon /></RailBtn>
+                <RailBtn label="Center in box" onClick={centerArt}><CenterIcon /></RailBtn>
+                <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
+                <RailBtn label="Bring forward" onClick={() => layer("forward")}><ForwardIcon /></RailBtn>
+                <RailBtn label="Send backward" onClick={() => layer("back")}><BackwardIcon /></RailBtn>
+                {selection.isText && (
+                  <label
+                    title="Text colour"
+                    className="relative flex shrink-0 cursor-pointer items-center gap-2.5 rounded-lg p-2 text-[14px] font-semibold text-dream-ink transition-colors hover:bg-dream-cream sm:w-full sm:px-2.5 sm:py-2"
+                  >
+                    <span className="grid h-5 w-5 shrink-0 place-items-center">
+                      <span className="h-4 w-4 rounded-full ring-1 ring-inset ring-dream-ink/20" style={{ backgroundColor: textColor }} />
+                    </span>
+                    <span className="hidden whitespace-nowrap sm:inline">Text colour</span>
+                    <input
+                      type="color"
+                      value={textColor}
+                      onChange={(e) => applyTextColor(e.target.value)}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      aria-label="Text colour"
+                    />
+                  </label>
+                )}
+                <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
+                <RailBtn label="Delete" onClick={deleteActive} danger><TrashIcon /></RailBtn>
+              </div>
+            </div>
+          )}
+        </main>
+        </div>
+
+        {/* Tool tabs, pinned to the bottom of the editor on phones (the mock's
+            bottom bar). A tab opens its panel as the sheet above; tapping the
+            open tab again closes it. Desktop keeps the left icon rail. */}
+        {phase === "design" && (
+          <nav
+            aria-label="Design tools"
+            className="z-40 flex shrink-0 items-stretch justify-around border-t border-dream-line bg-white px-1 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] lg:hidden"
+          >
+            {MOBILE_TABS.map((t) => {
+              const on = tool === t.id && sheetOpen;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    if (tool === t.id && sheetOpen) {
+                      setSheetOpen(false);
+                      return;
+                    }
+                    if (t.id === "notes") openNotes();
+                    else setTool(t.id);
+                    setLeftOpen(true);
+                    setSheetOpen(true);
+                  }}
+                  aria-pressed={on}
+                  className={cn(
+                    "relative flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors",
+                    on ? "text-dream-purple" : "text-dream-ink-soft"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "grid h-11 w-11 place-items-center rounded-2xl transition-colors",
+                      on && "bg-dream-lavender-soft"
+                    )}
+                  >
+                    {/* The tool SVGs are already brand purple, so the active
+                        state is the lavender pill behind the icon plus a full
+                        opacity glyph; inactive dims instead of recolouring. */}
+                    {t.icon ? (
+                      <Image
+                        src={t.icon}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className={cn("h-[22px] w-auto transition-opacity", on ? "opacity-100" : "opacity-55")}
+                      />
+                    ) : (
+                      <span className={cn("transition-opacity", on ? "opacity-100" : "opacity-55")}>{t.node}</span>
+                    )}
+                  </span>
+                  <span className="text-[14px] font-bold leading-[1.15]">{t.label}</span>
+                  {t.id === "notes" && customerNote.trim() && (
+                    <span aria-hidden className="absolute right-[22%] top-1.5 h-1.5 w-1.5 rounded-full bg-dream-sun" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+
+        {/* Design footer, pricing & quantity live on the review screen; this
+            advances to it. Below lg the Continue action floats over the canvas
+            instead, so the tool tabs own the bottom edge. */}
+        {phase === "design" && (
+          <div className="hidden shrink-0 border-t border-dream-line bg-white px-4 py-2 lg:block">
+            <div className="mx-auto flex max-w-[1400px] items-center justify-end gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <p className={cn("hidden truncate text-sm sm:block", error ? "font-medium text-dream-danger" : "text-dream-muted")}>
+                  {error ?? "Looking good! Set your quantity and see pricing next."}
+                </p>
+                <button
+                  onClick={goToReview}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-dream-purple px-7 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+                >
+                  Continue
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Review screen, scrollable content above a sticky checkout bar */}
+        {phase === "review" && (
+          <div className="flex min-h-0 flex-1 flex-col bg-white">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* Progress, full-width above the two columns so the customer knows
+                where they are and that payment comes only after they approve. */}
+            <div className="border-b border-dream-line bg-dream-cream/60">
+              <ReviewStepper className="mx-auto max-w-6xl px-4 py-3.5 sm:px-6 lg:px-8" onBack={() => setPhase("design")} />
+            </div>
+            {/* Item (left) + details (right). The preview fills the left region
+                and is top-aligned + sticky so it stays put while the form on the
+                right grows/scrolls (typing a quantity no longer shifts it). */}
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pt-4 pb-6 sm:px-6 sm:pt-8 sm:pb-20 lg:flex-row lg:items-start lg:gap-12 lg:px-8 lg:pt-12 lg:pb-28">
+              {/* Preview, centered in the left region, pinned in place. The
+                  back button sits at its top-left corner. */}
+              <div className="relative flex min-h-[260px] items-center justify-center self-stretch p-3 lg:sticky lg:top-12 lg:min-h-[60vh] lg:flex-1 lg:self-start lg:pr-16">
+                <button
+                  onClick={() => setPhase("design")}
+                  className="absolute left-0 top-0 z-10 inline-flex items-center gap-1 font-display text-sm font-bold text-dream-purple transition-colors hover:text-dream-purple-dark lg:-left-2 lg:top-0"
+                >
+                  <svg className="shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 18l-6-6 6-6" /></svg>
+                  Back to designing
+                </button>
+                {previews.length > 0 ? (
+                  <div className="flex w-full flex-col items-center gap-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={(previews[previewIdx] ?? previews[0]).url}
+                      alt={`Your design, ${VIEW_LABEL[(previews[previewIdx] ?? previews[0]).view]}`}
+                      className="max-h-[60vh] w-auto max-w-full object-contain"
+                    />
+                    {/* Front / back (…) toggle, only when more than one side is decorated. */}
+                    {previews.length > 1 && (
+                      <div className="inline-flex gap-1 rounded-full bg-dream-cream p-1 ring-1 ring-dream-line">
+                        {previews.map((p, i) => (
+                          <button
+                            key={p.view}
+                            type="button"
+                            onClick={() => setPreviewIdx(i)}
+                            aria-pressed={i === previewIdx}
+                            className={cn(
+                              "rounded-full px-4 py-1.5 font-display text-sm font-bold transition-colors",
+                              i === previewIdx
+                                ? "bg-dream-ink text-white shadow-sm"
+                                : "text-dream-ink-soft hover:text-dream-ink",
+                            )}
+                          >
+                            {VIEW_LABEL[p.view]}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : awaitingSavedArt ? (
+                  // Opened straight onto review from the cart: the saved art is
+                  // still loading into the (hidden) canvases the mockups are
+                  // exported from. A shimmer, not "unavailable".
+                  <div className="h-[38vh] w-full max-w-sm animate-pulse rounded-2xl bg-dream-cream" aria-hidden />
+                ) : (
+                  <span className="text-sm text-dream-muted">Preview unavailable</span>
+                )}
+              </div>
+
+              {/* Details, a fixed-width form column on the right. */}
+              <div className="w-full lg:w-[34rem] lg:shrink-0">
+                {/* Decoration spec, what's printed, where, and in how many colours.
+                    "Colours" reads as thread (embroidery) or ink (print). */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">What we&apos;re printing</div>
+                    {/* Plain count, no pill: it is a caption on the heading
+                        beside it, not a status to badge. */}
+                    <span className="text-[14px] font-semibold text-dream-muted">
+                      {decoratedSpots.length} {decoratedSpots.length === 1 ? "location" : "locations"}
+                    </span>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-dream-line">
+                    <div className="hidden grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3 bg-dream-cream px-4 py-2.5 text-[14px] font-bold uppercase tracking-wide text-dream-muted sm:grid">
+                      <span>Location</span>
+                      <span>Method</span>
+                      <span className="flex items-center gap-1.5">
+                        Measurement
+                        <HelpDot label="About the print measurement" onClick={() => setHelpTopic("measurement")} />
+                      </span>
+                      <span className="flex items-center justify-end gap-1.5 text-right">
+                        {colourKindLabel}
+                        <HelpDot label="About the colour count" onClick={() => setHelpTopic("colours")} />
+                      </span>
+                    </div>
+                    {/* One row per decorated ZONE. A left chest and a full front
+                        on the same side are two prints, so they get two rows;
+                        both point at that side's mockup. */}
+                    {decoratedSpots.map((s, rowIdx) => {
+                      const v = s.view;
+                      const art = spotArt[s.id];
+                      const pIdx = previews.findIndex((p) => p.view === v);
+                      const interactive = previews.length > 1 && pIdx >= 0;
+                      const isActivePreview = interactive && pIdx === previewIdx;
+                      return (
+                      <div
+                        key={s.id}
+                        role={interactive ? "button" : undefined}
+                        tabIndex={interactive ? 0 : undefined}
+                        aria-pressed={interactive ? isActivePreview : undefined}
+                        onClick={interactive ? () => setPreviewIdx(pIdx) : undefined}
+                        onKeyDown={
+                          interactive
+                            ? (e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setPreviewIdx(pIdx);
+                                }
+                              }
+                            : undefined
+                        }
+                        className={cn(
+                          "border-t border-dream-line px-4 py-3.5 text-sm text-dream-ink first:border-t-0",
+                          // Below sm the column header above is display:none but
+                          // still the container's first child, so `first:` never
+                          // matches the first VISIBLE row and its border doubled
+                          // up with the container's own top edge.
+                          rowIdx === 0 && "max-sm:border-t-0",
+                          interactive &&
+                            "cursor-pointer transition-colors hover:bg-dream-cream/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dream-purple/40",
+                          isActivePreview && "bg-dream-lavender-mist",
+                        )}
+                      >
+                        {/* Below sm this stacks: the location (with its colour
+                            count opposite) on top, the method and measurement
+                            as a quiet second line. All four on one wrapped line
+                            ran together with no hierarchy. */}
+                        <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5 sm:grid-cols-[0.9fr_0.9fr_1.1fr_auto] sm:gap-y-0">
+                          <span className="flex items-center gap-1.5 font-semibold">
+                            {s.name || VIEW_LABEL[v]}
+                            {interactive && (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("shrink-0 transition-opacity", isActivePreview ? "text-dream-purple opacity-100" : "text-dream-faint opacity-0")} aria-hidden>
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+                              </svg>
+                            )}
+                          </span>
+                          <span className="whitespace-nowrap text-[14px] font-semibold text-dream-purple max-sm:justify-self-end sm:order-last sm:rounded-full sm:bg-dream-lavender-soft sm:px-2.5 sm:py-0.5 sm:text-[14px] sm:font-bold sm:justify-self-end">
+                            {art?.colours ? formatColourChip(art.colours, isEmbroidery ? "thread" : "ink") : "-"}
+                          </span>
+                          <span className="text-dream-ink-soft max-sm:col-span-2 max-sm:text-[14px]">
+                            {method?.name ?? "Print"}
+                            <span className="text-dream-faint max-sm:mx-1.5 sm:hidden">·</span>
+                            <span className="whitespace-nowrap sm:hidden">
+                              {art?.metrics ? `${art.metrics.widthIn}″ W × ${art.metrics.heightIn}″ H` : "-"}
+                            </span>
+                          </span>
+                          <span className="hidden whitespace-nowrap text-dream-ink-soft sm:inline">
+                            {art?.metrics
+                              ? `${art.metrics.widthIn}″ W × ${art.metrics.heightIn}″ H`
+                              : "-"}
+                          </span>
+                        </div>
+                        {art?.outside && (
+                          <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-dream-warn-soft px-2.5 py-1.5 text-[14px] font-medium leading-snug text-dream-warn">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0" aria-hidden>
+                              <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                            </svg>
+                            Art extends past the print area. We&apos;ll double-check it with you.
+                          </p>
+                        )}
+                      </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <hr className="my-8 border-dream-line" />
+                {/* Colours & sizes, one block per garment colourway. Same artwork,
+                    different shirt colours; each colour is priced on its own qty. */}
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">
+                      How many of each size? Need another shirt colour? Add one below. Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces
+                      (all colours combined).
+                    </p>
+                  </div>
+
+                  <ColorwayBlock
+                    hex={colour?.hex ?? null}
+                    name={colourName}
+                    sizes={props.sizes}
+                    sizeQty={sizeQty}
+                    onSize={(size, val) => setSizeQty((q) => ({ ...q, [size]: val }))}
+                    pricing={pricedColorways[0]}
+                  />
+
+                  {extraColorways.map((cw, i) => (
+                    <ColorwayBlock
+                      key={cw.id}
+                      hex={props.colours.find((c) => c.name === cw.colourName)?.hex ?? null}
+                      name={cw.colourName}
+                      colours={props.colours}
+                      onColour={(name) => setColorwayColour(cw.id, name)}
+                      onRemove={() => removeColorway(cw.id)}
+                      sizes={props.sizes}
+                      sizeQty={cw.sizeQty}
+                      onSize={(size, val) => setColorwaySize(cw.id, size, val)}
+                      pricing={pricedColorways[i + 1]}
+                    />
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={addColorway}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-dream-purple/50 px-4 py-3 font-display text-sm font-bold text-dream-purple transition-colors hover:bg-dream-lavender-soft"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+                    Add another colour
+                  </button>
+                </div>
+
+                {/* Estimate, same grounded price box as the product page's
+                    instant estimate: per-unit (with bulk savings) + est. total. */}
+                <div className="mt-8 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="mb-1.5 text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Your price</p>
+                      <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
+                        {formatCAD(breakdown.unitPrice)}
+                        <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
+                      </p>
+                      {priceMeta.discountPct > 0 && (
+                        <p className="mt-1.5 flex items-center gap-1.5 text-[14px]">
+                          <span className="text-dream-muted line-through">{formatCAD(priceMeta.anchorPerUnit)}</span>
+                          <span className="rounded-full bg-dream-sun px-2 py-0.5 font-bold text-dream-ink">Save {priceMeta.discountPct}%</span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="mb-1.5 text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Quantity</p>
+                      <p className="font-display text-xl font-bold leading-none text-dream-ink">
+                        {quantity || 0} unit{quantity === 1 ? "" : "s"}
+                      </p>
+                      {quantity > 0 && quantity < MIN_ONLINE_ORDER_QTY && (
+                        <p className="mt-1.5 text-[14px] font-semibold text-dream-warn">
+                          {piecesShortOfMinimum(quantity)} more to reach the {MIN_ONLINE_ORDER_QTY}-piece minimum
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {nextTier && quantity > 0 && (
+                    <div className="mt-3 flex items-center gap-2.5">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-sun px-2.5 py-1 font-display text-[14px] font-extrabold text-dream-ink">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.3-8.3a1 1 0 0 0 0-1.4L12 2Z" /><path d="M6.5 6.5h.01" /></svg>
+                        Save {nextTier.pct}%
+                      </span>
+                      <span className="text-[14px] font-semibold text-dream-ink">Add {nextTier.add} more {nextTier.add === 1 ? "item" : "items"} to unlock</span>
+                    </div>
+                  )}
+                  {/* Running subtotal + what's still to come, so the per-unit
+                      figure above isn't mistaken for the out-the-door price.
+                      Shipping is free; tax is added at checkout once we know
+                      the province (this screen has no address yet). */}
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-dream-lavender-soft pt-2.5">
+                    <span className="text-[14px] font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
+                    <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
+                  </div>
+                  <p className="mt-1.5 text-[14px] font-medium leading-relaxed text-dream-muted">
+                    Free shipping. Tax and any rush you request are added at checkout, and final pricing is confirmed on your proof before you pay.
+                  </p>
+                </div>
+
+                {/* Estimated delivery, one confident in-hands date (shared math
+                    with checkout so the two screens never disagree). */}
+                <div className="mt-6 flex items-start gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5">
+                  <span className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-dream-cream text-dream-purple">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19ZM17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></svg>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-dream-muted">Estimated delivery</p>
+                    <p className="mt-1 font-display text-lg font-bold leading-tight text-dream-ink">In hands by {fmtDate(inHands.end)}</p>
+                    <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
+                      Proof in ~1 business day, then ships once you approve. Dates firm up on your proof.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Rush is asked for at checkout, not here: it applies to the
+                    whole order being placed, so a customer submitting two
+                    designs picks one deadline for the lot. See RushRequest. */}
+
+                {/* The customer's note, shown here too so they can see it is
+                    attached to what they're about to send. */}
+                <NoteCard value={customerNote} onChange={setCustomerNote} className="mt-6 bg-white" />
+
+                {/* Reassurance, the risk-reducers a first-time custom buyer
+                    weighs right at the decision point. "Pay after approval" is
+                    intentionally NOT repeated here (the stepper + CTA carry it). */}
+                <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+                  {["Printed right, guaranteed", "Free design proof", "Printed in Canada", "Expert design review"].map((b) => (
+                    <div key={b} className="flex items-center gap-2 text-sm font-semibold text-dream-ink">
+                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-dream-success-soft text-dream-success">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+                      </span>
+                      {b}
+                    </div>
+                  ))}
+                </div>
+
+                <HelpPrompt
+                  variant="inline"
+                  title="Not sure about sizes, colours, or your art?"
+                  newTab
+                  className="mt-6"
+                />
+
+              </div>
+            </div>
+            </div>
+
+            {/* Sticky checkout bar, pinned to the bottom of the viewport so the
+                CTA is always reachable while the form above scrolls. */}
+            <div className="shrink-0 border-t border-dream-line bg-white px-4 py-3 sm:px-6">
+              <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+                {anyOutOfBounds && !error && (
+                  // dream-warn on a 20% sun wash is two pale yellows on top of
+                  // each other; ink text on the solid brand yellow is the same
+                  // notice the canvas uses, and is actually readable.
+                  <p className="flex min-w-0 items-start gap-2 rounded-xl bg-dream-sun/95 px-3 py-2.5 text-[14px] font-semibold leading-snug text-dream-ink sm:mr-auto sm:bg-transparent sm:p-0 sm:text-[14px] sm:font-medium sm:text-dream-warn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="mt-px h-4 w-4 shrink-0 sm:h-[13px] sm:w-[13px]" aria-hidden>
+                      <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                    </svg>
+                    Some art sits outside the print lines. We&apos;ll double-check it before printing.
+                  </p>
+                )}
+                <p className={cn("min-w-0 text-sm max-sm:text-center max-sm:text-[14px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < MIN_ONLINE_ORDER_QTY ? "text-dream-muted" : "text-dream-faint")}>
+                  {error ??
+                    (quantity < 1
+                      ? `Enter your sizes to continue. Our minimum order is ${MIN_ONLINE_ORDER_QTY} pieces.`
+                      : quantity < MIN_ONLINE_ORDER_QTY
+                        ? minimumOrderMessage(quantity)
+                        : "No payment now. We send a proof to approve first.")}
+                </p>
+                <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-col-reverse max-sm:gap-1">
+                  <button
+                    onClick={() => saveDesign("designs")}
+                    disabled={busy !== null}
+                    className="inline-flex min-w-[11rem] items-center justify-center rounded-full border border-dream-line bg-white px-7 py-3 font-display text-base font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60 max-sm:w-full max-sm:min-w-0 max-sm:border-0 max-sm:bg-transparent max-sm:py-2 max-sm:text-sm max-sm:text-dream-purple"
+                  >
+                    {busy === "save" ? "Saving…" : "Save & share"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSaveError(null);
+                      // Only ask for a name + email when we don't already have
+                      // them. A signed-in customer, or anyone reopening a saved
+                      // design (from the cart or My Designs), goes straight to
+                      // the cart: the dialog was reading as "add another one"
+                      // when all they wanted was to get back.
+                      if (canSkipSaveDialog) {
+                        saveDesign("cart", { name: designName.trim() || props.productName, leadEmail: leadEmail.trim() });
+                        return;
+                      }
+                      setShowSave(true);
+                    }}
+                    disabled={busy !== null || quantity < MIN_ONLINE_ORDER_QTY}
+                    className="inline-flex min-w-[11rem] items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full max-sm:min-w-0 max-sm:py-3.5"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5.4 8.2c4.4-.5 8.9-.5 13.3 0 .5 3.7.8 7.4.9 11.1-5.1.6-10.2.6-15.2 0 .1-3.7.4-7.4 1-11.1Z" /><path d="M8.6 8c-.2-2 .6-4.2 2.6-4.7 1.7-.4 3.4.6 4 2.2.3.8.3 1.7.2 2.5" /></svg>
+                    {busy === "submit" ? (inCart ? "Updating…" : "Adding…") : inCart ? "Update cart" : "Add to cart"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* "?" help on the review spec table, the same reassurance for both
+          columns: an artist reviews everything before production/payment. */}
+      <Dialog open={helpTopic !== null} onOpenChange={(o) => { if (!o) setHelpTopic(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader className="px-6 pt-6 pb-1">
+            <DialogTitle>{helpTopic === "colours" ? colourKindLabel : "Print measurement"}</DialogTitle>
+            <DialogDescription className="pt-1 leading-relaxed">
+              Not right? Each order is reviewed by an artist before we begin production or process
+              payment. Please enter your desired print size in the notes section, and our staff will
+              make the correct price adjustments for you to review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end px-6 pb-6 pt-3">
+            <button
+              onClick={() => setHelpTopic(null)}
+              className="rounded-full bg-dream-purple px-5 py-2 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+            >
+              Got it
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print vs embroidery guide, opened by the "?" on the print-method picker. */}
+      <MethodGuideModal
+        open={methodGuideTab !== null}
+        tab={methodGuideTab ?? "print"}
+        onTab={setMethodGuideTab}
+        onClose={() => setMethodGuideTab(null)}
+      />
+
+      {/* Save-your-design gate, names the design + captures a lead email, then
+          adds it to the cart. */}
+      <Dialog open={showSave} onOpenChange={(o) => { if (busy === null) setShowSave(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="px-6 pt-6 pb-1">
+            <DialogTitle>Name your design</DialogTitle>
+            <DialogDescription>
+              Give it a name so you can spot it in your cart, and add your email. We’ll send you a link to pick this design back up, and that’s where your proof will land.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 px-6 py-4">
+            <Field label="Design name" htmlFor="design-name" required>
+              <Input
+                id="design-name"
+                value={designName}
+                onChange={(e) => setDesignName(e.target.value)}
+                placeholder="e.g. Team hoodies 2026"
+                maxLength={80}
+              />
+            </Field>
+            <Field label="Email" htmlFor="lead-email" required>
+              <Input
+                id="lead-email"
+                type="email"
+                value={leadEmail}
+                onChange={(e) => setLeadEmail(e.target.value)}
+                placeholder="you@email.com"
+              />
+              {props.accountEmail && (
+                <p className="mt-1.5 text-[14px] text-dream-muted">
+                  This design saves to your account ({props.accountEmail}). The email above is just where we send updates and your proof.
+                </p>
+              )}
+            </Field>
+            {saveError && (
+              <p className="rounded-xl bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{saveError}</p>
+            )}
+          </div>
+          <div className="flex items-center justify-end gap-2 px-6 pb-6 pt-2">
+            <button
+              onClick={() => setShowSave(false)}
+              disabled={busy !== null}
+              className="rounded-full px-4 py-2.5 font-display text-sm font-bold text-dream-muted transition-colors hover:text-dream-ink disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const name = designName.trim();
+                const email = leadEmail.trim();
+                if (!name) { setSaveError("Give your design a name."); return; }
+                if (!EMAIL_RE.test(email)) { setSaveError("Enter a valid email."); return; }
+                saveDesign("cart", { name, leadEmail: email });
+              }}
+              disabled={busy !== null}
+              className="inline-flex items-center justify-center rounded-full bg-dream-purple px-6 py-2.5 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy === "submit" ? "Adding…" : "Add to cart"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/**
+ * "Leave a note", Julian's replacement for the old "Message us" links. Rendered
+ * in the left tool panel (with the focusable ref) and again on the review screen
+ * so the customer sees the note is attached to what they're sending. The text is
+ * saved with the design and lands on the order as its customer note.
+ */
+function NoteCard({
+  value,
+  onChange,
+  textareaRef,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-2xl border border-dream-line bg-dream-cream/50 p-4", className)}>
+      <h3 className="font-display text-base font-bold text-dream-ink">Leave a note</h3>
+      <p className="mt-1.5 text-[14px] leading-relaxed text-dream-muted lg:text-[14px]">
+        Have some notes about this order? Leave us a note and we&apos;ll do our best to accommodate your request.
+      </p>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={5}
+        maxLength={2000}
+        placeholder="Print size, exact placement, a deadline, anything we should know…"
+        className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-base leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-dream-faint focus:border-dream-purple lg:text-sm"
+      />
+      <p className="mt-2 text-[14px] text-dream-faint lg:text-[14px]">Saved with your design and sent to our team with your order.</p>
+    </div>
+  );
+}
+
+/** Three-step progress for the review screen. Frames the journey and signals
+ *  up front that payment only comes after the proof is approved. */
+function ReviewStepper({ className, onBack }: { className?: string; onBack?: () => void }) {
+  const steps = [
+    { label: "Design", state: "done" as const },
+    { label: "Quantity & sizes", state: "current" as const },
+    { label: "Approve & pay", state: "upcoming" as const },
+  ];
+  const currentIdx = steps.findIndex((s) => s.state === "current");
+  const current = steps[currentIdx] ?? steps[0];
+  const next = steps[currentIdx + 1];
+
+  return (
+    <>
+    {/* Phones: three circles with two of the three labels suppressed read as
+        meaningless dots with a cramped circle jammed against the edge. A
+        "step N of 3" line over a segmented bar says the same thing in less
+        room, keeps the CURRENT step named, and still promises what comes
+        after (payment is last, and only after the proof). */}
+    <div className={cn("sm:hidden", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-display text-base font-bold text-dream-ink">{current.label}</p>
+        <div className="shrink-0 text-right">
+          <p className="text-[14px] font-semibold text-dream-muted tabular-nums">
+            Step {currentIdx + 1} of {steps.length}
+          </p>
+          {next && (
+            <p className="mt-0.5 text-[14px] text-dream-faint">Next: {next.label}</p>
+          )}
+        </div>
+      </div>
+      <div className="mt-2 flex gap-1.5" aria-hidden>
+        {steps.map((s, i) => (
+          <span
+            key={s.label}
+            className={cn(
+              // One hue that fills up, rather than navy-then-yellow-then-grey:
+              // done is solid purple, the current step a lighter tint of the
+              // same purple, and what's left is the plain rule colour.
+              "h-1.5 flex-1 rounded-full",
+              i < currentIdx
+                ? "bg-dream-purple"
+                : i === currentIdx
+                  ? "bg-dream-lavender"
+                  : "bg-dream-line"
+            )}
+          />
+        ))}
+      </div>
+    </div>
+
+    <ol className={cn("hidden items-center sm:flex", className)}>
+      {steps.map((s, i) => {
+        // A finished step goes back to it; the current and upcoming ones are
+        // not destinations (you cannot skip ahead to payment).
+        const clickable = s.state === "done" && !!onBack;
+        const Marker = (
+          <>
+            <span
+              className={cn(
+                "grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-sm font-bold transition-transform",
+                s.state === "done" && "bg-dream-ink text-white",
+                s.state === "current" && "bg-dream-sun text-dream-ink",
+                s.state === "upcoming" && "border border-dream-line-strong bg-white text-dream-muted",
+                clickable && "group-hover:-translate-y-0.5"
+              )}
+            >
+              {s.state === "done" ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+              ) : (
+                i + 1
+              )}
+            </span>
+            <span
+              className={cn(
+                "whitespace-nowrap text-sm font-bold",
+                s.state === "upcoming" ? "text-dream-muted" : "text-dream-ink",
+                clickable && "group-hover:text-dream-purple group-hover:underline"
+              )}
+            >
+              {s.label}
+            </span>
+          </>
+        );
+        return (
+          <li key={s.label} className={cn("flex items-center gap-2.5", i < steps.length - 1 && "flex-1")}>
+            {clickable ? (
+              <button
+                type="button"
+                onClick={onBack}
+                title="Back to designing"
+                className="group flex items-center gap-2.5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-2"
+              >
+                {Marker}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2.5">{Marker}</div>
+            )}
+            {i < steps.length - 1 && <span className="mx-2 hidden h-px flex-1 bg-dream-line sm:block" />}
+          </li>
+        );
+      })}
+    </ol>
+    </>
+  );
+}
+
+/** One garment colourway on the review screen: a colour (static for the primary,
+ *  a picker for added ones) + a per-size grid + that colour's running subtotal. */
+function ColorwayBlock({
+  hex,
+  name,
+  colours,
+  onColour,
+  onRemove,
+  sizes,
+  sizeQty,
+  onSize,
+  pricing,
+}: {
+  hex: string | null;
+  name: string;
+  colours?: ProductColourJson[];
+  onColour?: (name: string) => void;
+  onRemove?: () => void;
+  sizes: { name: string; inStock: boolean }[];
+  sizeQty: Record<string, number>;
+  onSize: (size: string, val: number) => void;
+  pricing?: { quantity: number; unitPrice: number; lineTotal: number };
+}) {
+  return (
+    <div className="rounded-2xl border border-dream-line p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {onColour ? (
+            <ColourSelect value={name} hex={hex} colours={colours ?? []} onChange={onColour} />
+          ) : (
+            <>
+              <span className="h-6 w-6 shrink-0 rounded-full border border-dream-line" style={swatchStyle({ name, hex })} />
+              <span className="truncate text-sm font-semibold text-dream-ink">{name}</span>
+            </>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label="Remove colour"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-cream hover:text-dream-danger"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Sizes laid out in a single row, label on top, number box below, so
+          the whole size run reads and fills at a glance. Scrolls sideways only
+          if there are too many sizes for the width. */}
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+        {sizes.map((s) => {
+          const v = sizeQty[s.name] ?? 0;
+          const active = v > 0;
+          const set = (n: number) => onSize(s.name, Math.max(0, n));
+          // A lone size ("One Size") stretches its box the full width of the
+          // card, which reads as a text field with nothing to type. Steppers on
+          // each end make it a control you can tap.
+          const solo = sizes.length === 1;
+          return (
+            <label key={s.name} className="flex min-w-[3rem] flex-1 flex-col items-center gap-1.5">
+              <span className="font-display text-[14px] font-bold text-dream-ink">{s.name}</span>
+              <div
+                className={cn(
+                  "flex w-full min-w-0 items-center rounded-lg border-2 bg-white transition",
+                  active ? "border-dream-purple" : "border-dream-ink/25 focus-within:border-dream-purple",
+                )}
+              >
+                {solo && (
+                  <button
+                    type="button"
+                    onClick={() => set(v - 1)}
+                    disabled={v <= 0}
+                    aria-label={`One less ${s.name}`}
+                    className="grid h-11 w-11 shrink-0 place-items-center text-dream-purple transition-colors hover:bg-dream-cream disabled:text-dream-faint disabled:hover:bg-transparent"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden><path d="M5 12h14" /></svg>
+                  </button>
+                )}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={v || ""}
+                  placeholder="0"
+                  onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)}
+                  className="w-full min-w-0 bg-transparent px-1 py-2.5 text-center text-base font-semibold text-dream-ink outline-none placeholder:text-dream-ink/30"
+                />
+                {solo && (
+                  <button
+                    type="button"
+                    onClick={() => set(v + 1)}
+                    aria-label={`One more ${s.name}`}
+                    className="grid h-11 w-11 shrink-0 place-items-center text-dream-purple transition-colors hover:bg-dream-cream"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+                  </button>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+      {/* Per-colour price math, spelled out: qty x unit = line total. */}
+      {pricing && pricing.quantity > 0 && (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-dream-cream px-4 py-3 text-sm">
+          <span className="text-dream-ink-soft">
+            <span className="font-bold text-dream-ink">{pricing.quantity}</span>
+            {" "}{pricing.quantity === 1 ? "piece" : "pieces"}
+            {" "}<span className="text-dream-faint">×</span>{" "}
+            <span className="font-semibold text-dream-ink">{formatCAD(pricing.unitPrice)}</span> each
+          </span>
+          <span className="font-display text-base font-extrabold text-dream-purple">{formatCAD(pricing.lineTotal)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Custom garment-colour picker: a swatch+name trigger that opens a branded
+ *  dropdown showing every colour as a swatch beside its name (with a search box
+ *  for long lists). Replaces the native <select> so the options aren't the bare
+ *  OS list. Closes on outside-click / Escape / selection. */
+function ColourSelect({
+  value,
+  hex,
+  colours,
+  onChange,
+}: {
+  value: string;
+  hex: string | null;
+  colours: ProductColourJson[];
+  onChange: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // Direction + height are measured against the viewport on open so the panel
+  // never spills past the bottom fold: it flips up when there's more room above,
+  // and caps its height to whatever space is actually available.
+  const [placement, setPlacement] = useState<{ up: boolean; maxH: number }>({ up: false, maxH: 320 });
+
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const below = window.innerHeight - r.bottom - 16;
+      const above = r.top - 16;
+      const up = below < 280 && above > below;
+      setPlacement({ up, maxH: Math.max(180, Math.min(360, up ? above : below)) });
+    }
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      return;
+    }
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q ? colours.filter((c) => c.name.toLowerCase().includes(q)) : colours;
+
+  return (
+    <div ref={ref} className="relative min-w-0">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Garment colour"
+        className={cn(
+          "flex w-full items-center gap-2 rounded-lg border bg-white py-1.5 pl-2.5 pr-8 text-left transition-colors",
+          open ? "border-dream-purple ring-2 ring-dream-purple/25" : "border-dream-line hover:border-dream-line-strong",
+        )}
+      >
+        <span className="h-5 w-5 shrink-0 rounded-full border border-dream-line" style={swatchStyle({ name: value, hex })} />
+        <span className="truncate text-sm font-semibold text-dream-ink">{value}</span>
+        <svg
+          className={cn("pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-dream-muted transition-transform", open && "rotate-180")}
+          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          style={{ maxHeight: placement.maxH }}
+          className={cn(
+            "absolute left-0 z-30 flex w-64 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-xl border border-dream-line bg-white shadow-[0_12px_32px_-8px_rgba(27,20,88,0.25)]",
+            placement.up ? "bottom-full mb-1.5" : "top-full mt-1.5",
+          )}
+        >
+          {colours.length > 8 && (
+            <div className="shrink-0 border-b border-dream-line p-2">
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search colours…"
+                className="w-full rounded-lg border border-dream-line bg-dream-cream/50 px-3 py-2 text-sm text-dream-ink outline-none placeholder:text-dream-faint focus:border-dream-purple focus:bg-white"
+              />
+            </div>
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+            {filtered.length === 0 ? (
+              <p className="px-2.5 py-3 text-center text-sm text-dream-muted">No colours match.</p>
+            ) : (
+              filtered.map((c) => {
+                const isSel = c.name === value;
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    role="option"
+                    aria-selected={isSel}
+                    onClick={() => {
+                      onChange(c.name);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
+                      isSel ? "bg-dream-lavender-soft" : "hover:bg-dream-lavender-mist",
+                    )}
+                  >
+                    <span className="h-5 w-5 shrink-0 rounded-full border border-dream-line" style={swatchStyle(c)} />
+                    <span className={cn("flex-1 truncate text-sm", isSel ? "font-bold text-dream-ink" : "font-medium text-dream-ink-soft")}>
+                      {c.name}
+                    </span>
+                    {isSel && (
+                      <svg className="shrink-0 text-dream-purple" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------------- bits --------------------------------- */
+
+/** Small "?" affordance on a spec-table column header. Stops propagation so it
+ *  never triggers the row/preview click behind it. */
+/**
+ * Scales its child visually (CSS transform) while keeping the LAYOUT box in
+ * sync with the scaled size, so zooming in extends the stage's scroll area
+ * (a bare transform never does) and phones can shrink a 520px canvas to fit.
+ * The effective scale is `scale` × fit-to-maxWidth (fit caps at 1). Fabric
+ * pointer math already tolerates ancestor transforms (the old zoom relied on
+ * it), so canvas interactions keep working at any scale.
+ */
+function ScaledBox({
+  scale,
+  maxWidth,
+  children,
+}: {
+  scale: number;
+  maxWidth: number | null;
+  children: React.ReactNode;
+}) {
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    // offsetWidth/Height are layout sizes, unaffected by the transform.
+    const update = () => setNatural({ w: el.offsetWidth, h: el.offsetHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const fit = natural && maxWidth ? Math.min(1, maxWidth / natural.w) : 1;
+  const s = scale * fit;
+  return (
+    <div style={natural ? { width: natural.w * s, height: natural.h * s } : undefined}>
+      <div
+        ref={innerRef}
+        className="w-fit"
+        style={{ transform: `scale(${s})`, transformOrigin: "top left" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HelpDot({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="relative grid h-4 w-4 shrink-0 place-items-center rounded-full border border-dream-muted/60 text-[9.5px] font-bold normal-case leading-none text-dream-muted transition-colors before:absolute before:-inset-2 before:content-[''] hover:border-dream-purple hover:text-dream-purple"
+    >
+      ?
+    </button>
+  );
+}
+
+/**
+ * Mobile canvas chip: an icon over its label, sized for a thumb, on the same
+ * frosted ground as the rest of the phone chrome. Matches the width of the side
+ * switcher beside it so the two rails read as one system.
+ */
+function MobileChip({
+  children,
+  label,
+  srLabel,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  label: string;
+  /** Accessible name, when the visible label is a value rather than an action
+   *  (the zoom chip shows "115%" but is the zoom-IN button). */
+  srLabel?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      aria-label={srLabel ?? label}
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-[3.75rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1.5 text-dream-ink ring-1 ring-dream-ink/[0.06] backdrop-blur-md transition-opacity disabled:opacity-40"
+    >
+      <span className="grid h-8 w-8 place-items-center">{children}</span>
+      <span className="text-[14px] font-bold leading-none text-dream-muted">{label}</span>
+    </button>
+  );
+}
+
+function IconBtn({
+  children,
+  label,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function RailBtn({
+  children,
+  label,
+  onClick,
+  danger,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "flex shrink-0 items-center gap-2.5 rounded-lg p-2.5 text-left text-[14px] font-semibold transition-colors max-sm:min-h-[3rem] max-sm:min-w-[3rem] max-sm:justify-center sm:w-full sm:px-2.5 sm:py-2",
+        danger ? "text-dream-danger hover:bg-dream-danger-soft" : "text-dream-ink hover:bg-dream-cream"
+      )}
+    >
+      <span className="grid h-[1.6rem] w-[1.6rem] shrink-0 place-items-center sm:h-5 sm:w-5">{children}</span>
+      <span className="hidden whitespace-nowrap sm:inline">{label}</span>
+    </button>
+  );
+}
+
+function DuplicateIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+function FlipHIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v18" strokeDasharray="3 3" />
+      <path d="M8 8 4 12l4 4V8Z" />
+      <path d="m16 8 4 4-4 4V8Z" />
+    </svg>
+  );
+}
+function FlipVIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12h18" strokeDasharray="3 3" />
+      <path d="M8 8 12 4l4 4H8Z" />
+      <path d="M8 16l4 4 4-4H8Z" />
+    </svg>
+  );
+}
+function CenterIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7" y="7" width="10" height="10" rx="1.5" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </svg>
+  );
+}
+function ForwardIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3 8 5-8 5-8-5 8-5Z" />
+      <path d="m20 14-8 5-8-5" />
+    </svg>
+  );
+}
+function BackwardIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 11 8 5-8 5-8-5 8-5Z" />
+      <path d="M4 8l8-5 8 5" strokeDasharray="3 3" />
+    </svg>
+  );
+}
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+    </svg>
+  );
+}
+
+function BackArrowIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+    </svg>
+  );
+}
+function SupportIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9.25" />
+      <path d="M9.4 9.3a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.2-2.6 3.7" />
+      <circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function UndoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-1" />
+    </svg>
+  );
+}
+function RedoIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9a5 5 0 0 0 0 10h1" />
+    </svg>
+  );
+}
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function MinusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+function AlignIcon({ align }: { align: "left" | "center" | "right" }) {
+  // Four horizontal rules; the short ones sit left / centered / right to mirror
+  // the chosen text alignment.
+  const short = align === "left" ? "M4 12h9" : align === "right" ? "M11 12h9" : "M7 12h10";
+  const shorter = align === "left" ? "M4 18h6" : align === "right" ? "M14 18h6" : "M9 18h6";
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      className="h-[22px] w-[22px] lg:h-4 lg:w-4"
+    >
+      <path d="M4 6h16" />
+      <path d={short} />
+      <path d="M4 15h16" />
+      <path d={shorter} />
+    </svg>
+  );
+}

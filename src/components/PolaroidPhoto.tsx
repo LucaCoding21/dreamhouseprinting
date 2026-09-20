@@ -66,7 +66,7 @@ export default function PolaroidPhoto({
         />
       </div>
       {label ? (
-        <figcaption className="mt-2 px-1 pb-1 text-center font-display text-[12px] font-bold uppercase tracking-[0.16em] text-dream-ink/70">
+        <figcaption className="mt-2 px-1 pb-1 text-center font-display text-[14px] font-bold uppercase tracking-[0.16em] text-dream-ink/70">
           {label}
         </figcaption>
       ) : null}

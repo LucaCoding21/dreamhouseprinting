@@ -1,10 +1,11 @@
-import type { ProductType } from "@/lib/formTypes";
+import type { PrintLocation, PrintSpec, ProductType } from "@/lib/formTypes";
+import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pricing model — Julian's real quick-quote prices (2026-05-28)
+// Pricing model, Julian's real quick-quote prices (2026-05-28)
 //
 // These are FINAL customer-facing prices, not costs. They're Coastal Reign's
-// rates minus 10%, with markup already baked in — charge them directly, no
+// rates minus 10%, with markup already baked in, charge them directly, no
 // additional multiplier. Source of truth: our_pricing.csv (base) and
 // our_pricing_addons.csv (extras) in the repo root.
 //
@@ -19,7 +20,7 @@ import type { ProductType } from "@/lib/formTypes";
 // headwear is embroidery-only.
 //
 // Embroidery on apparel always equals that garment's screen-print price plus a
-// fixed universal premium (~$47/unit at qty 1, shrinking to ~$4.4 at volume) —
+// fixed universal premium (~$47/unit at qty 1, shrinking to ~$4.4 at volume),
 // confirmed identical across all four apparel SKUs.
 //
 // Still NOT collected by the quick quote (in our_pricing_addons.csv for the
@@ -126,7 +127,7 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
       [250, 10.89], [300, 10.63], [350, 10.4], [500, 9.75], [750, 9.31], [1000, 9.28],
     ],
   },
-  // Solid 12in Cuffed Beanie (SP12) — embroidery only
+  // Solid 12in Cuffed Beanie (SP12), embroidery only
   toque: {
     embroidery: [
       [1, 109.55], [2, 62.18], [3, 46.38], [5, 33.75], [10, 24.27], [12, 22.69],
@@ -135,7 +136,7 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
       [250, 14.34], [300, 14.02], [350, 13.72], [500, 12.87], [750, 12.31], [1000, 12.28],
     ],
   },
-  // Yupoong Classic Dad Cap (6245CM) — embroidery only
+  // Yupoong Classic Dad Cap (6245CM), embroidery only
   "dad-cap": {
     embroidery: [
       [1, 116.55], [2, 69.17], [3, 53.37], [5, 40.74], [10, 31.26], [12, 29.69],
@@ -146,19 +147,19 @@ const BASE_PRICE: Record<PricedProduct, Partial<Record<Decoration, Break[]>>> = 
   },
 };
 
-// Extra screen-print colours — TOTAL per-unit surcharge over the 1 colour the
+// Extra screen-print colours, TOTAL per-unit surcharge over the 1 colour the
 // base price already includes (not stacked). Indexed by colour count; 4+ is a
 // plateau. Embroidery is priced by location, not colour, so this never applies
 // to headwear or to embroidered apparel. (Measured at qty ~50; CR waives the
 // colour upcharge at very low quantities, so this slightly over-estimates there
-// — acceptable for an estimate that rounds up.)
+//, acceptable for an estimate that rounds up.)
 //
 // TODO: this is a flat table (qty ~50). The real per-colour upcharge scales with
 // quantity (≈$0 under ~12 units, ~$1.30 at 50, ~$0.68 at 250). It's left flat on
-// purpose — see CLAUDE.md philosophy + it errs high, which protects margin.
+// purpose, see CLAUDE.md philosophy + it errs high, which protects margin.
 // REVISIT (make quantity-aware) if large multi-colour orders start bouncing off
 // the estimate; you'd want to capture more colour data points first.
-const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
+export const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
   1: 0,
   2: 1.3,
   3: 2.61,
@@ -167,9 +168,9 @@ const EXTRA_COLOUR_SURCHARGE: Record<number, number> = {
 };
 
 // Per-unit surcharge for EACH print/embroidery location beyond the first (the
-// base price already includes one). Adds linearly — a 3rd location costs the
+// base price already includes one). Adds linearly, a 3rd location costs the
 // same as the 2nd. Drops with quantity as setup amortizes. Values are CR −10%.
-const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
+export const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
   screen: [
     [10, 12.24], [25, 5.84], [50, 4.29], [100, 3.46], [250, 2.97], [500, 2.57],
   ],
@@ -181,7 +182,7 @@ const EXTRA_LOCATION_SURCHARGE: Record<Decoration, Break[]> = {
 // Max number of decoration locations the quick quote prices.
 export const MAX_LOCATIONS = 4;
 
-function priceAtQty(breaks: Break[], qty: number): number {
+export function priceAtQty(breaks: Break[], qty: number): number {
   let price = breaks[0][1];
   for (const [min, p] of breaks) {
     if (qty >= min) price = p;
@@ -194,11 +195,94 @@ export type PriceQuote =
   | { available: true; perUnit: number; total: number }
   | { available: false };
 
-// The single pricing entry point.
+// Per-unit surcharge for a screen print with this many colours. The base price
+// already covers one colour, so 1 colour adds nothing. 5+ is the plateau.
+export function colourSurchargeFor(colors: number): number {
+  return EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colors, 1), 5)] ?? 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-print pricing
+//
+// The quick quote asks for an explicit LIST of prints (each with its own
+// location AND its own colour count) instead of "how many locations" plus one
+// global colour count, because that made a multi-print job impossible to read.
+// The garment's base price already includes ONE decoration in ONE location, so
+// the first print in the list carries the base and every print after it adds
+// the extra-location surcharge. Screen colours are charged per print (each
+// print burns its own screens); embroidery is priced per location, so colours
+// never add there.
+//
+//   per-unit = base(product, decoration, qty)
+//            + Σ colourSurcharge(print.colors)              [screen print only]
+//            + (prints − 1) × extraLocation(decoration, qty)
+//
+// One print reduces to base + colourSurcharge(colors), i.e. exactly what
+// calculateQuote() returns at locations = 1, so single-print prices are
+// unchanged. calculateQuote() itself now runs through this same engine (see
+// below) so the two can never drift apart.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** What one print adds to the per-unit price, in the order it was added. */
+export type PrintPriceLine = {
+  location: PrintLocation;
+  colors: number;
+  /** Garment + first decoration. Only the first print carries it; 0 after that. */
+  base: number;
+  /** Extra-location surcharge. 0 on the first print, its location is in the base. */
+  locationSurcharge: number;
+  /** Extra-colour surcharge for this print's own colour count (screen only). */
+  colourSurcharge: number;
+  /** base + locationSurcharge + colourSurcharge. */
+  perUnit: number;
+};
+
+export type PrintsQuote =
+  | { available: true; perUnit: number; total: number; lines: PrintPriceLine[] }
+  | { available: false; lines: PrintPriceLine[] };
+
+export function calculateQuoteForPrints(
+  product: PricedProduct,
+  qty: number,
+  prints: PrintSpec[],
+  decoration: Decoration = DECORATION[product],
+): PrintsQuote {
+  if (qty <= 0 || prints.length === 0) return { available: false, lines: [] };
+
+  const breaks = BASE_PRICE[product][decoration];
+  if (!breaks) return { available: false, lines: [] };
+
+  const base = priceAtQty(breaks, qty);
+  const perExtraLocation = priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], qty);
+
+  const lines: PrintPriceLine[] = prints.map((print, i) => {
+    const colourSurcharge =
+      decoration === "screen" ? colourSurchargeFor(print.colors) : 0;
+    const lineBase = i === 0 ? base : 0;
+    const locationSurcharge = i === 0 ? 0 : perExtraLocation;
+    return {
+      location: print.location,
+      colors: print.colors,
+      base: lineBase,
+      locationSurcharge,
+      colourSurcharge,
+      perUnit: lineBase + locationSurcharge + colourSurcharge,
+    };
+  });
+
+  const perUnit = lines.reduce((sum, l) => sum + l.perUnit, 0);
+  return { available: true, perUnit, total: perUnit * qty, lines };
+}
+
+// The legacy pricing entry point, kept for callers that only know a location
+// COUNT and a single colour count.
 //   • decoration defaults to the product's default (screen for apparel,
 //     embroidery for headwear). Unavailable combos return { available:false }.
 //   • colors is ignored for embroidery.
 //   • locations defaults to 1; each extra adds the location surcharge.
+// Expressed through calculateQuoteForPrints: the colour count applies to the
+// first print and the extra locations are 1-colour prints (which surcharge $0),
+// which reproduces the old base + colourSurcharge + (n−1)×location math exactly.
 export function calculateQuote(
   product: PricedProduct,
   qty: number,
@@ -206,78 +290,17 @@ export function calculateQuote(
   decoration: Decoration = DECORATION[product],
   locations = 1,
 ): PriceQuote {
-  if (qty <= 0) return { available: false };
-
-  const breaks = BASE_PRICE[product][decoration];
-  if (!breaks) return { available: false };
-
-  const base = priceAtQty(breaks, qty);
-
-  const colourSurcharge =
-    decoration === "screen"
-      ? EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colors, 1), 5)] ?? 0
-      : 0;
-
-  const extraLocations = Math.max(0, locations - 1);
-  const locationSurcharge =
-    extraLocations > 0
-      ? extraLocations * priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], qty)
-      : 0;
-
-  const perUnit = base + colourSurcharge + locationSurcharge;
-  return { available: true, perUnit, total: perUnit * qty };
-}
-
-// Screen-print surcharge for a single location's colour count — the TOTAL extra
-// over the 1 colour a location already includes (0 for a 1-colour print). Used
-// per-location so a 4-colour back is costed on its own screens, not the front's.
-export function colourSurcharge(colors: number): number {
-  return EXTRA_COLOUR_SURCHARGE[Math.min(Math.max(colors, 1), 5)] ?? 0;
-}
-
-// Per-location pricing entry point (Coastal-Reign style). Instead of one global
-// colour count, callers pass the colour count for EACH print location. This
-// prices multi-location jobs accurately: every location carries its own colour
-// screens plus the per-extra-location fee, so "2 colours on 3 locations" costs
-// more than "1 colour on 3 locations" (the old flat-per-location math missed
-// this).
-//
-//   perUnit = base garment (incl. 1 location, 1 colour)
-//           + Σ colourSurcharge(location colours)   [screen print only]
-//           + (locations − 1) × extra-location fee
-//
-// The base already bakes in one 1-colour location; the extra-location fee stands
-// in for adding a 1-colour print at a new spot, and colourSurcharge tops up each
-// spot's additional colours. Embroidery is priced by location only — colours
-// don't change the stitch cost, so coloursPerLocation is used only for its
-// LENGTH (the number of locations).
-export function calculateQuoteByLocation(
-  product: PricedProduct,
-  qty: number,
-  decoration: Decoration,
-  coloursPerLocation: number[],
-): PriceQuote {
-  if (qty <= 0) return { available: false };
-
-  const breaks = BASE_PRICE[product][decoration];
-  if (!breaks) return { available: false };
-
-  const base = priceAtQty(breaks, qty);
-  const locations = Math.max(1, coloursPerLocation.length);
-
-  const colourSurchargeTotal =
-    decoration === "screen"
-      ? coloursPerLocation.reduce((sum, c) => sum + colourSurcharge(c), 0)
-      : 0;
-
-  const extraLocations = locations - 1;
-  const locationSurcharge =
-    extraLocations > 0
-      ? extraLocations * priceAtQty(EXTRA_LOCATION_SURCHARGE[decoration], qty)
-      : 0;
-
-  const perUnit = base + colourSurchargeTotal + locationSurcharge;
-  return { available: true, perUnit, total: perUnit * qty };
+  const count = Number.isFinite(locations)
+    ? Math.min(Math.max(1, Math.floor(locations)), 20)
+    : 1;
+  const prints: PrintSpec[] = Array.from({ length: count }, (_, i) => ({
+    // Location is display-only here, the caller only gave us a count.
+    location: "front-center",
+    colors: i === 0 ? colors : 1,
+  }));
+  const quote = calculateQuoteForPrints(product, qty, prints, decoration);
+  if (!quote.available) return { available: false };
+  return { available: true, perUnit: quote.perUnit, total: quote.total };
 }
 
 // Maps the form's coarser ProductType onto a priced SKU. Everything maps 1:1
@@ -297,4 +320,18 @@ export function pricedFromProductType(p: ProductType | ""): PricedProduct | null
 export function roundDisplayPrice(amount: number): number {
   if (!Number.isFinite(amount) || amount <= 0) return 0;
   return Math.floor(amount);
+}
+
+// Snapshot a priced product's quantity-break tables into the storefront's
+// `ProductQuoteCurveJson` shape, so each catalog product can carry an editable
+// copy (in pricing_rules.quote) that the Detailed Quote prices against. This is
+// the bridge from the legacy quick-quote curves to the platform catalog.
+export function legacyCurveFor(p: PricedProduct): ProductQuoteCurveJson {
+  const decorations = AVAILABLE_DECORATIONS[p] as QuoteDecoration[];
+  const breaks: ProductQuoteCurveJson["breaks"] = {};
+  for (const d of decorations) {
+    const table = BASE_PRICE[p][d];
+    if (table) breaks[d] = table.map(([minQty, price]) => ({ minQty, price }));
+  }
+  return { decorations, breaks };
 }

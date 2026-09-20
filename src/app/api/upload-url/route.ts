@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { STORAGE_BUCKET, getSupabaseAdmin } from "@/lib/supabase";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// This endpoint is anonymous (the quote form has no auth), so rate-limit by
+// client IP from x-forwarded-for. See rateLimit.ts for the per-instance caveat.
+const MINT_LIMIT = 40;
+const MINT_WINDOW_MS = 10 * 60 * 1000;
 
 // Mints short-lived signed upload URLs so the browser can push artwork straight
 // to Supabase Storage, bypassing Vercel's 4.5MB serverless request-body limit
 // (large multipart uploads through /api/submit were failing with 413). The
 // browser uploads to these URLs; /api/submit then just records the paths.
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB — must match the client cap
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB, must match the client cap
 const KINDS = new Set(["artwork", "price-match"]);
 
 type FileReq = { id: string; kind: string; name: string; size: number };
@@ -19,6 +25,14 @@ function sanitizeFileName(name: string) {
 }
 
 export async function POST(request: Request) {
+  const ip = (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+  if (!rateLimit(`upload-url:${ip}`, MINT_LIMIT, MINT_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "Too many upload requests. Please wait a few minutes and try again." },
+      { status: 429 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -35,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
-  // No storage configured (local dev without creds) — tell the client to skip
+  // No storage configured (local dev without creds), tell the client to skip
   // direct upload and submit without files, matching the old graceful path.
   if (!supabase) {
     return NextResponse.json({ configured: false });

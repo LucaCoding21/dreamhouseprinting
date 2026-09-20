@@ -1,26 +1,10 @@
 import type { Metadata } from "next";
-import { Archivo, Darumadrop_One, Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { CartProvider } from "@/lib/cart/CartContext";
+import { archivo, darumadrop, inter, lilitaOne } from "@/lib/fonts";
 
 const GA_MEASUREMENT_ID = "G-1X4CV46YY4";
-
-const archivo = Archivo({
-  variable: "--font-archivo",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
-
-const darumadrop = Darumadrop_One({
-  variable: "--font-darumadrop",
-  subsets: ["latin"],
-  weight: "400",
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
 
 const homeTitle = "Custom Screen Printing & Embroidery in Vancouver | Dreamhouse";
 const homeDescription =
@@ -66,7 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${darumadrop.variable} ${inter.variable} h-full antialiased`}
+      className={`${archivo.variable} ${darumadrop.variable} ${inter.variable} ${lilitaOne.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-dream-lavender text-dream-ink font-sans">
         <svg
@@ -74,16 +58,26 @@ export default function RootLayout({
           className="pointer-events-none fixed h-0 w-0 overflow-hidden"
         >
           <defs>
-            <filter id="rough-edges">
+            {/* Static "doodled" pill edge. Per Julian (2026-08-28) the old
+                per-pixel noise (baseFrequency 0.025) read as low-res rather
+                than hand-drawn once the button sat still. A much longer
+                wavelength gives a gentle pen wobble instead of jitter, and the
+                blur + alpha-curve pair re-crisps the displaced edge so it
+                stays anti-aliased. The hover "alive" filter below is untouched. */}
+            <filter id="rough-edges" x="-5%" y="-15%" width="110%" height="130%">
               <feTurbulence
                 type="fractalNoise"
-                baseFrequency="0.025"
+                baseFrequency="0.012"
                 numOctaves="1"
                 seed="4"
                 stitchTiles="stitch"
                 result="noise"
               />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" result="warped" />
+              <feGaussianBlur in="warped" stdDeviation="0.4" result="soft" />
+              <feComponentTransfer in="soft">
+                <feFuncA type="linear" slope="3" intercept="-1" />
+              </feComponentTransfer>
             </filter>
             <filter id="rough-edges-alive">
               <feTurbulence
@@ -120,7 +114,7 @@ export default function RootLayout({
               />
               <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" />
             </filter>
-            {/* Subtle hand-drawn wobble for thin strokes — single low-amplitude
+            {/* Subtle hand-drawn wobble for thin strokes, single low-amplitude
                 turbulence pass, just enough to keep edges from looking CAD. */}
             <filter
               id="stroke-rough"
@@ -141,7 +135,7 @@ export default function RootLayout({
             </filter>
           </defs>
         </svg>
-        {children}
+        <CartProvider>{children}</CartProvider>
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"

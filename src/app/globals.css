@@ -3,9 +3,13 @@
 @theme {
   --color-dream-lavender: #afa6ff;
   --color-dream-lavender-soft: #e0dffe;
+  --color-dream-lavender-mist: #f0eefe;
   --color-dream-lavender-deep: #8a7bff;
-  --color-dream-purple: #7664ff;
+  /* #6856f7 (was #7664ff): white text on it is 4.93:1, AA for the 14px
+     bold button labels used everywhere. The old value was 4.17:1. */
+  --color-dream-purple: #6856f7;
   --color-dream-purple-dark: #5a48d9;
+  --color-dream-purple-selected: #4334b3;
   --color-dream-ink: #1b1458;
   --color-dream-ink-soft: #4a3f9e;
   --color-dream-cream: #f4f2ff;
@@ -16,9 +20,44 @@
   --color-dream-periwinkle: #8080ff;
   --color-dream-lime: #d9f561;
 
+  /* App-surface tokens, the clean SaaS look for storefront/portal/admin
+     surfaces (white cards on a light ground), distinct from the playful
+     lavender marketing pages. Matches the reference designs. */
+  --color-dream-surface: #ffffff;
+  --color-dream-bg: #f6f6fb;
+  --color-dream-line: #e8e7f1;
+  --color-dream-line-strong: #d6d4e6;
+  --color-dream-muted: #6c6890;
+  /* Text tones are tuned to WCAG AA (>=4.5:1) on white AND the app ground.
+     faint was #9a97b8 (2.8:1) and is used for real text (dates, hints). */
+  --color-dream-faint: #6e6b95;
+  --color-dream-success: #117a56;
+  /* Lighter green for non-text marks (tracker checks). 3.27:1 on the
+     lavender-mist card, the AA minimum for a meaningful graphic. Not for
+     text: it is under 4.5:1. */
+  --color-dream-success-mark: #18966a;
+  --color-dream-success-soft: #e3f5ee;
+  --color-dream-warn: #8f5d06;
+  --color-dream-warn-soft: #fbeecd;
+  --color-dream-danger: #c4342e;
+  --color-dream-danger-soft: #fbe4e3;
+  --color-dream-info: #3b6fe0;
+  --color-dream-info-soft: #e4ecfb;
+  /* Neutral grey scrim for modal backdrops, deliberately hue-free so dialogs
+     dim to grey, not the navy-purple of dream-ink. Use as bg-dream-overlay/NN. */
+  --color-dream-overlay: #3a3a3f;
+
   --font-display: var(--font-archivo);
   --font-daruma: var(--font-darumadrop);
   --font-sans: var(--font-inter);
+
+  /* Box corner radii, dialed down from Tailwind's defaults for a tighter,
+     less-rounded look on cards/boxes. rounded-full (pills, avatars) is a
+     separate 9999px value and is unaffected. */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.875rem;
 }
 
 html,
@@ -28,11 +67,39 @@ body {
   overflow-x: clip;
 }
 
+/* Bold type is drawn tighter than its regular cut, which reads as crowded at
+   small sizes. A little tracking on bold text fixes that; Archivo (display)
+   needs more of it than Inter (body). Both sit in @layer base so any explicit
+   tracking-* utility still wins, and the display rule comes second so bold
+   headings take the larger value rather than the body one. */
+@layer base {
+  .font-bold,
+  .font-extrabold,
+  .font-semibold,
+  b,
+  strong {
+    letter-spacing: 0.012em;
+  }
+  .font-display {
+    letter-spacing: 0.025em;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Designer, phone "add artwork first" pill: a short side-to-side nudge when
+   Continue is tapped on an empty canvas. */
+@keyframes empty-nudge {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
 }
 
 @keyframes pop-bounce {
@@ -87,18 +154,205 @@ body {
   }
 }
 
-/* Subtle highlight from the top so the lavender has a little depth */
-body {
-  background-image: radial-gradient(
-    ellipse at top,
-    rgba(255, 255, 255, 0.25),
-    transparent 60%
-  );
-  background-attachment: fixed;
+/* Order-tracker dog: a gentle trotting hop (bob + tilt) as it carries the bag
+   along the progress track. The horizontal position/centering is handled by a
+   wrapper, so this only animates the bounce. */
+@keyframes dog-trot {
+  0%   { transform: translateY(0) rotate(-2deg); }
+  25%  { transform: translateY(-5px) rotate(1deg); }
+  50%  { transform: translateY(0) rotate(-1deg); }
+  75%  { transform: translateY(-3px) rotate(2deg); }
+  100% { transform: translateY(0) rotate(-2deg); }
+}
+.animate-dog-trot {
+  animation: dog-trot 0.9s ease-in-out infinite;
+}
+/* A little celebratory hop when the order is complete (dog has arrived). */
+@keyframes dog-cheer {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  30%      { transform: translateY(-10px) rotate(-6deg) scale(1.05); }
+  60%      { transform: translateY(0) rotate(4deg) scale(1); }
+}
+.animate-dog-cheer {
+  animation: dog-cheer 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-dog-trot,
+  .animate-dog-cheer {
+    animation: none;
+  }
 }
 
-/* Hand-drawn rough-edge pill — background/border drawn on ::before so the
+/* "Placing your order" full-screen overlay: quick fade-in so the swap from
+   the cart form doesn't pop. */
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-overlay-in {
+  animation: overlay-in 0.25s ease-out both;
+}
+/* Loading bar on the "placing your order" overlay. It behaves like real
+   progress: races through the first stretch, slows, and parks just short of
+   full (the actual "done" is the order page taking over, which unmounts the
+   overlay). It never resets or loops. */
+@keyframes loading-fill {
+  0%   { width: 0%; }
+  20%  { width: 55%; }
+  45%  { width: 74%; }
+  70%  { width: 85%; }
+  100% { width: 94%; }
+}
+.animate-loading-fill {
+  animation: loading-fill 9s cubic-bezier(0.25, 0.6, 0.35, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-overlay-in {
+    animation: none;
+  }
+  .animate-loading-fill {
+    animation: none;
+    width: 94%;
+  }
+}
+
+/* Continuous logo marquee ("brands we print on"). The track holds two
+   identical copies of the brand row side by side; translating it -50%
+   lands copy 2 exactly where copy 1 started, so the loop is seamless. */
+@keyframes brand-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-brand-marquee {
+  animation: brand-marquee var(--marquee-duration, 40s) linear infinite;
+}
+.brand-marquee:hover .animate-brand-marquee {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-brand-marquee {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Home hero, short-viewport fit
+   ---------------------------------------------------------------------------
+   The hero is authored for a tall window. In a windowed browser (Julian's
+   usual setup) the nav + headline + copy + buttons + the "See how it works"
+   cue no longer fit, and the CTAs fall below the fold. These rules only fire
+   under 900px of viewport height and only ever SHRINK vertical rhythm, so
+   nothing changes on screens where the hero already fits.
+
+   Every value is a clamp whose upper bound is the authored value at 900px tall
+   and whose lower bound holds around 550px tall, interpolated with svh in
+   between (svh, not vh/dvh: it is the worst-case height and it does not shift
+   while a mobile browser bar collapses). Browsers without svh simply keep the
+   authored Tailwind values.
+   --------------------------------------------------------------------------- */
+@media (max-height: 900px) and (min-width: 1024px) {
+  .home-hero {
+    padding-bottom: 0;
+  }
+  /* Hand the copy more of the row: the headline is long, and at a smaller type
+     size a narrow column wraps it into five or six lines, which costs more
+     height than the type size saves. */
+  .home-hero-grid {
+    grid-template-columns: 1.25fr 1fr;
+  }
+  .home-hero-copy {
+    padding-top: clamp(0px, calc(13.7svh - 75px), 48px);
+  }
+  .home-hero-title {
+    padding-top: clamp(8px, calc(13.7svh - 67px), 56px);
+    font-size: clamp(34px, calc(7.4svh - 7px), 60px);
+  }
+  .home-hero-sub {
+    margin-top: clamp(8px, calc(6.9svh - 30px), 32px);
+  }
+  .home-hero-actions {
+    margin-top: clamp(12px, calc(8svh - 32px), 40px);
+  }
+  /* Capping the width (not the height) keeps the art's aspect ratio, so the
+     photo shrinks instead of letterboxing, and the 1.35 upscale inside scales
+     with it. */
+  .home-hero-media {
+    max-width: clamp(300px, calc(62.9svh - 46px), 520px);
+  }
+  .home-hero-scroll {
+    margin-top: clamp(20px, calc(21.7svh - 99px), 96px);
+  }
+}
+
+/* Stacked (mobile / tablet) layout: the art sits above the copy, so it is the
+   main thing standing between the fold and the CTA. It shrinks harder here. */
+@media (max-height: 900px) and (max-width: 1023px) {
+  .home-hero-media {
+    max-width: clamp(180px, calc(68.6svh - 197px), 420px);
+  }
+  .home-hero-title {
+    padding-top: clamp(4px, calc(13.7svh - 71px), 56px);
+  }
+  .home-hero-sub {
+    margin-top: clamp(8px, calc(2.3svh - 5px), 16px);
+  }
+  .home-hero-actions {
+    margin-top: clamp(12px, calc(8svh - 32px), 40px);
+  }
+  .home-hero-actions a {
+    padding-block: clamp(10px, calc(2.9svh - 6px), 20px);
+  }
+  .home-hero-scroll {
+    margin-top: clamp(12px, calc(10.3svh - 45px), 48px);
+  }
+}
+@media (max-height: 900px) and (max-width: 639px) {
+  .home-hero-title {
+    font-size: clamp(22px, calc(2.3svh + 9px), 30px);
+  }
+  /* The copy block pulls up under the hero photo via -mt-[84px], normally
+     offset by the title's pt-14 (56px) for a net -28px tuck. The clamp above
+     collapses that padding on short viewports, so shrink the pull by the same
+     amount: net stays -28px (headline sits ~20px below the photo's mb-12)
+     instead of climbing onto the photo at 320x568 / 375x667. */
+  .home-hero-copy {
+    margin-top: calc(-28px - clamp(4px, 13.7svh - 71px, 56px));
+  }
+  /* Narrow AND short (iPhone SE, 375x667): the stacked hero needs ~700px to
+     lay out, so the photo shrinks harder here than the >=640px rule allows.
+     This is what keeps "Get a quick quote" above the fold. */
+  .home-hero-media {
+    max-width: clamp(170px, calc(58svh - 165px), 420px);
+  }
+  /* 4 lines of relaxed sub copy is ~104px; tightening the leading buys a line
+     back without dropping the type size. */
+  .home-hero-sub {
+    line-height: 1.45;
+  }
+}
+@media (max-height: 900px) and (min-width: 640px) and (max-width: 1023px) {
+  .home-hero-title {
+    font-size: clamp(26px, calc(4svh + 4px), 40px);
+  }
+}
+
+/* Phones: the headline is long, and the section's 24px side padding leaves it
+   a narrow measure that breaks into short, ragged lines (iPhone SE). Reclaim
+   part of that padding for the title ONLY, so it reads wider and fuller while
+   the body copy below keeps the roomier margin. Width-only (not height-gated)
+   so it holds on tall narrow phones too. */
+@media (max-width: 639px) {
+  .home-hero-title {
+    margin-inline: -6px;
+  }
+}
+
+/* Hand-drawn rough-edge pill, background/border drawn on ::before so the
    SVG turbulence filter only distorts the shape, not the text inside. */
+.rough-pill:focus-visible {
+  outline: 3px solid var(--color-dream-ink);
+  outline-offset: 3px;
+}
 .rough-pill {
   position: relative;
   isolation: isolate;
@@ -134,7 +388,7 @@ body {
   background: #ecbb25;
 }
 
-/* Rough-edge card — white rectangle with scratchy distorted edges.
+/* Rough-edge card, white rectangle with scratchy distorted edges.
    Like rough-pill: draw the bg on ::before so the filter only warps the shape
    and the content inside stays crisp. */
 .rough-card {
@@ -145,7 +399,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 28px;
+  border-radius: 18px;
   background: #ffffff;
   z-index: -1;
   filter: url("#rough-card-edges");
@@ -160,13 +414,22 @@ button {
   appearance: none;
 }
 
+/* Tailwind v4's reset sets clickable controls to cursor: default. Restore the
+   pointer for anything that's actually clickable (disabled controls excepted). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+label[for] {
+  cursor: pointer;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(15%) sepia(60%) saturate(3000%) hue-rotate(237deg)
     brightness(70%);
   cursor: pointer;
 }
 
-/* Hand-drawn scribble "boil" — cycles through 3 frames only on group-hover.
+/* Hand-drawn scribble "boil", cycles through 3 frames only on group-hover.
    All 3 share one 1.2s cycle, each visible in its own third. Transitions are
    near-instantaneous so there's always exactly one frame on-screen (no blink). */
 .scribble-frame {
@@ -216,7 +479,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* Blob morph — hand-drawn "boil" via SVG displacement filter, only on hover.
+/* Blob morph, hand-drawn "boil" via SVG displacement filter, only on hover.
    The filter def lives in ShopByCategories.tsx; seed cycles there, we just toggle. */
 .blob-morph {
   transition: filter 0s;
@@ -225,7 +488,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: url(#blob-morph);
 }
 
-/* Price tag wiggle — for the "from $X" badge on the product category cards.
+/* Price tag wiggle, for the "from $X" badge on the product category cards.
    Each tag sets --base-tilt so its resting rotation is preserved, and the
    wiggle keyframes compose ON TOP of it via calc(). */
 .price-tag-alive {
@@ -271,7 +534,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: url(#scribble-morph);
 }
 
-/* FAQ accordion — smooth height + fade on open/close. Uses ::details-content
+/* FAQ accordion, smooth height + fade on open/close. Uses ::details-content
    + interpolate-size so we can transition to/from `auto`. Browsers without
    support fall back to instant open/close. */
 .faq-accordion {
@@ -281,17 +544,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   block-size: 0;
   overflow: clip;
   opacity: 0;
+  /* Every property runs on the SAME clock. The fade used to finish 100ms before
+     the height did, so a closing answer went invisible while its box was still
+     shrinking, and the card visibly dropped the last stretch on its own, the
+     "bump" you get when opening another question collapses this one. */
   transition:
-    content-visibility 0.35s allow-discrete,
-    block-size 0.35s ease,
-    opacity 0.25s ease;
+    content-visibility 0.3s allow-discrete,
+    block-size 0.3s cubic-bezier(0.33, 1, 0.68, 1),
+    opacity 0.3s cubic-bezier(0.33, 1, 0.68, 1);
 }
 .faq-accordion[open]::details-content {
   block-size: auto;
   opacity: 1;
 }
 
-/* Sun-burst rays — tiny dashes that pop out around a button on hover and then
+/* Sun-burst rays, tiny dashes that pop out around a button on hover and then
    wiggle forever so they feel alive. Each ray gets --x/--y (final offset from
    center), --r (its radial rotation), and --delay (stagger on the wiggle so
    they don't breathe in lock-step). */
@@ -318,7 +585,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
      so the burst looks random instead of synchronized from t=0. */
   animation-delay: calc(-1 * var(--delay));
 }
-/* step-end holds each frame then snaps to the next — reads as "shake"
+/* step-end holds each frame then snaps to the next, reads as "shake"
    rather than "wiggle". 7 frames over 280ms = ~40ms/frame. */
 @keyframes sun-shake {
   0% {
@@ -393,7 +660,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* Polaroid pop-in — same bouncy multi-stage scale as the .animate-pop
+/* Polaroid pop-in, same bouncy multi-stage scale as the .animate-pop
    doodles, but gated by an IntersectionObserver so it fires when each
    polaroid first scrolls into view (since the section sits below the fold).
    Uses the `scale` shorthand so it composes cleanly with the inline

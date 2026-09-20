@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
     if (!apiKey || recipients.length === 0) {
       console.log(
-        "[contact] Resend not configured — logging submission:",
+        "[contact] Resend not configured, logging submission:",
         data,
         "Recipients:",
         recipients,
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       from: `Dreamhouse Contact <${from}>`,
       to: recipients,
       replyTo: data.email,
-      subject: `New contact message — ${data.name}`,
+      subject: `New contact message, ${data.name}`,
       html: renderHtml(data),
     });
 

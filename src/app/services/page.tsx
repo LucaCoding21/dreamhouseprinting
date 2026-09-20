@@ -32,7 +32,7 @@ const METHODS: Method[] = [
     image: "/screen-printing-vancouver.webp",
     imageAlt: "Screen printing inks and squeegee on a custom t-shirt",
     imageTitle: "Bulk screen printing for tees and hoodies in Vancouver",
-    imageClassName: "w-[150px] sm:w-[170px]",
+    imageClassName: "w-[100px] min-[400px]:w-[130px] sm:w-[170px]",
     bg: "bg-dream-purple",
     titleColor: "text-white",
     descColor: "text-white/85",
@@ -42,10 +42,10 @@ const METHODS: Method[] = [
     name: "Embroidery",
     description:
       "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
-    image: "/custom-embroidery-vancouver.png",
+    image: "/custom-embroidery-vancouver-method.webp",
     imageAlt: "Embroidered logo thread close-up on apparel",
     imageTitle: "Custom logo embroidery on caps and jackets in Vancouver",
-    imageClassName: "w-[165px] -rotate-12 sm:w-[188px] -mt-8",
+    imageClassName: "w-[110px] min-[400px]:w-[140px] -rotate-12 sm:w-[188px] sm:-mt-8",
     bg: "bg-white",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
@@ -55,10 +55,10 @@ const METHODS: Method[] = [
     name: "DTF printing",
     description:
       "Direct-to-film (DTF) transfers for full colour prints. Best for small runs, photos, or graphics with 8+ colours.",
-    image: "/dtf-printing-vancouver.webp",
-    imageAlt: "Full colour DTF prints on custom t-shirts",
+    image: "/dtg-printing-vancouver.webp",
+    imageAlt: "DTF transfer being pressed onto a custom t-shirt",
     imageTitle: "Full-colour DTF printing for small runs in Vancouver",
-    imageClassName: "w-[175px] sm:w-[200px]",
+    imageClassName: "w-[110px] min-[400px]:w-[145px] sm:w-[200px]",
     bg: "bg-dream-sun",
     titleColor: "text-dream-ink",
     descColor: "text-dream-ink-soft",
@@ -89,9 +89,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     minQty: 25,
     turnaround: "7–10 days",
     image: "/products/custom-t-shirts-vancouver.jpg",
-    imageAlt: "Custom screen-printed t-shirt",
+    imageAlt: "Custom screen-printed t-shirts showing a left-chest logo and a full back print",
     imageTitle: "Custom printed t-shirts for Vancouver brands and teams",
-    href: "/#quick-quote",
+    href: "/?product=shirt#quick-quote",
   },
   {
     name: "Hoodies",
@@ -100,11 +100,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     minQty: 25,
     turnaround: "7–10 days",
     image: "/products/custom-hoodies-vancouver.jpg",
-    imageAlt: "Custom printed hoodie folded on a shelf",
+    imageAlt: "Stack of folded custom printed hoodies with a left-chest logo",
     imageTitle: "Printed and embroidered hoodies for Vancouver crews",
-    href: "/#quick-quote",
-    imagePosition: "center 42%",
-    imageScale: 1.35,
+    href: "/?product=hoodie#quick-quote",
   },
   {
     name: "Hats & toques",
@@ -113,11 +111,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     minQty: 24,
     turnaround: "10–14 days",
     image: "/products/custom-hats-vancouver.jpg",
-    imageAlt: "Custom embroidered cap",
+    imageAlt: "Stack of custom embroidered caps",
     imageTitle: "Embroidered caps and toques from our Vancouver shop",
-    href: "/#quick-quote",
-    imagePosition: "center 45%",
-    imageScale: 1.0,
+    href: "/?product=hat#quick-quote",
   },
   {
     name: "Bags & totes",
@@ -126,11 +122,9 @@ const PRODUCT_CATEGORIES: ProductCategory[] = [
     minQty: 25,
     turnaround: "7–10 days",
     image: "/products/custom-tote-bags-vancouver.jpg",
-    imageAlt: "Custom printed canvas tote bag",
+    imageAlt: "Custom screen-printed canvas tote bag",
     imageTitle: "Screen-printed canvas tote bags for Vancouver events",
-    href: "/#quick-quote",
-    imagePosition: "center 45%",
-    imageScale: 1.2,
+    href: "/?product=bag#quick-quote",
   },
 ];
 
@@ -220,15 +214,9 @@ export default function ServicesPage() {
 
       <Link
         href="/contact#coastal-reign"
-        className="block bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
+        className="hidden bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95 sm:block"
       >
-        <p className="mx-auto max-w-[1400px] px-4 py-2 text-center text-[12px] font-bold sm:px-6 sm:text-[15px]">
-          {/* Condensed on mobile to avoid an awkward wrap, but still pulls both
-              competitor names (Coastal Reign / Get Bold) — those are the hook. */}
-          <span className="sm:hidden">
-            We price match Coastal Reign &amp; Get Bold and{" "}
-            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
-          </span>
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-4 py-2 text-center text-[14px] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
             <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
@@ -245,13 +233,17 @@ export default function ServicesPage() {
       <FAQ />
       <CTA />
 
-      <SiteFooter />
+      {/* Footer sits flush against the dark CTA, drop the shared footer's top
+          margin so the cream page bg doesn't show as a gap under the dog. */}
+      <div className="[&>footer]:!mt-0">
+        <SiteFooter />
+      </div>
     </main>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Hero — SEO-friendly H1 + description, scalloped bottom edge into Methods
+// Hero, SEO-friendly H1 + description, scalloped bottom edge into Methods
 // ────────────────────────────────────────────────────────────────────────────
 
 function Hero() {
@@ -268,7 +260,7 @@ function Hero() {
             </h1>
 
             <p className="mt-7 max-w-[640px] text-[15px] leading-relaxed text-dream-ink-soft sm:text-[16px]">
-              Custom screen printing, embroidery, and DTF transfers in
+              Custom screen printing, embroidery, and DTF printing in
               Vancouver for shirts, hoodies, hats, and bags. Built for local
               brands, small businesses, and teams.
             </p>
@@ -287,7 +279,7 @@ function Hero() {
             <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2.5 shadow-[8px_8px_0_0_rgba(27,20,88,1)]">
               <div className="relative aspect-square overflow-hidden rounded-lg">
                 <Image
-                  src="/custom-screen-printed-tshirts-vancouver.webp"
+                  src="/screen-printed-tshirt-vancouver.jpeg"
                   alt="Couple wearing matching custom screen-printed t-shirts in Vancouver"
                   title="Matching custom tees printed for a Vancouver event"
                   fill
@@ -301,7 +293,7 @@ function Hero() {
             <div className="absolute -bottom-8 right-0 z-20 w-[48%] rotate-[7deg] rounded-lg bg-white p-2 shadow-[6px_6px_0_0_rgba(27,20,88,0.95)] sm:-bottom-6 sm:right-2 lg:right-4">
               <div className="relative aspect-square overflow-hidden rounded-md">
                 <Image
-                  src="/custom-printed-brand-merch-vancouver.webp"
+                  src="/custom-printed-tshirts-vancouver.jpeg"
                   alt="Custom screen-printed brand merch t-shirts on hangers"
                   title="Custom printed brand merch in Vancouver"
                   fill
@@ -326,7 +318,7 @@ function Hero() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="28" rx="60" ry="28" fill="#f4f2ff" />
+            <ellipse cx="60" cy="29" rx="60" ry="29" fill="#f4f2ff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#services-hero-scallop)" />
@@ -336,7 +328,7 @@ function Hero() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Methods (acts as the page hero — owns the H1 + primary CTA)
+// Methods (acts as the page hero, owns the H1 + primary CTA)
 // ────────────────────────────────────────────────────────────────────────────
 
 function Methods() {
@@ -352,7 +344,7 @@ function Methods() {
       />
       <Reveal variant="up">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-16">
-          <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
+          <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]">
             Three ways to print custom apparel in Vancouver<span className="hidden lg:inline">.</span>
           </h2>
           <div>
@@ -379,24 +371,31 @@ function Methods() {
             key={m.name}
             variant="stamp"
             delay={i * 100}
-            className={`relative h-[300px] w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:px-9 lg:flex-1 ${i > 0 ? "lg:-ml-6" : ""} ${m.bg}`}
+            className={`relative h-auto w-full max-w-[480px] rounded-[32px] px-8 pt-7 pb-8 transition-[translate,box-shadow] duration-300 ease-out hover:z-20 hover:-translate-y-10 hover:shadow-[10px_10px_0_0_rgba(27,20,88,1)] sm:h-[340px] sm:px-9 lg:flex-1 ${i > 0 ? "lg:-ml-6" : ""} ${m.bg}`}
             style={{ rotate: `${m.rotate}deg` } as CSSProperties}
           >
-            <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
-              {m.name}
-            </h3>
+            {/* Mobile only: title and photo sit side by side in normal flow so
+                the card can be content-height. `sm:contents` dissolves this
+                wrapper from sm up, restoring the absolute-positioned layout. */}
+            <div className="flex items-start justify-between gap-4 sm:contents">
+              <h3 className={`font-display text-[26px] font-bold leading-tight sm:text-[30px] ${m.titleColor}`}>
+                {m.name}
+              </h3>
 
-            <Image
-              src={m.image}
-              alt={m.imageAlt}
-              title={m.imageTitle}
-              width={260}
-              height={260}
-              unoptimized
-              className={`absolute right-2 top-[42%] z-0 h-auto -translate-y-1/2 sm:right-3 ${m.imageClassName ?? "w-[210px] sm:w-[240px]"}`}
-            />
+              <Image
+                src={m.image}
+                alt={m.imageAlt}
+                title={m.imageTitle}
+                width={260}
+                height={260}
+                sizes="(min-width: 640px) 240px, (min-width: 400px) 210px, 150px"
+                className={`static right-2 top-[32%] z-0 h-auto shrink-0 translate-y-0 sm:absolute sm:right-3 sm:top-[42%] sm:-translate-y-1/2 ${m.imageClassName ?? "w-[150px] min-[400px]:w-[210px] sm:w-[240px]"}`}
+              />
+            </div>
 
-            <p className={`absolute bottom-7 left-8 right-8 z-10 max-w-[58%] text-[15px] leading-relaxed sm:left-9 sm:text-[16px] ${m.descColor}`}>
+            {/* Normal flow under the title/photo row at base; the pinned
+                side-by-side 58% layout returns at sm. */}
+            <p className={`static bottom-7 left-8 right-8 z-10 mt-5 text-[15px] leading-relaxed sm:absolute sm:mt-0 sm:left-9 sm:max-w-[58%] sm:text-[16px] ${m.descColor}`}>
               {m.description}
             </p>
           </Reveal>
@@ -412,7 +411,7 @@ function Methods() {
 
 function Products() {
   return (
-    <section className="bg-dream-cream pb-32 pt-20 lg:pb-44 lg:pt-24">
+    <section className="bg-dream-cream pb-32 pt-10 sm:pt-20 lg:pb-44 lg:pt-24">
       <div className="mx-auto max-w-[1550px] px-6 lg:px-10">
         <Reveal variant="up">
           <SectionHeader
@@ -456,7 +455,7 @@ function Products() {
                 className="price-tag-alive pointer-events-none absolute -right-2 top-4 z-20 inline-flex items-baseline gap-1.5 rounded-full bg-dream-sun px-4 py-2 font-display text-dream-ink shadow-[0_3px_0_0_rgba(27,20,88,0.92)] ring-2 ring-white"
                 style={{ "--base-tilt": `${tagTilts[i % tagTilts.length]}deg` } as CSSProperties}
               >
-                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-dream-ink/70">
+                <span className="text-[14px] font-bold uppercase tracking-[0.14em] text-dream-ink/70">
                   from
                 </span>
                 <span className="font-display text-[17px] font-bold leading-none text-dream-ink">
@@ -469,7 +468,7 @@ function Products() {
                   <h3 className="font-display text-[22px] font-bold leading-tight tracking-tight text-dream-ink lg:text-[24px]">
                     {cat.name}
                   </h3>
-                  <p className="mt-1.5 text-[13px] leading-snug text-dream-ink/70">
+                  <p className="mt-1.5 text-[14px] leading-snug text-dream-ink/70">
                     {cat.brands.join(" · ")}
                   </p>
                 </div>
@@ -483,20 +482,14 @@ function Products() {
                 </span>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] font-medium text-dream-ink/55">
-                <span className="inline-flex items-center gap-1.5">
-                  <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
-                    <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M8 4.5 V8 L10.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+              {/* Two quiet tags, no icons or separator dot: the old icon row
+                  read as three unrelated symbols on a phone. */}
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 px-1">
+                <span className="rounded-md bg-dream-ink/[0.06] px-2 py-1 text-[12px] font-semibold leading-none text-dream-ink/70">
                   {cat.turnaround}
                 </span>
-                <span aria-hidden="true" className="text-dream-ink/30">•</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
-                    <path d="M2.5 5.5 L8 3 L13.5 5.5 L8 8 Z M2.5 5.5 V11 L8 13.5 M13.5 5.5 V11 L8 13.5 M8 8 V13.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                  </svg>
-                  Min {cat.minQty}
+                <span className="rounded-md bg-dream-ink/[0.06] px-2 py-1 text-[12px] font-semibold leading-none text-dream-ink/70">
+                  Min. {cat.minQty} pcs
                 </span>
               </div>
             </Link>
@@ -515,7 +508,7 @@ function Products() {
 
 function FAQ() {
   return (
-    <section id="faq" className="relative bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40 scroll-mt-24">
+    <section id="faq" className="relative overflow-x-clip bg-dream-lavender-soft pb-16 pt-32 lg:pb-20 lg:pt-40 scroll-mt-24">
       <svg
         aria-hidden="true"
         preserveAspectRatio="xMidYMid"
@@ -528,7 +521,7 @@ function FAQ() {
             height="28"
             patternUnits="userSpaceOnUse"
           >
-            <ellipse cx="60" cy="0" rx="60" ry="28" fill="#f4f2ff" />
+            <ellipse cx="60" cy="-1" rx="60" ry="29" fill="#f4f2ff" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#services-products-scallop)" />
@@ -536,13 +529,13 @@ function FAQ() {
       <div className="relative mx-auto grid max-w-[1500px] gap-4 px-6 lg:grid-cols-[1fr_1.3fr] lg:items-start lg:gap-16 lg:px-10">
         <div>
           <Reveal variant="up">
-            <h2 className="font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[44px] lg:text-[48px]">
+            <h2 className="font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] md:text-[44px] lg:text-[48px]">
               Frequently asked questions
             </h2>
           </Reveal>
           <Reveal variant="stamp" delay={120}>
             <Image
-              src="/faq.gif"
+              src="/faq.webp"
               alt=""
               width={2800}
               height={1752}
@@ -674,12 +667,12 @@ function SectionHeader({
     >
       {kicker ? (
         cleanKicker ? (
-          <span className="font-display text-xs font-bold uppercase tracking-[0.12em] text-dream-purple">
+          <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-dream-purple">
             {kicker}
           </span>
         ) : (
           <span
-            className={`inline-flex items-center gap-2 font-display text-xs font-bold uppercase tracking-[0.28em] text-dream-purple ${
+            className={`inline-flex items-center gap-2 font-display text-[14px] font-bold uppercase tracking-[0.28em] text-dream-purple ${
               center ? "justify-center" : ""
             }`}
           >
@@ -691,7 +684,7 @@ function SectionHeader({
       <h2
         className={`${
           kicker ? "mt-4" : ""
-        } font-display text-[38px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]`}
+        } font-display text-[30px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[38px] lg:text-[46px]`}
       >
         {title}
       </h2>

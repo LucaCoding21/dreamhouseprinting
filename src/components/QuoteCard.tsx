@@ -4,16 +4,18 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HEARD_ABOUT_OPTIONS,
+  PRINT_COLOR_CHOICES,
   PRINT_LOCATIONS,
-  PRINT_LOCATION_LABEL,
   SIZE_KEYS,
-  colorLabel,
-  derivePrint,
+  defaultPrints,
   emptyFormData,
+  nextPrint,
+  printColorLabel,
+  printLocationLabel,
   sumSizes,
   type PrintLocation,
   type PrintMethod,
-  type PrintPlacement,
+  type PrintSpec,
   type ProductType,
   type QuoteFormData,
   type SizeBreakdown,
@@ -22,11 +24,12 @@ import {
 import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
 import {
   AVAILABLE_DECORATIONS,
-  calculateQuoteByLocation,
+  calculateQuoteForPrints,
   DECORATION,
   roundDisplayPrice,
   type Decoration,
   type PricedProduct,
+  type PrintPriceLine,
 } from "@/lib/pricing";
 import AnimatedPrice from "./AnimatedPrice";
 
@@ -34,7 +37,7 @@ import AnimatedPrice from "./AnimatedPrice";
 // The home page's all-in-one quote card. It starts as the price calculator
 // (phase "calc"); locking in a price swaps the same card into the multi-step
 // request form (phase "form"), carrying the calculator's picks across. There's
-// no separate /quote page — this card owns the whole flow.
+// no separate /quote page, this card owns the whole flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DREAM_LETTERS = ["D", "R", "E", "A", "M"] as const;
@@ -43,7 +46,7 @@ const DEFAULT_LETTER = "#2a1b8a";
 
 // Products the calculator can price. The two headwear SKUs are separate because
 // their prices differ materially (a dad cap runs ~$5/unit over a toque). "other"
-// has no price data — it routes straight into the form for a manual quote.
+// has no price data, it routes straight into the form for a manual quote.
 type CalcProduct = PricedProduct | "other";
 
 const CALC_PRODUCTS: { value: CalcProduct; label: string }[] = [
@@ -133,7 +136,7 @@ async function uploadAttachments(
     configured?: boolean;
     uploads?: { id: string; kind: string; path: string; token: string }[];
   };
-  // Storage not configured (local dev without creds) — submit without files,
+  // Storage not configured (local dev without creds), submit without files,
   // matching the app's graceful-degradation behavior.
   if (!data.configured) return { artwork: [], priceMatch: [] };
 
@@ -188,7 +191,7 @@ function formatPhone(v: string): string {
 
 const FORM_STEPS = [
   { title: "Garment details", subtitle: "Color, sizes, and where the print goes." },
-  { title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS — whatever you've got." },
+  { title: "Upload your artwork", subtitle: "PNG, JPG, PDF, AI or EPS, whatever you've got." },
   { title: "Wrap it up", subtitle: "How to reach you and when you need it." },
 ] as const;
 
@@ -203,11 +206,10 @@ export default function QuoteCard() {
   const [quantity, setQuantity] = useState("50");
   const [useCustomQty, setUseCustomQty] = useState(false);
   const [decoration, setDecoration] = useState<Decoration>("screen");
-  // Per-location print detail (Coastal-Reign style): each spot has its own
-  // colour count. Starts with one 1-colour front print.
-  const [placements, setPlacements] = useState<PrintPlacement[]>([
-    { location: "front-center", colors: 1 },
-  ]);
+  // The explicit list of prints (location + that print's own colour count).
+  // One piece of state shared by both phases: the calculator and the form step
+  // edit the same list, so the price never disagrees with what's on screen.
+  const [prints, setPrints] = useState<PrintSpec[]>(defaultPrints);
 
   // Form state.
   const [step, setStep] = useState<StepIndex>(0);
@@ -224,8 +226,8 @@ export default function QuoteCard() {
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   // Preselect the product from a ?product= hint. Two cases:
-  //  1. Landing here from another page (services, etc.) — read it on mount.
-  //  2. Clicking a category link while ALREADY on the home page — Next does a
+  //  1. Landing here from another page (services, etc.), read it on mount.
+  //  2. Clicking a category link while ALREADY on the home page, Next does a
   //     client-side nav that doesn't remount this card, so we also intercept
   //     clicks on any in-page link carrying ?product= and switch to it. This
   //     stays self-contained here instead of touching every link site.
@@ -285,23 +287,18 @@ export default function QuoteCard() {
   }, [priced, decoration]);
 
   const isScreen = priced !== null && effDecoration === "screen";
-  // For the diagram + summary: the busiest location's colour count.
-  const colorCount = isScreen
-    ? placements.reduce((m, p) => Math.max(m, p.colors), 0)
-    : 0;
+  // The hoodie diagram tints one letter per colour, so it follows the busiest
+  // print in the list.
+  const colorCount = prints.reduce((max, p) => Math.max(max, p.colors), 0);
   const qtyNum = Math.max(0, parseInt(quantity, 10) || 0);
   const quote = priced
-    ? calculateQuoteByLocation(
-        priced,
-        qtyNum,
-        effDecoration,
-        placements.map((p) => p.colors),
-      )
+    ? calculateQuoteForPrints(priced, qtyNum, prints, effDecoration)
     : null;
   const perUnit = quote?.available ? quote.perUnit : 0;
+  const calcLines = quote?.available ? quote.lines : [];
 
-  // "other" isn't a real SKU, so the form keeps the product + colors pickers;
-  // priced products lock them (shown in the summary banner instead).
+  // "other" isn't a real SKU, so the form keeps the product picker; priced
+  // products lock it (it's shown in the summary banner instead).
   const productLocked = calcProduct !== "other";
 
   // In the form phase the quantity is still editable (Total quantity field /
@@ -311,54 +308,29 @@ export default function QuoteCard() {
     ? Math.max(0, parseInt(data.quantity, 10) || 0)
     : sumSizes(data.sizes);
   const effectiveQty = formQty > 0 ? formQty : qtyNum;
-  // In the form, the user can edit the placements directly, so the live price
-  // follows their per-location colour picks (at least one location).
-  const formLocations = Math.max(1, data.placements.length);
+  // The form edits the same prints list, so its price is the same calculation
+  // against the live quantity.
   const formQuote = priced
-    ? calculateQuoteByLocation(
-        priced,
-        effectiveQty,
-        effDecoration,
-        data.placements.map((p) => p.colors),
-      )
+    ? calculateQuoteForPrints(priced, effectiveQty, prints, effDecoration)
     : null;
   const formPerUnit = formQuote?.available ? formQuote.perUnit : 0;
-  // Busiest location's colour count, for the sticky-bar summary.
-  const formColorCount = isScreen
-    ? data.placements.reduce((m, p) => Math.max(m, p.colors), 0)
-    : 0;
+  const formLines = formQuote?.available ? formQuote.lines : [];
 
   const update = <K extends keyof QuoteFormData>(key: K, value: QuoteFormData[K]) =>
     setData((d) => ({ ...d, [key]: value }));
-
-  // Update placements + keep the derived legacy fields (printColors /
-  // printLocations) in sync so the existing DB columns stay populated.
-  const setFormPlacements = (next: PrintPlacement[]) =>
-    setData((d) => ({ ...d, placements: next, ...derivePrint(next) }));
 
   const lockIn = () => {
     const mapped = TO_FORM[calcProduct];
     // Carry the chosen decoration into the form's print method (priced products
     // only; "other" keeps the form's "not-sure" default).
     const printMethod: PrintMethod = priced ? effDecoration : mapped.printMethod;
-    setData((d) => {
-      // Priced products carry the calculator's placements into the form; "other"
-      // keeps whatever the customer already built, seeding one row if empty.
-      const nextPlacements = productLocked
-        ? placements
-        : d.placements.length > 0
-          ? d.placements
-          : [{ location: "front-center" as PrintLocation, colors: 1 }];
-      return {
-        ...d,
-        productType: mapped.productType,
-        printMethod,
-        placements: nextPlacements,
-        ...derivePrint(nextPlacements),
-        quantity: String(qtyNum),
-        sizesLater: true,
-      };
-    });
+    setData((d) => ({
+      ...d,
+      productType: mapped.productType,
+      printMethod,
+      quantity: String(qtyNum),
+      sizesLater: true,
+    }));
     setStep(0);
     setTouchedNext(false);
     setSubmitError(null);
@@ -384,8 +356,7 @@ export default function QuoteCard() {
         if (total <= 0) errs.sizes = "Enter at least one size count.";
         else if (total < MIN_ONLINE_ORDER_QTY) errs.sizes = minimumOrderMessage(total);
       }
-      if (data.placements.length === 0)
-        errs.placements = "Add at least one print location.";
+      if (prints.length === 0) errs.prints = "Add at least one print.";
     }
     if (step === 2) {
       if (!data.name.trim()) errs.name = "We need a name to put on your quote.";
@@ -394,7 +365,7 @@ export default function QuoteCard() {
       if (!data.phone.trim()) errs.phone = "Phone is required.";
     }
     return errs;
-  }, [step, data]);
+  }, [step, data, prints]);
 
   const canAdvance = Object.keys(stepErrors).length === 0;
 
@@ -408,7 +379,7 @@ export default function QuoteCard() {
   const onBack = () => {
     setTouchedNext(false);
     if (step === 0) {
-      // First form step — step back to the calculator.
+      // First form step, step back to the calculator.
       editSelection();
       return;
     }
@@ -452,31 +423,39 @@ export default function QuoteCard() {
       const effectiveQuantity = data.sizesLater
         ? data.quantity
         : String(sumSizes(data.sizes));
-      const payload: QuoteFormData = { ...data, quantity: effectiveQuantity };
+      // The prints list lives outside `data` (both phases edit it), so fold it
+      // into the payload here. The API derives print_locations + print_colors
+      // from it.
+      const payload: QuoteFormData = {
+        ...data,
+        quantity: effectiveQuantity,
+        prints,
+      };
 
       // Snapshot of the on-screen estimate so Julian sees exactly the price the
-      // customer was shown, plus the inputs behind it ("why").
+      // customer was shown, plus the inputs behind it ("why"), now including
+      // the per-print breakdown.
       const displayPerUnit = roundDisplayPrice(formPerUnit);
       const submitQty = Number(effectiveQuantity) || effectiveQty;
-      const screenPricing = priced !== null && effDecoration === "screen";
-      const submitColorCount = screenPricing
-        ? data.placements.reduce((m, p) => Math.max(m, p.colors), 0)
-        : 0;
       const estimate = {
         available: Boolean(priced) && formPerUnit > 0,
         product: CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Custom",
         sku: priced ?? null,
         decoration: priced ? effDecoration : null,
-        colors: screenPricing ? submitColorCount : null,
-        locations: priced ? formLocations : null,
-        // Per-location breakdown so Julian can quote each spot accurately.
-        placements: data.placements.map((p) => ({
-          location: p.location,
-          label: PRINT_LOCATION_LABEL[p.location],
-          colors: screenPricing ? p.colors : null,
-        })),
+        colors: isScreen && prints.length > 0 ? prints[0].colors : null,
+        locations: priced ? prints.length : null,
         quantity: submitQty,
         perUnit: displayPerUnit,
+        perUnitExact: Number(formPerUnit.toFixed(2)),
+        prints: formLines.map((line) => ({
+          location: line.location,
+          label: printLocationLabel(line.location),
+          colors: line.colors,
+          perUnit: Number(line.perUnit.toFixed(2)),
+          base: Number(line.base.toFixed(2)),
+          locationSurcharge: Number(line.locationSurcharge.toFixed(2)),
+          colourSurcharge: Number(line.colourSurcharge.toFixed(2)),
+        })),
         total: displayPerUnit * submitQty,
       };
 
@@ -519,7 +498,9 @@ export default function QuoteCard() {
 
   return (
     <section className="bg-dream-cream">
-      <div className="mx-auto max-w-[960px] px-6 py-14 lg:px-10 lg:py-20">
+      {/* Slim outer gutter on phones so the card itself gets the width; the
+          card keeps its own px-5 inside, so content never touches the edge. */}
+      <div className="mx-auto max-w-[960px] px-3 py-14 sm:px-6 lg:max-w-[1080px] lg:px-10 lg:py-20">
         <div
           id="quick-quote"
           ref={cardRef}
@@ -535,12 +516,12 @@ export default function QuoteCard() {
               setQuantity={setQuantity}
               useCustomQty={useCustomQty}
               setUseCustomQty={setUseCustomQty}
-              placements={placements}
-              setPlacements={setPlacements}
               decoration={effDecoration}
               setDecoration={setDecoration}
               availableDecos={availableDecos}
-              isScreen={isScreen}
+              prints={prints}
+              setPrints={setPrints}
+              lines={calcLines}
               colorCount={colorCount}
               perUnit={perUnit}
               qtyNum={qtyNum}
@@ -568,8 +549,13 @@ export default function QuoteCard() {
                       showProductGrid={!productLocked}
                     />
                     <StepPrint
-                      data={data}
-                      setPlacements={setFormPlacements}
+                      prints={prints}
+                      setPrints={setPrints}
+                      lines={formLines}
+                      decoration={data.printMethod === "embroidery" ? "embroidery" : "screen"}
+                      productLabel={
+                        CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Item"
+                      }
                       errors={touchedNext ? stepErrors : {}}
                     />
                   </div>
@@ -611,57 +597,60 @@ export default function QuoteCard() {
                 </div>
               )}
 
-              <p className="mt-6 text-center text-xs text-dream-ink-soft">
+              <p className="mt-6 text-center text-[14px] text-dream-ink-soft">
                 Have a quote from{" "}
                 <span className="font-semibold text-dream-ink">Get Bold</span> or{" "}
                 <span className="font-semibold text-dream-ink">Coastal Reign</span>?
                 Add it on the last step for Julian&apos;s price match.
               </p>
 
-              {/* Sticky action bar — keeps the locked-in price and the primary
+              {/* Sticky action bar, keeps the locked-in price and the primary
                   CTA glued to the bottom of the screen through every step.
                   Opaque yellow bg so it cleanly covers fields it floats over.
-                  On phones the price and buttons stack (a single squeezed row
-                  collided badly); from sm up they sit side by side as a pill. */}
-              <div className="sticky bottom-4 z-20 mt-8 rounded-3xl border-2 border-dream-ink/20 bg-dream-sun px-4 py-3 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:rounded-full sm:px-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  On phones it is ONE short row (price left, Back/Next right)
+                  with the summary line hidden: the stacked version ate a third
+                  of the screen and sat over the field being edited. */}
+              <div className="sticky bottom-3 z-20 mt-6 rounded-full border-2 border-dream-ink/20 bg-dream-sun px-3.5 py-2 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:bottom-4 sm:mt-8 sm:px-5 sm:py-3">
+                <div className="flex items-center justify-between gap-2.5 sm:gap-3">
                   <div className="min-w-0">
                     {formPerUnit > 0 ? (
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-dream-ink/60">
+                        <span className="text-[14px] font-semibold uppercase tracking-[0.1em] text-dream-ink/60">
                           est.
                         </span>
                         <AnimatedPrice
                           value={formPerUnit}
                           className="font-display text-2xl font-bold leading-none text-dream-ink tabular-nums sm:text-3xl"
                         />
-                        <span className="text-xs font-semibold text-dream-ink/70">/ item</span>
+                        <span className="text-[14px] font-semibold text-dream-ink/70">/ item</span>
                       </div>
                     ) : (
                       <span className="font-display text-base font-bold text-dream-ink">
                         Custom quote
                       </span>
                     )}
-                    <div className="mt-0.5 truncate text-[11px] font-semibold text-dream-ink/65">
+                    <div className="mt-0.5 hidden truncate text-[14px] font-semibold text-dream-ink/65 sm:block">
                       {formPerUnit > 0 && effectiveQty > 0
                         ? `≈ $${(roundDisplayPrice(formPerUnit) * effectiveQty).toLocaleString()} total · `
                         : ""}
                       {effectiveQty} {CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "items"}
                       {priced ? ` · ${effDecoration === "embroidery" ? "embroidery" : "screen print"}` : ""}
-                      {priced && formLocations > 0
-                        ? ` · ${formLocations} location${formLocations === 1 ? "" : "s"}`
+                      {priced && prints.length > 0
+                        ? ` · ${prints.length} ${prints.length === 1 ? "print" : "prints"}`
                         : ""}
-                      {isScreen && formColorCount > 0
-                        ? ` · up to ${formColorCount} ${formColorCount === 1 ? "color" : "colors"}`
+                      {isScreen && prints.length === 1
+                        ? ` · ${printColorLabel(prints[0].colors)} ${
+                            prints[0].colors === 1 ? "color" : "colors"
+                          }`
                         : ""}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={onBack}
                       disabled={submitting}
-                      className="h-12 flex-1 rounded-xl border-2 border-dream-ink/70 bg-transparent px-4 font-display text-base font-semibold text-dream-ink transition active:scale-[0.98] disabled:opacity-50 sm:flex-none"
+                      className="h-11 rounded-xl border-2 border-dream-ink/70 bg-transparent px-3 font-display text-sm font-semibold text-dream-ink transition active:scale-[0.98] disabled:opacity-50 sm:h-12 sm:px-4 sm:text-base"
                     >
                       Back
                     </button>
@@ -669,7 +658,7 @@ export default function QuoteCard() {
                       <button
                         type="button"
                         onClick={onNext}
-                        className="h-12 flex-1 rounded-xl border-2 border-dream-ink bg-white px-6 font-display text-lg font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:flex-none"
+                        className="h-11 rounded-xl border-2 border-dream-ink bg-white px-5 font-display text-base font-bold text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:h-12 sm:px-6 sm:text-lg"
                       >
                         Next
                       </button>
@@ -703,12 +692,12 @@ function Calculator({
   setQuantity,
   useCustomQty,
   setUseCustomQty,
-  placements,
-  setPlacements,
   decoration,
   setDecoration,
   availableDecos,
-  isScreen,
+  prints,
+  setPrints,
+  lines,
   colorCount,
   perUnit,
   qtyNum,
@@ -721,12 +710,12 @@ function Calculator({
   setQuantity: (q: string) => void;
   useCustomQty: boolean;
   setUseCustomQty: (b: boolean) => void;
-  placements: PrintPlacement[];
-  setPlacements: (next: PrintPlacement[]) => void;
   decoration: Decoration;
   setDecoration: (d: Decoration) => void;
   availableDecos: Decoration[];
-  isScreen: boolean;
+  prints: PrintSpec[];
+  setPrints: (p: PrintSpec[]) => void;
+  lines: PrintPriceLine[];
   colorCount: number;
   perUnit: number;
   qtyNum: number;
@@ -737,21 +726,34 @@ function Calculator({
     screen: "Screen print",
     embroidery: "Embroidery",
   };
-  const locationWord = decoration === "embroidery" ? "Embroidery" : "Print";
+  const productLabel =
+    CALC_PRODUCTS.find((o) => o.value === calcProduct)?.label ?? "Item";
+  // Step numbers are assigned in render order and skip sections that don't
+  // apply to this product ("Other" hides Decoration and Prints), so the
+  // sequence the customer sees is always 1, 2, 3, … with no gaps.
+  const showDecoration = !isContact && availableDecos.length > 1;
+  const showPrints = !isContact;
+  let stepNo = 0;
+  const productStep = ++stepNo;
+  const decorationStep = showDecoration ? ++stepNo : 0;
+  const printsStep = showPrints ? ++stepNo : 0;
+  const quantityStep = ++stepNo;
   return (
     <>
       <div className="text-center">
         <h2 className="font-display text-3xl font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-4xl">
           Get A Quick Quote
         </h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px]">
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-dream-ink/65 sm:text-[15px] lg:max-w-2xl">
           Pick your product, colors and quantity. Your estimate updates as you go.
         </p>
       </div>
 
       <div className="mt-10 grid gap-10 md:grid-cols-[1.3fr_1fr] md:items-center md:gap-10 lg:grid-cols-[1.4fr_1fr] lg:gap-12">
-        <div className="flex flex-col gap-5">
-          <PillField label="Product Type">
+        {/* gap-8: each numbered step needs to read as its own block, at gap-5
+            the whole calculator ran together as one dense list. */}
+        <div className="flex flex-col gap-5 sm:gap-8">
+          <PillField label="Product Type" step={productStep}>
             {CALC_PRODUCTS.map((opt) => (
               <PillButton
                 key={opt.value}
@@ -764,7 +766,7 @@ function Calculator({
           </PillField>
 
           {!isContact && availableDecos.length > 1 && (
-            <PillField label="Decoration">
+            <PillField label="Decoration" step={decorationStep}>
               {availableDecos.map((d) => (
                 <PillButton
                   key={d}
@@ -778,22 +780,24 @@ function Calculator({
           )}
 
           {!isContact && (
-            <PlacementsEditor
-              placements={placements}
-              onChange={setPlacements}
-              isScreen={isScreen}
-              locationWord={locationWord}
+            <PrintsEditor
+              prints={prints}
+              setPrints={setPrints}
+              lines={lines}
+              decoration={decoration}
+              productLabel={productLabel}
+              step={printsStep}
             />
           )}
 
           <div>
-            <div className="mb-3">
-              <div className="font-display text-[13px] font-bold text-dream-ink">Quantity</div>
-              <div className="mt-0.5 text-[12px] font-semibold text-dream-purple">
+            <div className="mb-4">
+              <StepLabel n={quantityStep}>Quantity</StepLabel>
+              <div className="mt-1 text-[13px] font-semibold text-dream-purple">
                 * Minimum order {MIN_ONLINE_ORDER_QTY} pieces
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
                 <PillButton
                   key={n}
@@ -806,26 +810,35 @@ function Calculator({
                   {n}
                 </PillButton>
               ))}
-              <PillButton active={useCustomQty} onClick={() => setUseCustomQty(true)}>
-                Custom
-              </PillButton>
-            </div>
-            {useCustomQty && (
+              {/* Custom quantity stays in the same wrap group as the presets,
+                  but is a rounded BOX, not a pill: "Custom" in a pill read as
+                  one more thing to tap, so it wasn't obvious you type here.
+                  Typing takes over from the pills; picking a pill again
+                  clears it (value is only bound while useCustomQty is on). */}
               <input
                 type="number"
                 min={MIN_ONLINE_ORDER_QTY}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder={`How many? (min ${MIN_ONLINE_ORDER_QTY})`}
-                autoFocus
-                className="mt-2 w-32 rounded-lg border border-dream-ink/12 bg-white px-4 py-2.5 text-sm text-dream-ink placeholder:text-dream-ink/35 focus:border-dream-purple focus:outline-none"
+                inputMode="numeric"
+                value={useCustomQty ? quantity : ""}
+                onChange={(e) => {
+                  setUseCustomQty(true);
+                  setQuantity(e.target.value);
+                }}
+                placeholder="e.g. 75"
+                aria-label="Custom quantity"
+                className={`w-[128px] rounded-lg border bg-white px-3.5 py-2 font-display text-[14px] font-semibold text-dream-ink transition placeholder:font-medium placeholder:text-dream-ink/50 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+                  useCustomQty
+                    ? "border-dream-purple ring-1 ring-dream-purple"
+                    : "border-dream-ink/25 hover:border-dream-ink/45"
+                }`}
               />
-            )}
+            </div>
           </div>
 
           <PriceCard
             perUnit={perUnit}
             quantity={qtyNum}
+            printCount={prints.length}
             isContact={isContact}
             onLockIn={onLockIn}
           />
@@ -837,133 +850,234 @@ function Calculator({
   );
 }
 
-function PillField({ label, children }: { label: string; children: React.ReactNode }) {
+/** Section label with a step number, so the calculator reads as a sequence.
+ *  Numbers are passed in (not hardcoded) because Decoration and Prints only
+ *  appear for some products, and the count has to stay unbroken. */
+function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <span className="font-display text-[14px] font-bold text-dream-ink">
+      <span className="text-dream-ink/45">{n}.</span> {children}
+    </span>
+  );
+}
+
+function PillField({
+  label,
+  step,
+  children,
+}: {
+  label: string;
+  step?: number;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">{label}</div>
+      <div className="mb-3">
+        {step ? (
+          <StepLabel n={step}>{label}</StepLabel>
+        ) : (
+          <span className="font-display text-[14px] font-bold text-dream-ink">{label}</span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
 
-// Per-location print detail editor, shared by the calculator and the form step.
-// Each row is one decorated spot: a location + (screen print only) its own
-// colour count. Locations can be added/removed; a location can't be picked
-// twice. This is the "input details for every print location separately" model.
-const COLOR_CHOICES = [1, 2, 3, 4, 5] as const;
+/* ---------- Prints editor (shared by the calculator and the form) ---------- */
 
-function PlacementsEditor({
-  placements,
-  onChange,
-  isScreen,
-  locationWord,
+// Builds the "how this adds up" line under one print row. The first print
+// carries the garment + its decoration; every print after it adds the
+// extra-location surcharge plus its own colour surcharge.
+function printLineText(
+  line: PrintPriceLine,
+  productLabel: string,
+  colourNoun: string,
+): string {
+  const bits: string[] = [
+    line.base > 0 ? `${productLabel.toLowerCase()} + this print` : "extra location",
+  ];
+  if (line.colourSurcharge > 0)
+    bits.push(`${colourNoun} +$${line.colourSurcharge.toFixed(2)}`);
+  else if (line.colors > 1) bits.push(`${colourNoun} included`);
+  const sign = line.base > 0 ? "" : "+ ";
+  return `${sign}$${line.perUnit.toFixed(2)} / item (${bits.join(", ")})`;
+}
+
+function PrintsEditor({
+  prints,
+  setPrints,
+  lines,
+  decoration,
+  productLabel,
+  strong = false,
+  error,
+  step,
 }: {
-  placements: PrintPlacement[];
-  onChange: (next: PrintPlacement[]) => void;
-  isScreen: boolean;
-  locationWord: string;
+  prints: PrintSpec[];
+  setPrints: (p: PrintSpec[]) => void;
+  lines: PrintPriceLine[];
+  decoration: Decoration;
+  productLabel: string;
+  strong?: boolean;
+  error?: string;
+  /** Step number shown beside the "Prints" heading in the calculator. */
+  step?: number;
 }) {
-  const setLocation = (idx: number, location: PrintLocation) =>
-    onChange(placements.map((p, i) => (i === idx ? { ...p, location } : p)));
-  const setColors = (idx: number, colors: number) =>
-    onChange(placements.map((p, i) => (i === idx ? { ...p, colors } : p)));
-  const removeAt = (idx: number) =>
-    onChange(placements.filter((_, i) => i !== idx));
-  const add = () => {
-    const used = new Set(placements.map((p) => p.location));
-    const next = PRINT_LOCATIONS.find((l) => !used.has(l.value));
-    if (!next) return;
-    onChange([...placements, { location: next.value, colors: 1 }]);
-  };
+  const colourLabel = decoration === "embroidery" ? "Thread colors" : "Ink colors";
+  const colourNoun = decoration === "embroidery" ? "thread colors" : "colors";
+  const used = prints.map((p) => p.location);
+  const canAdd = prints.length < PRINT_LOCATIONS.length;
 
-  const canAdd = placements.length < PRINT_LOCATIONS.length;
+  const setAt = (index: number, patch: Partial<PrintSpec>) =>
+    setPrints(prints.map((p, i) => (i === index ? { ...p, ...patch } : p)));
+  const removeAt = (index: number) =>
+    setPrints(prints.filter((_, i) => i !== index));
 
   return (
     <div>
-      <div className="mb-1.5 font-display text-[13px] font-bold text-dream-ink">
-        {locationWord} locations
+      {/* Hint always sits under the label: opposite ends of one line read as
+          two unrelated bits of text rather than a heading and its caption. */}
+      <div className="mb-3 flex flex-col gap-y-1">
+        {step ? (
+          <StepLabel n={step}>Prints</StepLabel>
+        ) : (
+          <span
+            className={
+              strong
+                ? "text-sm font-semibold text-dream-ink"
+                : "font-display text-[14px] font-bold text-dream-ink"
+            }
+          >
+            Prints
+          </span>
+        )}
+        <span className="text-[14px] text-dream-ink/70">
+          One row per print, each with its own colors
+        </span>
       </div>
-      <div className="space-y-2">
-        {placements.map((p, idx) => {
-          // Locations chosen by OTHER rows are disabled in this row's dropdown.
-          const usedElsewhere = new Set(
-            placements.filter((_, i) => i !== idx).map((q) => q.location),
-          );
+
+      <div className="flex flex-col gap-3">
+        {prints.map((print, i) => {
+          const line = lines[i];
           return (
             <div
-              key={idx}
-              className="rounded-2xl border-2 border-dream-ink/15 bg-white px-3 py-2.5"
+              key={i}
+              className={`rounded-2xl bg-white p-4 ${
+                strong ? "border-[1.5px] border-dream-ink/80" : "border border-dream-ink/15"
+              }`}
             >
-              <div className="flex items-center gap-2">
-                <select
-                  value={p.location}
-                  onChange={(e) => setLocation(idx, e.target.value as PrintLocation)}
-                  className="min-w-0 flex-1 rounded-lg border border-dream-ink/15 bg-white px-2.5 py-2 font-display text-[13px] font-semibold text-dream-ink outline-none focus:border-dream-purple"
-                >
-                  {PRINT_LOCATIONS.map((l) => (
-                    <option
-                      key={l.value}
-                      value={l.value}
-                      disabled={usedElsewhere.has(l.value)}
-                    >
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-                {placements.length > 1 && (
+              {/* Caption + full-width field, matching the "Ink colors" block
+                  below. The old purple numbered circle read as a colour count:
+                  it was the same pill as the 1-5+ chips a few lines down, so
+                  two different meanings shared one visual. */}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[14px] font-semibold text-dream-ink/55">
+                  Print {i + 1}
+                </span>
+                {prints.length > 1 && (
                   <button
                     type="button"
-                    onClick={() => removeAt(idx)}
-                    aria-label="Remove location"
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dream-ink/20 text-dream-ink/60 transition hover:border-dream-ink/50 hover:text-dream-ink"
+                    onClick={() => removeAt(i)}
+                    aria-label={`Remove print ${i + 1}`}
+                    className="text-[13px] font-semibold text-dream-ink/45 underline decoration-dream-ink/30 underline-offset-2 transition hover:text-dream-danger hover:decoration-dream-danger"
                   >
-                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                      <path d="M5 5l10 10M15 5L5 15" />
-                    </svg>
+                    Remove
                   </button>
                 )}
               </div>
-              {isScreen && (
+              <div className="mt-2">
+                {/* globals.css sets appearance:none on every select (iOS), so
+                    the native arrow is gone; overlay a chevron the way
+                    components/ui/Select does or this reads as a plain pill. */}
+                <div className="relative">
+                  <select
+                    value={print.location}
+                    onChange={(e) =>
+                      setAt(i, { location: e.target.value as PrintLocation })
+                    }
+                    aria-label={`Print ${i + 1} location`}
+                    className="w-full appearance-none rounded-lg border border-dream-ink/20 bg-dream-cream py-2.5 pl-3 pr-9 font-display text-[14px] font-semibold text-dream-ink outline-none transition focus:border-dream-purple"
+                  >
+                    {PRINT_LOCATIONS.map((loc) => (
+                      <option
+                        key={loc.value}
+                        value={loc.value}
+                        disabled={loc.value !== print.location && used.includes(loc.value)}
+                      >
+                        {loc.label}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-dream-ink/55"
+                  >
+                    <path
+                      d="M6 8l4 4 4-4"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Label on its own line so the whole chip set stays together on
+                  one row; inline, the label ate enough width to orphan "5+". */}
+              <div className="mt-4">
+                {/* Sentence case, no letter-spacing: matches the numbered step
+                    labels above instead of shouting in stretched caps. */}
+                <span className="block text-[14px] font-semibold text-dream-ink/55">
+                  {colourLabel}
+                </span>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-dream-ink/50">
-                    Colors
-                  </span>
-                  {COLOR_CHOICES.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColors(idx, c)}
-                      className={`min-w-[36px] rounded-full px-3 py-1.5 font-display text-[13px] font-semibold transition ${
-                        p.colors === c
-                          ? "bg-dream-purple text-white"
-                          : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"
-                      }`}
+                  {PRINT_COLOR_CHOICES.map((n) => (
+                    <PillButton
+                      key={n}
+                      compact
+                      active={print.colors === n}
+                      onClick={() => setAt(i, { colors: n })}
                     >
-                      {colorLabel(c)}
-                    </button>
+                      {printColorLabel(n)}
+                    </PillButton>
                   ))}
                 </div>
+              </div>
+
+              {line && (
+                <p className="mt-4 border-t border-dream-ink/10 pt-3 text-[12px] font-semibold sm:text-[14px] text-dream-ink/60 tabular-nums">
+                  {printLineText(line, productLabel, colourNoun)}
+                </p>
               )}
             </div>
           );
         })}
       </div>
-      {canAdd && (
-        <button
-          type="button"
-          onClick={add}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-full border-2 border-dashed border-dream-ink/30 px-4 py-2 font-display text-[13px] font-semibold text-dream-ink/70 transition hover:border-dream-ink/60 hover:text-dream-ink"
-        >
-          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-            <path d="M10 4v12M4 10h12" />
-          </svg>
-          Add {locationWord.toLowerCase()} location
-        </button>
+
+      <button
+        type="button"
+        onClick={() => setPrints([...prints, nextPrint(prints)])}
+        disabled={!canAdd}
+        className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-dashed border-dream-ink/40 bg-white px-4 py-2 font-display text-[14px] font-semibold text-dream-ink transition hover:border-dream-ink/70 disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Add another print
+      </button>
+      {!canAdd && (
+        <span className="ml-2 text-[14px] text-dream-ink/50">
+          That&apos;s every location we print.
+        </span>
       )}
+      {error && <span className="mt-1 block text-[14px] font-medium text-red-700">{error}</span>}
     </div>
   );
 }
-
 
 function HoodieDiagram({ colorCount }: { colorCount: number }) {
   return (
@@ -1000,18 +1114,20 @@ function HoodieDiagram({ colorCount }: { colorCount: number }) {
 function PriceCard({
   perUnit,
   quantity,
+  printCount,
   isContact,
   onLockIn,
 }: {
   perUnit: number;
   quantity: number;
+  printCount: number;
   isContact: boolean;
   onLockIn: () => void;
 }) {
   if (isContact) {
     return (
-      <div className="mt-1 rounded-2xl bg-dream-sun px-6 py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
-        <div className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-dream-ink/65">
+      <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
+        <div className="font-display text-[14px] font-bold text-dream-ink/70">
           Custom item
         </div>
         <div className="mt-2 text-sm leading-relaxed text-dream-ink/70">
@@ -1033,32 +1149,46 @@ function PriceCard({
   // what 15 would cost), but locking it in is held until they reach 20.
   const underMin = hasQty && quantity < MIN_ONLINE_ORDER_QTY;
   return (
-    <div className="mt-1 rounded-2xl bg-dream-sun px-6 py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
-      <div className="flex items-center justify-between">
-        <span className="font-display text-[12px] font-bold uppercase tracking-[0.12em] text-dream-ink/65">
+    <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
+      {/* Caption sits above the label, and both are sentence case with no
+          letter-spacing: uppercase + 0.12em tracking made "Estimated price"
+          wrap to two lines on a 375px phone. */}
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[14px] text-dream-ink/55">Final quote may vary</span>
+        <span className="font-display text-[15px] font-bold text-dream-ink/70">
           Estimated price
         </span>
-        <span className="text-[11px] text-dream-ink/55">Final quote may vary</span>
       </div>
-      <div className="mt-3 flex items-baseline gap-2">
+      {/* Price stack sits flush right on phones, where the card is full width
+          and a left-aligned figure left a lot of dead space; desktop keeps the
+          original left alignment. */}
+      <div className="mt-5 flex items-baseline justify-end gap-2 sm:justify-start">
         <div className="font-display text-5xl font-bold leading-none text-black sm:text-6xl tabular-nums">
-          {hasQty ? <AnimatedPrice value={perUnit} /> : "—"}
+          {hasQty ? <AnimatedPrice value={perUnit} /> : "-"}
         </div>
         <div className="font-display text-base font-semibold text-dream-ink/70">
           {hasQty ? "/ item" : ""}
         </div>
       </div>
       {hasQty && (
-        <div className="mt-1.5 text-sm font-semibold text-dream-ink/70 tabular-nums">
+        <div className="mt-1.5 text-right text-sm font-semibold text-dream-ink/70 tabular-nums sm:text-left">
           ≈ ${(roundDisplayPrice(perUnit) * quantity).toLocaleString()} total
-          <span className="font-normal text-dream-ink/50"> for {quantity} pieces</span>
+          <span className="font-medium text-dream-ink/70"> for {quantity} pieces</span>
+        </div>
+      )}
+      {hasQty && printCount > 0 && (
+        <div className="mt-1 text-right text-[14px] font-medium text-dream-ink/55 tabular-nums sm:text-left">
+          {printCount > 1 ? `${printCount} prints adding up to ` : ""}$
+          {perUnit.toFixed(2)} / item before rounding
         </div>
       )}
       {!hasQty && (
-        <div className="mt-2 text-xs text-dream-ink/55">Enter a quantity to see your price</div>
+        <div className="mt-2 text-[14px] text-dream-ink/55">Enter a quantity to see your price</div>
       )}
       {underMin && (
-        <div className="mt-3 text-sm font-semibold text-dream-ink/70">{minimumOrderMessage(quantity)}</div>
+        <div className="mt-3 text-right text-[14px] font-semibold text-dream-ink/70 sm:text-left">
+          {minimumOrderMessage(quantity)}
+        </div>
       )}
       {hasQty && !underMin && (
         <button
@@ -1078,13 +1208,15 @@ function PriceCard({
 function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
     <div className="mt-6">
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-dream-ink-soft">
+      <div className="flex items-center justify-between text-[14px] font-semibold uppercase tracking-wider text-dream-ink-soft">
         <span>
           Step {step + 1} of {total}
         </span>
         <span>{Math.round(((step + 1) / total) * 100)}%</span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/50">
+      {/* The empty part of the track was white/50 on a near-white card, so the
+          bar looked like it floated with no length to fill. */}
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-dream-lavender-soft">
         <div
           className="h-full rounded-full bg-dream-purple transition-all duration-300 ease-out"
           style={{ width: `${((step + 1) / total) * 100}%` }}
@@ -1133,14 +1265,14 @@ function Field({
       <span className="mb-1.5 block text-sm font-semibold text-dream-ink">{label}</span>
       {children}
       {error && (
-        <span className="mt-1 block text-xs font-medium text-red-700">{error}</span>
+        <span className="mt-1 block text-[14px] font-medium text-red-700">{error}</span>
       )}
     </label>
   );
 }
 
 const inputCls =
-  "w-full rounded-2xl border-2 border-dream-ink/80 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20";
+  "w-full rounded-2xl border-[1.5px] border-dream-ink/80 bg-white px-4 py-3.5 text-base text-dream-ink placeholder:text-dream-ink/40 outline-none transition focus:border-dream-purple focus:ring-4 focus:ring-dream-purple/20";
 
 function StepProduct({
   data,
@@ -1211,12 +1343,11 @@ function StepProduct({
             placeholder={`How many pieces total? (minimum ${MIN_ONLINE_ORDER_QTY})`}
             className={inputCls}
           />
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-dream-ink-soft">Minimum order is {MIN_ONLINE_ORDER_QTY} pieces.</span>
+          <div className="mt-2 flex items-center justify-end text-[14px]">
             <button
               type="button"
               onClick={() => update("sizesLater", false)}
-              className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+              className="font-semibold text-dream-purple underline decoration-dream-purple/55 decoration-[1.5px] underline-offset-4 transition-colors hover:decoration-dream-purple"
             >
               Add size breakdown
             </button>
@@ -1224,7 +1355,7 @@ function StepProduct({
         </Field>
       ) : (
         <Field label="Size breakdown" error={errors.sizes}>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-3">
             {SIZE_KEYS.map((k) => {
               const v = data.sizes[k] ?? "";
               const active = v !== "" && Number(v) > 0;
@@ -1251,7 +1382,7 @@ function StepProduct({
               );
             })}
           </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
+          <div className="mt-2 flex items-center justify-between text-[14px]">
             <span className="font-semibold text-dream-ink">
               Total:{" "}
               <span className="text-dream-purple">
@@ -1264,7 +1395,7 @@ function StepProduct({
             <button
               type="button"
               onClick={() => update("sizesLater", true)}
-              className="font-semibold text-dream-purple underline-offset-2 hover:underline"
+              className="font-semibold text-dream-purple underline decoration-dream-purple/55 decoration-[1.5px] underline-offset-4 transition-colors hover:decoration-dream-purple"
             >
               I&rsquo;ll give sizes later
             </button>
@@ -1285,41 +1416,33 @@ const PRODUCT_GRID: { value: ProductType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+// The form phase edits the exact same prints list the calculator does, so the
+// running estimate in the sticky bar always matches what's on screen.
 function StepPrint({
-  data,
-  setPlacements,
+  prints,
+  setPrints,
+  lines,
+  decoration,
+  productLabel,
   errors,
 }: {
-  data: QuoteFormData;
-  setPlacements: (next: PrintPlacement[]) => void;
+  prints: PrintSpec[];
+  setPrints: (p: PrintSpec[]) => void;
+  lines: PrintPriceLine[];
+  decoration: Decoration;
+  productLabel: string;
   errors: Record<string, string>;
 }) {
-  const isScreen = data.printMethod !== "embroidery";
-  const locationWord = data.printMethod === "embroidery" ? "Embroidery" : "Print";
   return (
-    <div className="space-y-5">
-      <div>
-        <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
-          Print detail
-        </span>
-        <p className="mb-3 text-xs text-dream-ink-soft">
-          Add each spot you want decorated
-          {isScreen ? " and how many colors it uses" : ""}. This lets Julian
-          price every location accurately.
-        </p>
-        <PlacementsEditor
-          placements={data.placements}
-          onChange={setPlacements}
-          isScreen={isScreen}
-          locationWord={locationWord}
-        />
-        {errors.placements && (
-          <span className="mt-1 block text-xs font-medium text-red-700">
-            {errors.placements}
-          </span>
-        )}
-      </div>
-    </div>
+    <PrintsEditor
+      prints={prints}
+      setPrints={setPrints}
+      lines={lines}
+      decoration={decoration}
+      productLabel={productLabel}
+      strong
+      error={errors.prints}
+    />
   );
 }
 
@@ -1360,8 +1483,8 @@ function StepArtwork({
           </div>
           <div>
             <p className="font-display text-lg font-bold text-dream-ink">Upload Files Here</p>
-            <p className="text-xs text-dream-ink-soft">
-              Artwork, mockups, logos — PNG, JPG, PDF, AI, EPS (max 25MB each)
+            <p className="text-[14px] text-dream-ink-soft">
+              Artwork, mockups, logos, PNG, JPG, PDF, AI, EPS (max 25MB each)
             </p>
           </div>
         </button>
@@ -1383,12 +1506,12 @@ function StepArtwork({
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-dream-ink">{f.name}</p>
-                  <p className="text-xs text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
+                  <p className="text-[14px] text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
-                  className="text-xs font-semibold text-red-700 hover:underline"
+                  className="text-[14px] font-semibold text-red-700 hover:underline"
                 >
                   Remove
                 </button>
@@ -1548,7 +1671,7 @@ function StepTimeline({
         <span className="mb-1.5 block text-sm font-semibold text-dream-ink">
           Have a quote from another printer?
         </span>
-        <p className="mb-3 text-xs text-dream-ink-soft">
+        <p className="mb-3 text-[14px] text-dream-ink-soft">
           Share it here and Julian will try to beat it (Get Bold, Coastal Reign, etc.)
         </p>
 
@@ -1616,12 +1739,12 @@ function StepTimeline({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-dream-ink">{f.name}</p>
-                      <p className="text-xs text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
+                      <p className="text-[14px] text-dream-ink-soft">{(f.size / 1024).toFixed(0)} KB</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => onRemove(i)}
-                      className="text-xs font-semibold text-red-700 hover:underline"
+                      className="text-[14px] font-semibold text-red-700 hover:underline"
                     >
                       Remove
                     </button>
@@ -1640,16 +1763,22 @@ function PillButton({
   active,
   onClick,
   children,
+  compact = false,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`min-w-[44px] rounded-full px-4 py-2 font-display text-[13px] font-semibold transition ${
+      className={`rounded-full font-display font-semibold transition ${
+        compact
+          ? "min-w-[34px] px-2.5 py-1.5 text-[14px]"
+          : "min-w-[44px] px-4 py-2 text-[14px]"
+      } ${
         active
           ? "bg-dream-purple text-white"
           : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"

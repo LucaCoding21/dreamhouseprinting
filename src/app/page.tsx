@@ -1,4 +1,6 @@
 import Link from "next/link";
+import BehindTheScenes from "@/components/BehindTheScenes";
+import BrandStrip from "@/components/BrandStrip";
 import HeroImage from "@/components/HeroImage";
 import HowItWorks from "@/components/HowItWorks";
 import QuoteCard from "@/components/QuoteCard";
@@ -35,7 +37,7 @@ const LOCAL_BUSINESS_LD = {
     { "@type": "City", name: "North Vancouver" },
   ],
   // Mon–Fri 10am–6pm, closed weekends. Keep in sync with the Google Business
-  // Profile — mismatched hours hurt local trust signals.
+  // Profile, mismatched hours hurt local trust signals.
   openingHoursSpecification: [
     {
       "@type": "OpeningHoursSpecification",
@@ -64,12 +66,12 @@ export default function Home() {
         href="/contact#coastal-reign"
         className="block bg-[#c6ff3d] text-[#8f55e5] transition hover:brightness-95"
       >
-        <p className="mx-auto max-w-[1400px] px-4 py-2 text-center text-[12px] font-bold sm:px-6 sm:text-[15px]">
-          {/* Condensed on mobile to avoid an awkward wrap, but still pulls both
-              competitor names (Coastal Reign / Get Bold) — those are the hook. */}
+        <p className="mx-auto max-w-[1400px] whitespace-nowrap px-2 py-2 text-center text-[clamp(10px,2.9vw,13px)] font-bold sm:whitespace-normal sm:px-6 sm:text-[15px]">
+          {/* Condensed on mobile AND fluid-sized (2.9vw) so it always sits on
+              ONE line down to 320px, both competitor names stay the hook. */}
           <span className="sm:hidden">
             We price match Coastal Reign &amp; Get Bold and{" "}
-            <span className="font-display font-extrabold uppercase tracking-wide">beat it by 5%</span>
+            <span className="font-display font-extrabold uppercase">beat it by 5%</span>
           </span>
           <span className="hidden sm:inline">
             We price match Coastal Reign and Get Bold! Submit a request and we&apos;ll{" "}
@@ -78,54 +80,50 @@ export default function Home() {
         </p>
       </Link>
 
-      <section className="mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
-        {/* Two-column layout waits for xl: between 1024-1279px the columns
-            get too narrow and the hero looks squished, so lg stays stacked. */}
-        <div className="grid items-center gap-1 xl:grid-cols-[1fr_1.1fr] xl:gap-4">
-          <div className="-mt-[84px] order-2 text-center sm:mt-0 xl:order-none xl:pl-10 xl:pt-12 xl:text-left">
-            <h1 className="pt-14 font-display font-extrabold text-[30px] leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] xl:text-[60px]">
+      {/* home-hero-* classes hook the short-viewport fit rules in globals.css:
+          they only tighten the vertical rhythm once the window is under ~900px
+          tall, so the CTA pair and the "See how it works" cue stay on screen in
+          a windowed browser. Tall screens render exactly as authored here. */}
+      <section className="home-hero mx-auto max-w-[1500px] px-6 pb-0 pt-0 md:px-8 lg:px-10 lg:pb-8 lg:pt-0">
+        <div className="home-hero-grid grid items-center gap-1 lg:grid-cols-[1fr_1.1fr] lg:gap-4">
+          <div className="home-hero-copy -mt-[84px] order-2 text-center sm:mt-0 lg:order-none lg:pl-10 lg:pt-12 lg:text-left">
+            <h1 className="home-hero-title pt-14 font-display font-extrabold text-[30px] leading-[1.1] tracking-tight text-dream-ink sm:text-[40px] lg:pt-14 lg:text-[60px]">
               We do quality custom Screen printing and Embroidery right here in Vancouver.
             </h1>
-            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto xl:mt-8 xl:mx-0 xl:text-[17px]">
+            <p className="home-hero-sub mt-4 max-w-xl text-[16px] leading-relaxed text-dream-ink-soft mx-auto lg:mt-8 lg:mx-0 lg:text-[17px]">
               Premium custom apparel for Vancouver businesses, teams, and brands. Upload your design, get a quote in minutes. Thanks for coming by!
             </p>
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4 xl:justify-start">
+            <div className="home-hero-actions mt-10 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
               {/* Mobile/tablet: single primary CTA pointing at the instant
                   quote calculator on this page. Desktop keeps the original
-                  two buttons (Start your order + outline Get a quick quote). */}
+                  two buttons (Start designing → /shop + outline Get a quick quote). */}
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-12 py-5 font-display text-xl font-bold text-white transition-transform hover:-translate-y-0.5 xl:hidden"
+                className="rough-pill rough-pill-filled rough-pill-lean inline-flex items-center justify-center px-12 py-5 font-display text-xl font-bold text-white transition-transform hover:-translate-y-0.5 lg:hidden"
               >
                 Get a quick quote
               </a>
               <a
-                href="#quick-quote"
-                className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-12 py-6 font-display text-xl font-bold text-white transition-transform hover:-translate-y-0.5 xl:inline-flex"
+                href="/shop"
+                className="rough-pill rough-pill-filled rough-pill-lean hidden items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 lg:inline-flex min-[1273px]:px-12 min-[1273px]:py-6 min-[1273px]:text-xl"
               >
-                Start your order
+                Start designing
               </a>
               <a
                 href="#quick-quote"
-                className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-12 py-6 font-display text-xl font-bold text-dream-purple transition-transform hover:-translate-y-0.5 xl:inline-flex"
+                className="rough-pill rough-pill-outline rough-pill-lean hidden items-center justify-center px-8 py-4 font-display text-base font-bold text-dream-purple transition-transform hover:-translate-y-0.5 lg:inline-flex min-[1273px]:px-12 min-[1273px]:py-6 min-[1273px]:text-xl"
               >
                 Get a quick quote
               </a>
             </div>
           </div>
 
-          {/* Stacked (<xl): the headline pulls itself up 84px on phones only
-              (sm:mt-0 resets it), and this div stays width-capped at every
-              stacked breakpoint, so the blob never covers the text. The svh
-              term shrinks the image on short viewports so the whole hero
-              (headline + CTA) fits above the fold; xl restores the fixed cap
-              for the two-column desktop layout. */}
-          <div className="relative mx-auto mb-12 mt-8 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[min(420px,47svh)] md:mx-auto md:max-w-[min(520px,47svh)] xl:order-none xl:mx-0 xl:-mt-16 xl:max-w-[520px] xl:translate-x-18">
+          <div className="home-hero-media relative mx-auto mb-12 mt-3 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
             <HeroImage />
           </div>
         </div>
 
-        <div className="mt-12 flex justify-center lg:mt-24">
+        <div className="home-hero-scroll mt-12 flex justify-center lg:mt-24">
           <a
             href="#how-it-works"
             className="group flex flex-col items-center gap-2 text-dream-purple transition-transform hover:-translate-y-0.5"
@@ -144,7 +142,7 @@ export default function Home() {
               className="h-9 w-9 overflow-visible group-hover:animate-bounce"
               style={{ filter: "url(#stroke-rough)" }}
             >
-              {/* Hand-drawn chevron — two subtle bezier curves through the
+              {/* Hand-drawn chevron, two subtle bezier curves through the
                   apex, warped by the same #stroke-rough filter the hamburger
                   uses so it reads as a pen stroke. */}
               <path d="M 5.4 9.3 C 7.6 11, 10 13, 12 14.9 C 14 13, 16.4 11, 18.6 9.3" />
@@ -154,8 +152,10 @@ export default function Home() {
       </section>
 
       <HowItWorks />
+      <BrandStrip />
       <ShopByCategories />
       <QuoteCard />
+      <BehindTheScenes />
       <Testimonials />
       <SiteFooter />
     </main>

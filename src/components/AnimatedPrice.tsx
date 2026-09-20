@@ -6,7 +6,7 @@ import { roundDisplayPrice } from "@/lib/pricing";
 const DURATION_MS = 450;
 
 // Counts smoothly between price values (ease-out cubic). No external animation
-// library — a single rAF loop is plenty for one number on screen, and React
+// library, a single rAF loop is plenty for one number on screen, and React
 // state updates per frame are cheap at 60fps for this kind of payload.
 export default function AnimatedPrice({
   value,

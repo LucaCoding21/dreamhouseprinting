@@ -1,4 +1,4 @@
--- Additive, idempotent migration — safe to run on the live table.
+-- Additive, idempotent migration, safe to run on the live table.
 -- Adds: marketing attribution ("how did you find us") + the auto-estimate
 -- snapshot shown to the customer. `ADD COLUMN IF NOT EXISTS` means re-running
 -- is a no-op and existing rows are untouched (new columns are NULL for them).
