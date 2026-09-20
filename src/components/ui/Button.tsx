@@ -21,11 +21,11 @@ export interface ButtonProps
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-dream-purple text-white hover:bg-dream-purple-dark shadow-sm",
+    "bg-dream-purple text-white hover:bg-dream-purple-dark",
   secondary:
     "bg-white border border-dream-line text-dream-ink hover:bg-dream-bg",
   ghost: "bg-transparent text-dream-ink hover:bg-dream-bg",
-  danger: "bg-dream-danger text-white hover:bg-dream-danger/90 shadow-sm",
+  danger: "bg-dream-danger text-white hover:bg-dream-danger/90",
   subtle: "bg-dream-lavender-soft text-dream-ink hover:bg-dream-lavender-soft/70",
 };
 

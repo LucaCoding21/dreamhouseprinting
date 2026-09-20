@@ -51,9 +51,6 @@ export function OrderTimeline({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Order comments</CardTitle>
-          <p className="mt-0.5 text-xs text-dream-muted">
-            Internal only. The customer never sees these.
-          </p>
         </CardHeader>
         <CardContent className="space-y-3">
           {internal.length === 0 && (

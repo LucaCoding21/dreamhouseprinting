@@ -48,7 +48,7 @@ export function LineVisual({
   const approved = proof?.status === "approved";
   const kind = proof ? (approved ? "Approved proof" : "Proof") : "Mockup";
 
-  const tile = "h-24 w-24 shrink-0 rounded-2xl border-2 border-dream-ink/10 sm:h-28 sm:w-28";
+  const tile = "h-24 w-24 shrink-0 rounded-2xl border border-dream-ink/10 sm:h-28 sm:w-28";
 
   // Nothing to show: the colour swatch placeholder, not clickable.
   if (!src) {

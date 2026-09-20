@@ -51,6 +51,16 @@ function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "in
   return { label: "Unpaid", variant: "neutral" };
 }
 
+/** Text colour per badge tone, for the pill-free phone rows. */
+const TONE: Record<string, string> = {
+  neutral: "text-dream-muted",
+  success: "text-dream-success",
+  warn: "text-dream-warn",
+  danger: "text-dream-danger",
+  info: "text-dream-info",
+  purple: "text-dream-purple",
+};
+
 // Rush orders that are out the door (shipped/picked up/done) or cancelled are no
 // longer "active", the Rush tab surfaces only the ones still needing attention.
 const CLOSED_STATUSES = ["shipped", "ready_for_pickup", "completed", "cancelled"];
@@ -123,7 +133,7 @@ export function OrdersListClient({
               className={cn(
                 "rounded-xl border p-3 text-left transition-colors sm:p-4",
                 tab === s.tab
-                  ? "border-dream-purple bg-dream-surface ring-1 ring-dream-purple"
+                  ? "border-dream-purple bg-dream-surface"
                   : "border-dream-line bg-dream-surface hover:border-dream-purple/50"
               )}
             >
@@ -170,7 +180,10 @@ export function OrdersListClient({
                 tab === t.key ? "border-dream-purple text-dream-purple" : "border-transparent text-dream-muted hover:text-dream-ink"
               )}
             >
-              {t.label} <span className="text-dream-faint">{count(t.match)}</span>
+              {t.label}
+              {/* Counts only from md: on a phone the number crowding the
+                  label read badly, and the stat cards above already count. */}
+              <span className="ml-1 hidden text-dream-faint md:inline">{count(t.match)}</span>
             </button>
           ))}
         </div>
@@ -198,14 +211,16 @@ export function OrdersListClient({
                         <Image src={thumb} alt="" width={44} height={44} className="h-full w-full object-contain" />
                       )}
                     </div>
+                    {/* No pills on the phone row: status is a coloured word
+                        under the customer, payment a small word under the
+                        price, so each card is two quiet columns. */}
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-dream-ink">{r.orderNumber ?? "Order"}</div>
                       <div className="truncate text-xs text-dream-muted">
                         {r.customerName ?? r.customerEmail ?? "-"}
                       </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? r.status}</Badge>
-                        <Badge variant={pay.variant}>{pay.label}</Badge>
+                      <div className={cn("mt-0.5 truncate text-xs font-medium", TONE[meta?.badge ?? "neutral"])}>
+                        {meta?.label ?? r.status}
                       </div>
                       {r.latestNote && (
                         <div className="mt-1 truncate text-xs text-dream-muted">{r.latestNote}</div>
@@ -213,7 +228,8 @@ export function OrdersListClient({
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="text-sm font-medium text-dream-ink">{formatCAD(r.total)}</div>
-                      <div className={cn("text-xs", ih.urgent ? "text-dream-danger" : "text-dream-muted")}>
+                      <div className={cn("text-xs", TONE[pay.variant])}>{pay.label}</div>
+                      <div className={cn("mt-0.5 text-xs", ih.urgent ? "text-dream-danger" : "text-dream-muted")}>
                         {ih.label}
                       </div>
                     </div>

@@ -133,8 +133,10 @@ export function Lightbox({
 
         {/* Caption: what it is on the left, the real file on the right. */}
         <div className="flex items-center justify-between gap-3 rounded-full bg-white/10 px-4 py-2 text-white">
-          <div className="min-w-0 text-sm">
-            <span className="truncate font-semibold">{title}</span>
+          {/* truncate on the block, not the inline span (which never clipped,
+              so the title ran under the button on phones). */}
+          <div className="min-w-0 flex-1 truncate text-sm">
+            <span className="font-semibold">{title}</span>
             {tag && <span className="ml-2 text-white/70">{tag}</span>}
             {counter && <span className="ml-2 tabular-nums text-white/70">{counter}</span>}
           </div>

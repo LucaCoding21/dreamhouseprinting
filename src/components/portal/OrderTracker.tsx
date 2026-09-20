@@ -273,10 +273,13 @@ export function OrderTracker({
                 );
               })}
             </ol>
+            {/* Stacked: label over date. Side by side, "Estimated ready by"
+                and a long weekday date cannot share one 290px line, so the
+                "by" wrapped onto its own line. */}
             {dueDate && (
-              <p className="mt-3 flex items-baseline justify-between gap-3 rounded-xl bg-white px-3.5 py-2.5 text-sm text-dream-muted">
-                <span>Estimated ready by</span>
-                <span className="shrink-0 text-right font-display font-bold text-dream-purple">{fmtReadyDate(dueDate)}</span>
+              <p className="mt-3 rounded-xl bg-white px-3.5 py-2.5 text-sm">
+                <span className="block text-xs text-dream-muted">Estimated ready by</span>
+                <span className="block font-display font-bold text-dream-purple">{fmtReadyDate(dueDate)}</span>
               </p>
             )}
           </div>

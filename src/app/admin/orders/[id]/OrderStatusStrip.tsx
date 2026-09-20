@@ -13,7 +13,7 @@ import {
 } from "@/lib/orderStatus";
 import { setOrderStatusAction } from "../actions";
 import { StatusChangeConfirm } from "./StatusChangeConfirm";
-import { useOrderAction, type Detail } from "./shared";
+import { LBL, useOrderAction, type Detail } from "./shared";
 import type { OrderStatus, PaymentStatus } from "@/lib/db/rows";
 
 /**
@@ -62,7 +62,7 @@ export function OrderStatusStrip({ detail, canEdit }: { detail: Detail; canEdit:
     <div className="rounded-xl border border-dream-line bg-dream-surface p-5 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">Order total</div>
+          <div className={LBL}>Order total</div>
           <div className="font-display text-2xl font-bold text-dream-ink">{formatCAD(total)}</div>
         </div>
         <Badge variant={paymentBadge}>{payment === "paid_in_full" ? "Paid" : payment.replace(/_/g, " ")}</Badge>
@@ -138,7 +138,9 @@ export function OrderStatusStrip({ detail, canEdit }: { detail: Detail; canEdit:
                     {stage.label}
                   </span>
                 </button>
-                {current && (
+                {/* The status under the stage only when it adds something:
+                    "Order received" under "Order received" read as a typo. */}
+                {current && STATUS_META[status].label !== stage.label && (
                   <span
                     className={cn(
                       "mt-0.5 px-1 text-[11px] font-semibold",

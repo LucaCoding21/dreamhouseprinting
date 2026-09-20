@@ -111,7 +111,9 @@ export const SUPPLIER_OPTIONS = ["S&S Activewear", "SanMar", "Alphabroder", "Sto
 export const PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"];
 
 /** Tiny uppercase field label, matching the wireframe. */
-export const LBL = "text-[11px] font-semibold uppercase tracking-wide text-dream-muted";
+// Sentence case at normal weight. The bold small-caps version made every
+// card read as a form (Julian: "i hate how the labels are bolded").
+export const LBL = "text-xs font-medium text-dream-muted";
 
 export function sizeRank(s: string): number {
   const i = SIZE_ORDER.indexOf(s.toUpperCase());

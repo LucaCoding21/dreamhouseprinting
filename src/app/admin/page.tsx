@@ -7,7 +7,6 @@ import { getAdminOrders, type AdminOrderListItem } from "@/lib/admin/orders";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { formatCAD } from "@/lib/money";
 import type { OrderActivityRow, ProfileRow } from "@/lib/db/rows";
-import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { QuoteRequests, type QuoteRequestItem } from "./QuoteRequests";
 
@@ -160,18 +159,19 @@ function QueueCard({ queue }: { queue: Queue }) {
   const tabHref = `/admin/orders?tab=${queue.tab}`;
   return (
     <section id={`q-${queue.key}`} className="rounded-xl border border-dream-line bg-dream-surface">
-      <div className="flex items-center justify-between gap-2 border-b border-dream-line px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h2 className="font-display text-base font-bold text-dream-ink">{queue.title}</h2>
-          <Badge variant={total ? "purple" : "neutral"}>{total}</Badge>
-        </div>
-        {/* Phone: bigger text with padding so the tap target is ~40px tall
-            without turning it into a button. md+ keeps the small text link. */}
+      {/* One quiet line: title, count as plain text, "View all" as a small
+          link. The old bold title + purple count pill + 15px link read as
+          three competing weights on a phone. */}
+      <div className="flex items-center justify-between gap-2 border-b border-dream-line px-4 py-2.5">
+        <h2 className="min-w-0 truncate text-sm font-semibold text-dream-ink">
+          {queue.title}
+          <span className="ml-1.5 font-normal tabular-nums text-dream-muted">{total}</span>
+        </h2>
         <Link
           href={tabHref}
-          className="-my-2 -mr-2 inline-flex shrink-0 items-center px-2 py-2 text-[15px] font-medium text-dream-purple hover:underline md:m-0 md:p-0 md:text-xs"
+          className="-my-2 -mr-2 inline-flex shrink-0 items-center px-2 py-2 text-xs font-medium text-dream-purple hover:underline md:m-0 md:p-0"
         >
-          {hidden > 0 ? `View all ${total}` : "View all"}
+          View all
         </Link>
       </div>
       {rows.length === 0 ? (
@@ -213,15 +213,9 @@ function QueueCard({ queue }: { queue: Queue }) {
       {hidden > 0 && (
         <Link
           href={tabHref}
-          className="flex items-center justify-between gap-3 border-t border-dream-line px-4 py-3 text-[15px] font-medium text-dream-purple transition-colors hover:bg-dream-bg md:py-2.5 md:text-sm"
+          className="flex items-center justify-center border-t border-dream-line px-4 py-2.5 text-xs text-dream-muted transition-colors hover:bg-dream-bg hover:text-dream-ink"
         >
-          <span className="min-w-0">
-            {hidden} more {hidden === 1 ? "order" : "orders"} in this queue
-          </span>
-          {/* Phone: plain text at body size. md+: the small caps label. */}
-          <span className="shrink-0 text-[15px] font-medium md:text-xs md:font-semibold md:uppercase md:tracking-wide">
-            View all {total}
-          </span>
+          {hidden} more, view all {total}
         </Link>
       )}
     </section>
@@ -376,7 +370,7 @@ export default async function AdminDashboardPage({
             keyed in straight from the morning dashboard. */}
         <Link
           href="/admin/orders/new"
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-dream-purple px-4 font-display text-sm font-medium text-white shadow-sm transition-colors hover:bg-dream-purple-dark"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-dream-purple px-4 font-display text-sm font-medium text-white transition-colors hover:bg-dream-purple-dark"
         >
           New order
         </Link>
@@ -393,36 +387,40 @@ export default async function AdminDashboardPage({
           Welcome back, {profile.name || "team"}. Here&apos;s what needs your attention today.
         </p>
 
-        {/* Unpaid balance, a read-only summary stat, plain stacked text (no box)
-            so it's clearly a figure, not a clickable chip. Sits above the chips. */}
-        <div title="Total value of orders that haven't been paid in full yet (excludes cancelled orders).">
-          <div className="text-xs font-semibold uppercase tracking-[0.1em] text-dream-muted">Unpaid balance</div>
-          <div className="mt-0.5 font-display text-3xl font-extrabold tracking-wide text-dream-ink">{formatCAD(outstanding)}</div>
+        {/* Unpaid balance, a read-only summary stat, plain text (no box) so
+            it's clearly a figure, not a clickable chip. Sits above the chips. */}
+        <div
+          className="flex flex-wrap items-baseline gap-x-2"
+          title="Total value of orders that haven't been paid in full yet (excludes cancelled orders)."
+        >
+          <span className="text-sm font-medium text-dream-purple">Unpaid balance:</span>
+          <span className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">{formatCAD(outstanding)}</span>
         </div>
 
         {/* Top strip: clickable count chips. Most anchor to their queue card
             below; Needs proof jumps straight to the orders page's Creating
             mockup tab instead (per Julian), since that's where the work
             actually happens. */}
-        {/* Phones: a tidy 2-column grid of 44px-tall rows (label left, count
-            right) instead of ragged wrapping pills; sm+ keeps the pill strip.
-            Accessibility: 44px targets on touch, a visible focus ring, the
-            count is announced as "N orders" not a bare number, and the count
-            colour is dream-purple-selected (6.8:1 on lavender-soft) because
-            the brand purple at 12px bold was 3.8:1, under AA's 4.5:1. */}
+        {/* Phones: one bordered list, a row per queue (label left, count
+            right) so every label sits on a single line; the old 2-column grid
+            wrapped "Awaiting customer approval" onto three. sm+ keeps the
+            pill strip. Accessibility: 44px targets on touch, a visible focus
+            ring, the count is announced as "N orders" not a bare number, and
+            the count colour is dream-purple-selected (6.8:1 on lavender-soft)
+            because the brand purple at 12px bold was 3.8:1, under AA's 4.5:1. */}
         {chips.length > 0 && (
           <nav aria-label="Order queues">
-            <ul className="grid auto-rows-fr grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <ul className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface sm:flex sm:flex-wrap sm:gap-2 sm:divide-y-0 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent">
               {chips.map((q) => (
                 <li key={q.key} className="flex min-w-0">
                   <Link
                     href={q.key === "needs-proof" ? `/admin/orders?tab=${q.tab}` : `#q-${q.key}`}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-dream-line bg-dream-surface px-3.5 py-2 text-[15px] font-medium leading-tight text-dream-ink transition-colors hover:border-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple focus-visible:ring-offset-2 sm:inline-flex sm:min-h-0 sm:rounded-full sm:px-3 sm:py-1.5 sm:text-sm"
+                    className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-sm font-medium leading-tight text-dream-ink transition-colors hover:bg-dream-bg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dream-purple sm:inline-flex sm:min-h-0 sm:rounded-full sm:border sm:border-dream-line sm:bg-dream-surface sm:px-3 sm:py-1.5 sm:hover:border-dream-purple sm:hover:bg-dream-surface sm:focus-visible:outline-offset-2"
                   >
-                    <span className="min-w-0">{q.title}</span>
+                    <span className="min-w-0 truncate">{q.title}</span>
                     <span
                       aria-hidden="true"
-                      className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full bg-dream-lavender-soft px-1.5 text-[13px] font-bold text-dream-purple-selected sm:h-5 sm:min-w-5 sm:text-xs"
+                      className="shrink-0 text-sm font-semibold tabular-nums text-dream-purple-selected sm:grid sm:h-5 sm:min-w-5 sm:place-items-center sm:rounded-full sm:bg-dream-lavender-soft sm:px-1.5 sm:text-xs sm:font-bold"
                     >
                       {q.items.length}
                     </span>

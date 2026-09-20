@@ -75,7 +75,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
       <CardHeader className="flex-row items-center justify-between pb-3">
         <CardTitle className="text-base">Customer</CardTitle>
         {canEdit && (
-          <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+          <Button variant="ghost" size="sm" className="text-dream-purple" onClick={() => setOpen(true)}>
             Edit
           </Button>
         )}

@@ -19,7 +19,7 @@ import {
   type PriceAdjustment,
 } from "@/lib/orders/pricingMath";
 import { updateOrderPricingAction } from "../actions";
-import { useOrderAction, type Can, type Detail, type StoredAddress } from "./shared";
+import { LBL, useOrderAction, type Can, type Detail, type StoredAddress } from "./shared";
 
 type PriceKey = "subtotal" | "setupFees" | "rush" | "shipping" | "tax";
 const LABELS: Record<PriceKey, string> = {
@@ -209,7 +209,7 @@ export function PricingCard({ detail, can }: { detail: Detail; can: Can }) {
             positive. Stored the same as before: signed `amount` on the row. */}
         <div className="space-y-1.5 border-t border-dream-line pt-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">Discounts &amp; fees</span>
+            <span className={LBL}>Discounts &amp; fees</span>
             {can.pricing && (
               <span className="flex items-center gap-2.5">
                 {(["fee", "discount"] as const).map((kind) => (

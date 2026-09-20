@@ -48,7 +48,7 @@ export function AdminTopBar({
                 alt=""
                 width={566}
                 height={547}
-                className="h-6 w-auto translate-y-[3.9%]"
+                className="h-6 w-auto translate-y-px"
               />
             </span>
             <span className="font-display text-[15px] font-bold leading-none">Dreamhouse</span>
@@ -115,15 +115,11 @@ export function AdminTopBar({
             <span className="hidden sm:inline">View shop</span>
           </Link>
 
-          {/* Who's signed in, plus the way out */}
+          {/* Who's signed in, plus the way out. No initials avatar: on a phone
+              it was a purple circle taking up space for nothing (the More sheet
+              names the account); md+ shows the name in text instead. */}
           <div className="flex shrink-0 items-center gap-2 border-l border-white/10 pl-3">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-dream-purple text-[11px] font-bold"
-              title={`${name || "Staff"} · ${role.replace("_", " ")}`}
-            >
-              {name.slice(0, 2).toUpperCase() || "DH"}
-            </div>
-            <div className="hidden min-w-0 leading-tight lg:block">
+            <div className="hidden min-w-0 leading-tight md:block">
               <div className="max-w-[140px] truncate text-xs font-medium">{name || "Staff"}</div>
               <div className="text-[11px] capitalize text-white/40">{role.replace("_", " ")}</div>
             </div>

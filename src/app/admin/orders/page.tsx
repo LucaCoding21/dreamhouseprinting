@@ -44,7 +44,7 @@ export default async function AdminOrdersPage({
       headerAction={
         <Link
           href="/admin/orders/new"
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-dream-purple px-4 font-display text-sm font-medium text-white shadow-sm transition-colors hover:bg-dream-purple-dark"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-dream-purple px-4 font-display text-sm font-medium text-white transition-colors hover:bg-dream-purple-dark"
         >
           New order
         </Link>

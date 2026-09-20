@@ -69,18 +69,19 @@ export function ArtworkSheet({
         <div className="space-y-10">
           {sections.map((section) => (
             <section key={section.id} className="artwork-block">
-              <div className="mb-4 flex items-center gap-2 border-b border-dream-line pb-2">
+              <div className="mb-4 flex items-center justify-between gap-3 border-b border-dream-line pb-2">
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl font-bold">{section.title}</h2>
+                  {section.subtitle && <p className="text-sm text-dream-muted">{section.subtitle}</p>}
+                </div>
+                {/* Garment colour on the far right, off the title's leading edge. */}
                 {section.colourHex && (
                   <span
-                    className="h-4 w-4 shrink-0 rounded-full border border-dream-line-strong"
+                    className="h-5 w-5 shrink-0 rounded-full border border-dream-line-strong"
                     style={{ backgroundColor: section.colourHex }}
                     aria-hidden
                   />
                 )}
-                <div>
-                  <h2 className="font-display text-xl font-bold">{section.title}</h2>
-                  {section.subtitle && <p className="text-sm text-dream-muted">{section.subtitle}</p>}
-                </div>
               </div>
 
               {section.tiles.length === 0 ? (

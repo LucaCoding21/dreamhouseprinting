@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/Badge";
 import { formatCAD } from "@/lib/money";
 import { formatInches } from "@/lib/design/printArea";
 import { LINE_PRODUCTION_META } from "@/lib/lineProduction";
@@ -27,6 +26,14 @@ function spotLabel(sp: DecorationSpot): string {
     .filter(Boolean)
     .join(" · ");
 }
+
+/** Text colour per production-status tone. */
+const TONE: Record<string, string> = {
+  neutral: "text-dream-muted",
+  info: "text-dream-info",
+  warn: "text-dream-warn",
+  success: "text-dream-success",
+};
 
 /** One-line summary of an item, used both by the global Compact view and per-line collapse. */
 export function CompactItemRow({
@@ -93,26 +100,27 @@ export function CompactItemRow({
     // Phone: the row wraps into two lines (identity on top, money underneath).
     // Everything except the name is fixed width, so a single line clips the
     // price off the side of a 375px screen. From sm up it stays one line.
-    <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
+    // The leading controls (arrows, expand, index) sit tight on phones: at the
+    // old gap-3 they pushed the thumbnail ~110px in on a 390px screen and left
+    // a hole between "1." and the picture.
+    <div className="flex flex-wrap items-center gap-2 px-3 py-3 sm:flex-nowrap sm:gap-3 sm:px-4">
       {onMoveUp && onMoveDown && (
         <ReorderArrows onUp={onMoveUp} onDown={onMoveDown} disableUp={!!isFirst} disableDown={!!isLast} />
       )}
-      {onExpand ? (
+      {onExpand && (
         <button
           type="button"
           onClick={onExpand}
           aria-label="Expand line"
           title="Expand line"
-          className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink max-sm:p-2.5"
+          className="shrink-0 rounded p-1 text-dream-faint transition-colors hover:bg-dream-bg hover:text-dream-ink max-sm:p-2"
         >
           <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden>
             <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-      ) : (
-        <span className="w-5 shrink-0" />
       )}
-      <span className="w-5 text-sm text-dream-faint">{index + 1}.</span>
+      <span className="shrink-0 text-sm tabular-nums text-dream-faint">{index + 1}.</span>
       {thumb ? (
         <button
           type="button"
@@ -186,14 +194,12 @@ export function CompactItemRow({
       {/* Second line on phones. `sm:contents` dissolves this wrapper from sm up,
           so the badges and price stay direct children of the row as before. */}
       <div className="flex basis-full items-center gap-3 sm:contents">
-        {it.fulfilled && (
-          <Badge variant="success" className="shrink-0">
-            Fulfilled
-          </Badge>
-        )}
-        <Badge variant={LINE_PRODUCTION_META[it.productionStatus].badge} className="shrink-0">
+        {/* Plain coloured words, not pills: "Not started" in a grey capsule
+            was the loudest thing on the row for the least information. */}
+        {it.fulfilled && <span className="shrink-0 text-xs font-medium text-dream-success">Fulfilled</span>}
+        <span className={`shrink-0 text-xs font-medium ${TONE[LINE_PRODUCTION_META[it.productionStatus].badge]}`}>
           {LINE_PRODUCTION_META[it.productionStatus].label}
-        </Badge>
+        </span>
         <div className="ml-auto shrink-0 text-right text-sm sm:ml-0">
           <div className="text-dream-muted">
             {qty} × {formatCAD(unit)}

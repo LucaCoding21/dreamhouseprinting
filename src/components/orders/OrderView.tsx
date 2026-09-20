@@ -308,7 +308,9 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                   {i < activity.length - 1 && <span className="mt-1 w-px flex-1 bg-dream-line" />}
                 </div>
                 <div className="flex-1 pb-1">
-                  <p className="text-sm text-dream-ink">{entry.text}</p>
+                  {/* pre-line: the rush note is written as one line per
+                      bullet, which ran together into a wall without it. */}
+                  <p className="whitespace-pre-line text-sm text-dream-ink">{entry.text}</p>
                   <p className="mt-0.5 text-[14px] text-dream-muted">
                     {new Date(entry.at).toLocaleDateString("en-CA", {
                       year: "numeric",

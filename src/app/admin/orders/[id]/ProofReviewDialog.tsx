@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { ProofLightbox, fileKind } from "./ProofLightbox";
-import { useProofUpload } from "./shared";
+import { LBL, useProofUpload } from "./shared";
 
 interface Selected {
   file: File;
@@ -131,7 +131,7 @@ export function ProofReviewDialog({
                 where the answer decides whether the order is cleared to send. */}
             {needsLinePick && (
               <div>
-                <label htmlFor="proof-line" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+                <label htmlFor="proof-line" className={`mb-1.5 block ${LBL}`}>
                   Which item is this proof for?
                 </label>
                 <Select id="proof-line" value={pickedLine} onChange={(e) => setPickedLine(e.target.value)}>

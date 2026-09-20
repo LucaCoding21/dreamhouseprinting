@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ProofLightbox } from "./ProofLightbox";
-import { type OrderProduct } from "./shared";
+import { LBL, type OrderProduct } from "./shared";
 import type { ProductColourJson } from "@/lib/db/rows";
 
 type View = "front" | "back" | "side";
@@ -85,7 +85,7 @@ export function BlankGarment({
 
   return (
     <div>
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-dream-muted">Supplier blanks</p>
+      <p className={`mb-1 ${LBL}`}>Supplier blanks</p>
       <div className="flex flex-wrap gap-1.5">
         {views.map(({ view, url }) => (
           <span key={view} className="group relative">

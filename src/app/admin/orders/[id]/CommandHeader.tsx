@@ -25,7 +25,7 @@ import { EtransferVerify } from "./EtransferVerify";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { OrderTopSummary } from "./OrderTopSummary";
 import { StatusChangeConfirm } from "./StatusChangeConfirm";
-import { fmtDay, relativeTime, nextAction, useOrderAction, type Can, type Detail } from "./shared";
+import { LBL, fmtDay, relativeTime, nextAction, useOrderAction, type Can, type Detail } from "./shared";
 
 const PRE_APPROVAL = new Set<string>(["draft", "submitted", "in_review", "proof_ready", "changes_requested"]);
 
@@ -269,9 +269,16 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       {/* Row 2, identity + status + the money/stage summary, all above the fold */}
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Phone: the status sits ABOVE the number as a plain coloured word
+              (no pill), like a kicker. sm+: the pill beside the title. */}
+          <div className="flex flex-col-reverse items-start gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
             <h1 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">Order {order.order_number ?? ""}</h1>
-            <Badge variant={status === "changes_requested" ? "warn" : "info"}>{STATUS_META[status].label}</Badge>
+            <Badge
+              variant={status === "changes_requested" ? "warn" : "info"}
+              className="max-sm:border-0 max-sm:bg-transparent max-sm:px-0 max-sm:py-0 max-sm:text-[13px] max-sm:font-semibold"
+            >
+              {STATUS_META[status].label}
+            </Badge>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-dream-muted">
             <span className="font-medium text-dream-ink">{who}</span>
@@ -489,7 +496,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             </DialogDescription>
           </DialogHeader>
           <div className="p-5 pt-0">
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+            <label className={`mb-1.5 block ${LBL}`}>
               Why are you approving for them? (internal, the customer never sees this)
             </label>
             <Textarea
@@ -588,7 +595,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             )}
             <Button
               variant="ghost"
-              className="w-full sm:ml-auto sm:w-auto"
+              className="w-full underline underline-offset-4 sm:ml-auto sm:w-auto"
               onClick={() => setApproveConfirm(true)}
             >
               Looks good, skip proof
