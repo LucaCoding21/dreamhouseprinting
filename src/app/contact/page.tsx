@@ -117,14 +117,15 @@ export default function ContactPage() {
                 </div>
 
                 <Field label="What's this about?">
-                  <div className="flex flex-wrap gap-2">
+                  {/* Two per row on a phone (a fixed grid), free-flowing from sm. */}
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     {TOPICS.map((t) => (
                       <button
                         key={t.value}
                         type="button"
                         onClick={() => setTopic(t.value)}
                         disabled={submitting}
-                        className={`rounded-full px-5 py-2.5 font-display text-[15px] font-semibold transition disabled:opacity-60 sm:px-4 sm:py-2 sm:text-[14px] ${
+                        className={`whitespace-nowrap rounded-full px-3 py-2.5 text-center font-display text-[14px] font-semibold transition disabled:opacity-60 sm:px-4 sm:py-2 ${
                           topic === t.value
                             ? "bg-dream-purple text-white"
                             : "border border-dream-ink/15 bg-white text-dream-ink hover:border-dream-ink/40"
@@ -226,19 +227,28 @@ export default function ContactPage() {
                     </button>
                   </div>
 
-                  <p className="text-[14px] text-dream-ink-soft">
-                    Or just email{" "}
-                    <a
-                      href="mailto:admin@dreamhouseprinting.com"
-                      className="font-semibold text-dream-ink underline-offset-4 hover:underline"
-                    >
-                      admin@dreamhouseprinting.com
-                    </a>
-                    . Minimum order is 20 pieces.
+                  <p className="text-[14px] leading-relaxed text-dream-ink-soft">
+                    <span className="block">
+                      Or email{" "}
+                      <a
+                        href="mailto:admin@dreamhouseprinting.com"
+                        className="font-semibold text-dream-ink underline-offset-4 hover:underline"
+                      >
+                        admin@dreamhouseprinting.com
+                      </a>
+                    </span>
+                    <span className="block">Minimum order is 20 pieces.</span>
                   </p>
                 </div>
               </form>
             )}
+          </div>
+
+          {/* Phones: the pointers sit right under the form, where someone
+              about to write actually sees them. Desktop keeps them as the
+              full-width section further down. */}
+          <div className="lg:hidden">
+            <BeforeYouWrite inline />
           </div>
 
           {/* Sidebar */}
@@ -290,7 +300,9 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <BeforeYouWrite />
+      <div className="hidden lg:block">
+        <BeforeYouWrite />
+      </div>
 
       <SiteFooter />
     </main>
@@ -445,7 +457,7 @@ function PriceMatchCard() {
 // Before-you-write, small set of pointers so people don't write blind
 // ────────────────────────────────────────────────────────────────────────────
 
-function BeforeYouWrite() {
+function BeforeYouWrite({ inline = false }: { inline?: boolean }) {
   const items = [
     {
       n: "01",
@@ -463,6 +475,34 @@ function BeforeYouWrite() {
       body: "Standard turnaround is 7–10 days. Need it sooner? Let us know.",
     },
   ];
+
+  // `inline` is the phone version tucked under the contact form: no section
+  // padding, a smaller left-aligned heading, and the three cards stacked.
+  if (inline) {
+    return (
+      <div>
+        <span className="font-display text-[13px] font-bold uppercase tracking-[0.12em] text-dream-purple">
+          Before you write
+        </span>
+        <h2 className="mt-2 font-display text-[26px] font-bold leading-tight tracking-tight text-dream-ink">
+          Three things that speed it up.
+        </h2>
+        <div className="mt-5 grid gap-4">
+          {items.map((item) => (
+            <div key={item.n} className="rough-card relative px-6 py-5">
+              <div className="flex items-baseline gap-2.5">
+                <span className="font-display text-[13px] font-bold text-dream-purple">{item.n}</span>
+                <h3 className="font-display text-[17px] font-bold leading-tight text-dream-ink">
+                  {item.title}
+                </h3>
+              </div>
+              <p className="mt-2 text-[14px] leading-relaxed text-dream-ink-soft">{item.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section className="relative pb-24 pt-20 lg:pb-32 lg:pt-28">

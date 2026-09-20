@@ -42,7 +42,7 @@ const METHODS: Method[] = [
     name: "Embroidery",
     description:
       "Machine embroidery where thread is stitched into the fabric for a finish that has texture and presence. Best on thicker fabrics and with bolder details.",
-    image: "/custom-embroidery-vancouver.png",
+    image: "/custom-embroidery-vancouver-method.webp",
     imageAlt: "Embroidered logo thread close-up on apparel",
     imageTitle: "Custom logo embroidery on caps and jackets in Vancouver",
     imageClassName: "w-[110px] min-[400px]:w-[140px] -rotate-12 sm:w-[188px] sm:-mt-8",
@@ -388,7 +388,7 @@ function Methods() {
                 title={m.imageTitle}
                 width={260}
                 height={260}
-                unoptimized
+                sizes="(min-width: 640px) 240px, (min-width: 400px) 210px, 150px"
                 className={`static right-2 top-[32%] z-0 h-auto shrink-0 translate-y-0 sm:absolute sm:right-3 sm:top-[42%] sm:-translate-y-1/2 ${m.imageClassName ?? "w-[150px] min-[400px]:w-[210px] sm:w-[240px]"}`}
               />
             </div>
@@ -482,20 +482,14 @@ function Products() {
                 </span>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[14px] font-medium text-dream-ink/55">
-                <span className="inline-flex items-center gap-1.5">
-                  <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
-                    <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M8 4.5 V8 L10.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
+              {/* Two quiet tags, no icons or separator dot: the old icon row
+                  read as three unrelated symbols on a phone. */}
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 px-1">
+                <span className="rounded-md bg-dream-ink/[0.06] px-2 py-1 text-[12px] font-semibold leading-none text-dream-ink/70">
                   {cat.turnaround}
                 </span>
-                <span aria-hidden="true" className="text-dream-ink/30">•</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true">
-                    <path d="M2.5 5.5 L8 3 L13.5 5.5 L8 8 Z M2.5 5.5 V11 L8 13.5 M13.5 5.5 V11 L8 13.5 M8 8 V13.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                  </svg>
-                  Min {cat.minQty}
+                <span className="rounded-md bg-dream-ink/[0.06] px-2 py-1 text-[12px] font-semibold leading-none text-dream-ink/70">
+                  Min. {cat.minQty} pcs
                 </span>
               </div>
             </Link>
@@ -541,7 +535,7 @@ function FAQ() {
           </Reveal>
           <Reveal variant="stamp" delay={120}>
             <Image
-              src="/faq.gif"
+              src="/faq.webp"
               alt=""
               width={2800}
               height={1752}

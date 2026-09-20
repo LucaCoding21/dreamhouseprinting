@@ -272,6 +272,11 @@ export function ProductGallery({
               <div className="flex min-w-0 items-baseline gap-2">
                 <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink">Colour</span>
                 <span className="truncate text-sm text-dream-muted">{colours[selectedColour]?.name}</span>
+                {colours[selectedColour] && !colours[selectedColour].inStock && (
+                  <span className="shrink-0 rounded-full bg-dream-danger/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dream-danger">
+                    Sold out
+                  </span>
+                )}
               </div>
               {colours.length > COLLAPSED_COLOURS + 4 && (
                 <button
@@ -360,28 +365,23 @@ export function ProductGallery({
             <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink">
               Decoration
             </span>
-            {/* Little tilted icon badges, the same device the value props at the
-                foot of this page use, shrunk down. It carries the site's
-                hand-made character without a pill or an outline, so nothing
-                here reads as a choice to tap. */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-3">
-              {decorationNames.map((n, i) => (
-                <span key={n} className="inline-flex items-center gap-2.5">
+            {/* A plain checklist: a small check per method reads as "yes, this
+                one is available" and nothing here looks like a choice to tap. */}
+            <ul className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+              {decorationNames.map((n) => (
+                <li key={n} className="inline-flex items-center gap-2">
                   <span
                     aria-hidden
-                    className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-                      i % 2 === 0
-                        ? "-rotate-3 bg-dream-lavender-soft text-dream-purple-dark"
-                        : "rotate-3 bg-dream-sun-soft text-dream-ink",
-                    )}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-dream-purple text-white"
                   >
-                    <DecorationIcon name={n} className="h-[18px] w-[18px]" />
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                      <path d="m5 12 5 5L20 7" />
+                    </svg>
                   </span>
                   <span className="text-sm font-semibold text-dream-ink">{n}</span>
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
             <p className="mt-2 text-[14px] text-dream-muted">
               Available on this product. You&apos;ll choose a method when you customize.
             </p>
@@ -438,7 +438,7 @@ export function ProductGallery({
                   <ul className="flex list-none flex-col gap-1.5 pl-0">
                     {items.map((item, i) => (
                       <li key={i} className="flex gap-2">
-                        <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-dream-purple/60" />
+                        <span aria-hidden="true" className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-dream-purple/60" />
                         <span>{item}</span>
                       </li>
                     ))}
@@ -523,53 +523,6 @@ function parseDescription(raw: string): string[] {
     .split(/\s*[•·]\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-/**
- * A doodle per decoration method: a squeegee pulling ink for printing, a needle
- * and thread for embroidery, a heat press for transfers. Falls back to a plain
- * garment mark for anything Julian adds later.
- */
-function DecorationIcon({ name, className }: { name: string; className?: string }) {
-  const n = name.toLowerCase();
-  const stroke = {
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-  };
-  if (n.includes("embroid")) {
-    // Needle on the diagonal, eye at the top, thread looping through it.
-    return (
-      <svg viewBox="0 0 24 24" className={className} aria-hidden {...stroke}>
-        <path d="M4.8 19.2 16.6 7.4" />
-        <ellipse cx="18.1" cy="5.9" rx="1.7" ry="1.1" transform="rotate(-45 18.1 5.9)" />
-        <path d="M20.3 7.7c.9 1.9 0 3.6-1.8 4.1-1.5.4-2.5-.5-2.1-1.7" />
-      </svg>
-    );
-  }
-  if (n.includes("dtf") || n.includes("transfer") || n.includes("vinyl")) {
-    // Transfer sheet lifting off a garment, with heat rising.
-    return (
-      <svg viewBox="0 0 24 24" className={className} aria-hidden {...stroke}>
-        <path d="M4 20h16" />
-        <rect x="6" y="10.5" width="12" height="7" rx="1.5" />
-        <path d="M9 7.5c.8-.8.8-1.7 0-2.5M12 7.5c.8-.8.8-1.7 0-2.5M15 7.5c.8-.8.8-1.7 0-2.5" />
-      </svg>
-    );
-  }
-  // Squeegee: a handle bar above a wide blade, with the ink it just pulled
-  // showing as a stroke underneath. Reads at 18px because it is three
-  // horizontal bands rather than a frame with detail inside it.
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden {...stroke}>
-      <path d="M9.5 4h5v3h-5z" />
-      <path d="M12 7v2" />
-      <path d="M4 9.5h16l-2 5H6l-2-5Z" />
-      <path d="M5.5 19.5c4.4-1.5 8.6-1.5 13 0" />
-    </svg>
-  );
 }
 
 /** Abbreviate verbose size names for the compact pills (e.g. "One Size" -> "OS"). */

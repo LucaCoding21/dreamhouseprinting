@@ -354,42 +354,48 @@ export function DetailedQuote({
 
       {/* Grounded price summary, the hero of the panel */}
       <div className="rounded-xl border border-dream-lavender-soft bg-dream-lavender-mist px-4 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+        {/* Both columns are label / number / caption, stretched to the same
+            height so the two labels share a top line and the two captions
+            (was-price + est. total) share a bottom line. */}
+        <div className="flex items-stretch justify-between gap-3">
+          <div className="flex flex-col justify-between">
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
               Your price
             </p>
             <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
               {formatCAD(result.perUnit)}
               <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
             </p>
-            {result.discountPct > 0 && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-[14px]">
-                <span className="text-dream-muted line-through">{formatCAD(result.anchorPerUnit)}</span>
-                <span className="rounded-full bg-dream-sun px-2 py-0.5 font-bold text-dream-ink">
-                  Save {result.discountPct}%
-                </span>
-              </p>
-            )}
+            <p className="mt-1.5 flex h-5 items-center gap-1.5 text-[12px]">
+              {result.discountPct > 0 && (
+                <>
+                  <span className="text-dream-muted line-through">{formatCAD(result.anchorPerUnit)}</span>
+                  <span className="rounded-full bg-dream-sun px-1.5 py-px font-bold text-dream-ink">
+                    Save {result.discountPct}%
+                  </span>
+                </>
+              )}
+            </p>
           </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
+          <div className="flex shrink-0 flex-col justify-between text-right">
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">
               {qty} unit{qty === 1 ? "" : "s"}
             </p>
             <p className="font-display text-xl font-bold leading-none text-dream-ink">
               {formatCAD(result.total)}
             </p>
-            <p className="mt-1.5 text-[14px] text-dream-muted">est. total</p>
+            <p className="mt-1.5 flex h-5 items-center justify-end text-[12px] text-dream-muted">est. total</p>
           </div>
         </div>
       </div>
 
-      {/* Estimate note + secondary quick-quote link */}
-      <p className="text-center text-[14px] text-dream-muted">
-        Estimate only · free art proof before anything prints.
+      {/* Estimate note + secondary quick-quote link. Short enough to hold one
+          line on a phone. */}
+      <p className="text-center text-[13px] text-dream-muted sm:text-[14px]">
+        Estimate only · free art proof before we print.
         <Link
           href={quoteHref}
-          className="mt-1 block font-semibold text-dream-purple hover:underline"
+          className="mt-1 block font-semibold text-dream-purple underline decoration-dream-purple/40 underline-offset-2 hover:decoration-dream-purple"
         >
           Quick quote
         </Link>

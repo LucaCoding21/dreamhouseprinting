@@ -94,11 +94,15 @@ export function ShopQtyControl({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <span className="text-sm font-semibold text-dream-ink-soft">
-        Prices for
+    // One line at every width. On a phone "Prices for ... units" wrapped its
+    // last word onto a second row, so below sm the label is a single leading
+    // "Units" and the trailing word is dropped.
+    <div className={cn("flex flex-nowrap items-center gap-1.5 sm:gap-2", className)}>
+      <span className="shrink-0 text-[13px] font-semibold text-dream-ink-soft sm:text-sm">
+        <span className="sm:hidden">Units</span>
+        <span className="hidden sm:inline">Prices for</span>
       </span>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1 sm:gap-1.5">
         {PRESETS.map((n) => (
           <button
             key={n}
@@ -106,7 +110,7 @@ export function ShopQtyControl({ className }: { className?: string }) {
             aria-pressed={qty === n}
             onClick={() => setQty(n)}
             className={cn(
-              "cursor-pointer rounded-full px-3 py-1.5 font-display text-[14px] font-semibold transition",
+              "cursor-pointer rounded-full px-2.5 py-1.5 font-display text-[13px] font-semibold transition sm:px-3 sm:text-[14px]",
               qty === n
                 ? "bg-dream-purple text-white"
                 : "border border-dream-line bg-white text-dream-ink hover:border-dream-purple/50",
@@ -125,17 +129,17 @@ export function ShopQtyControl({ className }: { className?: string }) {
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
-          placeholder="e.g. 75"
+          placeholder="Other"
           aria-label="Quantity to price the catalog at"
           className={cn(
-            "h-[34px] w-[4.5rem] rounded-full border bg-white text-center font-display text-[14px] font-semibold text-dream-ink outline-none transition placeholder:font-medium placeholder:text-dream-ink/40",
+            "h-[32px] w-[3.75rem] rounded-full border bg-white text-center font-display text-[13px] font-semibold text-dream-ink outline-none transition placeholder:font-medium placeholder:text-dream-ink/40 sm:h-[34px] sm:w-[4.5rem] sm:text-[14px]",
             "border-dream-line hover:border-dream-purple/50 focus:border-dream-purple focus:ring-2 focus:ring-dream-purple/25",
             "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
             !PRESETS.includes(qty) && "border-dream-purple ring-2 ring-dream-purple/25",
           )}
         />
       </div>
-      <span className="text-sm font-semibold text-dream-ink-soft">units</span>
+      <span className="hidden text-sm font-semibold text-dream-ink-soft sm:inline">units</span>
     </div>
   );
 }

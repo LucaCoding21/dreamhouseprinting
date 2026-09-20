@@ -51,6 +51,15 @@ export async function generateMetadata({
   };
 }
 
+/** "Peached Cotton Twill Cap" -> "Peached Co..": the phone-width Next link
+ *  shows one word plus a two-letter hint, since long names were eating the
+ *  whole row next to "Back to shop". Single-word names pass through. */
+function shortProductName(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length < 2) return name;
+  return `${words[0]} ${words[1].slice(0, 2)}..`;
+}
+
 export default async function ProductDetailPage({
   params,
   searchParams,
@@ -163,9 +172,9 @@ export default async function ProductDetailPage({
       <div className="mb-6 flex items-center justify-between gap-3">
         <Link
           href={backHref}
-          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-dream-muted transition-colors hover:text-dream-purple"
+          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] font-semibold text-dream-muted transition-colors hover:text-dream-purple sm:gap-1.5 sm:text-sm"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true">
             <path d="m15 18-6-6 6-6" />
           </svg>
           {backLabel}
@@ -180,13 +189,11 @@ export default async function ProductDetailPage({
                 ? `/shop/${nextProduct.id}?from=${encodeURIComponent(from)}`
                 : `/shop/${nextProduct.id}`
             }
-            className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-dream-muted transition-colors hover:text-dream-purple lg:hidden"
+            className="inline-flex min-w-0 items-center gap-1 text-[13px] font-semibold text-dream-muted transition-colors hover:text-dream-purple sm:gap-1.5 sm:text-sm lg:hidden"
             title={nextProduct.name}
           >
-            <span className="truncate">
-              Next: {nextProduct.name}
-            </span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden="true">
+            <span className="truncate">Next {shortProductName(nextProduct.name)}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true">
               <path d="m9 18 6-6-6-6" />
             </svg>
           </Link>

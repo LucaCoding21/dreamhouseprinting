@@ -29,6 +29,10 @@ const NAV_LINKS = [
   { label: "Contact", href: "/contact", rotate: 0.5 },
 ];
 
+// Gap between each mobile-menu link popping in. The Quick Quote pill lands
+// one step after the last link, so the whole reveal is ~0.5s, not ~1.3s.
+const MENU_STAGGER_MS = 60;
+
 // 12 rays on an ellipse around the Quick Quote pill.
 // Each ray gets small length/angle jitter so they feel hand-drawn, not CAD.
 const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
@@ -273,7 +277,7 @@ export default function SiteNav() {
                 // and ~40px below it (in a ~500px viewBox), so the mark sits
                 // high in its own box. A small downward shift centres it
                 // optically against the nav row.
-                className="h-11 w-auto shrink-0 translate-y-[3.9%] md:hidden"
+                className="h-11 w-auto shrink-0 translate-y-[2px] md:hidden"
               />
               <Image
                 src="/dreamhouse-logo4.svg"
@@ -281,7 +285,7 @@ export default function SiteNav() {
                 width={1668}
                 height={547}
                 priority
-                className="hidden h-[52px] w-auto shrink-0 translate-y-[3.9%] md:block lg:h-[62px] xl:h-[54px] 2xl:h-[66px]"
+                className="hidden h-[52px] w-auto shrink-0 translate-y-[2px] md:block lg:h-[62px] xl:h-[54px] 2xl:h-[66px]"
               />
             </Link>
           </div>
@@ -628,9 +632,9 @@ export default function SiteNav() {
                 scale: menuOpen ? 1 : 0.4,
                 opacity: menuOpen ? 1 : 0,
                 transition: `scale 550ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
-                  menuOpen ? i * 90 + 120 : 0
+                  menuOpen ? i * MENU_STAGGER_MS + 80 : 0
                 }ms, opacity 350ms ease ${
-                  menuOpen ? i * 90 + 120 : 0
+                  menuOpen ? i * MENU_STAGGER_MS + 80 : 0
                 }ms`,
               }}
             >
@@ -638,17 +642,22 @@ export default function SiteNav() {
             </Link>
           ))}
 
+          {/* will-change keeps the pill on its own compositor layer, so the
+              rough-edges filter is rasterized once when the menu mounts, not
+              on the first frame of the spring (which read as the button
+              "loading" late on phones). The pill follows the last link by one
+              stagger step instead of the old 740ms hold. */}
           <div
-            className={`sun-burst relative mt-4 inline-block ${
+            className={`sun-burst relative mt-4 inline-block will-change-transform ${
               menuOpen ? "pointer-events-auto" : "pointer-events-none"
             }`}
             style={{
               scale: menuOpen ? 1 : 0.4,
               opacity: menuOpen ? 1 : 0,
               transition: `scale 600ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
-                menuOpen ? NAV_LINKS.length * 90 + 200 : 0
+                menuOpen ? NAV_LINKS.length * MENU_STAGGER_MS + 80 : 0
               }ms, opacity 350ms ease ${
-                menuOpen ? NAV_LINKS.length * 90 + 200 : 0
+                menuOpen ? NAV_LINKS.length * MENU_STAGGER_MS + 80 : 0
               }ms`,
             }}
           >

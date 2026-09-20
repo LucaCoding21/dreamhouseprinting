@@ -298,8 +298,10 @@ function CategoryChips({
 }) {
   // -mx/px pair lets the row bleed to the screen edge, so a partially visible
   // chip signals there is more to swipe.
+  // The right-edge fade is the scroll cue: with generous pills and gaps the
+  // row read as a finished set of four, not a strip that keeps going.
   const row =
-    "no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto scroll-pl-4 px-4 sm:-mx-6 sm:scroll-pl-6 sm:px-6";
+    "no-scrollbar -mx-4 flex snap-x gap-1.5 overflow-x-auto scroll-pl-4 px-4 sm:-mx-6 sm:scroll-pl-6 sm:px-6 [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)]";
   return (
     <div className="lg:hidden">
       <div className={row}>
@@ -371,7 +373,7 @@ function Chip({
                 : "border-transparent text-dream-muted hover:text-dream-ink",
             )
           : cn(
-              "rounded-full border px-4 py-2",
+              "rounded-full border px-3.5 py-1.5 text-[13px]",
               active
                 ? "border-dream-purple bg-dream-purple text-white"
                 : "border-dream-line bg-white text-dream-ink hover:border-dream-lavender",

@@ -980,7 +980,7 @@ function PrintsEditor({
                     type="button"
                     onClick={() => removeAt(i)}
                     aria-label={`Remove print ${i + 1}`}
-                    className="text-[14px] font-semibold text-dream-ink/45 transition hover:text-dream-danger"
+                    className="text-[13px] font-semibold text-dream-ink/45 underline decoration-dream-ink/30 underline-offset-2 transition hover:text-dream-danger hover:decoration-dream-danger"
                   >
                     Remove
                   </button>
@@ -1049,7 +1049,7 @@ function PrintsEditor({
               </div>
 
               {line && (
-                <p className="mt-4 border-t border-dream-ink/10 pt-3 text-[14px] font-semibold text-dream-ink/60 tabular-nums">
+                <p className="mt-4 border-t border-dream-ink/10 pt-3 text-[12px] font-semibold sm:text-[14px] text-dream-ink/60 tabular-nums">
                   {printLineText(line, productLabel, colourNoun)}
                 </p>
               )}

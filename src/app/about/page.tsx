@@ -66,7 +66,7 @@ function Hero() {
             <div className="relative z-10 -rotate-[2deg] rounded-xl bg-white p-2 shadow-[8px_8px_0_0_rgba(27,20,88,1)] sm:p-2.5">
               <div className="relative aspect-square w-full overflow-hidden rounded-lg sm:w-[450px] lg:w-[560px]">
                 <Image
-                  src="/screen-printing-squeegee-vancouver-shop.png"
+                  src="/screen-printing-squeegee-vancouver-shop.webp"
                   alt="Dreamhouse screen printer pulling a fresh print at the Vancouver shop"
                   title="Inside our Vancouver screen print shop"
                   fill
@@ -146,7 +146,7 @@ function WhatWeDo() {
           <ParallaxScroll speed={0.02}>
             <div className="aspect-[4/5] overflow-hidden rounded-[8px] ring-1 ring-dream-ink/10 sm:aspect-[3/5]">
               <Image
-                src="/screen-printed-graphic-tshirts-vancouver.png"
+                src="/screen-printed-graphic-tshirts-vancouver.webp"
                 alt=""
                 width={400}
                 height={520}
@@ -158,7 +158,7 @@ function WhatWeDo() {
           <ParallaxScroll speed={0.05} className="sm:mt-14">
             <div className="aspect-[4/5] overflow-hidden rounded-[8px] ring-1 ring-dream-ink/10 sm:aspect-[3/5]">
               <Image
-                src="/embroidered-hoodies-stack-vancouver.png"
+                src="/embroidered-hoodies-stack-vancouver.webp"
                 alt=""
                 width={400}
                 height={620}

@@ -171,16 +171,18 @@ function Hero() {
             it in house right here in Vancouver.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-4">
+          {/* Both CTAs share one row on a phone (flex-1 + tighter padding);
+              from sm they size to their labels as before. */}
+          <div className="mt-8 flex items-center gap-3 sm:flex-wrap sm:gap-4">
             <Link
               href="/shop"
-              className="rough-pill rough-pill-filled inline-flex items-center justify-center px-8 py-4 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5"
+              className="rough-pill rough-pill-filled inline-flex flex-1 items-center justify-center whitespace-nowrap px-5 py-3.5 font-display text-[15px] font-bold text-white transition-transform hover:-translate-y-0.5 sm:flex-none sm:px-8 sm:py-4 sm:text-base"
             >
               Start designing
             </Link>
             <Link
               href="/#quick-quote"
-              className="inline-flex items-center justify-center rounded-full border-2 border-dream-ink px-8 py-4 font-display text-base font-bold text-dream-ink transition-transform hover:-translate-y-0.5 hover:bg-dream-ink hover:text-white"
+              className="inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-full border-2 border-dream-ink px-5 py-3.5 font-display text-[15px] font-bold text-dream-ink transition-transform hover:-translate-y-0.5 hover:bg-dream-ink hover:text-white sm:flex-none sm:px-8 sm:py-4 sm:text-base"
             >
               Get a quote
             </Link>
