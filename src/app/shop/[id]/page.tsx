@@ -51,13 +51,22 @@ export async function generateMetadata({
   };
 }
 
-/** "Peached Cotton Twill Cap" -> "Peached Co..": the phone-width Next link
- *  shows one word plus a two-letter hint, since long names were eating the
- *  whole row next to "Back to shop". Single-word names pass through. */
+/** "Unisex Heavy Cotton T-Shirt" -> "Unisex Heavy Cotton..": the phone-width
+ *  Next link keeps as many whole words as fit a ~22 character budget, since
+ *  long names were eating the whole row next to "Back to shop". Names within
+ *  budget pass through; the link's CSS truncate is the safety net on narrow
+ *  phones. */
+const NEXT_NAME_BUDGET = 22;
 function shortProductName(name: string): string {
-  const words = name.trim().split(/\s+/);
-  if (words.length < 2) return name;
-  return `${words[0]} ${words[1].slice(0, 2)}..`;
+  const trimmed = name.trim();
+  if (trimmed.length <= NEXT_NAME_BUDGET) return trimmed;
+  const words = trimmed.split(/\s+/);
+  let out = words[0];
+  for (const w of words.slice(1)) {
+    if (`${out} ${w}`.length > NEXT_NAME_BUDGET) break;
+    out = `${out} ${w}`;
+  }
+  return `${out}..`;
 }
 
 export default async function ProductDetailPage({
@@ -201,7 +210,7 @@ export default async function ProductDetailPage({
       </div>
 
       {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-5 text-sm text-dream-muted sm:mb-10">
+      <nav aria-label="Breadcrumb" className="mb-5 text-sm font-medium text-dream-muted sm:mb-10">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link href="/" className="hover:text-dream-ink">
@@ -228,7 +237,7 @@ export default async function ProductDetailPage({
             </>
           )}
           <li aria-hidden="true" className="text-dream-faint">/</li>
-          <li className="truncate font-medium text-dream-ink">{product.name}</li>
+          <li className="truncate font-semibold text-dream-ink">{product.name}</li>
         </ol>
       </nav>
 

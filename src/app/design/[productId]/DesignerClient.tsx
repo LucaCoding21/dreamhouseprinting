@@ -41,7 +41,7 @@ import {
 } from "@/lib/pricing/quote";
 import { fmtDate, inHandsWindow } from "@/lib/turnaround";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { swatchStyle } from "@/lib/swatch";
+import { swatchStyle, isNearWhite } from "@/lib/swatch";
 import { DESIGNER_FONTS, type DesignerFont } from "@/lib/fonts";
 import {
   MAX_UPLOAD_BYTES,
@@ -167,6 +167,10 @@ const GRID_BG: React.CSSProperties = {
 // light over the grid instead of reading as a raised surface.
 const GLASS = "rounded-2xl bg-white/60 ring-1 ring-dream-ink/[0.06] backdrop-blur-md";
 
+/** Review-screen reassurance row: four risk-reducers behind one plain purple
+ *  check each (no circles, no bespoke icons) so it reads as a quiet footnote. */
+const REASSURANCES = ["Print guarantee", "Free design proof", "Printed in Canada", "Expert design review"];
+
 // A small built-in clip-art tray. Each entry is an inline SVG rendered onto the
 // Fabric canvas as an image (the canvas loads any image URL, including data
 // URLs). The star reuses the brand-purple star icon supplied for the toolbar.
@@ -218,7 +222,7 @@ const MOBILE_TABS: {
     id: "colour",
     label: "Product",
     node: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden>
         <path d="M8.5 3 5 4.6 3 8.4l2.6 1.7L6.4 9v11.5h11.2V9l.8 1.1L21 8.4l-2-3.8L15.5 3a3.5 3.5 0 0 1-7 0Z" />
       </svg>
     ),
@@ -230,7 +234,7 @@ const MOBILE_TABS: {
     id: "notes",
     label: "Notes",
     node: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden>
         <path d="M4 4.5h16v10.5l-4 4.5H4z" />
         <path d="M8 9h8M8 13h5" />
       </svg>
@@ -1104,7 +1108,7 @@ export function DesignerClient(props: Props) {
   // panels stay in sync off the single `methodId` state.
   const methodPicker = priceableMethods.length > 0 && (
     <>
-      <div className="mt-5 flex items-center gap-1.5 text-[14px] font-medium text-dream-muted">
+      <div className="mt-5 flex items-center gap-1.5 text-[13px] font-medium text-dream-muted lg:text-[14px]">
         Print method
         <HelpDot
           label="Compare print and embroidery"
@@ -1541,10 +1545,10 @@ export function DesignerClient(props: Props) {
             "flex shrink-0 flex-col bg-white transition-[width] duration-200 lg:flex-row lg:overflow-hidden lg:border-r lg:border-dream-line",
             leftOpen ? "lg:w-[26rem]" : "lg:w-20",
             // The offset must equal the tab bar's height exactly, or a strip of
-            // canvas shows between the two. That bar is py-2.5 (10px) + a
-            // min-h-[3.75rem] (60px) tab + pb-2.5 (10px) = 5rem, plus the
-            // safe-area inset it also carries. It was 5.5rem, hence an 8px gap.
-            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(5rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:rounded-t-3xl max-lg:border-t max-lg:border-dream-line max-lg:shadow-[0_-10px_30px_-12px_rgba(27,20,88,0.35)]",
+            // canvas shows between the two. That bar is pt-1 (4px) + a
+            // min-h-[3.25rem] (52px) tab + pb-2.5 (10px) = 4.125rem, plus the
+            // safe-area inset it also carries.
+            "max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.125rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:rounded-t-3xl max-lg:border-t max-lg:border-dream-line max-lg:shadow-[0_-10px_30px_-12px_rgba(27,20,88,0.35)]",
             !sheetOpen && "max-lg:hidden"
           )}
         >
@@ -1693,22 +1697,22 @@ export function DesignerClient(props: Props) {
             </Link>
           </div>
 
-          {/* Sheet header (mobile only): just an explicit close, since the tool
-              tab that opened it sits behind the sheet. No grab bar, the sheet
-              is not draggable and the handle promised a gesture we don't have. */}
-          <div className="flex items-center justify-end px-4 pt-1.5 pb-0 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setSheetOpen(false)}
-              aria-label="Close panel"
-              className="-my-1 -mr-1 flex h-11 w-11 items-center justify-center rounded-full text-dream-ink-soft transition-colors hover:bg-dream-cream hover:text-dream-ink"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
-            </button>
-          </div>
+          {/* Sheet close (mobile only): floats in the sheet's top-right corner,
+              over the tool card's heading row, rather than taking a row of its
+              own above the card. The aside is `fixed` below lg, so absolute
+              positions against it. The tool tab that opened the sheet sits
+              behind it, hence an explicit close. */}
+          <button
+            type="button"
+            onClick={() => setSheetOpen(false)}
+            aria-label="Close panel"
+            className="absolute right-4 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full text-dream-ink-soft transition-colors hover:bg-dream-cream hover:text-dream-ink lg:hidden"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
 
           {/* Panel, scrolls within the fixed-height aside; hidden when collapsed */}
-          <div ref={panelRef} className={cn("no-scrollbar max-h-[50dvh] min-w-0 flex-1 overflow-y-auto p-5 pt-0 lg:max-h-none lg:p-6", !leftOpen && "hidden")}>
+          <div ref={panelRef} className={cn("no-scrollbar max-h-[50dvh] min-w-0 flex-1 overflow-y-auto p-5 max-lg:pt-4 lg:max-h-none lg:p-6", !leftOpen && "hidden")}>
             {/* Garment identity, desktop only. In the mobile sheet it repeated
                 above every tool and ate height the tool itself needs; the
                 product is already named on the canvas and in the cart. */}
@@ -1722,9 +1726,11 @@ export function DesignerClient(props: Props) {
                 on their own tab so this one is only about the garment. */}
             {tool === "colour" && (
               <>
-            <div className="mt-4 flex items-baseline justify-between gap-2">
-              <span className="text-[14px] font-medium text-dream-muted">Colour</span>
-              <span className="truncate text-[14px] font-bold text-dream-purple">{colourName || "Pick one"}</span>
+            {/* Name sits right beside the label (not pushed to the far edge),
+                so on phones it stays clear of the floating close X. */}
+            <div className="mt-4 flex items-baseline gap-2 max-lg:mt-0 max-lg:pr-10">
+              <span className="text-[13px] font-medium text-dream-muted lg:text-[14px]">Colour</span>
+              <span className="truncate text-[13px] font-bold text-dream-purple lg:text-[14px]">{colourName || "Pick one"}</span>
             </div>
             {/* auto-fill instead of a fixed 6 columns: the swatch is capped at a
                 small size and the row simply fits as many as the panel allows,
@@ -1752,17 +1758,22 @@ export function DesignerClient(props: Props) {
                     <span
                       className={cn(
                         "h-full w-full rounded-full ring-1 ring-inset ring-dream-ink/15 transition-shadow",
-                        selected && "ring-2 ring-dream-purple"
+                        selected && "ring-[1.5px] ring-dream-purple lg:ring-2"
                       )}
                       style={swatchStyle(c)}
                     />
-                    {/* selected check, drops a contrasting tick on the chosen swatch */}
+                    {/* selected check, drops a contrasting tick on the chosen swatch:
+                        white on colours, purple on white-ish ones where a white
+                        tick vanished. */}
                     {selected && (
                       <svg
                         viewBox="0 0 24 24"
-                        className="pointer-events-none absolute h-3 w-3 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+                        className={cn(
+                          "pointer-events-none absolute h-3 w-3",
+                          isNearWhite(c) ? "text-dream-purple" : "text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+                        )}
                         fill="none"
-                        stroke="#fff"
+                        stroke="currentColor"
                         strokeWidth="3.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -1798,7 +1809,7 @@ export function DesignerClient(props: Props) {
                 re-homes it on its own. */}
             {activeView !== null && displayViewSpots.length > 1 && (
               <div className="mt-3">
-                <div className="text-[14px] font-medium text-dream-muted">Print location</div>
+                <div className="text-[13px] font-medium text-dream-muted lg:text-[14px]">Print location</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {displayViewSpots.map((pa) => {
                     const selected = pa.id === activeSpot?.id;
@@ -1836,7 +1847,7 @@ export function DesignerClient(props: Props) {
               {tool === "upload" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
                 <>
-                  <h3 className="font-display text-base font-bold text-dream-ink">Upload artwork</h3>
+                  <h3 className="font-display text-[14px] font-bold text-dream-ink lg:text-base">Upload artwork</h3>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadBusy}
@@ -1876,7 +1887,7 @@ export function DesignerClient(props: Props) {
               {tool === "text" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
                 <>
-                  <h3 className="font-display text-base font-bold text-dream-ink">Add text</h3>
+                  <h3 className="font-display text-[14px] font-bold text-dream-ink lg:text-base">Add text</h3>
                   <button
                     onClick={addText}
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dream-line bg-white px-3 py-3 text-[15px] lg:text-sm font-semibold text-dream-ink transition-colors hover:border-dream-purple"
@@ -1884,7 +1895,7 @@ export function DesignerClient(props: Props) {
                     <Image src="/designer/tool-text.svg" alt="" width={16} height={16} className="h-4 w-auto" />
                     Add a text box
                   </button>
-                  <div className="mt-3 text-[14px] font-medium text-dream-muted">Font</div>
+                  <div className="mt-3 text-[13px] font-medium text-dream-muted lg:text-[14px]">Font</div>
                   {/* Collapsed dropdown, tap to expand a previewed list. Each row
                       renders its own label in its own face so the customer sees
                       what they're picking. Expands inline; the panel scrolls. */}
@@ -1968,7 +1979,7 @@ export function DesignerClient(props: Props) {
                   <div className="mt-3 grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
                     {/* Font size: stepper + editable number */}
                     <div>
-                      <div className="text-[14px] font-medium text-dream-muted">Size</div>
+                      <div className="text-[13px] font-medium text-dream-muted lg:text-[14px]">Size</div>
                       <div className="mt-2 flex items-center overflow-hidden rounded-lg border border-dream-line bg-white">
                         <button
                           type="button"
@@ -1999,7 +2010,7 @@ export function DesignerClient(props: Props) {
                     </div>
                     {/* Alignment: left / center / right */}
                     <div>
-                      <div className="text-[14px] font-medium text-dream-muted">Align</div>
+                      <div className="text-[13px] font-medium text-dream-muted lg:text-[14px]">Align</div>
                       <div className="mt-2 grid grid-cols-3 gap-1 rounded-lg border border-dream-line bg-white p-1">
                         {(["left", "center", "right"] as const).map((a) => (
                           <button
@@ -2021,7 +2032,7 @@ export function DesignerClient(props: Props) {
                     </div>
                   </div>
 
-                  <div className="mt-3 text-[14px] font-medium text-dream-muted">Text colour</div>
+                  <div className="mt-3 text-[13px] font-medium text-dream-muted lg:text-[14px]">Text colour</div>
                   <div className="mt-2 grid grid-cols-8 gap-1.5">
                     {TEXT_COLORS.map((hex) => {
                       const selected = textColor.toLowerCase() === hex;
@@ -2068,7 +2079,7 @@ export function DesignerClient(props: Props) {
               {tool === "clipart" && (
                 <div className="rounded-2xl bg-dream-cream/60 p-4">
                 <>
-                  <h3 className="font-display text-base font-bold text-dream-ink">Clip art</h3>
+                  <h3 className="font-display text-[14px] font-bold text-dream-ink lg:text-base">Clip art</h3>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {CLIPART.map((c) => (
                       <button
@@ -2097,7 +2108,7 @@ export function DesignerClient(props: Props) {
                 real person instead of faking a mockup. When sleeves ARE live the
                 copy narrows to the truly custom asks. */}
             <div className="mt-5 rounded-2xl border border-dream-line bg-dream-cream/50 p-4">
-              <h3 className="font-display text-[15px] lg:text-sm font-bold text-dream-ink">
+              <h3 className="font-display text-[14px] lg:text-sm font-bold text-dream-ink">
                 Want it {sleeveEnabled ? "somewhere custom" : "on the sleeve or somewhere else"}?
               </h3>
               <p className="mt-1.5 text-[14px] leading-relaxed text-dream-muted">
@@ -2172,13 +2183,13 @@ export function DesignerClient(props: Props) {
                 onClick={() => priceableMethods.length > 1 && setMethodMenuOpen((o) => !o)}
                 aria-expanded={methodMenuOpen}
                 aria-haspopup={priceableMethods.length > 1 ? "menu" : undefined}
-                className={cn(GLASS, "flex min-h-[2.75rem] max-w-full items-center gap-2 px-3.5 py-2 text-left")}
+                className={cn(GLASS, "flex min-h-[2rem] max-w-full items-center gap-2 px-2.5 py-1 text-left")}
               >
-                <span className="truncate text-[14px] font-bold uppercase tracking-wide text-dream-muted">
-                  {VIEW_LABEL[displayView]} · print method
+                <span className="truncate text-[11px] font-medium uppercase tracking-wide text-dream-muted">
+                  {VIEW_LABEL[displayView]} print method
                 </span>
-                <span aria-hidden className="h-4 w-px shrink-0 bg-dream-line" />
-                <span className="truncate font-display text-[14px] font-bold text-dream-ink">
+                <span aria-hidden className="h-3 w-px shrink-0 bg-dream-line" />
+                <span className="truncate font-display text-[12px] font-semibold text-dream-ink">
                   {method?.name ?? "Print"}
                 </span>
                 {priceableMethods.length > 1 && (
@@ -2229,19 +2240,19 @@ export function DesignerClient(props: Props) {
                   onClick={() => showSide(v)}
                   aria-pressed={on}
                   className={cn(
-                    "flex w-[3.75rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1.5 ring-1 backdrop-blur-md transition-colors",
-                    on ? "ring-2 ring-dream-purple" : "ring-dream-ink/[0.06]"
+                    "flex w-[3rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1 ring-1 backdrop-blur-md transition-colors",
+                    on ? "ring-[1.5px] ring-dream-purple" : "ring-dream-ink/[0.06]"
                   )}
                 >
                   {thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={thumb} alt="" className="h-8 w-8 object-contain" />
+                    <img src={thumb} alt="" className="h-6 w-6 object-contain" />
                   ) : (
-                    <span aria-hidden className="grid h-8 w-8 place-items-center text-dream-faint">
+                    <span aria-hidden className="grid h-6 w-6 place-items-center text-dream-faint">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3l18 18" /><path d="M21 15V5a2 2 0 0 0-2-2H9" /><path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14" /></svg>
                     </span>
                   )}
-                  <span className={cn("text-[14px] font-bold leading-none", on ? "text-dream-purple" : "text-dream-muted")}>
+                  <span className={cn("text-[11px] font-semibold leading-none", on ? "text-dream-purple" : "text-dream-muted")}>
                     {VIEW_LABEL[v]}
                   </span>
                 </button>
@@ -2255,14 +2266,14 @@ export function DesignerClient(props: Props) {
               disabled={zoomIdx >= ZOOM_STEPS.length - 1}
               onClick={() => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIdx + 1)])}
             >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M11 8v6M8 11h6" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M11 8v6M8 11h6" /></svg>
             </MobileChip>
             <MobileChip
               label="Zoom out"
               disabled={zoomIdx <= 0}
               onClick={() => setZoom(ZOOM_STEPS[Math.max(0, zoomIdx - 1)])}
             >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M8 11h6" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5M8 11h6" /></svg>
             </MobileChip>
           </div>
 
@@ -2274,7 +2285,7 @@ export function DesignerClient(props: Props) {
             <div
               key={emptyNudge}
               className={cn(
-                "pointer-events-none absolute bottom-[3.75rem] right-2.5 z-20 max-w-[calc(100%-1.25rem)] rounded-xl px-3 py-2 text-[13px] font-semibold leading-snug shadow-[0_2px_0_0_rgba(27,20,88,0.08)] ring-1 backdrop-blur-md lg:hidden",
+                "pointer-events-none absolute bottom-[3.25rem] right-2.5 z-20 max-w-[calc(100%-1.25rem)] rounded-lg px-2.5 py-1.5 text-[12px] font-medium leading-snug shadow-[0_2px_0_0_rgba(27,20,88,0.08)] ring-1 backdrop-blur-md lg:hidden",
                 emptyNudge > 0
                   ? "animate-[empty-nudge_0.45s_ease-out] bg-dream-danger-soft text-dream-danger ring-dream-danger/20"
                   : "bg-white/85 text-dream-ink ring-dream-ink/[0.06]"
@@ -2293,12 +2304,11 @@ export function DesignerClient(props: Props) {
             onClick={goToReview}
             aria-disabled={decoratedSpots.length === 0}
             className={cn(
-              "absolute bottom-3 right-2.5 z-20 inline-flex min-h-[2.75rem] items-center gap-2 rounded-full px-5 font-display text-sm font-bold text-white transition-transform active:translate-y-px lg:hidden",
+              "absolute bottom-3 right-2.5 z-20 inline-flex min-h-[2.25rem] items-center rounded-full px-4 font-display text-[13px] font-bold text-white transition-transform active:translate-y-px lg:hidden",
               decoratedSpots.length === 0 ? "bg-dream-purple/45" : "bg-dream-purple"
             )}
           >
             Continue
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
 
           {/* Canvases, every decorated side side by side, each editable. The
@@ -2481,12 +2491,12 @@ export function DesignerClient(props: Props) {
               those controls. If the band is shorter than the rail, it scrolls. */}
           {selection && (
             <div className="pointer-events-none absolute inset-x-2 bottom-20 z-10 flex justify-center sm:inset-x-auto sm:inset-y-0 sm:bottom-auto sm:right-[max(0.75rem,calc(50%-50rem))] sm:items-center sm:justify-start lg:inset-y-auto lg:bottom-4 lg:top-16">
-              <div className={cn(GLASS, "no-scrollbar pointer-events-auto flex max-w-full flex-row items-center gap-0.5 overflow-x-auto p-2 sm:w-48 sm:flex-col sm:items-stretch sm:gap-0 sm:overflow-visible sm:p-1.5 lg:max-h-full lg:overflow-y-auto")}>
+              <div className={cn(GLASS, "no-scrollbar pointer-events-auto flex max-w-full flex-row items-center overflow-x-auto p-1.5 sm:w-48 sm:flex-col sm:items-stretch lg:max-h-full lg:overflow-y-auto sm:overflow-visible")}>
                 <RailBtn label="Duplicate" onClick={duplicate}><DuplicateIcon /></RailBtn>
                 <RailBtn label="Flip horizontal" onClick={() => flip("h")}><FlipHIcon /></RailBtn>
                 <RailBtn label="Flip vertical" onClick={() => flip("v")}><FlipVIcon /></RailBtn>
                 <RailBtn label="Center in box" onClick={centerArt}><CenterIcon /></RailBtn>
-                <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
+                <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
                 <RailBtn label="Bring forward" onClick={() => layer("forward")}><ForwardIcon /></RailBtn>
                 <RailBtn label="Send backward" onClick={() => layer("back")}><BackwardIcon /></RailBtn>
                 {selection.isText && (
@@ -2507,7 +2517,7 @@ export function DesignerClient(props: Props) {
                     />
                   </label>
                 )}
-                <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
+                <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 self-center bg-dream-line sm:mx-0 sm:my-1 sm:h-px sm:w-full" />
                 <RailBtn label="Delete" onClick={deleteActive} danger><TrashIcon /></RailBtn>
               </div>
             </div>
@@ -2521,7 +2531,7 @@ export function DesignerClient(props: Props) {
         {phase === "design" && (
           <nav
             aria-label="Design tools"
-            className="z-40 flex shrink-0 items-stretch justify-around border-t border-dream-line bg-white px-1 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] lg:hidden"
+            className="z-40 flex shrink-0 items-stretch justify-around border-t border-dream-line bg-white px-1 pt-1 pb-[calc(0.625rem+env(safe-area-inset-bottom))] lg:hidden"
           >
             {MOBILE_TABS.map((t) => {
               const on = tool === t.id && sheetOpen;
@@ -2541,13 +2551,13 @@ export function DesignerClient(props: Props) {
                   }}
                   aria-pressed={on}
                   className={cn(
-                    "relative flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 transition-colors",
+                    "relative flex min-h-[3.25rem] flex-1 flex-col items-center justify-center rounded-2xl px-1 transition-colors",
                     on ? "text-dream-purple" : "text-dream-ink-soft"
                   )}
                 >
                   <span
                     className={cn(
-                      "grid h-11 w-11 place-items-center rounded-2xl transition-colors",
+                      "grid h-8 w-9 place-items-center rounded-xl transition-colors",
                       on && "bg-dream-lavender-soft"
                     )}
                   >
@@ -2560,13 +2570,13 @@ export function DesignerClient(props: Props) {
                         alt=""
                         width={20}
                         height={20}
-                        className={cn("h-[22px] w-auto transition-opacity", on ? "opacity-100" : "opacity-55")}
+                        className={cn("h-[18px] w-auto transition-opacity", on ? "opacity-100" : "opacity-55")}
                       />
                     ) : (
                       <span className={cn("transition-opacity", on ? "opacity-100" : "opacity-55")}>{t.node}</span>
                     )}
                   </span>
-                  <span className="text-[14px] font-bold leading-[1.15]">{t.label}</span>
+                  <span className="text-[11px] font-medium leading-[1.15]">{t.label}</span>
                   {t.id === "notes" && customerNote.trim() && (
                     <span aria-hidden className="absolute right-[22%] top-1.5 h-1.5 w-1.5 rounded-full bg-dream-sun" />
                   )}
@@ -2667,10 +2677,10 @@ export function DesignerClient(props: Props) {
                     "Colours" reads as thread (embroidery) or ink (print). */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">What we&apos;re printing</div>
+                    <div className="font-display text-[15px] font-bold text-dream-ink">What we&apos;re printing</div>
                     {/* Plain count, no pill: it is a caption on the heading
                         beside it, not a status to badge. */}
-                    <span className="text-[14px] font-semibold text-dream-muted">
+                    <span className="text-[13px] font-semibold text-dream-purple">
                       {decoratedSpots.length} {decoratedSpots.length === 1 ? "location" : "locations"}
                     </span>
                   </div>
@@ -2773,7 +2783,7 @@ export function DesignerClient(props: Props) {
                     different shirt colours; each colour is priced on its own qty. */}
                 <div className="space-y-4">
                   <div>
-                    <div className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple">Colours &amp; sizes</div>
+                    <div className="font-display text-[15px] font-bold text-dream-ink">Colours &amp; sizes</div>
                     <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">
                       How many of each size? Need another shirt colour? Add one below. Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces
                       (all colours combined).
@@ -2817,9 +2827,15 @@ export function DesignerClient(props: Props) {
                 {/* Estimate, same grounded price box as the product page's
                     instant estimate: per-unit (with bulk savings) + est. total. */}
                 <div className="mt-8 rounded-2xl border border-dream-lavender-soft bg-dream-lavender-mist px-5 py-4.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="mb-1.5 text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Your price</p>
+                  {/* A 2x3 grid rather than two stacked columns: the labels
+                      share row 1 (same baseline), and the price block spans rows
+                      2-3 bottom-aligned, so it sits on the baseline of the
+                      quantity column's LAST line ("N more needed" when shown,
+                      else "N units"). */}
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3">
+                    <p className="col-start-1 row-start-1 mb-1.5 text-[13px] font-semibold text-dream-purple-dark/70 sm:text-[14px]">Your price</p>
+                    <p className="col-start-2 row-start-1 mb-1.5 text-right text-[13px] font-semibold text-dream-purple-dark/70 sm:text-[14px]">Quantity</p>
+                    <div className="col-start-1 row-span-2 row-start-2 self-end">
                       <p className="font-display text-3xl font-extrabold leading-none text-dream-purple-dark">
                         {formatCAD(breakdown.unitPrice)}
                         <span className="ml-1 text-sm font-semibold text-dream-purple-dark/60">/unit</span>
@@ -2831,25 +2847,25 @@ export function DesignerClient(props: Props) {
                         </p>
                       )}
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="mb-1.5 text-[14px] font-semibold uppercase tracking-wide text-dream-purple-dark/70">Quantity</p>
-                      <p className="font-display text-xl font-bold leading-none text-dream-ink">
-                        {quantity || 0} unit{quantity === 1 ? "" : "s"}
+                    <p className="col-start-2 row-start-2 whitespace-nowrap text-right font-display text-xl font-bold leading-none text-dream-ink">
+                      {quantity || 0} unit{quantity === 1 ? "" : "s"}
+                    </p>
+                    {quantity > 0 && quantity < MIN_ONLINE_ORDER_QTY && (
+                      <p className="col-start-2 row-start-3 mt-1.5 whitespace-nowrap text-right text-[12px] font-medium leading-snug text-dream-muted">
+                        {piecesShortOfMinimum(quantity)} more needed
                       </p>
-                      {quantity > 0 && quantity < MIN_ONLINE_ORDER_QTY && (
-                        <p className="mt-1.5 text-[14px] font-semibold text-dream-warn">
-                          {piecesShortOfMinimum(quantity)} more to reach the {MIN_ONLINE_ORDER_QTY}-piece minimum
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  {nextTier && quantity > 0 && (
+                  {/* One ask at a time: under the minimum the only message is
+                      "N more needed"; the price-break upsell waits until the
+                      order is actually placeable. */}
+                  {nextTier && quantity >= MIN_ONLINE_ORDER_QTY && (
                     <div className="mt-3 flex items-center gap-2.5">
                       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-sun px-2.5 py-1 font-display text-[14px] font-extrabold text-dream-ink">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.3-8.3a1 1 0 0 0 0-1.4L12 2Z" /><path d="M6.5 6.5h.01" /></svg>
                         Save {nextTier.pct}%
                       </span>
-                      <span className="text-[14px] font-semibold text-dream-ink">Add {nextTier.add} more {nextTier.add === 1 ? "item" : "items"} to unlock</span>
+                      <span className="text-[14px] font-medium text-dream-ink">when you order {quantity + nextTier.add} or more</span>
                     </div>
                   )}
                   {/* Running subtotal + what's still to come, so the per-unit
@@ -2857,22 +2873,22 @@ export function DesignerClient(props: Props) {
                       Shipping is free; tax is added at checkout once we know
                       the province (this screen has no address yet). */}
                   <div className="mt-3 flex items-center justify-between gap-3 border-t border-dream-lavender-soft pt-2.5">
-                    <span className="text-[14px] font-semibold text-dream-purple-dark/80">Estimated subtotal</span>
-                    <span className="font-display text-base font-bold text-dream-purple-dark">{formatCAD(breakdown.subtotal)}</span>
+                    <span className="text-[14px] font-semibold text-dream-ink">Estimated subtotal</span>
+                    <span className="font-display text-base font-bold text-dream-ink">{formatCAD(breakdown.subtotal)}</span>
                   </div>
-                  <p className="mt-1.5 text-[14px] font-medium leading-relaxed text-dream-muted">
-                    Free shipping. Tax and any rush you request are added at checkout, and final pricing is confirmed on your proof before you pay.
+                  <p className="mt-1.5 text-[13px] leading-snug text-dream-muted">
+                    Free shipping. Tax and rush added at checkout. Final price confirmed on your proof.
                   </p>
                 </div>
 
                 {/* Estimated delivery, one confident in-hands date (shared math
                     with checkout so the two screens never disagree). */}
                 <div className="mt-6 flex items-start gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5">
-                  <span className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-dream-cream text-dream-purple">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19ZM17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></svg>
+                  <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center text-dream-purple">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19ZM17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-dream-muted">Estimated delivery</p>
+                    <p className="text-[13px] font-semibold text-dream-muted">Estimated delivery</p>
                     <p className="mt-1 font-display text-lg font-bold leading-tight text-dream-ink">In hands by {fmtDate(inHands.end)}</p>
                     <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
                       Proof in ~1 business day, then ships once you approve. Dates firm up on your proof.
@@ -2891,13 +2907,13 @@ export function DesignerClient(props: Props) {
                 {/* Reassurance, the risk-reducers a first-time custom buyer
                     weighs right at the decision point. "Pay after approval" is
                     intentionally NOT repeated here (the stepper + CTA carry it). */}
-                <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
-                  {["Printed right, guaranteed", "Free design proof", "Printed in Canada", "Expert design review"].map((b) => (
-                    <div key={b} className="flex items-center gap-2 text-sm font-semibold text-dream-ink">
-                      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-dream-success-soft text-dream-success">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
-                      </span>
-                      {b}
+                <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-3 rounded-2xl bg-dream-cream/60 px-4 py-3.5">
+                  {REASSURANCES.map((label) => (
+                    <div key={label} className="flex items-center gap-2 whitespace-nowrap text-[13px] font-medium text-dream-ink">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-dream-success" aria-hidden>
+                        <path d="M5 12.5 9.5 17 19 7" />
+                      </svg>
+                      {label}
                     </div>
                   ))}
                 </div>
@@ -2928,7 +2944,7 @@ export function DesignerClient(props: Props) {
                     Some art sits outside the print lines. We&apos;ll double-check it before printing.
                   </p>
                 )}
-                <p className={cn("min-w-0 text-sm max-sm:text-center max-sm:text-[14px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < MIN_ONLINE_ORDER_QTY ? "text-dream-muted" : "text-dream-faint")}>
+                <p className={cn("min-w-0 text-sm max-sm:text-balance max-sm:text-center max-sm:text-[13px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < MIN_ONLINE_ORDER_QTY ? "text-dream-muted" : "text-dream-faint")}>
                   {error ??
                     (quantity < 1
                       ? `Enter your sizes to continue. Our minimum order is ${MIN_ONLINE_ORDER_QTY} pieces.`
@@ -2936,11 +2952,11 @@ export function DesignerClient(props: Props) {
                         ? minimumOrderMessage(quantity)
                         : "No payment now. We send a proof to approve first.")}
                 </p>
-                <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:flex-col-reverse max-sm:gap-1">
+                <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
                   <button
                     onClick={() => saveDesign("designs")}
                     disabled={busy !== null}
-                    className="inline-flex min-w-[11rem] items-center justify-center rounded-full border border-dream-line bg-white px-7 py-3 font-display text-base font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60 max-sm:w-full max-sm:min-w-0 max-sm:border-0 max-sm:bg-transparent max-sm:py-2 max-sm:text-sm max-sm:text-dream-purple"
+                    className="inline-flex min-w-[11rem] items-center justify-center rounded-full border border-dream-line bg-white px-7 py-3 font-display text-base font-bold text-dream-ink transition-colors hover:bg-dream-cream disabled:opacity-60 max-sm:min-w-0 max-sm:flex-1 max-sm:border-0 max-sm:bg-transparent max-sm:px-2 max-sm:py-2 max-sm:text-sm max-sm:text-dream-purple"
                   >
                     {busy === "save" ? "Saving…" : "Save & share"}
                   </button>
@@ -2959,7 +2975,7 @@ export function DesignerClient(props: Props) {
                       setShowSave(true);
                     }}
                     disabled={busy !== null || quantity < MIN_ONLINE_ORDER_QTY}
-                    className="inline-flex min-w-[11rem] items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full max-sm:min-w-0 max-sm:py-3.5"
+                    className="inline-flex min-w-[11rem] items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-w-0 max-sm:flex-1 max-sm:px-4 max-sm:py-3 max-sm:text-[15px]"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5.4 8.2c4.4-.5 8.9-.5 13.3 0 .5 3.7.8 7.4.9 11.1-5.1.6-10.2.6-15.2 0 .1-3.7.4-7.4 1-11.1Z" /><path d="M8.6 8c-.2-2 .6-4.2 2.6-4.7 1.7-.4 3.4.6 4 2.2.3.8.3 1.7.2 2.5" /></svg>
                     {busy === "submit" ? (inCart ? "Updating…" : "Adding…") : inCart ? "Update cart" : "Add to cart"}
@@ -3044,7 +3060,7 @@ export function DesignerClient(props: Props) {
             <button
               onClick={() => setShowSave(false)}
               disabled={busy !== null}
-              className="rounded-full px-4 py-2.5 font-display text-sm font-bold text-dream-muted transition-colors hover:text-dream-ink disabled:opacity-50"
+              className="rounded-full px-4 py-2.5 text-sm font-medium text-dream-muted transition-colors hover:text-dream-ink disabled:opacity-50"
             >
               Cancel
             </button>
@@ -3086,8 +3102,8 @@ function NoteCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border border-dream-line bg-dream-cream/50 p-4", className)}>
-      <h3 className="font-display text-base font-bold text-dream-ink">Leave a note</h3>
+    <div className={cn("rounded-2xl bg-dream-cream/60 p-4", className)}>
+      <h3 className="font-display text-[14px] font-bold text-dream-ink lg:text-base">Leave a note</h3>
       <p className="mt-1.5 text-[14px] leading-relaxed text-dream-muted lg:text-[14px]">
         Have some notes about this order? Leave us a note and we&apos;ll do our best to accommodate your request.
       </p>
@@ -3098,7 +3114,7 @@ function NoteCard({
         rows={5}
         maxLength={2000}
         placeholder="Print size, exact placement, a deadline, anything we should know…"
-        className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-base leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-dream-faint focus:border-dream-purple lg:text-sm"
+        className="mt-3 w-full resize-y rounded-xl border border-dream-line bg-white px-3 py-2.5 text-base leading-relaxed text-dream-ink outline-none transition-colors placeholder:text-[14px] placeholder:text-dream-faint focus:border-dream-purple lg:text-sm"
       />
       <p className="mt-2 text-[14px] text-dream-faint lg:text-[14px]">Saved with your design and sent to our team with your order.</p>
     </div>
@@ -3128,31 +3144,21 @@ function ReviewStepper({ className, onBack }: { className?: string; onBack?: () 
       <div className="flex items-start justify-between gap-3">
         <p className="font-display text-base font-bold text-dream-ink">{current.label}</p>
         <div className="shrink-0 text-right">
-          <p className="text-[14px] font-semibold text-dream-muted tabular-nums">
+          <p className="text-[12px] font-medium text-dream-muted tabular-nums">
             Step {currentIdx + 1} of {steps.length}
           </p>
           {next && (
-            <p className="mt-0.5 text-[14px] text-dream-faint">Next: {next.label}</p>
+            <p className="mt-0.5 text-[12px] text-dream-faint">Next: {next.label}</p>
           )}
         </div>
       </div>
-      <div className="mt-2 flex gap-1.5" aria-hidden>
-        {steps.map((s, i) => (
-          <span
-            key={s.label}
-            className={cn(
-              // One hue that fills up, rather than navy-then-yellow-then-grey:
-              // done is solid purple, the current step a lighter tint of the
-              // same purple, and what's left is the plain rule colour.
-              "h-1.5 flex-1 rounded-full",
-              i < currentIdx
-                ? "bg-dream-purple"
-                : i === currentIdx
-                  ? "bg-dream-lavender"
-                  : "bg-dream-line"
-            )}
-          />
-        ))}
+      {/* One thin track with a single purple fill: the earlier three chunky
+          segments in three tints read as a busy widget rather than progress. */}
+      <div className="mt-2.5 h-[3px] overflow-hidden rounded-full bg-dream-line" aria-hidden>
+        <span
+          className="block h-full rounded-full bg-dream-purple"
+          style={{ width: `${((currentIdx + 1) / steps.length) * 100}%` }}
+        />
       </div>
     </div>
 
@@ -3262,9 +3268,11 @@ function ColorwayBlock({
         </div>
       </div>
       {/* Sizes laid out in a single row, label on top, number box below, so
-          the whole size run reads and fills at a glance. Scrolls sideways only
-          if there are too many sizes for the width. */}
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          the whole size run reads and fills at a glance. On phones the row is
+          a 4-up grid that WRAPS (S M L XL, then 2XL 3XL 4XL) instead of
+          scrolling sideways, which hid the last sizes. A lone size keeps the
+          full-width flex box at every width. */}
+      <div className={cn("mt-4 gap-2 pb-1", sizes.length === 1 ? "flex" : "grid grid-cols-4 sm:flex sm:overflow-x-auto")}>
         {sizes.map((s) => {
           const v = sizeQty[s.name] ?? 0;
           const active = v > 0;
@@ -3278,8 +3286,11 @@ function ColorwayBlock({
               <span className="font-display text-[14px] font-bold text-dream-ink">{s.name}</span>
               <div
                 className={cn(
-                  "flex w-full min-w-0 items-center rounded-lg border-2 bg-white transition",
-                  active ? "border-dream-purple" : "border-dream-ink/25 focus-within:border-dream-purple",
+                  "flex w-full min-w-0 items-center rounded-lg border bg-white transition",
+                  // Phones: the 4-up grid column is wider than a 2-digit
+                  // count needs, so cap the box and let it centre.
+                  !solo && "max-sm:max-w-[3.75rem]",
+                  active ? "border-dream-purple" : "border-dream-ink/20 focus-within:border-dream-purple",
                 )}
               >
                 {solo && (
@@ -3569,10 +3580,10 @@ function MobileChip({
       aria-label={srLabel ?? label}
       onClick={onClick}
       disabled={disabled}
-      className="flex w-[3.75rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1.5 text-dream-ink ring-1 ring-dream-ink/[0.06] backdrop-blur-md transition-opacity disabled:opacity-40"
+      className="flex w-[3rem] flex-col items-center gap-0.5 rounded-xl bg-white/85 px-1 py-1 text-dream-ink ring-1 ring-dream-ink/[0.06] backdrop-blur-md transition-opacity disabled:opacity-40"
     >
-      <span className="grid h-8 w-8 place-items-center">{children}</span>
-      <span className="text-[14px] font-bold leading-none text-dream-muted">{label}</span>
+      <span className="grid h-6 w-6 place-items-center">{children}</span>
+      <span className="text-[11px] font-semibold leading-none text-dream-muted">{label}</span>
     </button>
   );
 }
@@ -3617,7 +3628,7 @@ function RailBtn({
       title={label}
       aria-label={label}
       className={cn(
-        "flex shrink-0 items-center gap-2.5 rounded-lg p-2.5 text-left text-[14px] font-semibold transition-colors max-sm:min-h-[3rem] max-sm:min-w-[3rem] max-sm:justify-center sm:w-full sm:px-2.5 sm:py-2",
+        "flex shrink-0 items-center gap-2.5 rounded-lg p-2 text-left text-[14px] font-semibold transition-colors max-sm:min-h-[2.5rem] max-sm:min-w-[2.5rem] max-sm:justify-center sm:w-full sm:px-2.5 sm:py-2",
         danger ? "text-dream-danger hover:bg-dream-danger-soft" : "text-dream-ink hover:bg-dream-cream"
       )}
     >

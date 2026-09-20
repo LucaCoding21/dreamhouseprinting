@@ -2,11 +2,14 @@
 
 import Image from "next/image";
 import { useState } from "react";
+// Static import so width/height come from the file itself (the box is
+// reserved before any bytes arrive, so a cold load can't shift the copy).
+import heroPhoto from "../../public/homepage_assets/custom-apparel-vancouver.webp";
 
 // Hero photo with a pop-in once the image bytes finish downloading. Hidden
 // (opacity 0) before load so we don't get the "image suddenly snaps in"
 // glitch; once `onLoad` fires, .animate-pop runs the existing bouncy
-// scale-from-0 keyframe defined in globals.css.
+// scale-from-0 keyframe defined in globals.css, and the blur fades out under it.
 export default function HeroImage() {
   const [loaded, setLoaded] = useState(false);
   return (
@@ -26,12 +29,20 @@ export default function HeroImage() {
         height={400}
         className="pointer-events-none absolute right-2 bottom-2 z-20 h-auto w-[100px] rotate-[10deg] sm:right-0 sm:bottom-4 sm:w-[130px] lg:right-2 lg:bottom-6 lg:w-[130px]"
       />
+      {/* Flat lavender stand-in roughly tracing the photo's purple blob, sized
+          by the real image below (the only in-flow child, so the wrapper is
+          exactly the photo's box). A blurred copy of the photo was tried first
+          and its edges bled into a purple haze that read as a drop shadow. */}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-[7%_3%_5%_3%] rounded-[48%_52%_45%_55%/55%_45%_55%_45%] bg-dream-lavender-soft transition-opacity duration-500 ${
+          loaded ? "opacity-0" : "opacity-100"
+        }`}
+      />
       <Image
-        src="/homepage_assets/custom-apparel-vancouver.webp"
+        src={heroPhoto}
         alt="Custom printed apparel: sweatshirt, tote bag, hat, and t-shirt on a hand-drawn purple background"
         title="Custom apparel and screen printing in Vancouver"
-        width={1600}
-        height={1468}
         priority
         onLoad={() => setLoaded(true)}
         sizes="(min-width: 1024px) 820px, (min-width: 768px) 55vw, 100vw"

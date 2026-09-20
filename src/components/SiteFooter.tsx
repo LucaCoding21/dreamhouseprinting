@@ -35,7 +35,7 @@ export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
               alt=""
               width={364}
               height={628}
-              className="block h-auto w-[285px] translate-x-20 translate-y-[39px] sm:w-[325px] sm:translate-x-0 sm:translate-y-[44px] lg:w-[370px] lg:translate-y-[51px]"
+              className="block h-auto w-[220px] translate-x-14 translate-y-[30px] sm:w-[325px] sm:translate-x-0 sm:translate-y-[44px] lg:w-[370px] lg:translate-y-[51px]"
               aria-hidden="true"
             />
           </div>

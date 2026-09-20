@@ -140,7 +140,7 @@ export function SortSelect({ value }: { value: string }) {
               bottom: pos.bottom,
               maxHeight: pos.maxH,
             }}
-            className="z-[60] w-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-2xl border border-dream-line bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(27,20,88,0.3)]"
+            className="z-[60] w-60 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-2xl border border-dream-line bg-white p-1.5"
           >
             {OPTIONS.map((o, i) => {
               const isSelected = o.value === current.value;
@@ -183,7 +183,7 @@ export function SortSelect({ value }: { value: string }) {
         aria-label={`Sort products, ${current.label}`}
         onClick={() => (open ? setOpen(false) : openMenu())}
         className={cn(
-          "flex h-11 items-center gap-2 rounded-full border bg-white pl-4 pr-3 text-sm font-medium text-dream-ink shadow-sm transition-colors",
+          "flex h-11 items-center gap-2 rounded-full border bg-white pl-4 pr-3 font-display text-[14px] font-semibold text-dream-ink transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40",
           open
             ? "border-dream-purple ring-2 ring-dream-purple/25"

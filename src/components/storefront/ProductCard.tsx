@@ -114,7 +114,7 @@ export function ProductCard({
             of the gap under the photo rather than a hole in the card. */}
         <div className="flex min-h-[3.5rem] flex-col justify-end gap-0.5 sm:min-h-[4.5rem]">
           {product.brand && (
-            <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-purple sm:text-[14px]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-dream-purple sm:text-[12px]">
               {product.brand}
             </span>
           )}

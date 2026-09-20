@@ -251,7 +251,7 @@ export function ProductGallery({
         {/* 1, Identity: brand/sku, then the product name as the clear primary */}
         <div>
           {(brand || sku) && (
-            <p className="flex items-center gap-2 text-[14px] font-semibold uppercase tracking-wide text-dream-muted lg:text-[14px]">
+            <p className="flex items-center gap-2 text-[14px] font-medium uppercase tracking-wide text-dream-muted lg:font-semibold">
               {brand && <span>{brand}</span>}
               {brand && sku && (
                 <span aria-hidden="true" className="text-dream-faint">/</span>

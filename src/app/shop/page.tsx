@@ -72,7 +72,7 @@ export default async function ShopPage({
               </p>
               <TitleUnderline className="mt-2 hidden h-auto w-44 sm:block sm:w-72" />
             </div>
-            <div className="flex w-full items-center gap-2.5 lg:w-auto lg:-translate-y-12">
+            <div className="flex w-full items-center gap-1.5 lg:w-auto lg:-translate-y-12 lg:gap-2.5">
               <ShopSearch />
               <SortSelect value={sort ?? "featured"} />
             </div>
@@ -360,7 +360,9 @@ function Chip({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "shrink-0 snap-start whitespace-nowrap font-display text-[14px] font-semibold transition-colors",
+        "shrink-0 snap-start whitespace-nowrap font-display text-[14px] transition-colors",
+        // Subcategory text sits one weight under the major pills.
+        subtle ? "font-medium" : "font-semibold",
         subtle
           ? // Subcategories are plain text, not pills. Two stacked pill rows
             // read as two equal levels of navigation and looked heavy. The

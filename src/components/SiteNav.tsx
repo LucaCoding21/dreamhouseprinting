@@ -196,6 +196,31 @@ export default function SiteNav() {
     return () => ro.disconnect();
   }, []);
 
+  // Freeze the page under the phone search drawer. body overflow:hidden is
+  // not enough on iOS Safari (touch scrolling still moves the page behind
+  // the scrim), so the body is pinned with position:fixed at the current
+  // offset and put back on close. Desktop keeps scrolling: the drawer is a
+  // small card there and an outside tap already closes it.
+  useEffect(() => {
+    if (!searchOpen) return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    const y = window.scrollY;
+    const b = document.body.style;
+    const prev = { position: b.position, top: b.top, width: b.width, overflow: b.overflow };
+    b.position = "fixed";
+    b.top = `-${y}px`;
+    b.width = "100%";
+    b.overflow = "hidden";
+    return () => {
+      Object.assign(b, prev);
+      // Restoring the offset fires a scroll event with a big positive delta,
+      // which the hide-on-scroll-down logic below would read as "hide the
+      // nav". Seed its last-seen position first so the jump reads as 0.
+      lastScrollY.current = y;
+      window.scrollTo(0, y);
+    };
+  }, [searchOpen]);
+
   // Hide nav on scroll-down, reveal on scroll-up, on all viewports. The
   // header is `fixed` at every breakpoint so the transform always applies.
   useEffect(() => {
@@ -515,10 +540,10 @@ export default function SiteNav() {
           // category tiles as a starting point, and a quick-quote line at the
           // bottom. Below md only the field + suggestions show.
           <div className="absolute inset-x-0 top-full z-40 px-3 pt-2 md:px-6 xl:px-10">
-            <div className="mx-auto w-full max-w-[1060px] rounded-2xl bg-white p-4 shadow-[0_18px_40px_-20px_rgba(27,20,88,0.45)] ring-1 ring-dream-ink/10 md:p-6">
-              <div className="flex items-center gap-3">
+            <div className="mx-auto w-full max-w-[1060px] rounded-2xl bg-white p-3 shadow-[0_18px_40px_-20px_rgba(27,20,88,0.45)] ring-1 ring-dream-ink/10 md:p-6">
+              <div className="flex items-center gap-1.5 md:gap-3">
                 <form onSubmit={handleSearch} role="search" className="relative flex min-w-0 flex-1 items-center">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-4 h-5 w-5 text-dream-purple" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-3.5 h-[18px] w-[18px] text-dream-purple md:left-4 md:h-5 md:w-5" aria-hidden>
                     <circle cx="11" cy="11" r="7" />
                     <path d="M20 20l-3.5-3.5" />
                   </svg>
@@ -530,10 +555,12 @@ export default function SiteNav() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products, services, or help"
                     aria-label="Search the catalog"
-                    className="h-12 w-full rounded-full border-2 border-dream-purple bg-white pl-12 pr-36 text-base text-dream-ink placeholder:text-dream-ink/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/30 md:h-[52px] md:pr-44 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                    className="h-11 w-full rounded-full border-2 border-dream-purple bg-white pl-10 pr-[92px] text-[15px] text-dream-ink placeholder:text-[13px] placeholder:text-dream-ink/45 focus:outline-none md:h-[52px] md:placeholder:text-[15px] md:pl-12 md:pr-44 md:text-base [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
                   />
                   {/* Clears the field and keeps the panel open; the X outside
-                      the pill is the one that closes the panel. */}
+                      the pill is the one that closes the panel. Desktop only:
+                      on phones it crowded the typing area and the keyboard's
+                      own delete does the job. */}
                   {searchQuery && (
                     <button
                       type="button"
@@ -541,14 +568,14 @@ export default function SiteNav() {
                         setSearchQuery("");
                         searchInputRef.current?.focus();
                       }}
-                      className="absolute right-[100px] rounded-full px-2 py-1 text-[13px] font-medium text-dream-ink/55 transition-colors hover:text-dream-ink md:right-[136px]"
+                      className="absolute right-[136px] hidden rounded-full px-2 py-1 text-[13px] font-medium text-dream-ink/55 transition-colors hover:text-dream-ink md:block"
                     >
                       clear
                     </button>
                   )}
                   <button
                     type="submit"
-                    className="absolute right-1 h-10 rounded-full bg-dream-purple px-5 font-display text-sm font-bold text-white transition-colors hover:bg-dream-purple-dark md:h-11 md:px-8 md:text-[15px]"
+                    className="absolute right-1 h-9 rounded-full bg-dream-purple px-4 font-display text-[13px] font-bold text-white transition-colors hover:bg-dream-purple-dark md:h-11 md:px-8 md:text-[15px]"
                   >
                     Search
                   </button>
@@ -557,7 +584,7 @@ export default function SiteNav() {
                   type="button"
                   onClick={closeSearch}
                   aria-label="Close search"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-dream-ink/60 transition-colors hover:bg-dream-lavender-mist hover:text-dream-ink"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-dream-ink/60 transition-colors hover:bg-dream-lavender-mist hover:text-dream-ink md:h-10 md:w-10"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                     <path d="M6 6l12 12M18 6L6 18" />
@@ -587,7 +614,7 @@ export default function SiteNav() {
                                 <span className="block truncate font-display text-sm font-semibold text-dream-ink">
                                   {r.name}
                                 </span>
-                                <span className="mt-0.5 block text-[14px] font-semibold text-dream-purple">
+                                <span className="mt-0.5 block text-[13px] font-medium text-dream-ink/55">
                                   {formatCAD(r.price)}
                                 </span>
                               </span>
@@ -598,7 +625,7 @@ export default function SiteNav() {
                       <button
                         type="button"
                         onClick={(e) => handleSearch(e as unknown as React.FormEvent<HTMLFormElement>)}
-                        className="mt-1.5 block w-full py-2.5 text-center font-display text-sm font-bold text-dream-purple underline decoration-dream-purple/45 decoration-[1.5px] underline-offset-4"
+                        className="mt-1 block w-full py-2 text-center font-display text-[13px] font-bold text-dream-purple underline decoration-dream-purple/45 decoration-[1.5px] underline-offset-4"
                       >
                         See all results for &ldquo;{searchQuery.trim()}&rdquo;
                       </button>
@@ -668,6 +695,18 @@ export default function SiteNav() {
         )}
     </header>
 
+    {/* Phone-only scrim behind the search drawer so the page greys out and the
+        field is the only thing lit. Lives outside <header> for the same
+        containing-block reason as the menu below; header is z-50 so the drawer
+        (inside it) floats above this. Tapping it hits the document-level
+        outside-tap listener, which closes the search. */}
+      {searchOpen && (
+        <div
+          aria-hidden
+          className="fixed inset-0 z-40 bg-dream-overlay/60 md:hidden"
+        />
+      )}
+
     {/* Full-screen mobile menu, kept OUTSIDE <header> because the header is
         `fixed` with a `transform` (scroll-hide), which would otherwise create
         a containing block and confine this fixed sheet to the header's box.
@@ -703,12 +742,17 @@ export default function SiteNav() {
           className={`absolute inset-0 z-10 flex flex-col overflow-y-auto overscroll-contain ${
             menuOpen ? "pointer-events-auto" : "pointer-events-none"
           }`}
+          // The header (z-50) covers the top of this sheet, so centre the
+          // links in the space BELOW it, not in the full viewport: the old
+          // pt-20/pb-24 padding had the first link hugging the header with
+          // the slack all at the bottom, which read as "pushed to the top".
+          style={{ paddingTop: spacerH ?? 61 }}
         >
           <div
             onClick={(e) => {
               if (e.target === e.currentTarget) setMenuOpen(false);
             }}
-            className="m-auto flex flex-col items-center gap-[clamp(16px,3svh,28px)] px-6 pb-24 pt-20 sm:pb-32 sm:pt-24"
+            className="m-auto flex flex-col items-center gap-[clamp(16px,3svh,28px)] px-6 py-8"
           >
           {NAV_LINKS.map((link, i) => (
             <Link

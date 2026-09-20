@@ -101,18 +101,19 @@ export default function CartNavButton({ iconClassName = NAV_ICON_CLASS }: { icon
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close cart"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-lavender-soft hover:text-dream-ink"
+              className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-dream-muted transition-colors hover:bg-dream-lavender-soft hover:text-dream-ink"
             >
-              <span aria-hidden="true" className="text-2xl leading-none">&times;</span>
+              {/* SVG, not the &times; glyph: the character sits on the text
+                  baseline, so it rendered low in its box beside the title. */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </button>
           </div>
 
           {count === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white">
-                <CartIcon className="h-8 w-8 text-dream-purple/40" />
-              </span>
-              <p className="mt-4 font-display text-base font-bold text-dream-ink">Your cart is empty</p>
+              <p className="font-display text-base font-bold text-dream-ink">Your cart is empty</p>
               <p className="mt-1 text-sm text-dream-muted">Design something and add it here.</p>
               <Link
                 href="/shop"

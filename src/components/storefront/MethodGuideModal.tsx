@@ -89,9 +89,14 @@ export function MethodGuideModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-2xl">
+      {/* The panel is a flex column that never exceeds the viewport, with the
+          header and the "Got it" footer pinned and ONLY the body scrolling. The
+          old fixed-height cap on the body undershot the stacked phone header
+          (title + tab pills), so the panel itself scrolled and the footer sat
+          below the fold. */}
+      <DialogContent className="flex max-w-2xl flex-col overflow-hidden">
         {/* Header + tab toggle */}
-        <div className="flex flex-col gap-4 px-6 pb-3 pt-6 sm:flex-row sm:items-center sm:justify-between sm:pb-0">
+        <div className="flex shrink-0 flex-col gap-3 px-5 pb-3 pt-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:pb-0 sm:pt-6">
           <div>
             <h2 className="font-display text-xl font-extrabold text-dream-ink">How it&rsquo;s made</h2>
             <p className="mt-0.5 text-sm text-dream-muted">Compare your two decoration options.</p>
@@ -116,10 +121,7 @@ export function MethodGuideModal({
           </div>
         </div>
 
-        {/* Cap accounts for the header (~6rem) + footer (~4.5rem) + panel margin,
-            so this inner scroller never forces a second (panel-level) scrollbar
-            on short viewports. */}
-        <div className="max-h-[min(70dvh,calc(100dvh-14rem))] overflow-y-auto px-6 pb-6 pt-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
           {/* Sample photos */}
           <div
             className={cn(
@@ -149,10 +151,10 @@ export function MethodGuideModal({
           </p>
         </div>
 
-        <div className="flex justify-end border-t border-dream-line px-6 py-4">
+        <div className="flex shrink-0 justify-end border-t border-dream-line px-5 py-3 sm:px-6 sm:py-4">
           <button
             onClick={onClose}
-            className="rounded-full bg-dream-purple px-5 py-2 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+            className="rounded-full bg-dream-purple px-5 py-2 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 max-sm:w-full"
           >
             Got it
           </button>

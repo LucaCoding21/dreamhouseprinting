@@ -35,7 +35,7 @@ export function ShopSearch() {
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search shirts, hoodies, hats…"
         aria-label="Search the catalog"
-        className="h-11 w-full rounded-full border border-dream-line bg-white pl-10 pr-4 text-sm text-dream-ink shadow-sm placeholder:text-dream-faint focus-visible:border-dream-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
+        className="h-11 w-full rounded-full border border-dream-line bg-white pl-10 pr-4 text-sm text-dream-ink placeholder:text-[13px] placeholder:text-dream-faint focus-visible:border-dream-purple lg:placeholder:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/40"
       />
     </form>
   );

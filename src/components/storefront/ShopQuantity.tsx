@@ -132,7 +132,7 @@ export function ShopQtyControl({ className }: { className?: string }) {
           placeholder="Other"
           aria-label="Quantity to price the catalog at"
           className={cn(
-            "h-[32px] w-[3.75rem] rounded-full border bg-white text-center font-display text-[13px] font-semibold text-dream-ink outline-none transition placeholder:font-medium placeholder:text-dream-ink/40 sm:h-[34px] sm:w-[4.5rem] sm:text-[14px]",
+            "h-[32px] w-[3.75rem] rounded-full border bg-white text-center font-display text-[13px] font-semibold text-dream-ink outline-none transition placeholder:text-[12px] placeholder:font-medium placeholder:text-dream-ink/50 sm:h-[34px] sm:w-[4.5rem] sm:text-[14px]",
             "border-dream-line hover:border-dream-purple/50 focus:border-dream-purple focus:ring-2 focus:ring-dream-purple/25",
             "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
             !PRESETS.includes(qty) && "border-dream-purple ring-2 ring-dream-purple/25",

@@ -139,7 +139,7 @@ export default function Home() {
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="h-9 w-9 overflow-visible group-hover:animate-bounce"
+              className="h-6 w-6 overflow-visible group-hover:animate-bounce lg:h-9 lg:w-9"
               style={{ filter: "url(#stroke-rough)" }}
             >
               {/* Hand-drawn chevron, two subtle bezier curves through the
