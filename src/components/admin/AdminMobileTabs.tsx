@@ -103,7 +103,7 @@ export function AdminMobileTabs({
               </a>
 
               <div className="flex h-12 items-center gap-3 px-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-dream-purple text-[11px] font-bold text-white">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-dream-purple text-[11px] font-bold leading-8 tracking-normal text-white">
                   {initials}
                 </div>
                 <div className="min-w-0 leading-tight">
@@ -145,7 +145,7 @@ export function AdminMobileTabs({
                 <span className="relative">
                   <Icon className={cn("h-6 w-6", active && "text-dream-lavender")} />
                   {badge > 0 && (
-                    <span className="absolute -right-2.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-dream-purple px-1 text-[10px] font-bold leading-none tabular-nums text-white">
+                    <span className="absolute -right-2.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-dream-purple px-1 text-[10px] font-bold leading-4 tracking-normal tabular-nums text-white">
                       {badge > 99 ? "99+" : badge}
                     </span>
                   )}

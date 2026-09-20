@@ -93,14 +93,14 @@ export default async function AdminCustomerDetailPage({
             </div>
             <div className="flex flex-wrap gap-6">
               <div>
-                <div className="text-xs uppercase tracking-wide text-dream-muted">Orders</div>
-                <div className="font-display text-2xl font-bold text-dream-ink">
+                <div className="text-xs text-dream-muted">Orders</div>
+                <div className="font-display text-xl font-semibold tabular-nums tracking-normal text-dream-ink">
                   {orderRows.length}
                 </div>
               </div>
               <div>
-                <div className="text-xs uppercase tracking-wide text-dream-muted">Total spent</div>
-                <div className="font-display text-2xl font-bold text-dream-ink">
+                <div className="text-xs text-dream-muted">Total spent</div>
+                <div className="font-display text-xl font-semibold tabular-nums tracking-normal text-dream-ink">
                   {formatCAD(totalSpent)}
                 </div>
               </div>

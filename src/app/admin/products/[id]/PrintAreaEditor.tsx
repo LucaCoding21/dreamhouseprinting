@@ -407,7 +407,7 @@ export function PrintAreaEditor({
                   {selected === i &&
                     a.maxWidthIn > 0 &&
                     a.maxHeightIn > 0 &&
-                    ` · ${formatInches(a.maxWidthIn, a.maxHeightIn)}`}
+                    `, ${formatInches(a.maxWidthIn, a.maxHeightIn)}`}
                 </span>
                 {!a.locked && (
                   <div
@@ -481,7 +481,7 @@ export function PrintAreaEditor({
                     take. Admin-facing only, surfaced on the order detail. */}
                 <div className="mt-3 border-t border-dream-line pt-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+                    <span className="text-xs font-medium text-dream-muted">
                       Limits by garment size
                     </span>
                     <button

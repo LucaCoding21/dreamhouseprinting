@@ -479,15 +479,16 @@ export async function placeOrderAction(
 
   const notes: { at: string; actor: string; text: string }[] = [];
   if (rushRequested) {
-    // Rendered where notes use whitespace-pre-wrap, so the newline bullets
-    // display as a scannable list rather than a run-on sentence.
+    // Rendered where notes use whitespace-pre-wrap, so one fact per line
+    // reads as a scannable list. No bullet glyphs: the orders list previews
+    // the first line and Julian wants no separator characters anywhere.
     const lines = [
       rushTier
         ? `Rush requested: ${rushTier.days} business days (+${rushTier.pct}%, ${formatCAD(rush)})`
-        : "Rush turnaround requested:",
-      neededBy ? `• Needs it by ${neededBy}` : null,
-      "• Confirm the timeline",
-      rushTier ? null : "• Quote the rush fee",
+        : "Rush turnaround requested",
+      neededBy ? `Needs it by ${neededBy}` : null,
+      "Confirm the timeline",
+      rushTier ? null : "Quote the rush fee",
     ].filter(Boolean);
     notes.push({ at: new Date().toISOString(), actor: "customer", text: lines.join("\n") });
   }

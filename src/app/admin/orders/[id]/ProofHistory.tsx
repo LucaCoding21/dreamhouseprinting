@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/Badge";
+import { cn } from "@/lib/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ProofLightbox, fileKind } from "./ProofLightbox";
 import { relativeTime, type Detail } from "./shared";
@@ -60,14 +60,33 @@ export function ProofHistory({ detail }: { detail: Detail }) {
                   )}
                 </button>
                 <div className="min-w-0 flex-1">
-                  <Badge variant={p.status === "approved" ? "success" : p.status === "changes_requested" ? "warn" : p.status === "pending" && detail.order.status !== "proof_ready" ? "neutral" : "info"}>
+                  {/* Plain coloured text, not a pill (per Julian). */}
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      p.status === "approved"
+                        ? "text-dream-success"
+                        : p.status === "changes_requested"
+                          ? "text-dream-warn"
+                          : p.status === "pending" && detail.order.status !== "proof_ready"
+                            ? "text-dream-muted"
+                            : "text-dream-purple",
+                    )}
+                  >
                     {p.status === "pending"
                       ? detail.order.status === "proof_ready"
-                        ? "awaiting approval"
-                        : "not sent yet"
-                      : p.status.replace(/_/g, " ")}
-                  </Badge>
-                  {p.change_request_comment && <p className="mt-1 text-xs text-dream-warn">“{p.change_request_comment}”</p>}
+                        ? "Awaiting approval"
+                        : "Not sent yet"
+                      : p.status === "changes_requested"
+                        ? "Changes requested"
+                        : "Approved"}
+                  </p>
+                  {p.change_request_comment && (
+                    <p className="mt-1 text-sm text-dream-ink">
+                      <span className="text-dream-muted">Customer said: </span>
+                      {p.change_request_comment}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   {p.image && (
@@ -94,7 +113,7 @@ export function ProofHistory({ detail }: { detail: Detail }) {
         <ProofLightbox
           src={lightboxProof.image}
           kind={fileKind(lightboxProof.image)}
-          title={`Proof · ${lightboxProof.status.replace(/_/g, " ")}`}
+          title={`Proof, ${lightboxProof.status.replace(/_/g, " ")}`}
           open={!!lightboxProof}
           onOpenChange={(o) => !o && setLightboxProof(null)}
         />

@@ -225,6 +225,7 @@ export function AddLineItemDialog({
             // The colours never map across products, so nothing is carried over.
             setColourName("");
           }}
+          onPickCustom={() => setMode("custom")}
         />
       )}
       {product && (

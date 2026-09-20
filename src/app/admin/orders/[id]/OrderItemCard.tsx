@@ -375,7 +375,7 @@ export function OrderItemCard({
                           type="button"
                           disabled={!p.image}
                           onClick={() => p.image && setProofPreview(p)}
-                          title={`${p.status.replace(/_/g, " ")} · ${relativeTime(p.created_at)}`}
+                          title={`${p.status.replace(/_/g, " ")}, ${relativeTime(p.created_at)}`}
                           className="flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
                         >
                           {p.image ? (
@@ -502,7 +502,7 @@ export function OrderItemCard({
                   title={item.fulfilled ? "Blanks are in hand" : "Mark the blanks for this line as received"}
                   onClick={() => onPatch((p) => ({ ...p, fulfilled: !p.fulfilled }))}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors",
                     item.fulfilled
                       ? "border-transparent bg-dream-success-soft text-dream-success"
                       : "border-dream-line bg-white text-dream-muted hover:border-dream-purple hover:text-dream-purple",
@@ -616,7 +616,7 @@ export function OrderItemCard({
                       <span key={i} className="block sm:inline">
                         {`${pa.name}: ${pa.sizeLimits
                           .map((r) => `${r.label} ${formatInches(r.maxWidthIn, r.maxHeightIn)}`)
-                          .join(" · ")}`}
+                          .join(", ")}`}
                         {i < arr.length - 1 && <span className="hidden sm:inline">{"  |  "}</span>}
                       </span>
                     ))}
@@ -660,12 +660,12 @@ export function OrderItemCard({
                     {f.fromCustomer ? (
                       <span
                         title="What they submitted with the order. Edits here stay internal; reply via a Customer comment."
-                        className="rounded bg-dream-info-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-info"
+                        className="rounded-md bg-dream-info-soft px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-info"
                       >
                         From the customer
                       </span>
                     ) : (
-                      <span className="rounded bg-dream-line px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-muted">
+                      <span className="rounded-md bg-dream-line px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-muted">
                         Internal
                       </span>
                     )}
@@ -699,7 +699,7 @@ export function OrderItemCard({
               {item.autoPrice && (
                 <span
                   title="Recalculated from this product's price tiers. Type over it to override."
-                  className="rounded-full bg-dream-lavender-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dream-purple"
+                  className="rounded-md bg-dream-lavender-soft px-2 py-0.5 text-[11px] font-semibold text-dream-purple"
                 >
                   Auto
                 </span>
@@ -776,7 +776,7 @@ export function OrderItemCard({
         kind="image"
         title={[orderNumber ? `Order #${orderNumber}` : null, item.productName || "item", `${mockupPreview.view} mockup`]
           .filter(Boolean)
-          .join(" · ")}
+          .join(", ")}
         fileStem={fileSlug(orderNumber, item.productName, `mockup-${mockupPreview.view}`)}
         open={!!mockupPreview}
         onOpenChange={(o) => !o && setMockupPreview(null)}
@@ -788,7 +788,7 @@ export function OrderItemCard({
         kind={fileKind(proofPreview.image)}
         title={[orderNumber ? `Order #${orderNumber}` : null, item.productName || "item", `Proof, ${proofPreview.status.replace(/_/g, " ")}`]
           .filter(Boolean)
-          .join(" · ")}
+          .join(", ")}
         fileStem={fileSlug(orderNumber, item.productName, "proof")}
         open={!!proofPreview}
         onOpenChange={(o) => !o && setProofPreview(null)}

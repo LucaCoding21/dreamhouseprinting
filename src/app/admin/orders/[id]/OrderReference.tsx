@@ -158,7 +158,7 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
         <CardContent className="space-y-2.5">
           <div className="text-sm text-dream-muted">
             {order.fulfillment_method === "pickup" ? "Pick up in store" : "Ship to customer"}
-            {order.shipping_method ? ` · ${order.shipping_method}` : ""}
+            {order.shipping_method ? `, ${order.shipping_method}` : ""}
           </div>
           <div>
             <div className={cn(LBL, "mb-1")}>Tracking number</div>

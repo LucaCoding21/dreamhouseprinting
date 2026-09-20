@@ -78,7 +78,7 @@ function QtyBreakTable({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-dream-muted">
         <span className="w-24">From qty</span>
         <span className="w-28">Per piece</span>
       </div>
@@ -143,22 +143,12 @@ const COLOUR_COUNTS = [2, 3, 4, 5, 6, 7, 8];
  */
 function Affects({ kind }: { kind: "customer" | "admin" }) {
   const meta = {
-    customer: {
-      label: "Changes customer prices",
-      cls: "bg-dream-lavender-soft text-dream-purple-dark",
-    },
-    admin: { label: "Admin repricing only", cls: "bg-dream-info-soft text-dream-info" },
+    customer: { label: "Changes customer prices", cls: "text-dream-purple-dark" },
+    admin: { label: "Admin repricing only", cls: "text-dream-muted" },
   }[kind];
-  return (
-    <span
-      className={cn(
-        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-        meta.cls,
-      )}
-    >
-      {meta.label}
-    </span>
-  );
+  // A quiet coloured caption, not a tag: the old tinted chip next to every
+  // heading made the page read as a wall of badges.
+  return <span className={cn("text-xs font-medium", meta.cls)}>{meta.label}</span>;
 }
 
 /** Subsection heading: title, optional InfoTip, and the blast-radius tag. */
@@ -172,9 +162,11 @@ function PricingGroupTitle({
   affects: "customer" | "admin";
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="text-sm font-semibold text-dream-ink">{title}</span>
-      {tip && <InfoTip text={tip} />}
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-semibold text-dream-ink">{title}</span>
+        {tip && <InfoTip text={tip} />}
+      </div>
       <Affects kind={affects} />
     </div>
   );
@@ -387,7 +379,7 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
               Remove every row to hide rush options from customers.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-dream-muted">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-dream-muted">
                 <span className="w-24">Business days</span>
                 <span className="w-24">Extra %</span>
               </div>
@@ -450,9 +442,19 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
         </CardContent>
       </Card>
 
+      <StickySave label="Save pricing" pending={pending} onClick={save} />
+    </div>
+  );
+}
+
+/** Save bar that stays pinned to the bottom of the admin scroller while the
+ *  long form scrolls (above the phone tab bar below md). */
+function StickySave({ label, pending, onClick }: { label: string; pending: boolean; onClick: () => void }) {
+  return (
+    <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 -mx-4 border-t border-dream-line bg-dream-bg/95 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8 md:bottom-0">
       <div className="flex justify-end">
-        <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
-          Save pricing
+        <Button variant="primary" loading={pending} onClick={onClick} className="w-full sm:w-auto">
+          {label}
         </Button>
       </div>
     </div>
@@ -522,13 +524,9 @@ export function AddonsTab({ settings }: { settings: AddonSettings }) {
               </Field>
             ))}
           </div>
-          <div className="flex justify-end">
-            <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
-              Save add-on charges
-            </Button>
-          </div>
         </CardContent>
       </Card>
+      <StickySave label="Save add-on charges" pending={pending} onClick={save} />
     </div>
   );
 }

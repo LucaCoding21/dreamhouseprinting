@@ -17,6 +17,12 @@ export const MANUAL_ORDER_STATUSES: { value: OrderStatus; label: string }[] = [
   { value: "in_review", label: "In review" },
   { value: "approved", label: "Approved" },
   { value: "in_production", label: "In production" },
+  // Back-entering a job that already left the shop (per Julian). Only
+  // proof_ready / changes_requested stay out: both imply a proof round trip
+  // with the customer that a hand-keyed order never had.
+  { value: "shipped", label: "Shipped" },
+  { value: "ready_for_pickup", label: "Ready for pickup" },
+  { value: "completed", label: "Completed" },
 ];
 
 /** Quantity key used by freeform items, which have no size run. */
@@ -82,6 +88,10 @@ export interface ManualOrderItemInput {
   customerNotes: string;
   productionNotes: string;
   shippingNotes: string;
+  /** Mockups already staged in the proofs bucket (paths). Each becomes a
+   *  pending proof pinned to this line, exactly like uploading on the
+   *  order page afterwards. */
+  mockupPaths: string[];
 }
 
 export interface ManualOrderAddress {

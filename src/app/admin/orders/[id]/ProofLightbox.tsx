@@ -104,28 +104,18 @@ export function ProofLightbox({
         onOpenChange(false);
       }}
     >
+      {/* Title + Close up top; the Save actions live in a bar UNDER the
+          image (thumb reach on a phone, per Julian). */}
       <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-3 text-white">
         <span className="min-w-0 truncate text-sm font-medium">{title ?? "Proof preview"}</span>
-        <div className="flex shrink-0 items-center gap-2">
-          <button type="button" onClick={saveFile} disabled={busy !== null} className={btn} title="Download the file as stored">
-            <IconDownload />
-            {busy === "file" ? "Saving…" : kind === "pdf" ? "Save PDF" : "Save image"}
-          </button>
-          {kind === "image" && (
-            <button type="button" onClick={savePdf} disabled={busy !== null} className={btn} title="Letter-size PDF sheet, ready to print">
-              <IconDownload />
-              {busy === "pdf" ? "Building…" : "Save as PDF"}
-            </button>
-          )}
-          <button type="button" onClick={() => onOpenChange(false)} aria-label="Close fullscreen" className={btn}>
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="h-4 w-4" aria-hidden>
-              <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
-            Close
-          </button>
-        </div>
+        <button type="button" onClick={() => onOpenChange(false)} aria-label="Close fullscreen" className={btn}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="h-4 w-4" aria-hidden>
+            <path d="M4 4l8 8M12 4l-8 8" />
+          </svg>
+          Close
+        </button>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center p-4 pt-0">
+      <div className="flex min-h-0 flex-1 items-center justify-center px-4">
         {kind === "pdf" ? (
           <iframe src={src} title={title ?? "Proof PDF"} className="h-full w-full rounded-lg bg-white" />
         ) : (
@@ -137,6 +127,18 @@ export function ProofLightbox({
             unoptimized
             className={cn("max-h-full max-w-full object-contain")}
           />
+        )}
+      </div>
+      <div className="flex shrink-0 items-center justify-center gap-2 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-white">
+        <button type="button" onClick={saveFile} disabled={busy !== null} className={btn} title="Download the file as stored">
+          <IconDownload />
+          {busy === "file" ? "Saving…" : kind === "pdf" ? "Save PDF" : "Save image"}
+        </button>
+        {kind === "image" && (
+          <button type="button" onClick={savePdf} disabled={busy !== null} className={btn} title="Letter-size PDF sheet, ready to print">
+            <IconDownload />
+            {busy === "pdf" ? "Building…" : "Save as PDF"}
+          </button>
         )}
       </div>
     </div>,

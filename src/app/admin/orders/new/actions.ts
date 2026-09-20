@@ -247,12 +247,49 @@ export async function createManualOrderAction(
     };
   });
 
-  const { error: liErr } = await service.from("line_items").insert(lineRows);
+  const { data: insertedLines, error: liErr } = await service
+    .from("line_items")
+    .insert(lineRows)
+    .select("id, decorations");
   if (liErr) {
     // Never leave a headless order behind when the items fail to write.
     await service.from("order_activity").delete().eq("order_id", order.id);
     await service.from("orders").delete().eq("id", order.id);
     return { error: liErr.message };
+  }
+
+  // Mockups uploaded while building the order: one pending proof per file,
+  // pinned to its line (the same rows uploadProofsAction writes), so the
+  // created order opens with the proof gate already satisfied for those
+  // lines. Lines are matched back by the position we stamped above.
+  const YEAR = 60 * 60 * 24 * 365;
+  const lineIdByPos = new Map<number, string>();
+  for (const li of insertedLines ?? []) {
+    const pos = (li.decorations as { position?: number } | null)?.position;
+    if (typeof pos === "number") lineIdByPos.set(pos, li.id);
+  }
+  const signed: { url: string; path: string }[] = [];
+  const proofRows: { order_id: string; line_item_id: string | null; image: string; status: "pending"; created_by: string | null }[] = [];
+  for (const [idx, it] of items.entries()) {
+    for (const path of (it.mockupPaths ?? []).filter(Boolean)) {
+      const { data } = await service.storage.from("proofs").createSignedUrl(path, YEAR);
+      if (!data?.signedUrl) continue;
+      signed.push({ url: data.signedUrl, path });
+      proofRows.push({
+        order_id: order.id,
+        line_item_id: lineIdByPos.get(idx) ?? null,
+        image: data.signedUrl,
+        status: "pending",
+        created_by: profile?.id ?? null,
+      });
+    }
+  }
+  if (proofRows.length > 0) {
+    await service.from("proofs").insert(proofRows);
+    await service
+      .from("orders")
+      .update({ official_mockups: asJson(signed) })
+      .eq("id", order.id);
   }
 
   await service.from("order_activity").insert({

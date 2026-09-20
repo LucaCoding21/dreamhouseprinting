@@ -58,7 +58,7 @@ export function ProductionNotes({
               <div className="mb-1 flex items-center gap-1.5">
                 <span className={LBL}>{f.label}</span>
                 {f.internal && (
-                  <span className="rounded bg-dream-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-warn">
+                  <span className="rounded-md bg-dream-warn/15 px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-warn">
                     Internal
                   </span>
                 )}

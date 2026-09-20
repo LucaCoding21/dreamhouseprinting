@@ -113,18 +113,16 @@ export function ProofReviewDialog({
 
           <div className="space-y-4 px-5">
             {/* Who it's going to, confirm the right order before sending. */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-dream-bg px-3 py-2 text-sm">
-              <span className="text-dream-muted">For</span>
-              <span className="font-semibold text-dream-ink">{customerName}</span>
-              <span className="text-dream-faint">·</span>
-              <span className="text-dream-muted">Order</span>
-              <span className="font-semibold text-dream-ink">{orderNumber ?? "-"}</span>
-              {contextLabel && (
-                <>
-                  <span className="text-dream-faint">·</span>
-                  <span className="text-dream-ink">{contextLabel}</span>
-                </>
-              )}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-lg bg-dream-bg px-3 py-2 text-sm">
+              <span>
+                <span className="text-dream-muted">For </span>
+                <span className="font-semibold text-dream-ink">{customerName}</span>
+              </span>
+              <span>
+                <span className="text-dream-muted">Order </span>
+                <span className="font-semibold text-dream-ink">{orderNumber ?? "-"}</span>
+              </span>
+              {contextLabel && <span className="text-dream-ink">{contextLabel}</span>}
             </div>
 
             {/* Which garment is this proof for? Asked only on multi-line orders,

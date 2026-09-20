@@ -135,7 +135,7 @@ export function ChangeProductDialog({
                       </div>
                       <div className="text-xs text-dream-muted">
                         {[p.brand, p.ssStyleName].filter(Boolean).join(" ")}
-                        {p.colours.length > 0 && <> · {p.colours.length} colours</>}
+                        {p.colours.length > 0 && <>, {p.colours.length} colours</>}
                       </div>
                     </div>
                     <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4 shrink-0 text-dream-faint" aria-hidden>

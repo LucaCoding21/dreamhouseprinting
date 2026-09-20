@@ -165,7 +165,7 @@ function QueueCard({ queue }: { queue: Queue }) {
       <div className="flex items-center justify-between gap-2 border-b border-dream-line px-4 py-2.5">
         <h2 className="min-w-0 truncate text-sm font-semibold text-dream-ink">
           {queue.title}
-          <span className="ml-1.5 font-normal tabular-nums text-dream-muted">{total}</span>
+          <span className="ml-2 font-normal tabular-nums text-dream-muted">{total}</span>
         </h2>
         <Link
           href={tabHref}
@@ -215,7 +215,7 @@ function QueueCard({ queue }: { queue: Queue }) {
           href={tabHref}
           className="flex items-center justify-center border-t border-dream-line px-4 py-2.5 text-xs text-dream-muted transition-colors hover:bg-dream-bg hover:text-dream-ink"
         >
-          {hidden} more, view all {total}
+          View {hidden} more
         </Link>
       )}
     </section>
@@ -388,13 +388,14 @@ export default async function AdminDashboardPage({
         </p>
 
         {/* Unpaid balance, a read-only summary stat, plain text (no box) so
-            it's clearly a figure, not a clickable chip. Sits above the chips. */}
+            it's clearly a figure, not a clickable chip. Sits above the chips.
+            Label on top, amount under it, at every width. */}
         <div
-          className="flex flex-wrap items-baseline gap-x-2"
+          className="flex flex-col"
           title="Total value of orders that haven't been paid in full yet (excludes cancelled orders)."
         >
-          <span className="text-sm font-medium text-dream-purple">Unpaid balance:</span>
-          <span className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">{formatCAD(outstanding)}</span>
+          <span className="text-sm font-medium text-dream-purple">Unpaid balance</span>
+          <span className="font-display text-3xl font-bold tabular-nums tracking-normal text-dream-ink">{formatCAD(outstanding)}</span>
         </div>
 
         {/* Top strip: clickable count chips. Most anchor to their queue card
@@ -405,9 +406,9 @@ export default async function AdminDashboardPage({
             right) so every label sits on a single line; the old 2-column grid
             wrapped "Awaiting customer approval" onto three. sm+ keeps the
             pill strip. Accessibility: 44px targets on touch, a visible focus
-            ring, the count is announced as "N orders" not a bare number, and
-            the count colour is dream-purple-selected (6.8:1 on lavender-soft)
-            because the brand purple at 12px bold was 3.8:1, under AA's 4.5:1. */}
+            ring, the count is announced as "N orders" not a bare number. The
+            count is plain brand purple text at 14px on white (4.9:1, AA), no
+            box (per Julian). */}
         {chips.length > 0 && (
           <nav aria-label="Order queues">
             <ul className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface sm:flex sm:flex-wrap sm:gap-2 sm:divide-y-0 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent">
@@ -415,12 +416,12 @@ export default async function AdminDashboardPage({
                 <li key={q.key} className="flex min-w-0">
                   <Link
                     href={q.key === "needs-proof" ? `/admin/orders?tab=${q.tab}` : `#q-${q.key}`}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-sm font-medium leading-tight text-dream-ink transition-colors hover:bg-dream-bg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dream-purple sm:inline-flex sm:min-h-0 sm:rounded-full sm:border sm:border-dream-line sm:bg-dream-surface sm:px-3 sm:py-1.5 sm:hover:border-dream-purple sm:hover:bg-dream-surface sm:focus-visible:outline-offset-2"
+                    className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-sm font-medium leading-tight text-dream-ink transition-colors hover:bg-dream-bg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-dream-purple sm:inline-flex sm:min-h-0 sm:rounded-lg sm:border sm:border-dream-line sm:bg-dream-surface sm:px-4 sm:py-2.5 sm:hover:border-dream-purple sm:hover:bg-dream-surface sm:focus-visible:outline-offset-2"
                   >
                     <span className="min-w-0 truncate">{q.title}</span>
                     <span
                       aria-hidden="true"
-                      className="shrink-0 text-sm font-semibold tabular-nums text-dream-purple-selected sm:grid sm:h-5 sm:min-w-5 sm:place-items-center sm:rounded-full sm:bg-dream-lavender-soft sm:px-1.5 sm:text-xs sm:font-bold"
+                      className="shrink-0 text-sm font-semibold tabular-nums tracking-normal text-dream-purple"
                     >
                       {q.items.length}
                     </span>
@@ -475,12 +476,7 @@ export default async function AdminDashboardPage({
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm text-dream-ink">
                           <span className="font-semibold">{meta.label}</span>
-                          {orderNumber && (
-                            <>
-                              <span className="text-dream-faint"> · </span>
-                              <span className="font-medium text-dream-purple">{orderNumber}</span>
-                            </>
-                          )}
+                          {orderNumber && <span className="ml-3 font-medium text-dream-purple">{orderNumber}</span>}
                         </div>
                         <div className="truncate text-xs text-dream-muted">{a.actor_name ?? "Staff"}</div>
                       </div>

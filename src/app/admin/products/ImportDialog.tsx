@@ -259,7 +259,7 @@ export function ImportDialog({
             />
             <div className="flex items-center gap-3">
               <span className="text-xs text-dream-muted">
-                {filtered.length} shown · {selectedCount} selected
+                {filtered.length} shown, {selectedCount} selected
               </span>
               <button
                 type="button"
@@ -370,10 +370,10 @@ function StyleRow({
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-dream-muted">{style.brand}</div>
+        <div className="text-xs font-medium text-dream-muted">{style.brand}</div>
         <div className="text-sm text-dream-ink">
           <span className="font-medium">{style.styleName}</span>
-          {style.title ? ` · ${style.title}` : ""}
+          {style.title ? ` ${style.title}` : ""}
         </div>
       </div>
       <div className="hidden shrink-0 max-w-[10rem] truncate text-xs text-dream-muted sm:block">

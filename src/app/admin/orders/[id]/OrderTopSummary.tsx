@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/Badge";
+import { capitalize } from "./shared";
 import { formatCAD } from "@/lib/money";
 import { STATUS_META, TRACKER_STAGES, statusStageIndex } from "@/lib/orderStatus";
 import type { OrderRow, OrderStatus, PaymentStatus } from "@/lib/db/rows";
@@ -41,7 +42,7 @@ export function OrderTopSummary({ order }: { order: OrderRow }) {
         <div className="sm:order-3">
           <div className={LBL}>Payment</div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:mt-1">
-            <Badge variant={paymentBadge}>{paid ? "Paid" : payment.replace(/_/g, " ")}</Badge>
+            <Badge variant={paymentBadge}>{paid ? "Paid" : capitalize(payment.replace(/_/g, " "))}</Badge>
             {etransferPending && <Badge variant="warn">E-transfer to verify</Badge>}
           </div>
         </div>

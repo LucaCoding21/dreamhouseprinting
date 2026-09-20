@@ -240,7 +240,7 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
         <ProofLightbox
           src={preview.src}
           kind="image"
-          title={`${design.name ?? "Design"} · ${viewLabel(preview.view)}`}
+          title={`${design.name ?? "Design"}, ${viewLabel(preview.view)}`}
           open={!!preview}
           onOpenChange={(o) => !o && setPreview(null)}
         />

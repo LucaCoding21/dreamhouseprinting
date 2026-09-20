@@ -265,7 +265,7 @@ export function ProductEditor({
           <>
             {product.ss_style_name && (
               <span
-                className="rounded-full border border-dream-line bg-dream-bg px-2.5 py-0.5 text-xs font-semibold tracking-wide text-dream-muted"
+                className="rounded-md border border-dream-line bg-dream-bg px-2 py-0.5 text-xs font-semibold text-dream-muted"
                 title={product.brand ? `${product.brand} style ${product.ss_style_name}` : undefined}
               >
                 SKU {product.ss_style_name}
@@ -450,7 +450,7 @@ export function ProductEditor({
                       type="button"
                       onClick={() => setEnColours(toggle(enColours, c.name))}
                       className={cn(
-                        "flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs",
+                        "flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs",
                         on ? "border-dream-purple bg-dream-lavender-soft text-dream-ink" : "border-dream-line text-dream-muted opacity-60"
                       )}
                     >
@@ -661,7 +661,7 @@ export function ProductEditor({
                   <div className="overflow-x-auto rounded-lg border border-dream-line">
                     <table className="w-full text-sm tabular-nums">
                       <thead>
-                        <tr className="bg-dream-bg text-[11px] uppercase tracking-wide text-dream-muted">
+                        <tr className="bg-dream-bg text-xs text-dream-muted">
                           <th className="px-3 py-1.5 text-left font-medium">Qty</th>
                           {previewCurve.decorations.map((d) => (
                             <th key={d} className="px-3 py-1.5 text-right font-medium">

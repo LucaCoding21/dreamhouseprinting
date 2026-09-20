@@ -92,7 +92,7 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
           .join("  ") || null,
       ]
         .filter(Boolean)
-        .join("  ·  "),
+        .join(", "),
       colourHex: colour.hex ?? null,
       tiles,
     };

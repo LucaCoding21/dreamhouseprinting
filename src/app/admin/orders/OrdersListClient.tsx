@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
-import type { OrderStatus } from "@/lib/db/rows";
+import { ORDER_STATUSES, type OrderStatus } from "@/lib/db/rows";
 
 interface Row {
   id: string;
@@ -38,7 +38,7 @@ interface Row {
 /** Payment badge: paid > e-transfer to verify (amber) > invoiced (amber) > unpaid (neutral). */
 function paymentMeta(r: Row): { label: string; variant: "success" | "warn" | "info" | "neutral" } {
   if (r.paidAt || r.paymentStatus === "paid_in_full") {
-    return { label: r.paymentMethod === "etransfer" ? "Paid · e-transfer" : "Paid", variant: "success" };
+    return { label: r.paymentMethod === "etransfer" ? "Paid by e-transfer" : "Paid", variant: "success" };
   }
   if (r.etransferReportedAt) {
     const short = new Date(r.etransferReportedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
@@ -100,6 +100,54 @@ export function OrdersListClient({
   );
   const [query, setQuery] = useState("");
 
+  // Filters, layered on top of the tab + search. Each is "any" until picked;
+  // the bar shows a Clear link once something is set.
+  const [payFilter, setPayFilter] = useState<"any" | "unpaid" | "paid" | "etransfer" | "invoiced">("any");
+  const [statusFilter, setStatusFilter] = useState<"any" | OrderStatus>("any");
+  const [repFilter, setRepFilter] = useState("any");
+  const [rushOnly, setRushOnly] = useState(false);
+  const [sort, setSort] = useState<"due" | "newest" | "oldest" | "total-desc" | "total-asc">("due");
+  const reps = Array.from(new Set(rows.map((r) => r.salesRep).filter((v): v is string => !!v))).sort();
+  const filtersActive = payFilter !== "any" || statusFilter !== "any" || repFilter !== "any" || rushOnly;
+  function clearFilters() {
+    setPayFilter("any");
+    setStatusFilter("any");
+    setRepFilter("any");
+    setRushOnly(false);
+  }
+  const matchesFilters = (r: Row) => {
+    if (statusFilter !== "any" && r.status !== statusFilter) return false;
+    if (repFilter !== "any" && r.salesRep !== repFilter) return false;
+    if (rushOnly && !r.isRush) return false;
+    if (payFilter !== "any") {
+      const paid = !!r.paidAt || r.paymentStatus === "paid_in_full";
+      if (payFilter === "paid" && !paid) return false;
+      if (payFilter === "unpaid" && paid) return false;
+      if (payFilter === "etransfer" && !(r.etransferReportedAt && !paid)) return false;
+      if (payFilter === "invoiced" && !(r.invoiceSentAt && !paid)) return false;
+    }
+    return true;
+  };
+  const sortRows = (a: Row, b: Row) => {
+    switch (sort) {
+      case "newest":
+        return b.createdAt.localeCompare(a.createdAt);
+      case "oldest":
+        return a.createdAt.localeCompare(b.createdAt);
+      case "total-desc":
+        return b.total - a.total;
+      case "total-asc":
+        return a.total - b.total;
+      default: {
+        // In-hands soonest first; undated orders sink to the bottom.
+        if (!a.dueDate && !b.dueDate) return b.createdAt.localeCompare(a.createdAt);
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      }
+    }
+  };
+
   const count = (m: (r: Row) => boolean) => rows.filter(m).length;
   const tabMatch = (key: string) => TABS.find((t) => t.key === key)!.match;
   // Each card counts exactly what its tab shows, so clicking never changes the number.
@@ -117,7 +165,9 @@ export function OrdersListClient({
     !q ||
     [r.orderNumber, r.customerName, r.customerEmail].some((v) => v?.toLowerCase().includes(q));
 
-  const visible = rows.filter((r) => TABS.find((t) => t.key === tab)!.match(r) && matchesQuery(r));
+  const visible = rows
+    .filter((r) => TABS.find((t) => t.key === tab)!.match(r) && matchesQuery(r) && matchesFilters(r))
+    .sort(sortRows);
 
   return (
     <div>
@@ -137,14 +187,16 @@ export function OrdersListClient({
                   : "border-dream-line bg-dream-surface hover:border-dream-purple/50"
               )}
             >
-              <div className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">{s.value}</div>
-              <div className="text-sm text-dream-muted">{s.label}</div>
+              <div className="font-display text-xl font-semibold tabular-nums tracking-normal text-dream-ink">{s.value}</div>
+              <div className="mt-0.5 text-[13px] text-dream-muted">{s.label}</div>
             </button>
           ))}
         </div>
 
-        {/* Search: filters the rows the active tab already matched. */}
-        <div className="relative mb-4 max-w-full sm:max-w-sm">
+        {/* Search + filters: stacked on phones (search first), one row from
+            md with the search pinned to the right. */}
+        <div className="mb-4 md:flex md:items-center md:gap-2">
+        <div className="relative mb-4 max-w-full sm:max-w-sm md:order-last md:mb-0 md:ml-auto md:w-72">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -168,6 +220,59 @@ export function OrdersListClient({
           />
         </div>
 
+        {/* Filters + sort. Selects side-scroll in one row on phones. */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar md:min-w-0 md:flex-wrap md:overflow-x-visible">
+          <Select value={payFilter} onChange={(e) => setPayFilter(e.target.value as typeof payFilter)} aria-label="Filter by payment" className="w-auto min-w-36">
+            <option value="any">Any payment</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="invoiced">Invoiced, unpaid</option>
+            <option value="etransfer">E-transfer to verify</option>
+            <option value="paid">Paid</option>
+          </Select>
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} aria-label="Filter by status" className="w-auto min-w-36">
+            <option value="any">Any status</option>
+            {ORDER_STATUSES.map((st) => (
+              <option key={st} value={st}>
+                {STATUS_META[st].label}
+              </option>
+            ))}
+          </Select>
+          {reps.length > 0 && (
+            <Select value={repFilter} onChange={(e) => setRepFilter(e.target.value)} aria-label="Filter by sales rep" className="w-auto min-w-36">
+              <option value="any">Any sales rep</option>
+              {reps.map((rep) => (
+                <option key={rep} value={rep}>
+                  {rep}
+                </option>
+              ))}
+            </Select>
+          )}
+          <button
+            type="button"
+            aria-pressed={rushOnly}
+            onClick={() => setRushOnly((v) => !v)}
+            className={cn(
+              "inline-flex h-[38px] shrink-0 items-center rounded-lg border px-3 text-sm font-medium transition-colors",
+              rushOnly ? "border-dream-purple bg-dream-purple text-white" : "border-dream-line bg-white text-dream-ink hover:border-dream-purple/50",
+            )}
+          >
+            Rush only
+          </button>
+          <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort orders" className="w-auto min-w-40">
+            <option value="due">Sort: In hands soonest</option>
+            <option value="newest">Sort: Newest first</option>
+            <option value="oldest">Sort: Oldest first</option>
+            <option value="total-desc">Sort: Total, high to low</option>
+            <option value="total-asc">Sort: Total, low to high</option>
+          </Select>
+          {filtersActive && (
+            <button type="button" onClick={clearFilters} className="shrink-0 px-2 text-sm font-medium text-dream-purple hover:underline">
+              Clear filters
+            </button>
+          )}
+        </div>
+        </div>
+
         {/* Tabs: one scrolling row on phones (the page itself cannot scroll
             sideways, body is overflow-x clipped), the usual wrap from md up. */}
         <div className="mb-4 flex gap-1 overflow-x-auto border-b border-dream-line no-scrollbar md:flex-wrap md:overflow-x-visible">
@@ -183,7 +288,7 @@ export function OrdersListClient({
               {t.label}
               {/* Counts only from md: on a phone the number crowding the
                   label read badly, and the stat cards above already count. */}
-              <span className="ml-1 hidden text-dream-faint md:inline">{count(t.match)}</span>
+              <span className="ml-2 hidden text-dream-faint md:inline">{count(t.match)}</span>
             </button>
           ))}
         </div>
@@ -204,7 +309,7 @@ export function OrdersListClient({
                   <Link
                     key={r.id}
                     href={`/admin/orders/${r.id}`}
-                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-dream-bg"
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-dream-lavender-mist"
                   >
                     <div className="h-11 w-11 shrink-0 overflow-hidden rounded border border-dream-line bg-dream-bg">
                       {thumb && (
@@ -259,15 +364,17 @@ export function OrdersListClient({
                   const pay = paymentMeta(r);
                   return (
                     <TR key={r.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${r.id}`)}>
-                      <TD>
+                      <TD className="whitespace-nowrap">
                         <div className="font-medium text-dream-ink">{r.dueDate ?? "-"}</div>
                         <div className={cn("text-xs", ih.urgent ? "text-dream-danger" : "text-dream-muted")}>{ih.label}</div>
                       </TD>
-                      <TD>
-                        <Badge variant={meta?.badge ?? "neutral"}>{meta?.label ?? r.status}</Badge>
+                      {/* Same coloured-word treatment as the phone cards, no
+                          pills, so the two layouts read as one design. */}
+                      <TD className="whitespace-nowrap">
+                        <span className={cn("font-medium", TONE[meta?.badge ?? "neutral"])}>{meta?.label ?? r.status}</span>
                       </TD>
-                      <TD>
-                        <Badge variant={pay.variant}>{pay.label}</Badge>
+                      <TD className="whitespace-nowrap">
+                        <span className={cn("font-medium", TONE[pay.variant])}>{pay.label}</span>
                       </TD>
                       <TD>
                         <div className="font-medium text-dream-ink">{r.customerName ?? r.customerEmail ?? "-"}</div>

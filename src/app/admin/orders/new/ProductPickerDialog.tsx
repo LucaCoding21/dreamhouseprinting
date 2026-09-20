@@ -21,12 +21,17 @@ export function ProductPickerDialog({
   products,
   currentId,
   onPick,
+  onPickCustom,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   products: CatalogProduct[];
   currentId: string;
   onPick: (id: string) => void;
+  /** When given, a "Custom product" tile is pinned first (customer-supplied
+   *  garments, suppliers not in the system). Always shown, search or not:
+   *  Julian reaches for it constantly. */
+  onPickCustom?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -56,6 +61,30 @@ export function ProductPickerDialog({
             aria-label="Search products"
           />
           <div className="grid max-h-[60vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
+            {onPickCustom && (
+              <button
+                type="button"
+                onClick={() => {
+                  onPickCustom();
+                  onOpenChange(false);
+                }}
+                className="flex flex-col overflow-hidden rounded-xl border-2 border-dashed border-dream-purple/50 text-left transition-colors hover:border-dream-purple hover:bg-dream-lavender-mist"
+              >
+                <div className="flex h-36 w-full items-center justify-center bg-dream-lavender-mist/60 p-2">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-dream-purple text-white">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="h-6 w-6" aria-hidden>
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </span>
+                </div>
+                <div className="space-y-1 p-3">
+                  <div className="text-sm font-semibold leading-snug text-dream-purple">Custom product</div>
+                  <div className="text-xs leading-snug text-dream-muted">
+                    Customer-supplied garment, or a supplier not in the system. You type the name and price.
+                  </div>
+                </div>
+              </button>
+            )}
             {filtered.map((p) => {
               // First colour with a front photo; hidden products may have none.
               const img =
@@ -98,7 +127,7 @@ export function ProductPickerDialog({
                     </div>
                     <div className="truncate text-xs text-dream-muted">
                       {[p.brand, p.ssStyleName].filter(Boolean).join(" ") || "No S&S style"}
-                      {p.colours.length > 0 && ` · ${p.colours.length} colours`}
+                      {p.colours.length > 0 && `, ${p.colours.length} colours`}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                       {price > 0 ? (
@@ -116,7 +145,8 @@ export function ProductPickerDialog({
             })}
             {filtered.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-dream-muted">
-                No products match &ldquo;{query}&rdquo;.
+                No catalog products match &ldquo;{query}&rdquo;.
+                {onPickCustom && " Use Custom product for anything not in the catalog."}
               </p>
             )}
           </div>

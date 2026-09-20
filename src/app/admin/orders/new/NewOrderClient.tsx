@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +22,8 @@ import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing"
 import type { OrderStatus } from "@/lib/db/rows";
 import type { DecorationSpot } from "../actions";
 import { BlankGarment } from "../[id]/BlankGarment";
+import { fileKind } from "../[id]/ProofLightbox";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { DecorationSpotRow } from "../[id]/DecorationSpotRow";
 import {
   LBL,
@@ -76,6 +78,16 @@ interface ItemDraft {
   unitPrice: string;
   /** The price was just refilled from the curve; typing over it clears the chip. */
   autoPrice: { unit: number; qty: number } | null;
+  /** Mockups staged to the proofs bucket while the order is being built. */
+  mockups: StagedMockup[];
+}
+
+interface StagedMockup {
+  path: string;
+  name: string;
+  /** Object URL for the local preview (revoked on remove). */
+  preview: string;
+  kind: "image" | "pdf";
 }
 
 let seq = 0;
@@ -97,6 +109,7 @@ function blankItem(kind: "catalog" | "custom"): ItemDraft {
     shippingNotes: "",
     unitPrice: "",
     autoPrice: null,
+    mockups: [],
   };
 }
 
@@ -209,6 +222,19 @@ export function NewOrderClient({
       );
     });
 
+  /** A catalog line becomes a freeform one in place (from the picker's
+   *  pinned Custom product tile). Notes are kept, everything product-bound
+   *  resets. */
+  function switchToCustom(key: string) {
+    setItems((list) =>
+      list.map((it) =>
+        it.key === key
+          ? { ...blankItem("custom"), key, mockups: it.mockups, customerNotes: it.customerNotes, productionNotes: it.productionNotes, shippingNotes: it.shippingNotes }
+          : it,
+      ),
+    );
+  }
+
   function pickProduct(key: string, id: string) {
     setItems((list) => {
       const product = byId.get(id);
@@ -320,6 +346,7 @@ export function NewOrderClient({
           bagging: it.bagging,
           sewnTags: it.sewnTags,
           supplier: it.supplier,
+          mockupPaths: it.mockups.map((m) => m.path),
           customerNotes: it.customerNotes,
           productionNotes: it.productionNotes,
           shippingNotes: it.shippingNotes,
@@ -387,10 +414,9 @@ export function NewOrderClient({
               <h1 className="font-display text-3xl font-bold text-dream-ink">New order</h1>
               <Badge variant="info">{STATUS_META[status].label}</Badge>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-dream-muted">
-              <span className="font-medium text-dream-ink">{who}</span>
-              <span aria-hidden>·</span>
-              <span>Manual order (phone / DM / walk-in)</span>
+            <div className="mt-1 text-sm">
+              <div className="font-medium text-dream-ink">{who}</div>
+              <div className="text-dream-muted">Manual order (phone / DM / walk-in)</div>
             </div>
           </div>
 
@@ -439,7 +465,7 @@ export function NewOrderClient({
             <Button variant="secondary" size="sm" onClick={() => setItems((l) => [...l, blankItem("catalog")])}>
               Add catalog item
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setItems((l) => [...l, blankItem("custom")])}>
+            <Button variant="secondary" size="sm" onClick={() => setItems((l) => [...l, blankItem("custom")])}>
               Add custom item
             </Button>
           </div>
@@ -456,6 +482,7 @@ export function NewOrderClient({
             onPatch={(fn) => patchItem(it.key, fn)}
             onPatchPriced={(fn) => patchItemPriced(it.key, fn)}
             onPickProduct={(id) => pickProduct(it.key, id)}
+            onPickCustom={() => switchToCustom(it.key)}
             onRemove={items.length > 1 ? () => setItems((l) => l.filter((x) => x.key !== it.key)) : undefined}
           />
         ))}
@@ -788,6 +815,7 @@ function NewItemCard({
   onPatch,
   onPatchPriced,
   onPickProduct,
+  onPickCustom,
   onRemove,
 }: {
   item: ItemDraft;
@@ -798,6 +826,7 @@ function NewItemCard({
   onPatch: (fn: (it: ItemDraft) => ItemDraft) => void;
   onPatchPriced: (fn: (it: ItemDraft) => ItemDraft) => void;
   onPickProduct: (id: string) => void;
+  onPickCustom: () => void;
   onRemove?: () => void;
 }) {
   const [newSize, setNewSize] = useState("");
@@ -917,6 +946,11 @@ function NewItemCard({
                 </span>
               </div>
             )}
+
+            <MockupUploader
+              mockups={item.mockups}
+              onChange={(mockups) => onPatch((it) => ({ ...it, mockups }))}
+            />
           </div>
 
           {/* MIDDLE, product, sizes, print, notes */}
@@ -953,6 +987,7 @@ function NewItemCard({
                     products={products}
                     currentId={item.productId}
                     onPick={onPickProduct}
+                    onPickCustom={onPickCustom}
                   />
                   {/* Colour twin of the product picker: photo grid, not a select. */}
                   <button
@@ -1176,12 +1211,12 @@ function NewItemCard({
                     {f.fromCustomer ? (
                       <span
                         title="What the customer asked for. Shown to them on their order page notes."
-                        className="rounded bg-dream-info-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-info"
+                        className="rounded-md bg-dream-info-soft px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-info"
                       >
                         From the customer
                       </span>
                     ) : (
-                      <span className="rounded bg-dream-line px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-dream-muted">
+                      <span className="rounded-md bg-dream-line px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-muted">
                         Internal
                       </span>
                     )}
@@ -1214,7 +1249,7 @@ function NewItemCard({
               {item.autoPrice && (
                 <span
                   title="Filled from this product's price tiers. Type over it to override."
-                  className="rounded-full bg-dream-lavender-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-dream-purple"
+                  className="rounded-md bg-dream-lavender-soft px-2 py-0.5 text-[11px] font-semibold text-dream-purple"
                 >
                   Auto
                 </span>
@@ -1236,5 +1271,124 @@ function NewItemCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+
+/**
+ * Mockups for a line, uploaded while the order is still being built. Files
+ * are staged straight to the proofs bucket (same signed-URL flow as
+ * useProofUpload on the order page); createManualOrderAction turns each path
+ * into a pending proof on the created line. Sits under the supplier blank so
+ * "what we're printing" is next to "what we're printing on".
+ */
+function MockupUploader({
+  mockups,
+  onChange,
+}: {
+  mockups: StagedMockup[];
+  onChange: (next: StagedMockup[]) => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const inputId = useId();
+
+  async function stage(files: File[]) {
+    if (files.length === 0) return;
+    setUploading(true);
+    try {
+      const res = await fetch("/api/design/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: files.map((f, i) => ({ id: `m${i}`, bucket: "proofs", name: f.name, kind: "proof", size: f.size })),
+        }),
+      });
+      if (!res.ok) throw new Error("Could not prepare upload");
+      const { uploads } = (await res.json()) as { uploads: { id: string; bucket: string; path: string; token: string }[] };
+      const byId = new Map(uploads.map((u) => [u.id, u]));
+      const supabase = createSupabaseBrowserClient();
+      const staged: StagedMockup[] = [];
+      await Promise.all(
+        files.map(async (f, i) => {
+          const u = byId.get(`m${i}`);
+          if (!u) throw new Error("Upload URL missing for a file");
+          const { error } = await supabase.storage
+            .from(u.bucket)
+            .uploadToSignedUrl(u.path, u.token, f, { contentType: f.type || "image/png" });
+          if (error) throw new Error(error.message);
+          staged.push({ path: u.path, name: f.name, preview: URL.createObjectURL(f), kind: fileKind(f.type || f.name) });
+        }),
+      );
+      onChange([...mockups, ...staged]);
+    } catch (err) {
+      toast({ title: "Mockup upload failed", description: err instanceof Error ? err.message : "", variant: "error" });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function remove(path: string) {
+    const gone = mockups.find((m) => m.path === path);
+    if (gone) URL.revokeObjectURL(gone.preview);
+    onChange(mockups.filter((m) => m.path !== path));
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className={LBL}>Mockups</p>
+      {mockups.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {mockups.map((m) => (
+            <div key={m.path} className="group relative aspect-square overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
+              {m.kind === "pdf" ? (
+                <span className="flex h-full w-full flex-col items-center justify-center text-dream-muted">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6" aria-hidden>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 2v6h6" />
+                  </svg>
+                  <span className="text-[9px] font-semibold">PDF</span>
+                </span>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.preview} alt={m.name} className="h-full w-full object-contain" />
+              )}
+              <button
+                type="button"
+                onClick={() => remove(m.path)}
+                aria-label={`Remove ${m.name}`}
+                className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-dream-ink/70 text-white opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-3 w-3" aria-hidden>
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*,application/pdf"
+        multiple
+        className="sr-only"
+        disabled={uploading}
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          void stage(files);
+        }}
+      />
+      <label
+        htmlFor={inputId}
+        className={cn(
+          "inline-flex h-8 cursor-pointer items-center justify-center rounded-lg border border-dream-line bg-dream-surface px-3 text-xs font-semibold text-dream-ink transition-colors hover:border-dream-purple hover:text-dream-purple",
+          uploading && "pointer-events-none opacity-60",
+        )}
+      >
+        {uploading ? "Uploading…" : mockups.length > 0 ? "Add another mockup" : "Upload mockup"}
+      </label>
+    </div>
   );
 }

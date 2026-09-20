@@ -107,7 +107,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
 
         <div className="border-t border-dream-line pt-3 text-xs text-dream-muted">
           {order.fulfillment_method === "pickup" ? "Pick up in store" : "Ship to customer"}
-          {order.shipping_method ? ` · ${order.shipping_method}` : ""}
+          {order.shipping_method ? `, ${order.shipping_method}` : ""}
         </div>
       </CardContent>
 

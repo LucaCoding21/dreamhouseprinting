@@ -53,7 +53,7 @@ export function PricingClient({
 
           <TabsContent value="lists" className="mt-4">
             <div className="space-y-6">
-              <Card className="mx-auto max-w-3xl border-dream-purple/30 bg-dream-lavender-soft/50">
+              <Card className="mx-auto max-w-3xl">
                 <CardContent className="p-5">
                   <h2 className="font-display text-base font-semibold text-dream-ink">How pricing works</h2>
                   <p className="mt-1 text-sm text-dream-muted">
@@ -134,7 +134,7 @@ function PriceLists({
               className={cn(
                 "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
                 on
-                  ? "border-dream-purple bg-dream-lavender-soft"
+                  ? "border-dream-purple bg-white"
                   : "border-dream-line bg-white hover:border-dream-purple/40",
               )}
             >
@@ -142,9 +142,10 @@ function PriceLists({
                 <span className="truncate text-sm font-semibold text-dream-ink">{p.profile.name}</span>
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                    p.productCount > 0 ? "bg-dream-success-soft text-dream-success" : "bg-dream-line text-dream-muted",
+                    "shrink-0 text-sm font-semibold tabular-nums tracking-normal",
+                    p.productCount > 0 ? "text-dream-success" : "text-dream-muted",
                   )}
+                  title={`${p.productCount} ${p.productCount === 1 ? "product" : "products"} on this list`}
                 >
                   {p.productCount}
                 </span>
@@ -296,7 +297,7 @@ function ProfileCard({ data, onChanged }: { data: PricingProfileWithUsage; onCha
             <Label>{DECO_LABEL[d]}</Label>
             <div className="mt-2 grid grid-cols-[1fr_auto] items-end gap-3">
               <div className="grid gap-1.5">
-                <div className="flex items-center gap-1 px-1 text-[11px] font-medium uppercase tracking-wide text-dream-muted">
+                <div className="flex items-center gap-1 px-1 text-xs font-medium text-dream-muted">
                   Min qty, then $ / unit (all-in)
                   <InfoTip text="Each row's price applies from its quantity up to the next row. Read them down each column." />
                 </div>

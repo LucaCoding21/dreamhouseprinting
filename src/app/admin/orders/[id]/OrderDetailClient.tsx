@@ -75,7 +75,7 @@ export function OrderDetailClient({
                   <div key={a.id} className="flex items-baseline justify-between gap-2 py-2 text-sm">
                     <div className="min-w-0 truncate">
                       <span className="font-semibold capitalize text-dream-ink">{a.type.replace(/_/g, " ")}</span>
-                      <span className="text-dream-muted"> · {a.actor_name ?? "Staff"}</span>
+                      <span className="ml-2 text-dream-muted">{a.actor_name ?? "Staff"}</span>
                     </div>
                     <time dateTime={a.created_at} title={fmtWhen(a.created_at)} className="shrink-0 text-xs text-dream-faint">
                       {relativeTime(a.created_at)}

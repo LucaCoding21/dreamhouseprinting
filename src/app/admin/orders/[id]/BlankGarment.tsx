@@ -119,7 +119,7 @@ export function BlankGarment({
         <ProofLightbox
           src={preview.url}
           kind="image"
-          title={`${styleLabel} · ${matched.name} ${preview.view}`}
+          title={`${styleLabel}, ${matched.name} ${preview.view}`}
           open={!!preview}
           onOpenChange={(o) => !o && setPreview(null)}
         />

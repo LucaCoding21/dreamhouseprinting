@@ -24,7 +24,7 @@ function spotLabel(sp: DecorationSpot): string {
   const colours = sp.colours.trim();
   return [sp.location.trim() || "Print", sp.type.trim(), size, colours ? `${colours} col` : ""]
     .filter(Boolean)
-    .join(" · ");
+    .join(", ");
 }
 
 /** Text colour per production-status tone. */
@@ -165,22 +165,12 @@ export function CompactItemRow({
           {product?.ss_style_name && (
             <span className="font-semibold text-dream-ink">
               {product.brand ? `${product.brand} ${product.ss_style_name}` : product.ss_style_name}
-              <span className="mx-1.5 text-dream-faint">·</span>
+              <span className="mr-3" />
             </span>
           )}
           {sizeSummary}
-          {design?.name && (
-            <>
-              <span className="mx-1.5 text-dream-faint">·</span>
-              &ldquo;{design.name}&rdquo;
-            </>
-          )}
-          {it.supplier && (
-            <>
-              <span className="mx-1.5 text-dream-faint">·</span>
-              {it.supplier}
-            </>
-          )}
+          {design?.name && <span className="ml-3">&ldquo;{design.name}&rdquo;</span>}
+          {it.supplier && <span className="ml-3">{it.supplier}</span>}
         </div>
         {/* What is actually getting printed. The compact row had spare width
             doing nothing, and this is the line Julian scans for. One line from
@@ -229,7 +219,7 @@ export function CompactItemRow({
           kind={thumbKind}
           title={[orderNumber ? `Order #${orderNumber}` : null, it.productName || "item", proof ? "Proof" : "Mockup"]
             .filter(Boolean)
-            .join(" · ")}
+            .join(", ")}
           fileStem={fileStem}
           open={preview}
           onOpenChange={setPreview}

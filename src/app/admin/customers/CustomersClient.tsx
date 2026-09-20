@@ -45,8 +45,8 @@ export function CustomersClient({ rows }: { rows: Row[] }) {
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-dream-line bg-dream-surface p-4">
               {/* A full CAD lifetime figure overflows a half-width tile at 375px. */}
-              <div className="truncate font-display text-2xl font-bold text-dream-ink sm:text-3xl">{s.value}</div>
-              <div className="text-sm text-dream-muted">{s.label}</div>
+              <div className="truncate font-display text-xl font-semibold tabular-nums tracking-normal text-dream-ink">{s.value}</div>
+              <div className="mt-0.5 text-[13px] text-dream-muted">{s.label}</div>
             </div>
           ))}
         </div>

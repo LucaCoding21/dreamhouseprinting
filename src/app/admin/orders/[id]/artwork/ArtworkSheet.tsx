@@ -60,7 +60,7 @@ export function ArtworkSheet({
         <header className="mb-8">
           <h1 className="font-display text-3xl font-bold">Artwork, order {orderNumber ?? ""}</h1>
           <p className="mt-1 text-sm text-dream-muted">
-            {[customerName, `${total} ${total === 1 ? "file" : "files"}`].filter(Boolean).join("  ·  ")}
+            {[customerName, `${total} ${total === 1 ? "file" : "files"}`].filter(Boolean).join(", ")}
           </p>
         </header>
 

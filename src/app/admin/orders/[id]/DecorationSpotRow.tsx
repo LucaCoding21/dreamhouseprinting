@@ -212,7 +212,7 @@ export function DecorationSpotRow({
         <button
           type="button"
           onClick={() => setShowAdvanced((s) => !s)}
-          className="-my-1 flex items-center gap-1.5 py-1 text-xs font-semibold uppercase tracking-wide text-dream-muted transition-colors hover:text-dream-ink"
+          className="-my-1 flex items-center gap-1.5 py-1 text-xs font-medium text-dream-muted transition-colors hover:text-dream-ink"
         >
           <svg
             viewBox="0 0 16 16"

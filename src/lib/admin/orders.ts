@@ -75,7 +75,16 @@ export async function getAdminOrders(): Promise<AdminOrderListItem[]> {
     const officials = ((order.official_mockups ?? []) as { url?: string }[]).map((m) => m.url).filter(Boolean) as string[];
     const cNotes = (order.customer_notes ?? []) as { text?: string }[];
     const iNotes = (order.internal_notes ?? []) as { text?: string }[];
-    const latestNote = [...iNotes, ...cNotes].slice(-1)[0]?.text ?? null;
+    // List preview: one clean line. Multi-line notes (the rush checklist)
+    // keep just their headline, and any legacy "• " bullets are stripped,
+    // no separators in the list (per Julian).
+    const latestNoteRaw = [...iNotes, ...cNotes].slice(-1)[0]?.text ?? null;
+    const latestNote = latestNoteRaw
+      ? latestNoteRaw
+          .split("\n")
+          .map((l) => l.replace(/^\s*[•\-]\s*/, "").trim())
+          .filter(Boolean)[0] ?? null
+      : null;
 
     // Guests have no profile, fall back to the order's guest email + ship-to name.
     const ship = (order.shipping_address ?? {}) as { name?: string };

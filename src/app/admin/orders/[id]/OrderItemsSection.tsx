@@ -248,14 +248,16 @@ export function OrderItemsSection({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="font-display text-lg font-semibold text-dream-ink">Items ({items.length})</h2>
-        <div className="inline-flex overflow-hidden rounded-lg border border-dream-line">
+        {/* Same 32px height and type as the size="sm" Button beside it, so the
+            toolbar reads as one row of controls. */}
+        <div className="inline-flex h-8 overflow-hidden rounded-lg border border-dream-line">
           {(["detailed", "compact"] as const).map((v) => (
             <button
               key={v}
               type="button"
               onClick={() => setView(v)}
               className={cn(
-                "px-3 py-1.5 text-sm font-medium transition-colors",
+                "px-3 text-[14px] font-medium transition-colors",
                 view === v ? "bg-dream-purple text-white" : "bg-white text-dream-ink hover:bg-dream-bg",
               )}
             >

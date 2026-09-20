@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -103,7 +102,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
     const lines = detail.lineItems.map((li, i) => {
       const colour = (li.colour ?? {}) as { name?: string };
       const name = li.product_name?.trim() || `Item ${i + 1}`;
-      return { id: li.id, name, label: [name, colour.name].filter(Boolean).join(" · ") };
+      return { id: li.id, name, label: [name, colour.name].filter(Boolean).join(", ") };
     });
     // A one-line order also accepts an order-level (unassigned) proof: uploads
     // are pinned to the only line now, but older rows predate that.
@@ -269,27 +268,23 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       {/* Row 2, identity + status + the money/stage summary, all above the fold */}
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
-          {/* Phone: the status sits ABOVE the number as a plain coloured word
-              (no pill), like a kicker. sm+: the pill beside the title. */}
-          <div className="flex flex-col-reverse items-start gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-            <h1 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">Order {order.order_number ?? ""}</h1>
-            <Badge
-              variant={status === "changes_requested" ? "warn" : "info"}
-              className="max-sm:border-0 max-sm:bg-transparent max-sm:px-0 max-sm:py-0 max-sm:text-[13px] max-sm:font-semibold"
-            >
+          {/* Status sits ABOVE the number as a plain coloured word at every
+              width, like a kicker. No pill (per Julian). */}
+          <div className="flex flex-col items-start gap-0.5">
+            <span className={cn("text-[13px] font-semibold", status === "changes_requested" ? "text-dream-warn" : "text-dream-muted")}>
               {STATUS_META[status].label}
-            </Badge>
+            </span>
+            <h1 className="font-display text-2xl font-bold text-dream-ink sm:text-3xl">Order {order.order_number ?? ""}</h1>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-dream-muted">
-            <span className="font-medium text-dream-ink">{who}</span>
-            <span aria-hidden>·</span>
-            <span>Created {fmtDay(order.created_at)}</span>
-            {order.due_date && (
-              <>
-                <span aria-hidden>·</span>
-                <span>Due {fmtDay(order.due_date)}</span>
-              </>
-            )}
+          {/* Customer on its own line, dates on the next. No dot separators:
+              on a phone the middle dot wrapped between lines and read as
+              clutter. Dates use whitespace instead. */}
+          <div className="mt-1 text-sm">
+            <div className="font-medium text-dream-ink">{who}</div>
+            <div className="mt-0.5 flex flex-wrap gap-x-5 gap-y-0.5 text-dream-muted">
+              <span>Created {fmtDay(order.created_at)}</span>
+              {order.due_date && <span>Due {fmtDay(order.due_date)}</span>}
+            </div>
           </div>
         </div>
 
@@ -605,9 +600,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "awaiting-approval":
         return (
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="warn" className="px-3 py-1.5 text-sm">
-              Waiting on customer approval
-            </Badge>
+            <span className="text-sm font-semibold text-dream-warn">Waiting on customer approval</span>
             <p className="text-sm text-dream-muted">They&rsquo;ll be asked to pay the current total the moment they approve</p>
             <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               {/* The banner above already offers this when the order changed. */}
@@ -667,9 +660,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "verify-etransfer":
         return (
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="warn" className="px-3 py-1.5 text-sm">
-              E-transfer to verify
-            </Badge>
+            <span className="text-sm font-semibold text-dream-warn">E-transfer to verify</span>
             <p className="text-sm text-dream-muted">
               The customer says they sent {formatCAD(total)} by Interac e-Transfer. Check your bank, then confirm.
             </p>
@@ -687,9 +678,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
       case "approved-invoice":
         return (
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="warn" className="px-3 py-1.5 text-sm">
-              Approved, awaiting payment
-            </Badge>
+            <span className="text-sm font-semibold text-dream-warn">Approved, awaiting payment</span>
             <p className="text-sm text-dream-muted">The customer can pay from their order page any time</p>
             <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               {can.pricing && (
@@ -741,18 +730,18 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
           />
         );
       case "completed":
-        return <Badge variant="success" className="px-3 py-1.5 text-sm">Order complete</Badge>;
+        return <span className="text-sm font-semibold text-dream-success">Order complete</span>;
       case "on-hold":
         return (
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="warn" className="px-3 py-1.5 text-sm">On hold</Badge>
+            <span className="text-sm font-semibold text-dream-warn">On hold</span>
             <Button variant="primary" className="w-full sm:ml-auto sm:w-auto" onClick={() => setJumpOpen(true)}>
               Resume order
             </Button>
           </div>
         );
       case "cancelled":
-        return <Badge variant="danger" className="px-3 py-1.5 text-sm">Cancelled</Badge>;
+        return <span className="text-sm font-semibold text-dream-danger">Cancelled</span>;
       default:
         return null;
     }

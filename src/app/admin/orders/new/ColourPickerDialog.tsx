@@ -40,7 +40,7 @@ export function ColourPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Pick a colour · {productName}</DialogTitle>
+          <DialogTitle>Pick a colour for {productName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 p-5 pt-0">
           <Input
