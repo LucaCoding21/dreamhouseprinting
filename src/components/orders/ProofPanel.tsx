@@ -167,7 +167,8 @@ export function ProofPanel({
               </div>
             ) : changesRequested && !requesting ? (
               <div className="flex flex-1 flex-col">
-                <div className="rounded-xl border border-dream-success/40 bg-dream-success/10 p-4">
+                {/* No tinted box: the green heading is the whole signal. */}
+                <div className="py-1">
                   <p className="flex items-center gap-2 text-sm font-semibold text-dream-success">
                     <IconCheck className="h-4 w-4" />
                     Change request sent!
@@ -179,10 +180,14 @@ export function ProofPanel({
                     <p className="mt-2 break-words text-sm text-dream-ink">You asked: “{proof.change_request_comment}”</p>
                   )}
                 </div>
-                <div className="mt-3 flex justify-end">
-                  <Button variant="ghost" onClick={() => setRequesting(true)}>
-                    Add more notes
-                  </Button>
+                <div className="mt-auto flex justify-end pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setRequesting(true)}
+                    className="inline-flex items-center gap-1 font-display text-sm font-bold text-dream-muted underline-offset-4 hover:text-dream-ink hover:underline"
+                  >
+                    <span aria-hidden>+</span> Add more notes
+                  </button>
                 </div>
                 {error && <p className="mt-2 text-sm text-dream-danger">{error}</p>}
               </div>
@@ -194,8 +199,8 @@ export function ProofPanel({
                 <ul className="mt-2.5 space-y-1.5">
                   {["Spelling and text", "Colours", "Placement and size"].map((c) => (
                     <li key={c} className="flex items-center gap-2 text-sm text-dream-muted">
-                      <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple">
-                        <svg viewBox="0 0 20 20" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <span className="grid h-4 w-4 shrink-0 place-items-center text-dream-purple">
+                        <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                           <path d="M5 10.5l3.5 3.5L15 6.5" />
                         </svg>
                       </span>

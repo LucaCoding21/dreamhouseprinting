@@ -48,9 +48,9 @@ export function LatestMessageBanner({ messages }: { messages: OrderViewMessage[]
           <p className="truncate font-display text-sm font-bold leading-tight text-dream-ink">
             {messages.length > 1 ? `Messages from ${from}` : `Message from ${from}`}
           </p>
-          <p className="mt-0.5 text-[13px] text-dream-muted">
-            {fmtWhen(latest.at)}
-            {messages.length > 1 && ` · ${messages.length} messages`}
+          <p className="mt-0.5 flex flex-wrap gap-x-3 text-[13px] text-dream-muted">
+            <span>{fmtWhen(latest.at)}</span>
+            {messages.length > 1 && <span>{messages.length} messages</span>}
           </p>
         </div>
         <Chevron />
@@ -64,8 +64,9 @@ export function LatestMessageBanner({ messages }: { messages: OrderViewMessage[]
           <ol className="divide-y divide-dream-line border-t border-dream-line">
             {earlier.map((m, i) => (
               <li key={`${m.at}-${i}`} className="bg-dream-cream/30 px-3.5 py-3.5 sm:px-5 sm:py-4">
-                <p className="text-[13px] font-semibold text-dream-muted">
-                  {m.actor?.trim() || "Dreamhouse Printing"} · {fmtWhen(m.at)}
+                <p className="flex flex-wrap gap-x-3 text-[13px] font-semibold text-dream-muted">
+                  <span>{m.actor?.trim() || "Dreamhouse Printing"}</span>
+                  <span className="font-normal">{fmtWhen(m.at)}</span>
                 </p>
                 <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-dream-ink">{m.text}</p>
               </li>

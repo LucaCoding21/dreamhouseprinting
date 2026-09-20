@@ -1,5 +1,6 @@
 import { getProfile } from "@/lib/auth";
 import { AccountForm } from "./AccountForm";
+import { BackToDashboard } from "@/components/portal/BackToDashboard";
 
 export default async function AccountSettingsPage() {
   const profile = await getProfile();
@@ -7,6 +8,7 @@ export default async function AccountSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <BackToDashboard />
       <h1 className="font-display text-2xl font-bold text-dream-ink">Account</h1>
       <AccountForm
         initialName={profile?.name ?? ""}

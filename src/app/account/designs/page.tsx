@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackToDashboard } from "@/components/portal/BackToDashboard";
 import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +26,7 @@ export default async function MyDesignsPage() {
 
   return (
     <div className="space-y-6">
+      <BackToDashboard />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-dream-ink">My designs</h1>

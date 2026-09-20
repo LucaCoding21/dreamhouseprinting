@@ -87,7 +87,7 @@ export default async function AccountDashboardPage() {
       {/* PRIMARY, the single action. Only shown when a proof is waiting, so it
           never competes with the rest of the page for attention. */}
       {topProof && (
-        <section className="rounded-lg border border-dream-purple/25 bg-dream-lavender-soft/60 p-4 sm:p-5">
+        <section className="rounded-lg border border-dream-line bg-white p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-bold text-dream-ink">Ready for your approval</h2>
@@ -100,17 +100,21 @@ export default async function AccountDashboardPage() {
             )}
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 rounded-md bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-4 flex flex-col gap-3 rounded-md border border-dream-purple/40 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <span className="font-display font-bold text-dream-ink">{topProof.order_number}</span>
-              <p className="mt-0.5 text-sm text-dream-muted">
-                {formatCAD(orderTotal(topProof))} · added {new Date(topProof.created_at).toLocaleDateString("en-CA")}
+              <p className="mt-0.5 flex flex-wrap gap-x-4 text-sm text-dream-muted">
+                <span>{formatCAD(orderTotal(topProof))}</span>
+                <span>Added {new Date(topProof.created_at).toLocaleDateString("en-CA")}</span>
               </p>
             </div>
-            <Link href={`/account/orders/${topProof.id}`} className="shrink-0 max-sm:w-full">
-              <Button variant="primary" size="sm" className="max-sm:w-full">
-                Review proof <IconChevronRight className="ml-1 h-4 w-4" />
-              </Button>
+            {/* A text link, not a filled block: the row is already a card
+                inside a card, and a square button on top of it read heavy. */}
+            <Link
+              href={`/account/orders/${topProof.id}`}
+              className="inline-flex shrink-0 items-center gap-1 self-end font-display text-sm font-bold text-dream-purple underline-offset-4 hover:underline sm:self-auto"
+            >
+              Review proof <IconChevronRight className="h-4 w-4" />
             </Link>
           </div>
         </section>
@@ -139,7 +143,7 @@ export default async function AccountDashboardPage() {
           <h2 className="font-display text-lg font-bold text-dream-ink">In progress</h2>
           <Link
             href="/account/orders"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-dream-purple hover:underline"
+            className="inline-flex items-center gap-1 font-display text-sm font-bold text-dream-purple underline-offset-4 hover:underline"
           >
             View all orders <IconChevronRight className="h-4 w-4" strokeWidth={2.2} />
           </Link>

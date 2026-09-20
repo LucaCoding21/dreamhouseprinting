@@ -6,6 +6,7 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { OrderListRow, OrderListHeader } from "@/components/portal/OrderRow";
+import { BackToDashboard } from "@/components/portal/BackToDashboard";
 import type { OrderRow, OrderStatus } from "@/lib/db/rows";
 
 // Customer-facing filter buckets. Colour-free labels grouped by where the order
@@ -53,6 +54,7 @@ export function OrdersList({ orders }: { orders: OrderRow[] }) {
 
   return (
     <div className="space-y-6">
+      <BackToDashboard />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-dream-ink">My orders</h1>

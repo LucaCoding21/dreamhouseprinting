@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { BackToDashboard } from "@/components/portal/BackToDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { CONTACT_PATH, SUPPORT_EMAIL, SUPPORT_RESPONSE } from "@/lib/support";
 
 export default function HelpPage() {
   return (
     <div className="space-y-6">
+      <BackToDashboard />
       <h1 className="font-display text-2xl font-bold text-dream-ink">Help</h1>
       <Card>
         <CardHeader>

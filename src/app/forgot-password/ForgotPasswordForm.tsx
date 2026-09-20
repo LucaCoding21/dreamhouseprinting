@@ -29,7 +29,7 @@ export function ForgotPasswordForm() {
         <Input name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
       </Field>
       {state.error && (
-        <p className="rounded-lg bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{state.error}</p>
+        <p className="text-sm font-medium text-dream-danger">{state.error}</p>
       )}
       <Button type="submit" variant="primary" size="lg" loading={pending} className="w-full">
         Send reset link

@@ -21,7 +21,7 @@ export function StatusTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[3px] px-2 py-0.5 text-[14px] font-semibold",
+        "inline-flex items-center rounded-[3px] px-1.5 py-px text-xs font-medium",
         TONES[tone],
         className,
       )}

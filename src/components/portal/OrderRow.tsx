@@ -2,7 +2,7 @@ import Link from "next/link";
 import { STATUS_META } from "@/lib/orderStatus";
 import { formatCAD } from "@/lib/money";
 import { cn } from "@/lib/cn";
-import { StatusTag } from "@/components/portal/StatusTag";
+import { StatusTag, type StatusTone } from "@/components/portal/StatusTag";
 import {
   IconClock,
   IconPencil,
@@ -13,29 +13,27 @@ import {
 } from "@/components/portal/icons";
 import type { OrderRow, OrderStatus } from "@/lib/db/rows";
 
-// Pill-free status: a coloured dot + coloured label. Used in the table layout.
-const STATUS_TEXT: Record<string, string> = {
-  neutral: "text-dream-muted",
-  info: "text-dream-info",
-  purple: "text-dream-purple",
-  success: "text-dream-success",
-  warn: "text-dream-warn",
-  danger: "text-dream-danger",
-};
+// One status treatment everywhere (dashboard rows, the orders table, phone
+// cards): the shared StatusTag, so the list can't drift from the dashboard.
 function StatusLabel({ tone, label }: { tone: string; label: string }) {
-  return (
-    <span className={`text-sm font-semibold ${STATUS_TEXT[tone] ?? "text-dream-muted"}`}>{label}</span>
-  );
+  return <StatusTag tone={tone as StatusTone}>{label}</StatusTag>;
 }
 
 // Payment status is a separate axis from the order status; unpaid stays muted
 // (not alarming) since most in-progress orders are unpaid until invoiced.
 const PAYMENT_META: Record<string, { label: string; tone: string }> = {
   unpaid: { label: "Unpaid", tone: "neutral" },
-  deposit_paid: { label: "Deposit paid", tone: "info" },
+  deposit_paid: { label: "Deposit paid", tone: "warn" },
   paid_in_full: { label: "Paid", tone: "success" },
   refunded: { label: "Refunded", tone: "neutral" },
   partially_refunded: { label: "Part. refunded", tone: "neutral" },
+};
+
+// Text colour for the payment word: green paid, yellow deposit, grey otherwise.
+const PAYMENT_TEXT: Record<string, string> = {
+  success: "text-dream-success",
+  warn: "text-dream-warn",
+  neutral: "text-dream-faint",
 };
 
 function orderTotal(o: OrderRow): number {
@@ -98,7 +96,7 @@ function statusIcon(status: OrderStatus): typeof IconClock {
  *  mobile, where rows stack. */
 export function OrderListHeader() {
   return (
-    <div className="hidden items-center gap-4 pr-4 pb-1 text-[14px] font-semibold uppercase tracking-wide text-dream-faint xl:flex">
+    <div className="hidden items-center gap-4 pr-4 pb-1 text-[14px] font-medium text-dream-faint xl:flex">
       <span className="min-w-0 flex-1">Order</span>
       <div className="flex items-center gap-8">
         <span className="w-32 shrink-0">Date</span>
@@ -141,8 +139,6 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
           <span className="font-display text-base font-bold leading-tight text-dream-ink">
             Order {o.order_number ?? ""}
           </span>
-          {/* Coloured text, no chip: the tinted box was a second rectangle
-              inside the card competing with the card's own edge. */}
           {meta && (
             <span className="shrink-0">
               <StatusLabel tone={meta.badge} label={meta.label} />
@@ -156,7 +152,7 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
         <div className="-mb-1 mt-3 flex items-baseline justify-between gap-3 border-t border-dream-line pt-2">
           <span className="text-[13px] text-dream-faint">{dateLabel}</span>
           <span className="flex items-baseline gap-2">
-            <span className={cn("text-[13px] font-semibold", paid ? "text-dream-success" : "text-dream-faint")}>
+            <span className={cn("text-[13px] font-semibold", PAYMENT_TEXT[payment?.tone ?? "neutral"])}>
               {payment?.label ?? ""}
             </span>
             <span className="font-display text-base font-bold text-dream-ink">{total}</span>
@@ -168,8 +164,8 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
           "Order" header lines up flush-left above the icon while the columns
           still align. ---- */}
       <div className="hidden min-w-0 flex-1 items-center gap-4 sm:flex">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-dream-lavender-soft text-dream-purple">
-          <Icon className="h-5 w-5" />
+        <span className="grid h-10 w-10 shrink-0 place-items-center text-dream-purple">
+          <Icon className="h-6 w-6" strokeWidth={1.5} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5">
@@ -191,9 +187,9 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
         <>
         <div className="hidden shrink-0 text-right sm:block xl:hidden">
           <div className="font-display font-bold text-dream-ink">{total}</div>
-          <div className="text-[14px] text-dream-faint">
-            {paid ? "Paid · " : ""}
-            {dateLabel}
+          <div className="flex justify-end gap-x-3 text-[14px] text-dream-faint">
+            {paid && <span>Paid</span>}
+            <span>{dateLabel}</span>
           </div>
         </div>
         <div className="hidden items-center gap-8 xl:flex">
@@ -201,7 +197,7 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
           <div className="w-36 shrink-0">
             {meta && <StatusLabel tone={meta.badge} label={meta.label} />}
           </div>
-          <div className="w-28 shrink-0 text-[14px] text-dream-muted">
+          <div className={cn("w-28 shrink-0 text-[14px]", payment?.tone === "neutral" ? "text-dream-muted" : PAYMENT_TEXT[payment?.tone ?? "neutral"])}>
             {payment?.label ?? ""}
           </div>
           <div className="w-24 shrink-0 font-display text-sm font-semibold text-dream-ink">{total}</div>
@@ -210,9 +206,9 @@ export function OrderListRow({ o, columns = false }: { o: OrderRow; columns?: bo
       ) : (
         <div className="hidden shrink-0 text-right sm:block">
           <div className="font-display font-bold text-dream-ink">{total}</div>
-          <div className="text-[14px] text-dream-faint">
-            {paid ? "Paid · " : ""}
-            {dateLabel}
+          <div className="flex justify-end gap-x-3 text-[14px] text-dream-faint">
+            {paid && <span>Paid</span>}
+            <span>{dateLabel}</span>
           </div>
         </div>
       )}

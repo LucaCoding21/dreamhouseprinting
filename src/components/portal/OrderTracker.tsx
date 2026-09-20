@@ -368,9 +368,7 @@ export function OrderTracker({
                       <path d="M5 10.5l3.5 3.5L15 6.5" />
                     </svg>
                   ) : isCurrent ? (
-                    <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-white">
-                      <span className="h-1.5 w-1.5 rounded-full bg-dream-purple" />
-                    </span>
+                    <span className="h-2 w-2 rounded-full bg-white" />
                   ) : null}
                 </span>
 

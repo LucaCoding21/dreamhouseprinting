@@ -27,7 +27,7 @@ export function RegisterForm({ next }: { next: string }) {
         <PasswordInput name="password" autoComplete="new-password" placeholder="••••••••" required minLength={8} />
       </Field>
       {state.error && (
-        <p className="rounded-lg bg-dream-danger-soft px-3 py-2 text-sm text-dream-danger">{state.error}</p>
+        <p className="text-sm font-medium text-dream-danger">{state.error}</p>
       )}
       <Button type="submit" variant="primary" size="lg" loading={pending} className="w-full">
         Create account

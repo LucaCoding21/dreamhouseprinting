@@ -127,10 +127,14 @@ export function SiblingOrdersBanner({
                   {orderStatusLabel(s.status)}
                 </Badge>
               </span>
-              <span className="mt-0.5 block truncate text-[14px] text-dream-muted">
-                {s.number}
-                {s.pieces > 0 ? ` · ${s.pieces} ${s.pieces === 1 ? "piece" : "pieces"}` : ""}
-                {s.colours.length ? ` · ${s.colours.join(", ")}` : ""}
+              <span className="mt-0.5 flex flex-wrap gap-x-3 text-[14px] text-dream-muted">
+                <span>{s.number}</span>
+                {s.pieces > 0 && (
+                  <span>
+                    {s.pieces} {s.pieces === 1 ? "piece" : "pieces"}
+                  </span>
+                )}
+                {s.colours.length > 0 && <span className="truncate">{s.colours.join(", ")}</span>}
               </span>
               {s.total !== null && (
                 <span className="mt-0.5 block text-[14px] font-semibold text-dream-ink">
