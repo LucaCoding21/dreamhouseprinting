@@ -1159,10 +1159,10 @@ function PriceCard({
           Estimated price
         </span>
       </div>
-      {/* Price stack sits flush right on phones, where the card is full width
-          and a left-aligned figure left a lot of dead space; desktop keeps the
-          original left alignment. */}
-      <div className="mt-5 flex items-baseline justify-end gap-2 sm:justify-start">
+      {/* Everything under the caption sits flush right, on every width: the
+          figure, the totals and the lock-in button gather in the bottom-right
+          corner, leaving the caption alone at the top-left. */}
+      <div className="mt-5 flex items-baseline justify-end gap-2">
         <div className="font-display text-5xl font-bold leading-none text-black sm:text-6xl tabular-nums">
           {hasQty ? <AnimatedPrice value={perUnit} /> : "-"}
         </div>
@@ -1171,33 +1171,35 @@ function PriceCard({
         </div>
       </div>
       {hasQty && (
-        <div className="mt-1.5 text-right text-sm font-semibold text-dream-ink/70 tabular-nums sm:text-left">
+        <div className="mt-1.5 text-right text-sm font-semibold text-dream-ink/70 tabular-nums">
           ≈ ${(roundDisplayPrice(perUnit) * quantity).toLocaleString()} total
           <span className="font-medium text-dream-ink/70"> for {quantity} pieces</span>
         </div>
       )}
       {hasQty && printCount > 0 && (
-        <div className="mt-1 text-right text-[14px] font-medium text-dream-ink/55 tabular-nums sm:text-left">
+        <div className="mt-1 text-right text-[14px] font-medium text-dream-ink/55 tabular-nums">
           {printCount > 1 ? `${printCount} prints adding up to ` : ""}$
           {perUnit.toFixed(2)} / item before rounding
         </div>
       )}
       {!hasQty && (
-        <div className="mt-2 text-[14px] text-dream-ink/55">Enter a quantity to see your price</div>
+        <div className="mt-2 text-right text-[14px] text-dream-ink/55">Enter a quantity to see your price</div>
       )}
       {underMin && (
-        <div className="mt-3 text-right text-[14px] font-semibold text-dream-ink/70 sm:text-left">
+        <div className="mt-3 text-right text-[14px] font-semibold text-dream-ink/70">
           {minimumOrderMessage(quantity)}
         </div>
       )}
       {hasQty && !underMin && (
-        <button
-          type="button"
-          onClick={onLockIn}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-dream-ink px-6 py-3.5 font-display text-base font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:w-auto"
-        >
-          Lock in this price
-        </button>
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onLockIn}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-dream-ink px-6 py-3.5 font-display text-base font-bold text-white shadow-[0_4px_0_0_rgba(27,20,88,0.9)] transition active:translate-y-[2px] active:shadow-[0_2px_0_0_rgba(27,20,88,0.9)] sm:w-auto"
+          >
+            Lock in this price
+          </button>
+        </div>
       )}
     </div>
   );
