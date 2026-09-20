@@ -39,7 +39,7 @@ export const TR = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b border-dream-line last:border-0 hover:bg-dream-bg",
+      "border-b border-dream-line transition-colors last:border-0 [tbody_&]:hover:bg-dream-lavender-mist",
       className,
     )}
     {...props}
@@ -54,7 +54,7 @@ export const TH = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "border-b border-dream-line px-4 py-3 text-[14px] font-medium uppercase tracking-wide text-dream-muted",
+      "border-b border-dream-line px-4 py-3 text-[13px] font-medium text-dream-muted",
       className,
     )}
     {...props}

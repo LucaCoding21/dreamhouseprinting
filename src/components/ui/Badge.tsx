@@ -22,7 +22,8 @@ const VARIANTS: Record<BadgeVariant, string> = {
   purple: "bg-dream-lavender-soft text-dream-purple border-transparent",
 };
 
-/** Small status pill. */
+/** Small square status tag (soft tint, coloured text). Not a pill: Julian
+ *  wants the tag look everywhere, so this is rounded-md, not rounded-full. */
 export function Badge({
   variant = "neutral",
   className,
@@ -31,7 +32,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[14px] font-medium",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[12px] font-semibold leading-5",
         VARIANTS[variant],
         className,
       )}

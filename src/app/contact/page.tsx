@@ -8,7 +8,7 @@ import SiteNav from "@/components/SiteNav";
 const TOPICS = [
   { value: "general", label: "General question" },
   { value: "quote", label: "Quote follow-up" },
-  { value: "custom", label: "Custom / partnership" },
+  { value: "custom", label: "Custom project" },
   { value: "press", label: "Press & other" },
 ] as const;
 

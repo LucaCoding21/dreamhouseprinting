@@ -83,7 +83,7 @@ export function ProductCard({
         {featured && (
           <span
             title="Top pick"
-            className="absolute left-2 top-2 z-20 inline-flex items-center justify-center gap-1 rounded-full bg-dream-sun font-display text-[14px] font-bold text-white shadow-sm max-sm:h-7 max-sm:w-7 max-sm:text-sm sm:px-2.5 sm:py-1"
+            className="absolute left-2 top-2 z-20 inline-flex items-center justify-center gap-1 rounded-full bg-dream-sun font-display text-[13px] font-bold text-white max-sm:h-[22px] max-sm:w-[22px] max-sm:text-[14px] max-sm:leading-none sm:px-2 sm:py-0.5"
           >
             <span aria-hidden>★</span>
             <span className="max-sm:sr-only">Top pick</span>
@@ -142,7 +142,7 @@ export function ProductCard({
               />
             ))}
             {extra > 0 && (
-              <span className="ml-0.5 text-[14px] font-medium text-dream-faint">
+              <span className="ml-0.5 text-[12px] font-medium text-dream-faint">
                 +{extra}
               </span>
             )}

@@ -417,6 +417,9 @@ button {
 /* Tailwind v4's reset sets clickable controls to cursor: default. Restore the
    pointer for anything that's actually clickable (disabled controls excepted). */
 button:not(:disabled),
+select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
 [role="button"]:not([aria-disabled="true"]),
 summary,
 label[for] {
@@ -532,30 +535,6 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 .group:hover .scribble-morph {
   filter: url(#scribble-morph);
-}
-
-/* FAQ accordion, smooth height + fade on open/close. Uses ::details-content
-   + interpolate-size so we can transition to/from `auto`. Browsers without
-   support fall back to instant open/close. */
-.faq-accordion {
-  interpolate-size: allow-keywords;
-}
-.faq-accordion::details-content {
-  block-size: 0;
-  overflow: clip;
-  opacity: 0;
-  /* Every property runs on the SAME clock. The fade used to finish 100ms before
-     the height did, so a closing answer went invisible while its box was still
-     shrinking, and the card visibly dropped the last stretch on its own, the
-     "bump" you get when opening another question collapses this one. */
-  transition:
-    content-visibility 0.3s allow-discrete,
-    block-size 0.3s cubic-bezier(0.33, 1, 0.68, 1),
-    opacity 0.3s cubic-bezier(0.33, 1, 0.68, 1);
-}
-.faq-accordion[open]::details-content {
-  block-size: auto;
-  opacity: 1;
 }
 
 /* Sun-burst rays, tiny dashes that pop out around a button on hover and then
@@ -703,3 +682,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 
+
+/* iOS Safari zooms the whole page when a focused field's font is under 16px,
+   which is what happened on the shop search and the "Other" quantity box.
+   On touch phones every text field renders at 16px regardless of its
+   utility class (hence !important, a class would otherwise win). Desktop and
+   tablets with a pointer keep their smaller sizes. */
+@media (max-width: 767px) and (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

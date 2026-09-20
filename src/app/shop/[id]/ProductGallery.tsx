@@ -180,7 +180,7 @@ export function ProductGallery({
                 className={cn(
                   "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border bg-white transition-colors",
                   idx === activeImage
-                    ? "border-dream-purple ring-1 ring-dream-purple/30"
+                    ? "border-dream-purple"
                     : "border-dream-line hover:border-dream-line-strong",
                 )}
               >
@@ -273,9 +273,7 @@ export function ProductGallery({
                 <span className="text-[14px] font-semibold uppercase tracking-wide text-dream-ink">Colour</span>
                 <span className="truncate text-sm text-dream-muted">{colours[selectedColour]?.name}</span>
                 {colours[selectedColour] && !colours[selectedColour].inStock && (
-                  <span className="shrink-0 rounded-full bg-dream-danger/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dream-danger">
-                    Sold out
-                  </span>
+                  <span className="shrink-0 text-sm font-semibold text-dream-purple">Sold out</span>
                 )}
               </div>
               {colours.length > COLLAPSED_COLOURS + 4 && (
@@ -372,7 +370,7 @@ export function ProductGallery({
                 <li key={n} className="inline-flex items-center gap-2">
                   <span
                     aria-hidden
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-dream-purple text-white"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-dream-success-mark text-white"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
                       <path d="m5 12 5 5L20 7" />
