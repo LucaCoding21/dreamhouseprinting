@@ -195,10 +195,10 @@ export default async function PublicOrderPage({
         <div className="mx-auto flex max-w-5xl items-center px-5 py-4 lg:px-8">
           <Link href="/" className="flex items-center">
             <Image
-              src="/dreamhouse-logo4.svg"
+              src="/dreamhouse-logo5.svg"
               alt="Dreamhouse Printing"
               width={1668}
-              height={547}
+              height={522}
               className="h-10 w-auto lg:h-12"
             />
           </Link>

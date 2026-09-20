@@ -56,10 +56,10 @@ export function AuthShell({
         {/* The stacked mark, not the wide lockup: this sits centred above a
             narrow card, where a ~3.2:1 lockup would run past the card's width. */}
         <Image
-          src="/dreamhouse-logo4-mobile.svg"
+          src="/dreamhouse-logo5-mobile.svg"
           alt="Dreamhouse Printing"
           width={566}
-          height={547}
+          height={522}
           priority
           className="h-16 w-auto sm:h-24"
         />

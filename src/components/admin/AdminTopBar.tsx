@@ -44,10 +44,10 @@ export function AdminTopBar({
           <Link href="/admin" className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white">
               <Image
-                src="/dreamhouse-logo4-mobile.svg"
+                src="/dreamhouse-logo5-mobile.svg"
                 alt=""
                 width={566}
-                height={547}
+                height={522}
                 className="h-6 w-auto translate-y-px"
               />
             </span>
@@ -77,11 +77,15 @@ export function AdminTopBar({
                   {badge > 0 && (
                     <span
                       className={cn(
-                        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold leading-none tabular-nums",
+                        // Grid centring + line-height equal to the height +
+                        // zero tracking: the base .font-bold rule adds
+                        // trailing letter-spacing, which pushed the digits
+                        // visibly left of centre inside the circle.
+                        "grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold leading-5 tracking-normal tabular-nums",
                         active ? "bg-white text-dream-purple" : "bg-dream-purple text-white"
                       )}
                     >
-                      <span className="translate-y-[0.5px]">{badge > 99 ? "99+" : badge}</span>
+                      {badge > 99 ? "99+" : badge}
                     </span>
                   )}
                 </Link>

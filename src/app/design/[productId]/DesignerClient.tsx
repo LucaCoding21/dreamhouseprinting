@@ -1494,18 +1494,18 @@ export function DesignerClient(props: Props) {
                 md up. Both render with one hidden per breakpoint, so there is no
                 layout shift and no client-side width check. */}
             <Image
-              src="/dreamhouse-logo4-mobile.svg"
+              src="/dreamhouse-logo5-mobile.svg"
               alt="Dreamhouse Printing"
               width={566}
-              height={547}
+              height={522}
               priority
               className="h-12 w-auto md:hidden"
             />
             <Image
-              src="/dreamhouse-logo4.svg"
+              src="/dreamhouse-logo5.svg"
               alt="Dreamhouse Printing"
               width={1668}
-              height={547}
+              height={522}
               priority
               className="hidden h-14 w-auto md:block"
             />

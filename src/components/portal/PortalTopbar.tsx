@@ -24,10 +24,10 @@ export function PortalTopbar({ name }: { name: string }) {
         {/* Logo only on mobile (desktop has it in the sidebar) */}
         <Link href="/" className="flex shrink-0 items-center lg:hidden">
           <Image
-            src="/dreamhouse-logo4.svg"
+            src="/dreamhouse-logo5.svg"
             alt="Dreamhouse Printing"
             width={1668}
-            height={547}
+            height={522}
             className="h-10 w-auto"
           />
         </Link>

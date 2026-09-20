@@ -31,7 +31,18 @@ const NAV_LINKS = [
 
 // Gap between each mobile-menu link popping in. The Quick Quote pill lands
 // one step after the last link, so the whole reveal is ~0.5s, not ~1.3s.
-const MENU_STAGGER_MS = 60;
+/** Starting points inside the search panel, shown until someone types. */
+const POPULAR_SEARCHES = ["T-shirts", "Hoodies", "Embroidery", "Tote bags"];
+const SEARCH_CATEGORIES = [
+  { label: "Apparel", href: "/shop?category=shirts", image: "/products/custom-t-shirts-vancouver.jpg" },
+  { label: "Headwear", href: "/shop?category=hats-toques", image: "/products/custom-hats-vancouver.jpg" },
+  { label: "Bags", href: "/shop?category=totes", image: "/products/custom-tote-bags-vancouver.jpg" },
+  { label: "Printing services", href: "/services", image: "/custom-screen-printed-tshirts-vancouver.webp" },
+];
+
+const MENU_STAGGER_MS = 35;
+// Delay before the first link starts popping in, after the tap.
+const MENU_LEAD_MS = 30;
 
 // 12 rays on an ellipse around the Quick Quote pill.
 // Each ray gets small length/angle jitter so they feel hand-drawn, not CAD.
@@ -133,6 +144,19 @@ export default function SiteNav() {
       document.removeEventListener("keydown", handleKey);
     };
   }, [menuOpen, searchOpen]);
+
+  // Cmd/Ctrl+K opens the search panel (the field advertises the shortcut).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (searchOpen) closeSearch();
+        else openSearch();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
 
   // Tapping anywhere outside the search drawer closes it. The listener sits on
   // the header element, so a tap on the nav row itself (the magnifier, the cart)
@@ -268,10 +292,10 @@ export default function SiteNav() {
                 run bigger than the old one without squeezing the row. */}
             <Link href="/" className="flex shrink-0 items-center pr-2 sm:pr-4 2xl:pr-8">
               <Image
-                src="/dreamhouse-logo4-mobile.svg"
+                src="/dreamhouse-logo5-mobile.svg"
                 alt="Dreamhouse Printing"
                 width={566}
-                height={547}
+                height={522}
                 priority
                 // Both logo files carry ~8px of empty space above the drawing
                 // and ~40px below it (in a ~500px viewBox), so the mark sits
@@ -280,10 +304,10 @@ export default function SiteNav() {
                 className="h-11 w-auto shrink-0 translate-y-[2px] md:hidden"
               />
               <Image
-                src="/dreamhouse-logo4.svg"
+                src="/dreamhouse-logo5.svg"
                 alt="Dreamhouse Printing"
                 width={1668}
-                height={547}
+                height={522}
                 priority
                 className="hidden h-[52px] w-auto shrink-0 translate-y-[2px] md:block lg:h-[62px] xl:h-[54px] 2xl:h-[66px]"
               />
@@ -486,92 +510,159 @@ export default function SiteNav() {
           // shoved every page down by its height when search opened. Here it
           // floats over the content instead, which is what a search drawer
           // should do.
-          // Search drawer: a single rule-underlined field dropped under the nav
-          // row, with product suggestions beneath it. One treatment at every
-          // width; on desktop the band is kept slim (short padding, body-size
-          // text, a max-w-md column) so it reads as a search field, not a hero.
-          <div className="absolute inset-x-0 top-full z-40 border-b border-dream-ink/15 bg-dream-cream px-5 pb-4 pt-4 shadow-[0_10px_24px_-16px_rgba(27,20,88,0.4)] md:pb-3 md:pt-2.5 xl:px-10">
-            <div className="mx-auto w-full max-w-md">
-            <form onSubmit={handleSearch} role="search" className="relative">
-              <input
-                ref={searchInputRef}
-                type="search"
-                name="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search shirts, hoodies, hats..."
-                aria-label="Search the catalog"
-                className="w-full border-0 border-b-[1.5px] border-dream-purple/35 bg-transparent pb-1.5 pr-9 font-display text-base font-medium text-dream-ink placeholder:text-dream-purple/45 focus:border-dream-purple focus:outline-none md:pb-1 md:text-[15px] [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
-              />
-              {/* Sits inside the field, over the rule's right end. Clears the
-                  query and keeps the bar open, so it is not the same control as
-                  the magnifier in the nav row (which closes the drawer). */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  searchInputRef.current?.focus();
-                }}
-                aria-label="Clear search"
-                className="absolute bottom-0.5 right-0 flex h-9 w-9 items-center justify-center text-dream-purple/75 transition-colors hover:text-dream-purple md:h-7 md:w-7"
-              >
-                {/* Same colour as the rule it sits on, a touch heavier: at the
-                    rule's own 1.5px a diagonal cross reads thinner than a
-                    horizontal line of the same width. */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </form>
-
-            {searchQuery.trim().length >= 2 && (
-              <div className="mt-3">
-                {suggestions.length > 0 ? (
-                  <>
-                    <ul className="divide-y divide-dream-purple/12">
-                      {suggestions.map((r) => (
-                        <li key={r.id}>
-                          <Link
-                            href={`/shop/${r.id}`}
-                            onClick={closeSearch}
-                            className="flex items-center gap-3.5 py-3 md:py-2"
-                          >
-                            {/* The image is sized by its own ratio and centred by
-                                this flex parent; stretching it to the tile and
-                                letterboxing left the artwork looking off-centre. */}
-                            <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1.5 ring-1 ring-dream-purple/15 md:h-11 md:w-11">
-                              {r.image ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={r.image} alt="" className="max-h-full max-w-full object-contain" />
-                              ) : null}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate font-display text-sm font-semibold text-dream-ink">
-                                {r.name}
-                              </span>
-                              <span className="mt-0.5 block text-[14px] font-semibold text-dream-purple">
-                                {formatCAD(r.price)}
-                              </span>
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
+          // Search panel: a white card dropped under the nav. Pill field with
+          // a Search button, then (until someone types) popular searches and
+          // category tiles as a starting point, and a quick-quote line at the
+          // bottom. Below md only the field + suggestions show.
+          <div className="absolute inset-x-0 top-full z-40 px-3 pt-2 md:px-6 xl:px-10">
+            <div className="mx-auto w-full max-w-[1060px] rounded-2xl bg-white p-4 shadow-[0_18px_40px_-20px_rgba(27,20,88,0.45)] ring-1 ring-dream-ink/10 md:p-6">
+              <div className="flex items-center gap-3">
+                <form onSubmit={handleSearch} role="search" className="relative flex min-w-0 flex-1 items-center">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute left-4 h-5 w-5 text-dream-purple" aria-hidden>
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-3.5-3.5" />
+                  </svg>
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    name="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products, services, or help"
+                    aria-label="Search the catalog"
+                    className="h-12 w-full rounded-full border-2 border-dream-purple bg-white pl-12 pr-36 text-base text-dream-ink placeholder:text-dream-ink/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple/30 md:h-[52px] md:pr-44 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                  />
+                  {/* Clears the field and keeps the panel open; the X outside
+                      the pill is the one that closes the panel. */}
+                  {searchQuery && (
                     <button
                       type="button"
-                      onClick={(e) => handleSearch(e as unknown as React.FormEvent<HTMLFormElement>)}
-                      className="mt-1.5 block w-full py-2.5 text-center font-display text-sm font-bold text-dream-purple underline decoration-dream-purple/45 decoration-[1.5px] underline-offset-4"
+                      onClick={() => {
+                        setSearchQuery("");
+                        searchInputRef.current?.focus();
+                      }}
+                      className="absolute right-[100px] rounded-full px-2 py-1 text-[13px] font-medium text-dream-ink/55 transition-colors hover:text-dream-ink md:right-[136px]"
                     >
-                      See all results for &ldquo;{searchQuery.trim()}&rdquo;
+                      clear
                     </button>
-                  </>
-                ) : (
-                  <p className="py-3 text-sm text-dream-ink/60">
-                    {searching ? "Searching…" : `No products match "${searchQuery.trim()}"`}
-                  </p>
-                )}
+                  )}
+                  <button
+                    type="submit"
+                    className="absolute right-1 h-10 rounded-full bg-dream-purple px-5 font-display text-sm font-bold text-white transition-colors hover:bg-dream-purple-dark md:h-11 md:px-8 md:text-[15px]"
+                  >
+                    Search
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  onClick={closeSearch}
+                  aria-label="Close search"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-dream-ink/60 transition-colors hover:bg-dream-lavender-mist hover:text-dream-ink"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
               </div>
-            )}
+
+              {searchQuery.trim().length >= 2 ? (
+                <div className="mt-3">
+                  {suggestions.length > 0 ? (
+                    <>
+                      <ul className="divide-y divide-dream-purple/12">
+                        {suggestions.map((r) => (
+                          <li key={r.id}>
+                            <Link
+                              href={`/shop/${r.id}`}
+                              onClick={closeSearch}
+                              className="-mx-2 flex items-center gap-3.5 rounded-lg px-2 py-3 transition-colors hover:bg-dream-lavender-mist md:py-2"
+                            >
+                              <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-1.5 ring-1 ring-dream-purple/15 md:h-11 md:w-11">
+                                {r.image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={r.image} alt="" className="max-h-full max-w-full object-contain" />
+                                ) : null}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-display text-sm font-semibold text-dream-ink">
+                                  {r.name}
+                                </span>
+                                <span className="mt-0.5 block text-[14px] font-semibold text-dream-purple">
+                                  {formatCAD(r.price)}
+                                </span>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={(e) => handleSearch(e as unknown as React.FormEvent<HTMLFormElement>)}
+                        className="mt-1.5 block w-full py-2.5 text-center font-display text-sm font-bold text-dream-purple underline decoration-dream-purple/45 decoration-[1.5px] underline-offset-4"
+                      >
+                        See all results for &ldquo;{searchQuery.trim()}&rdquo;
+                      </button>
+                    </>
+                  ) : (
+                    <p className="py-3 text-sm text-dream-ink/60">
+                      {searching ? "Searching…" : `No products match "${searchQuery.trim()}"`}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="hidden md:block">
+                  <div className="mt-6 grid grid-cols-[minmax(0,1fr)_1px_minmax(0,1.5fr)] gap-8">
+                    <div>
+                      <h3 className="font-display text-[15px] font-bold text-dream-ink">Popular searches</h3>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {POPULAR_SEARCHES.map((term) => (
+                          <Link
+                            key={term}
+                            href={`/shop?search=${encodeURIComponent(term)}`}
+                            onClick={closeSearch}
+                            className="rounded-full bg-dream-lavender-mist px-4 py-2 font-display text-sm font-semibold text-dream-ink transition-colors hover:bg-dream-lavender-soft"
+                          >
+                            {term}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-dream-ink/10" aria-hidden />
+                    <div>
+                      <h3 className="font-display text-[15px] font-bold text-dream-ink">Browse categories</h3>
+                      <div className="mt-4 grid grid-cols-4 gap-3">
+                        {SEARCH_CATEGORIES.map((c) => (
+                          <Link key={c.label} href={c.href} onClick={closeSearch} className="group text-center">
+                            <span className="block aspect-square overflow-hidden rounded-xl bg-dream-lavender-mist">
+                              <Image
+                                src={c.image}
+                                alt=""
+                                width={220}
+                                height={220}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </span>
+                            <span className="mt-2 block font-display text-[13px] font-semibold text-dream-ink">{c.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 border-t border-dream-ink/10 pt-4 text-center text-sm text-dream-ink/70">
+                    Need something custom?{" "}
+                    <Link
+                      href="/#quick-quote"
+                      onClick={closeSearch}
+                      className="inline-flex items-center gap-1 font-display font-bold text-dream-purple hover:underline"
+                    >
+                      Get a quick quote
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -593,7 +684,7 @@ export default function SiteNav() {
           aria-label="Close menu"
           tabIndex={menuOpen ? 0 : -1}
           onClick={() => setMenuOpen(false)}
-          className={`absolute inset-0 h-full w-full bg-dream-lavender-soft transition-opacity duration-[450ms] ease-out ${
+          className={`absolute inset-0 h-full w-full bg-dream-lavender-soft transition-opacity duration-[250ms] ease-out ${
             menuOpen ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -631,10 +722,10 @@ export default function SiteNav() {
                 rotate: `${link.rotate * 3}deg`,
                 scale: menuOpen ? 1 : 0.4,
                 opacity: menuOpen ? 1 : 0,
-                transition: `scale 550ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
-                  menuOpen ? i * MENU_STAGGER_MS + 80 : 0
-                }ms, opacity 350ms ease ${
-                  menuOpen ? i * MENU_STAGGER_MS + 80 : 0
+                transition: `scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
+                  menuOpen ? i * MENU_STAGGER_MS + MENU_LEAD_MS : 0
+                }ms, opacity 220ms ease ${
+                  menuOpen ? i * MENU_STAGGER_MS + MENU_LEAD_MS : 0
                 }ms`,
               }}
             >
@@ -654,10 +745,10 @@ export default function SiteNav() {
             style={{
               scale: menuOpen ? 1 : 0.4,
               opacity: menuOpen ? 1 : 0,
-              transition: `scale 600ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
-                menuOpen ? NAV_LINKS.length * MENU_STAGGER_MS + 80 : 0
-              }ms, opacity 350ms ease ${
-                menuOpen ? NAV_LINKS.length * MENU_STAGGER_MS + 80 : 0
+              transition: `scale 450ms cubic-bezier(0.34, 1.56, 0.64, 1) ${
+                menuOpen ? NAV_LINKS.length * MENU_STAGGER_MS + MENU_LEAD_MS : 0
+              }ms, opacity 220ms ease ${
+                menuOpen ? NAV_LINKS.length * MENU_STAGGER_MS + MENU_LEAD_MS : 0
               }ms`,
             }}
           >

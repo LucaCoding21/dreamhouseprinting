@@ -51,10 +51,10 @@ export default function SiteFooter({ hideDog = false }: { hideDog?: boolean }) {
           <div>
             <Link href="/" className="inline-flex items-center">
               <Image
-                src="/dreamhouse-logo4.svg"
+                src="/dreamhouse-logo5.svg"
                 alt="Dreamhouse Printing"
                 width={1668}
-                height={547}
+                height={522}
                 className="h-12 w-auto lg:h-[84px]"
               />
             </Link>

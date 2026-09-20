@@ -15,10 +15,10 @@ export function PortalSidebar() {
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-dream-line bg-white px-4 py-5 lg:flex">
       <Link href="/" className="mb-8 flex items-center px-2">
         <Image
-          src="/dreamhouse-logo4.svg"
+          src="/dreamhouse-logo5.svg"
           alt="Dreamhouse Printing"
           width={1668}
-          height={547}
+          height={522}
           className="h-11 w-auto"
         />
       </Link>
