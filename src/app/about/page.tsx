@@ -55,7 +55,7 @@ function Hero() {
               phones; from sm up it goes back to shrink-to-fit fixed widths. */}
           <div className="relative w-full max-w-[356px] sm:w-auto sm:max-w-none">
             <Image
-              src="/sticker3.png"
+              src="/sticker-stars.png"
               alt=""
               aria-hidden="true"
               width={400}
@@ -250,7 +250,7 @@ function BehindTheScenes() {
 
       {/* Decorative sticker, fills the empty top-right corner */}
       <Image
-        src="/madeinvan/sticker1.png"
+        src="/sticker-moon.png"
         alt=""
         width={400}
         height={400}

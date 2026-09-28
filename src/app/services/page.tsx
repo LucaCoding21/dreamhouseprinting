@@ -268,7 +268,7 @@ function Hero() {
 
           <div className="relative mx-auto w-full max-w-[480px] pb-10 pr-6 lg:mx-0 lg:max-w-none lg:pb-14 lg:pr-10">
             <Image
-              src="/sticker2.png"
+              src="/sticker-sparkles.png"
               alt=""
               aria-hidden="true"
               width={400}
@@ -335,7 +335,7 @@ function Methods() {
   return (
     <section id="methods" className="relative mx-auto max-w-[1500px] px-6 pb-24 pt-20 lg:px-10 lg:pb-32 lg:pt-28">
       <Image
-        src="/sticker3.png"
+        src="/sticker-stars.png"
         alt=""
         width={600}
         height={600}

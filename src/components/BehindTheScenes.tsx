@@ -29,7 +29,7 @@ export default function BehindTheScenes() {
 
       {/* Decorative sticker, fills the empty top-right corner */}
       <Image
-        src="/madeinvan/sticker1.png"
+        src="/sticker-moon.png"
         alt=""
         width={400}
         height={400}
