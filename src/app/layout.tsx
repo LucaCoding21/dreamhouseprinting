@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart/CartContext";
+import { MinimumOrderProvider } from "@/lib/orders/MinimumOrderContext";
+import { getMinimumOrderQty } from "@/lib/orders/minimumServer";
 import { archivo, darumadrop, inter, lilitaOne } from "@/lib/fonts";
 
 const GA_MEASUREMENT_ID = "G-1X4CV46YY4";
@@ -42,7 +44,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -64,19 +66,31 @@ export default function RootLayout({
                 wavelength gives a gentle pen wobble instead of jitter, and the
                 blur + alpha-curve pair re-crisps the displaced edge so it
                 stays anti-aliased. The hover "alive" filter below is untouched. */}
-            <filter id="rough-edges" x="-5%" y="-15%" width="110%" height="130%">
+            {/* Static edge: the hover wobble's noise (slightly calmer), frozen.
+                The old near-flat noise gave straight runs with sudden steps and
+                a steep alpha re-crisp that stripped anti-aliasing, so it read
+                as low-res. sRGB keeps the displacement centred (linearRGB
+                skews it, shifting the shape). */}
+            <filter
+              id="rough-edges"
+              x="-5%"
+              y="-15%"
+              width="110%"
+              height="130%"
+              colorInterpolationFilters="sRGB"
+            >
               <feTurbulence
                 type="fractalNoise"
-                baseFrequency="0.012"
-                numOctaves="1"
+                baseFrequency="0.025"
+                numOctaves="2"
                 seed="4"
                 stitchTiles="stitch"
                 result="noise"
               />
-              <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" result="warped" />
-              <feGaussianBlur in="warped" stdDeviation="0.4" result="soft" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" result="warped" />
+              <feGaussianBlur in="warped" stdDeviation="0.6" result="soft" />
               <feComponentTransfer in="soft">
-                <feFuncA type="linear" slope="3" intercept="-1" />
+                <feFuncA type="linear" slope="1.7" intercept="-0.35" />
               </feComponentTransfer>
             </filter>
             <filter id="rough-edges-alive">
@@ -135,7 +149,9 @@ export default function RootLayout({
             </filter>
           </defs>
         </svg>
-        <CartProvider>{children}</CartProvider>
+        <MinimumOrderProvider value={await getMinimumOrderQty()}>
+          <CartProvider>{children}</CartProvider>
+        </MinimumOrderProvider>
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"

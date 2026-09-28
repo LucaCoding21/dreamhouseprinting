@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requirePermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { mergeCheckoutSettings, type CheckoutSettings } from "@/lib/checkoutSettings";
 import { mergeAddonSettings, type AddonSettings } from "@/lib/addonSettings";
 import { mergePaymentSettings, type PaymentSettings } from "@/lib/paymentSettings";
+import { MINIMUM_ORDER_TAG } from "@/lib/orders/minimumServer";
 import { mergeBusinessSettings, type BusinessSettings } from "@/lib/businessSettings";
 import {
   mergeDecorationPricing,
@@ -108,12 +109,16 @@ export async function updatePaymentSettingsAction(
 }
 
 export async function updateBusinessSettingsAction(
-  settings: BusinessSettings
+  patch: Partial<BusinessSettings>
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("settings.manage");
   const service = requireSupabaseServiceClient();
 
-  const clean = mergeBusinessSettings(settings);
+  // Each card saves only its own field, so merge over what's stored rather
+  // than letting a pickup-address save reset the minimum (or vice versa).
+  const { data: current } = await service.from("settings").select("value").eq("key", "business").maybeSingle();
+  const stored = (current?.value ?? {}) as Partial<BusinessSettings>;
+  const clean = mergeBusinessSettings({ ...stored, ...patch });
   const { error } = await service
     .from("settings")
     .upsert({ key: "business", value: asJson(clean) }, { onConflict: "key" });
@@ -122,6 +127,12 @@ export async function updateBusinessSettingsAction(
   revalidatePath("/admin/settings");
   // The cart's pickup panel reads this at render time.
   revalidatePath("/cart");
+  if (patch.minimumOrderQty !== undefined) {
+    // The minimum is read by the root layout (every customer page) and the
+    // order/quote endpoints: bust its cache and re-render every page.
+    updateTag(MINIMUM_ORDER_TAG);
+    revalidatePath("/", "layout");
+  }
   return { ok: true };
 }
 

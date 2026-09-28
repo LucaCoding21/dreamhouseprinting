@@ -31,7 +31,8 @@ import { HelpPrompt } from "@/components/support/HelpPrompt";
 import { MethodGuideModal, type MethodKey } from "@/components/storefront/MethodGuideModal";
 import { cn } from "@/lib/cn";
 import { useCart } from "@/lib/cart/CartContext";
-import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage, piecesShortOfMinimum } from "@/lib/orders/minimum";
+import { hasMinimum, isUnderMinimum, minimumOrderMessage, piecesShortOfMinimum, qtyFloor } from "@/lib/orders/minimum";
+import { useMinimumOrder } from "@/lib/orders/MinimumOrderContext";
 import { formatCAD, roundCents } from "@/lib/money";
 import {
   curveForProduct,
@@ -249,6 +250,7 @@ function svgToDataUrl(svg: string) {
 export function DesignerClient(props: Props) {
   const router = useRouter();
   const { addItem, items: cartItems } = useCart();
+  const minQty = useMinimumOrder();
   // The row this design lives in once saved. Starts as the design being edited
   // (opened from the cart or My Designs), and is set after the first fresh save,
   // so every later save UPDATES that row instead of inserting a new one. This is
@@ -1286,8 +1288,8 @@ export function DesignerClient(props: Props) {
     // Self-serve minimum. "Save & share" is exempt: a draft can sit at any
     // quantity, only adding it to the cart (the path to a real order) is gated.
     // The server re-checks this in placeOrderAction.
-    if (destination === "cart" && quantity < MIN_ONLINE_ORDER_QTY) {
-      setSaveError(minimumOrderMessage(quantity));
+    if (destination === "cart" && isUnderMinimum(quantity, minQty)) {
+      setSaveError(minimumOrderMessage(quantity, minQty));
       return;
     }
     // Snapshot every canvas; figure out which views actually carry art.
@@ -2785,8 +2787,8 @@ export function DesignerClient(props: Props) {
                   <div>
                     <div className="font-display text-[15px] font-bold text-dream-ink">Colours &amp; sizes</div>
                     <p className="mt-1.5 text-sm leading-relaxed text-dream-muted">
-                      How many of each size? Need another shirt colour? Add one below. Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces
-                      (all colours combined).
+                      How many of each size? Need another shirt colour? Add one below.
+                      {hasMinimum(minQty) && <> Our minimum order is {minQty} pieces (all colours combined).</>}
                     </p>
                   </div>
 
@@ -2850,16 +2852,16 @@ export function DesignerClient(props: Props) {
                     <p className="col-start-2 row-start-2 whitespace-nowrap text-right font-display text-xl font-bold leading-none text-dream-ink">
                       {quantity || 0} unit{quantity === 1 ? "" : "s"}
                     </p>
-                    {quantity > 0 && quantity < MIN_ONLINE_ORDER_QTY && (
+                    {quantity > 0 && isUnderMinimum(quantity, minQty) && (
                       <p className="col-start-2 row-start-3 mt-1.5 whitespace-nowrap text-right text-[12px] font-medium leading-snug text-dream-muted">
-                        {piecesShortOfMinimum(quantity)} more needed
+                        {piecesShortOfMinimum(quantity, minQty)} more needed
                       </p>
                     )}
                   </div>
                   {/* One ask at a time: under the minimum the only message is
                       "N more needed"; the price-break upsell waits until the
                       order is actually placeable. */}
-                  {nextTier && quantity >= MIN_ONLINE_ORDER_QTY && (
+                  {nextTier && !isUnderMinimum(quantity, minQty) && (
                     <div className="mt-3 flex items-center gap-2.5">
                       <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-dream-sun px-2.5 py-1 font-display text-[14px] font-extrabold text-dream-ink">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.3-8.3a1 1 0 0 0 0-1.4L12 2Z" /><path d="M6.5 6.5h.01" /></svg>
@@ -2944,12 +2946,12 @@ export function DesignerClient(props: Props) {
                     Some art sits outside the print lines. We&apos;ll double-check it before printing.
                   </p>
                 )}
-                <p className={cn("min-w-0 text-sm max-sm:text-balance max-sm:text-center max-sm:text-[13px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < MIN_ONLINE_ORDER_QTY ? "text-dream-muted" : "text-dream-faint")}>
+                <p className={cn("min-w-0 text-sm max-sm:text-balance max-sm:text-center max-sm:text-[13px] sm:text-right", error ? "font-medium text-dream-danger" : quantity < qtyFloor(minQty) ? "text-dream-muted" : "text-dream-faint")}>
                   {error ??
                     (quantity < 1
-                      ? `Enter your sizes to continue. Our minimum order is ${MIN_ONLINE_ORDER_QTY} pieces.`
-                      : quantity < MIN_ONLINE_ORDER_QTY
-                        ? minimumOrderMessage(quantity)
+                      ? `Enter your sizes to continue.${hasMinimum(minQty) ? ` Our minimum order is ${minQty} pieces.` : ""}`
+                      : isUnderMinimum(quantity, minQty)
+                        ? minimumOrderMessage(quantity, minQty)
                         : "No payment now. We send a proof to approve first.")}
                 </p>
                 <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
@@ -2974,7 +2976,7 @@ export function DesignerClient(props: Props) {
                       }
                       setShowSave(true);
                     }}
-                    disabled={busy !== null || quantity < MIN_ONLINE_ORDER_QTY}
+                    disabled={busy !== null || quantity < qtyFloor(minQty)}
                     className="inline-flex min-w-[11rem] items-center justify-center gap-2 rounded-full bg-dream-purple px-7 py-3 font-display text-base font-bold text-white transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-w-0 max-sm:flex-1 max-sm:px-4 max-sm:py-3 max-sm:text-[15px]"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5.4 8.2c4.4-.5 8.9-.5 13.3 0 .5 3.7.8 7.4.9 11.1-5.1.6-10.2.6-15.2 0 .1-3.7.4-7.4 1-11.1Z" /><path d="M8.6 8c-.2-2 .6-4.2 2.6-4.7 1.7-.4 3.4.6 4 2.2.3.8.3 1.7.2 2.5" /></svg>

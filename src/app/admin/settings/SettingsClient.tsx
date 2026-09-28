@@ -14,10 +14,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/cn";
 import type { DecorationMethodRow } from "@/lib/db/rows";
 import type { CheckoutSettings } from "@/lib/checkoutSettings";
 import type { PaymentSettings } from "@/lib/paymentSettings";
 import type { BusinessSettings } from "@/lib/businessSettings";
+import { MAX_MIN_ONLINE_ORDER_QTY } from "@/lib/orders/minimum";
 import {
   updateDecorationMethodAction,
   updateEmailTemplatesAction,
@@ -75,6 +77,7 @@ export function SettingsClient({
           </TabsContent>
 
           <TabsContent value="checkout" className="mt-4 space-y-6">
+            <MinimumOrderCard settings={business} />
             <CheckoutTab settings={checkout} />
             <PickupAddressCard settings={business} />
           </TabsContent>
@@ -273,6 +276,97 @@ function CheckoutTab({ settings }: { settings: CheckoutSettings }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Minimum order                                                      */
+/* ------------------------------------------------------------------ */
+
+const MINIMUM_PRESETS = [0, 10, 15, 20, 25];
+
+function MinimumOrderCard({ settings }: { settings: BusinessSettings }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [pending, start] = useTransition();
+  const [text, setText] = useState(String(settings.minimumOrderQty));
+  const value = text.trim() === "" ? NaN : Number(text);
+  const valid = Number.isInteger(value) && value >= 0 && value <= MAX_MIN_ONLINE_ORDER_QTY;
+  const dirty = valid && value !== settings.minimumOrderQty;
+
+  function save() {
+    if (!valid) return;
+    start(async () => {
+      const res = await updateBusinessSettingsAction({ minimumOrderQty: value });
+      if (res.error) toast({ title: "Failed", description: res.error, variant: "error" });
+      else {
+        toast({
+          title: value > 1 ? `Minimum order set to ${value} pieces` : "No minimum order",
+          description: "The shop, designer, cart and quick quote all follow it now.",
+          variant: "success",
+        });
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Minimum order</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-dream-muted">
+          The fewest pieces a customer can order online, counted per design across all colours. Applies to the
+          designer, the cart, the product-page estimate, the shop prices and the quick quote. Orders you create in
+          the admin are never limited.
+        </p>
+        <div className="flex flex-wrap items-end gap-2">
+          {MINIMUM_PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setText(String(n))}
+              className={cn(
+                "h-10 rounded-lg border px-3 text-sm font-medium transition-colors",
+                valid && value === n
+                  ? "border-dream-purple bg-dream-purple text-white"
+                  : "border-dream-line bg-white text-dream-ink hover:border-dream-purple",
+              )}
+            >
+              {n === 0 ? "No minimum" : n}
+            </button>
+          ))}
+          <Field label="Custom" htmlFor="biz-min-order" className="w-28">
+            <Input
+              id="biz-min-order"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={MAX_MIN_ONLINE_ORDER_QTY}
+              step={1}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+            />
+          </Field>
+        </div>
+        {!valid && (
+          <p className="text-sm text-dream-danger">Enter a whole number from 0 to {MAX_MIN_ONLINE_ORDER_QTY}.</p>
+        )}
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-dream-muted">
+            Currently:{" "}
+            <span className="font-medium text-dream-ink">
+              {settings.minimumOrderQty > 1 ? `${settings.minimumOrderQty} pieces` : "no minimum"}
+            </span>
+          </p>
+          <Button variant="primary" loading={pending} disabled={!dirty} onClick={save} className="w-full sm:w-auto">
+            Save minimum
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

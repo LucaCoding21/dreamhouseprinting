@@ -6,19 +6,18 @@ import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { priceFromCurveForPrints, MAX_LOCATIONS } from "@/lib/pricing/quote";
 import type { ProductQuoteCurveJson, QuoteDecoration } from "@/lib/db/rows";
-import { MIN_ONLINE_ORDER_QTY } from "@/lib/orders/minimum";
+import { hasMinimum, qtyFloor, quantityPresets } from "@/lib/orders/minimum";
+import { useMinimumOrder } from "@/lib/orders/MinimumOrderContext";
 
 const DECO_LABEL: Record<QuoteDecoration, string> = {
   screen: "Screen print",
   embroidery: "Embroidery",
 };
 
-// The estimate can't go below the order minimum: a price the customer
-// can't actually order at would only be a bait.
-const QTY_MIN = MIN_ONLINE_ORDER_QTY;
 const QTY_MAX = 1000;
 const DEFAULT_QTY = 25;
-const PRESETS = [MIN_ONLINE_ORDER_QTY, 25, 50, 100, 250];
+// Round-number chips; the live minimum is put in front of them (see below).
+const BASE_PRESETS = [10, 25, 50, 100, 250];
 
 /**
  * Interactive "Detailed Quote" on the product page (replaces the old static
@@ -40,6 +39,11 @@ export function DetailedQuote({
   /** Decorations the admin enabled for this product; omit to offer the full curve. */
   allowedDecorations?: QuoteDecoration[];
 }) {
+  // The estimate can't go below the order minimum (Admin -> Settings): a
+  // price the customer can't actually order at would only be a bait.
+  const minQty = useMinimumOrder();
+  const QTY_MIN = qtyFloor(minQty);
+  const PRESETS = quantityPresets(minQty, BASE_PRESETS);
   const designHref = colourName
     ? `/design/${productId}?colour=${encodeURIComponent(colourName)}`
     : `/design/${productId}`;
@@ -61,10 +65,10 @@ export function DetailedQuote({
   // under-quoted exactly those multi-print jobs.
   const [prints, setPrints] = useState<{ id: number; colours: number }[]>([{ id: 0, colours: 1 }]);
   const printSeq = useRef(1);
-  const [qty, setQty] = useState(DEFAULT_QTY);
+  const [qty, setQty] = useState(() => Math.max(DEFAULT_QTY, QTY_MIN));
   // Raw text of the number field, so partial edits (clearing, typing "2" then
   // "50") don't get clamped mid-keystroke. qty stays the source of truth.
-  const [qtyText, setQtyText] = useState(String(DEFAULT_QTY));
+  const [qtyText, setQtyText] = useState(() => String(Math.max(DEFAULT_QTY, QTY_MIN)));
   // The estimate starts collapsed: "Design Now" is the primary path, and the
   // estimate is an opt-in secondary so the two CTAs don't compete for attention.
   const [estimateOpen, setEstimateOpen] = useState(false);
@@ -348,9 +352,11 @@ export function DetailedQuote({
           </div>
         </div>
       </Row>
-      <p className="-mt-1 text-[14px] leading-relaxed text-dream-muted">
-        Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces.
-      </p>
+      {hasMinimum(minQty) && (
+        <p className="-mt-1 text-[14px] leading-relaxed text-dream-muted">
+          Our minimum order is {minQty} pieces.
+        </p>
+      )}
 
       {/* Grounded price summary, the hero of the panel */}
       <div className="rounded-xl border border-dream-lavender-soft bg-dream-lavender-mist px-4 py-3.5">

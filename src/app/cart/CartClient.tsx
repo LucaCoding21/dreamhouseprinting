@@ -22,7 +22,8 @@ import {
 } from "@/components/RushRequest";
 import { OrderPlacingOverlay } from "@/components/OrderPlacingOverlay";
 import { placeCartOrdersAction } from "./actions";
-import { MIN_ONLINE_ORDER_QTY, piecesShortOfMinimum } from "@/lib/orders/minimum";
+import { isUnderMinimum, piecesShortOfMinimum } from "@/lib/orders/minimum";
+import { useMinimumOrder } from "@/lib/orders/MinimumOrderContext";
 
 export interface CartPrefill {
   firstName: string;
@@ -58,6 +59,7 @@ export function CartClient({
   // (items empty out as orders place, but the overlay copy shouldn't change).
   const [placingCount, setPlacingCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const minQty = useMinimumOrder();
   const [notice, setNotice] = useState<string | null>(null);
   // Rush is asked once for the whole checkout, not per design: everything in
   // this cart is going out on the same deadline.
@@ -70,7 +72,7 @@ export function CartClient({
   // Self-serve minimum, per design (each carted design becomes its own order,
   // so each has to clear the bar on its own). The server re-checks this in
   // placeOrderAction; blocking here just saves the customer a failed submit.
-  const underMinimum = items.filter((i) => (Number(i.quantity) || 0) < MIN_ONLINE_ORDER_QTY);
+  const underMinimum = items.filter((i) => isUnderMinimum(Number(i.quantity) || 0, minQty));
   // Setup is already amortized into the curve price, so the fee base is just the
   // subtotal. The server re-derives this per order at placement; this is the
   // customer-facing preview of the same math.
@@ -90,7 +92,7 @@ export function CartClient({
     setNotice(null);
     if (underMinimum.length > 0) {
       setError(
-        `Online orders start at ${MIN_ONLINE_ORDER_QTY} pieces per design. ${
+        `Online orders start at ${minQty} pieces per design. ${
           underMinimum.length === 1 ? "One design is" : `${underMinimum.length} designs are`
         } under that, tap Edit to add sizes.`
       );
@@ -336,12 +338,12 @@ export function CartClient({
                         )}
                       </p>
                       <p className="truncate text-sm text-dream-muted">{item.colourSummary}</p>
-                      {(Number(item.quantity) || 0) < MIN_ONLINE_ORDER_QTY && (
+                      {isUnderMinimum(Number(item.quantity) || 0, minQty) && (
                         <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-dream-warn-soft px-2.5 py-1 text-[14px] font-semibold text-dream-warn">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0" aria-hidden>
                             <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
                           </svg>
-                          {MIN_ONLINE_ORDER_QTY}-piece minimum, add {piecesShortOfMinimum(Number(item.quantity) || 0)} more
+                          {minQty}-piece minimum, add {piecesShortOfMinimum(Number(item.quantity) || 0, minQty)} more
                         </p>
                       )}
                     </div>
@@ -534,7 +536,7 @@ export function CartClient({
 
               {underMinimum.length > 0 && !error && (
                 <p className="mt-3 rounded-xl bg-dream-warn-soft px-3 py-2 text-sm text-dream-warn">
-                  Our minimum order is {MIN_ONLINE_ORDER_QTY} pieces per design.{" "}
+                  Our minimum order is {minQty} pieces per design.{" "}
                   {underMinimum.length === 1 ? "One design is" : `${underMinimum.length} designs are`} under that, tap Edit to add
                   sizes.
                 </p>

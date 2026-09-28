@@ -5,7 +5,8 @@ import {
   SUBMISSIONS_TABLE,
   getSupabaseAdmin,
 } from "@/lib/supabase";
-import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
+import { isUnderMinimum, minimumOrderMessage } from "@/lib/orders/minimum";
+import { getMinimumOrderQty } from "@/lib/orders/minimumServer";
 import {
   PRINT_LOCATIONS,
   SIZE_KEYS,
@@ -450,12 +451,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Same 20-piece floor as self-serve orders. The client already blocks
+    // Same floor as self-serve orders (Admin -> Settings -> Minimum order). The client already blocks
     // this, so a hit here is a hand-built request, not a real customer.
     const requestedQty = Number(data.quantity) || 0;
-    if (requestedQty < MIN_ONLINE_ORDER_QTY) {
+    const minQty = await getMinimumOrderQty();
+    if (isUnderMinimum(requestedQty, minQty)) {
       return NextResponse.json(
-        { error: minimumOrderMessage(requestedQty) },
+        { error: minimumOrderMessage(requestedQty, minQty) },
         { status: 400 },
       );
     }

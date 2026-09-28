@@ -21,7 +21,8 @@ import {
   type SizeBreakdown,
   type SizeKey,
 } from "@/lib/formTypes";
-import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
+import { hasMinimum, isUnderMinimum, minimumOrderMessage, qtyFloor } from "@/lib/orders/minimum";
+import { useMinimumOrder } from "@/lib/orders/MinimumOrderContext";
 import {
   AVAILABLE_DECORATIONS,
   calculateQuoteForPrints,
@@ -199,6 +200,7 @@ type StepIndex = 0 | 1 | 2;
 type Phase = "calc" | "form";
 
 export default function QuoteCard() {
+  const minQty = useMinimumOrder();
   const [phase, setPhase] = useState<Phase>("calc");
 
   // Calculator state.
@@ -224,6 +226,11 @@ export default function QuoteCard() {
   const artworkInputRef = useRef<HTMLInputElement | null>(null);
   const priceMatchInputRef = useRef<HTMLInputElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  // Read by the CTA click handler (a mount-once listener) without re-binding.
+  const submittedRef = useRef(submitted);
+  useEffect(() => {
+    submittedRef.current = submitted;
+  }, [submitted]);
 
   // Preselect the product from a ?product= hint. Two cases:
   //  1. Landing here from another page (services, etc.), read it on mount.
@@ -259,6 +266,76 @@ export default function QuoteCard() {
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  // Every "Get a quick quote" / "Quick Quote" CTA on the site links to
+  // /#quick-quote. A bare hash jump is unreliable here: the mobile menu and
+  // phone search drawer lock body scroll and restore the old offset when they
+  // close (undoing the jump), Next's Link scrolls before layout settles, and a
+  // customer who already submitted would land on the "Got it!" card. So the
+  // card owns the navigation: it intercepts those clicks (capture phase, ahead
+  // of Next's Link, whose own onClick still runs so menus close), reopens the
+  // calculator if a quote was already sent, and scrolls once the page is
+  // unlocked. Arriving from another page with the hash is handled on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let cancelled = false;
+    const scrollToCard = () => {
+      let frames = 0;
+      const tick = () => {
+        if (cancelled) return;
+        const b = document.body.style;
+        const locked = b.position === "fixed" || b.overflow === "hidden";
+        // Wait (up to ~0.5s) for any menu/drawer to release the page first.
+        if (locked && frames++ < 30) {
+          requestAnimationFrame(tick);
+          return;
+        }
+        const card = cardRef.current;
+        if (!card) return;
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+        card.focus({ preventScroll: true });
+      };
+      requestAnimationFrame(tick);
+    };
+
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest("a");
+      if (!anchor || anchor.target === "_blank") return;
+      let url: URL;
+      try {
+        url = new URL(anchor.href, window.location.href);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname !== "/" || url.hash !== "#quick-quote") return;
+      if (window.location.pathname !== "/") return;
+      // ?product= links are handled by the preselect listener above; they
+      // still want the scroll, so don't bail on them.
+      e.preventDefault();
+      if (submittedRef.current) {
+        setSubmitted(false);
+        setPhase("calc");
+        setStep(0);
+        setTouchedNext(false);
+      }
+      if (window.location.hash !== "#quick-quote") {
+        window.history.replaceState(window.history.state, "", "#quick-quote");
+      }
+      scrollToCard();
+    };
+
+    if (window.location.hash === "#quick-quote") scrollToCard();
+
+    document.addEventListener("click", onClick, true);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("click", onClick, true);
+    };
   }, []);
 
   // Keep the card in view as the user moves through form steps (it lives
@@ -350,11 +427,11 @@ export default function QuoteCard() {
       if (data.sizesLater) {
         if (!data.quantity.trim()) errs.quantity = "How many pieces total?";
         else if (Number(data.quantity) <= 0) errs.quantity = "Quantity must be a positive number.";
-        else if (Number(data.quantity) < MIN_ONLINE_ORDER_QTY) errs.quantity = minimumOrderMessage(Number(data.quantity));
+        else if (isUnderMinimum(Number(data.quantity), minQty)) errs.quantity = minimumOrderMessage(Number(data.quantity), minQty);
       } else {
         const total = sumSizes(data.sizes);
         if (total <= 0) errs.sizes = "Enter at least one size count.";
-        else if (total < MIN_ONLINE_ORDER_QTY) errs.sizes = minimumOrderMessage(total);
+        else if (isUnderMinimum(total, minQty)) errs.sizes = minimumOrderMessage(total, minQty);
       }
       if (prints.length === 0) errs.prints = "Add at least one print.";
     }
@@ -365,7 +442,7 @@ export default function QuoteCard() {
       if (!data.phone.trim()) errs.phone = "Phone is required.";
     }
     return errs;
-  }, [step, data, prints]);
+  }, [step, data, prints, minQty]);
 
   const canAdvance = Object.keys(stepErrors).length === 0;
 
@@ -504,7 +581,8 @@ export default function QuoteCard() {
         <div
           id="quick-quote"
           ref={cardRef}
-          className="rough-card relative w-full scroll-mt-28 px-5 py-6 sm:px-10 sm:py-10"
+          tabIndex={-1}
+          className="rough-card relative w-full scroll-mt-28 outline-none px-5 py-6 sm:px-10 sm:py-10"
         >
           {submitted ? (
             <SuccessCard />
@@ -722,6 +800,7 @@ function Calculator({
   isContact: boolean;
   onLockIn: () => void;
 }) {
+  const minQty = useMinimumOrder();
   const DECORATION_LABEL: Record<Decoration, string> = {
     screen: "Screen print",
     embroidery: "Embroidery",
@@ -793,9 +872,11 @@ function Calculator({
           <div>
             <div className="mb-4">
               <StepLabel n={quantityStep}>Quantity</StepLabel>
-              <div className="mt-1 text-[13px] font-semibold text-dream-purple">
-                * Minimum order {MIN_ONLINE_ORDER_QTY} pieces
-              </div>
+              {hasMinimum(minQty) && (
+                <div className="mt-1 text-[13px] font-semibold text-dream-purple">
+                  * Minimum order {minQty} pieces
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {QUANTITY_PRESETS.map((n) => (
@@ -817,7 +898,7 @@ function Calculator({
                   clears it (value is only bound while useCustomQty is on). */}
               <input
                 type="number"
-                min={MIN_ONLINE_ORDER_QTY}
+                min={qtyFloor(minQty)}
                 inputMode="numeric"
                 value={useCustomQty ? quantity : ""}
                 onChange={(e) => {
@@ -1124,6 +1205,7 @@ function PriceCard({
   isContact: boolean;
   onLockIn: () => void;
 }) {
+  const minQty = useMinimumOrder();
   if (isContact) {
     return (
       <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
@@ -1146,8 +1228,9 @@ function PriceCard({
 
   const hasQty = quantity > 0;
   // The estimate still shows below the minimum (so a customer typing 15 sees
-  // what 15 would cost), but locking it in is held until they reach 20.
-  const underMin = hasQty && quantity < MIN_ONLINE_ORDER_QTY;
+  // what 15 would cost), but locking it in is held until they reach the
+  // minimum (Admin -> Settings -> Minimum order).
+  const underMin = hasQty && isUnderMinimum(quantity, minQty);
   return (
     <div className="mt-1 rounded-2xl bg-dream-sun px-5 py-4 sm:px-6 sm:py-5 text-dream-ink shadow-[0_4px_0_0_rgba(27,20,88,0.9)]">
       {/* Caption sits above the label, and both are sentence case with no
@@ -1187,7 +1270,7 @@ function PriceCard({
       )}
       {underMin && (
         <div className="mt-3 text-right text-[14px] font-semibold text-dream-ink/70">
-          {minimumOrderMessage(quantity)}
+          {minimumOrderMessage(quantity, minQty)}
         </div>
       )}
       {hasQty && !underMin && (
@@ -1287,6 +1370,7 @@ function StepProduct({
   errors: Record<string, string>;
   showProductGrid: boolean;
 }) {
+  const minQty = useMinimumOrder();
   const sizeTotal = sumSizes(data.sizes);
   const setSize = (key: SizeKey, value: string) => {
     const clean = value.replace(/[^\d]/g, "");
@@ -1339,10 +1423,10 @@ function StepProduct({
             id="qty"
             type="number"
             inputMode="numeric"
-            min={MIN_ONLINE_ORDER_QTY}
+            min={qtyFloor(minQty)}
             value={data.quantity}
             onChange={(e) => update("quantity", e.target.value)}
-            placeholder={`How many pieces total? (minimum ${MIN_ONLINE_ORDER_QTY})`}
+            placeholder={hasMinimum(minQty) ? `How many pieces total? (minimum ${minQty})` : "How many pieces total?"}
             className={inputCls}
           />
           <div className="mt-2 flex items-center justify-end text-[14px]">

@@ -7,7 +7,8 @@ import React, {
   useState,
 } from "react";
 import { cn } from "@/lib/cn";
-import { MIN_ONLINE_ORDER_QTY } from "@/lib/orders/minimum";
+import { qtyFloor, quantityPresets } from "@/lib/orders/minimum";
+import { useMinimumOrder } from "@/lib/orders/MinimumOrderContext";
 
 /**
  * Universal shop quantity: one number shared by every catalog card, so the
@@ -17,11 +18,17 @@ import { MIN_ONLINE_ORDER_QTY } from "@/lib/orders/minimum";
  * the whole grid instantly, no navigation.
  */
 
-// Never price the grid below the self-serve minimum: nobody can order that.
-const QTY_MIN = MIN_ONLINE_ORDER_QTY;
 const QTY_MAX = 1000;
 export const DEFAULT_SHOP_QTY = 25; // matches the product page's DEFAULT_QTY
-const PRESETS = [MIN_ONLINE_ORDER_QTY, 25, 50, 100];
+// Round-number chips; the live minimum is put in front of them.
+const BASE_PRESETS = [10, 25, 50, 100];
+
+// Never price the grid below the self-serve minimum (Admin -> Settings):
+// nobody can order that.
+function useQtyLimits() {
+  const min = useMinimumOrder();
+  return { QTY_MIN: qtyFloor(min), PRESETS: quantityPresets(min, BASE_PRESETS) };
+}
 const STORAGE_KEY = "dh_shop_qty";
 
 const ShopQtyContext = createContext<{
@@ -35,7 +42,10 @@ export function useShopQty() {
 }
 
 export function ShopQtyProvider({ children }: { children: React.ReactNode }) {
-  const [qty, setQtyState] = useState(DEFAULT_SHOP_QTY);
+  const { QTY_MIN } = useQtyLimits();
+  const [storedQty, setQtyState] = useState(DEFAULT_SHOP_QTY);
+  // A remembered quantity from before the minimum went up still floors to it.
+  const qty = Math.max(storedQty, QTY_MIN);
 
   // Restore the last-used quantity after mount. Reading localStorage in the
   // useState initializer would render a different number on the client than
@@ -44,7 +54,7 @@ export function ShopQtyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const n = Number(window.localStorage.getItem(STORAGE_KEY));
-      if (Number.isFinite(n) && n >= QTY_MIN && n <= QTY_MAX) {
+      if (Number.isFinite(n) && n >= 1 && n <= QTY_MAX) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setQtyState(Math.round(n));
       }
@@ -72,6 +82,7 @@ export function ShopQtyProvider({ children }: { children: React.ReactNode }) {
 
 /** Preset chips + a free-typed field, compact enough for the grid header row. */
 export function ShopQtyControl({ className }: { className?: string }) {
+  const { QTY_MIN, PRESETS } = useQtyLimits();
   const { qty, setQty } = useShopQty();
   // Keep the raw text separate so partial entries ("5" on the way to "50")
   // don't get clamped mid-keystroke; qty stays the source of truth. Synced

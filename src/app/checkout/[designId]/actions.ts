@@ -14,7 +14,8 @@ import {
   defaultDecoration,
 } from "@/lib/pricing/quote";
 import { resolveCheckoutAuth } from "./context";
-import { MIN_ONLINE_ORDER_QTY, minimumOrderMessage } from "@/lib/orders/minimum";
+import { isUnderMinimum, minimumOrderMessage } from "@/lib/orders/minimum";
+import { getMinimumOrderQty } from "@/lib/orders/minimumServer";
 import type { Json } from "@/lib/db/types";
 
 const asJson = (v: unknown) => v as unknown as Json;
@@ -311,7 +312,8 @@ export async function placeOrderAction(
   // designer both block early, but a stale cart item or a hand-crafted request
   // must not be able to place a run smaller than Julian's production can take.
   // Admin-created orders never pass through this action.
-  if (combinedQty < MIN_ONLINE_ORDER_QTY) return { error: minimumOrderMessage(combinedQty) };
+  const minQty = await getMinimumOrderQty();
+  if (isUnderMinimum(combinedQty, minQty)) return { error: minimumOrderMessage(combinedQty, minQty) };
 
   // Product pricing inputs + the design's decoration method (and the product's
   // allowed methods, for the curve-decoration fallback below).
