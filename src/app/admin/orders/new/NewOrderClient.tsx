@@ -31,6 +31,7 @@ import { breakdownUnitPrice, type PriceChargeDraft } from "@/lib/orders/priceBre
 import { DecorationSpotRow } from "../[id]/DecorationSpotRow";
 import {
   LBL,
+  SIZE_ORDER,
   SUPPLIER_OPTIONS,
   sizeRank,
   suggestLineUnitPrice,
@@ -107,6 +108,10 @@ interface MissingField {
   label: string;
 }
 
+/** A custom line opens on the common size run; the rest of SIZE_ORDER (and a
+ *  plain "Qty" column for unsized goods) are one click away as "+" pills. */
+const CUSTOM_DEFAULT_SIZES = ["S", "M", "L", "XL"];
+
 let seq = 0;
 function blankItem(kind: "catalog" | "custom"): ItemDraft {
   seq += 1;
@@ -116,7 +121,7 @@ function blankItem(kind: "catalog" | "custom"): ItemDraft {
     productId: "",
     colourName: "",
     productName: "",
-    sizes: kind === "custom" ? [[FREEFORM_SIZE, 0]] : [],
+    sizes: kind === "custom" ? CUSTOM_DEFAULT_SIZES.map((s) => [s, 0] as [string, number]) : [],
     spots: [],
     bagging: false,
     sewnTags: false,
@@ -1060,11 +1065,13 @@ function NewItemCard({
     : undefined;
 
   // Only the sizes on the line get a column; the product's other sizes become
-  // one-click "+XS" pills, cloned from the detail's size run.
+  // one-click "+XS" pills, cloned from the detail's size run. Custom lines
+  // offer the standard run plus a plain "Qty" column for unsized goods.
   const displaySizes = item.sizes.map(([s]) => s);
-  const missingStandard = isCatalog
-    ? (product?.sizes ?? []).filter((s) => !item.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase()))
-    : [];
+  const offeredSizes = isCatalog ? (product?.sizes ?? []) : [...SIZE_ORDER, FREEFORM_SIZE];
+  const missingStandard = offeredSizes.filter(
+    (s) => !item.sizes.some(([k]) => k.toUpperCase() === s.toUpperCase()),
+  );
   const qtyOf = (s: string) => item.sizes.find(([k]) => k === s)?.[1] ?? 0;
 
   const setSizeQty = (s: string, val: number) =>
@@ -1305,14 +1312,13 @@ function NewItemCard({
                 Sizes ({qty} pcs)
                 {missingQty && qty === 0 && (
                   <span className="ml-2 text-dream-danger">
-                    {isCatalog ? "Type how many of each size" : "Type the quantity"}
+                    Type how many of each size
                   </span>
                 )}
               </div>
               <div className="flex flex-wrap items-start gap-1.5">
                 {displaySizes.map((s, si) => {
                   const q = qtyOf(s);
-                  const fixed = !isCatalog && s === FREEFORM_SIZE;
                   return (
                     <div key={s} className={cn(s.length > 4 ? "w-16" : "w-11")}>
                       <div
@@ -1332,21 +1338,19 @@ function NewItemCard({
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
                         className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
-                      {!fixed && (
-                        <button
-                          type="button"
-                          aria-label={`Remove size ${s}`}
-                          title={`Remove size ${s}`}
-                          tabIndex={-1}
-                          // The ::before widens the tap target without moving or
-                          // resizing the 16px glyph. It only grows downward, so
-                          // it never steals taps from the quantity input above.
-                          className="relative mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors before:absolute before:-inset-x-2 before:top-0 before:-bottom-3 before:content-[''] hover:bg-dream-danger-soft hover:text-dream-danger"
-                          onClick={() => removeSize(s)}
-                        >
-                          ×
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        aria-label={`Remove size ${s}`}
+                        title={`Remove size ${s}`}
+                        tabIndex={-1}
+                        // The ::before widens the tap target without moving or
+                        // resizing the 16px glyph. It only grows downward, so
+                        // it never steals taps from the quantity input above.
+                        className="relative mx-auto mt-1 block h-4 w-4 rounded text-xs leading-none text-dream-faint transition-colors before:absolute before:-inset-x-2 before:top-0 before:-bottom-3 before:content-[''] hover:bg-dream-danger-soft hover:text-dream-danger"
+                        onClick={() => removeSize(s)}
+                      >
+                        ×
+                      </button>
                     </div>
                   );
                 })}
@@ -1369,27 +1373,25 @@ function NewItemCard({
                     </div>
                   </div>
                 )}
-                {isCatalog && (
-                  <div className="w-24">
-                    <div className="mb-1 text-center text-[10px] font-semibold uppercase text-dream-faint">Eg. S or M</div>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        value={newSize}
-                        onChange={(e) => setNewSize(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addSize();
-                          }
-                        }}
-                        className="h-9 text-center text-xs"
-                      />
-                      <Button variant="secondary" size="sm" className="h-9" onClick={addSize} disabled={!newSize.trim()}>
-                        Add
-                      </Button>
-                    </div>
+                <div className="w-24">
+                  <div className="mb-1 text-center text-[10px] font-semibold uppercase text-dream-faint">Eg. S or M</div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={newSize}
+                      onChange={(e) => setNewSize(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addSize();
+                        }
+                      }}
+                      className="h-9 text-center text-xs"
+                    />
+                    <Button variant="secondary" size="sm" className="h-9" onClick={addSize} disabled={!newSize.trim()}>
+                      Add
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
