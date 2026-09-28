@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { colourSummaryParts, useCart } from "@/lib/cart/CartContext";
+import { colourSummaryText, useCart } from "@/lib/cart/CartContext";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { PROVINCES, calcTax, isProvinceCode, provinceName } from "@/lib/pricing/tax";
@@ -338,7 +338,7 @@ export function CartClient({
                         )}
                       </p>
                       <p className="truncate text-[13px] text-dream-muted">
-                        {colourSummaryParts(item.colourSummary).join(" | ")}
+                        {colourSummaryText(item.colourSummary)}
                       </p>
                       {isUnderMinimum(Number(item.quantity) || 0, minQty) && (
                         <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-dream-warn-soft px-2.5 py-1 text-[14px] font-semibold text-dream-warn">

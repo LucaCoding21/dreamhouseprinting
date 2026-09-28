@@ -19,7 +19,7 @@ export interface CartItem {
   productId?: string;
   productName: string;
   /** Short human summary of colours/sizes, stored as "Aqua · 12 pcs". Render
-   *  it through `colourSummaryParts`, never raw: the dot is only a delimiter. */
+   *  it through `colourSummaryText`, never raw: the dot is only a delimiter. */
   colourSummary: string;
   quantity: number;
   total: number;
@@ -28,10 +28,11 @@ export interface CartItem {
   addedAt: number;
 }
 
-/** Split a stored colour summary into its facts ("Aqua", "12 pcs") so the
- *  display can pick its own separator (the cart joins them with " | "). */
-export function colourSummaryParts(summary: string): string[] {
-  return summary.split(" · ").map((p) => p.trim()).filter(Boolean);
+/** Turn a stored colour summary ("Aqua · 12 pcs", "3 colours · 12 pcs") into
+ *  a phrase that needs no separator: "12 pcs in Aqua", "12 pcs in 3 colours". */
+export function colourSummaryText(summary: string): string {
+  const parts = summary.split(" · ").map((p) => p.trim()).filter(Boolean);
+  return parts.length === 2 ? `${parts[1]} in ${parts[0]}` : parts.join(" ");
 }
 
 interface CartValue {
