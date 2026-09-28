@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCart } from "@/lib/cart/CartContext";
+import { colourSummaryParts, useCart } from "@/lib/cart/CartContext";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { PROVINCES, calcTax, isProvinceCode, provinceName } from "@/lib/pricing/tax";
@@ -337,7 +337,11 @@ export function CartClient({
                           item.productName
                         )}
                       </p>
-                      <p className="truncate text-sm text-dream-muted">{item.colourSummary}</p>
+                      <p className="flex flex-wrap gap-x-3 text-sm text-dream-muted">
+                        {colourSummaryParts(item.colourSummary).map((part) => (
+                          <span key={part} className="whitespace-nowrap">{part}</span>
+                        ))}
+                      </p>
                       {isUnderMinimum(Number(item.quantity) || 0, minQty) && (
                         <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-dream-warn-soft px-2.5 py-1 text-[14px] font-semibold text-dream-warn">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0" aria-hidden>
