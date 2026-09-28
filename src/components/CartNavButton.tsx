@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { colourSummaryText, useCart } from "@/lib/cart/CartContext";
+import { useCart } from "@/lib/cart/CartContext";
 import { formatCAD } from "@/lib/money";
 
 /** Nav cart: a sketch tote icon with an item-count badge. Clicking it opens a
@@ -162,9 +162,7 @@ export default function CartNavButton({ iconClassName = NAV_ICON_CLASS }: { icon
                           {formatCAD(item.total)}
                         </span>
                       </div>
-                      <p className="truncate text-[13px] text-dream-muted">
-                        {colourSummaryText(item.colourSummary)}
-                      </p>
+                      <p className="truncate text-[13px] text-dream-muted">{item.colourSummary}</p>
                       <div className="relative z-10 mt-auto flex items-center justify-end gap-3 pt-2 text-[14px] font-semibold">
                         {item.productId && (
                           <Link

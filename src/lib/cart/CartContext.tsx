@@ -18,21 +18,13 @@ export interface CartItem {
   /** The product this design is on, used to reopen it in the designer. */
   productId?: string;
   productName: string;
-  /** Short human summary of colours/sizes, stored as "Aqua · 12 pcs". Render
-   *  it through `colourSummaryText`, never raw: the dot is only a delimiter. */
+  /** Short human summary of colours/sizes, e.g. "Aqua · 12 pcs". */
   colourSummary: string;
   quantity: number;
   total: number;
   mockupUrl: string | null;
   /** ms epoch, set by the adder (we can't call Date.now() at module load). */
   addedAt: number;
-}
-
-/** Turn a stored colour summary ("Aqua · 12 pcs", "3 colours · 12 pcs") into
- *  a phrase that needs no separator: "12 pcs in Aqua", "12 pcs in 3 colours". */
-export function colourSummaryText(summary: string): string {
-  const parts = summary.split(" · ").map((p) => p.trim()).filter(Boolean);
-  return parts.length === 2 ? `${parts[1]} in ${parts[0]}` : parts.join(" ");
 }
 
 interface CartValue {
