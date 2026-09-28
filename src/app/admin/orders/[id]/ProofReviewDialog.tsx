@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/Dialog";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
-import { ProofLightbox, fileKind } from "./ProofLightbox";
+import { openInNewTab, fileKind } from "./ProofLightbox";
 import { LBL, useProofUpload } from "./shared";
 
 interface Selected {
@@ -54,7 +54,6 @@ export function ProofReviewDialog({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Selected[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [preview, setPreview] = useState<Selected | null>(null);
   const [pickedLine, setPickedLine] = useState("");
 
   // One line (or an upload already pinned to one) needs no question asked.
@@ -87,7 +86,6 @@ export function ProofReviewDialog({
     selected.forEach((s) => URL.revokeObjectURL(s.url));
     setSelected([]);
     setDragging(false);
-    setPreview(null);
     setPickedLine("");
   }
 
@@ -206,7 +204,7 @@ export function ProofReviewDialog({
                           <span className="line-clamp-2 text-[11px] font-medium text-dream-ink">{s.file.name}</span>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => setPreview(s)} className="block h-32 w-full" title="Click to view fullscreen">
+                        <button type="button" onClick={() => openInNewTab(s.url)} className="block h-32 w-full" title="Open in a new tab">
                           <Image
                             src={s.url}
                             alt={`Proof ${i + 1}`}
@@ -275,15 +273,6 @@ export function ProofReviewDialog({
         </DialogContent>
       </Dialog>
 
-      {preview && (
-        <ProofLightbox
-          src={preview.url}
-          kind={preview.kind}
-          title={preview.file.name}
-          open={!!preview}
-          onOpenChange={(o) => !o && setPreview(null)}
-        />
-      )}
     </>
   );
 }

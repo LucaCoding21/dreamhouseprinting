@@ -226,19 +226,6 @@ export default function ContactPage() {
                       {submitting ? "Sending…" : "Send message"}
                     </button>
                   </div>
-
-                  <p className="text-[14px] leading-relaxed text-dream-ink-soft">
-                    <span className="block">
-                      Or email{" "}
-                      <a
-                        href="mailto:admin@dreamhouseprinting.com"
-                        className="font-semibold text-dream-ink underline-offset-4 hover:underline"
-                      >
-                        admin@dreamhouseprinting.com
-                      </a>
-                    </span>
-                    <span className="block">Minimum order is 20 pieces.</span>
-                  </p>
                 </div>
               </form>
             )}
@@ -257,7 +244,7 @@ export default function ContactPage() {
               kicker="Email"
               heading="admin@dreamhouseprinting.com"
               href="mailto:admin@dreamhouseprinting.com"
-              hint="Best for design files, mockups, and back-and-forth. Minimum order is 20 pieces."
+              hint="Best for design files, mockups, and back-and-forth."
               icon={<EmailIcon />}
             />
             <ContactCard
@@ -268,7 +255,7 @@ export default function ContactPage() {
             />
 
             <div className="rounded-[28px] bg-dream-sun px-7 py-7 text-dream-ink">
-              <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-black">
+              <span className="font-display text-[14px] font-bold uppercase text-black">
                 Already know what you want?
               </span>
               <h3 className="mt-3 font-display text-[24px] font-bold leading-tight text-black sm:text-[26px]">
@@ -378,16 +365,19 @@ function PriceMatchCard() {
 
   return (
     <div className="rounded-[24px] border-2 border-dream-ink bg-dream-lavender-soft px-6 py-5 shadow-[0_4px_0_0_rgba(27,20,88,0.9)] sm:px-8 sm:py-6">
-      <h2 className="font-display text-[19px] font-bold leading-tight text-dream-ink sm:text-[21px]">
-        Ordering from Coastal Reign or Get Bold?
+      <p className="text-[13px] font-semibold text-dream-purple">
+        Coastal Reign and Get Bold orders
+      </p>
+      <h2 className="mt-1 font-display text-[19px] font-bold leading-tight text-dream-ink sm:text-[21px]">
+        Submitting a Coastal Reign or Get Bold order for a price matching
+        discount?
       </h2>
       <p className="mt-1 text-[13.5px] leading-relaxed text-dream-ink-soft sm:text-[14px]">
-        Drop your order link and we&apos;ll beat their price. Coastal Reign
-        orders need to show{" "}
+        Paste your order link below. Coastal Reign orders need to show{" "}
         <span className="font-semibold text-dream-ink">
           &ldquo;Pending Mockup Approval&rdquo;
         </span>{" "}
-        first.
+        first. Minimum 20 pieces.
       </p>
 
       {sent ? (
@@ -481,7 +471,7 @@ function BeforeYouWrite({ inline = false }: { inline?: boolean }) {
   if (inline) {
     return (
       <div>
-        <span className="font-display text-[13px] font-bold uppercase tracking-[0.12em] text-dream-purple">
+        <span className="font-display text-[13px] font-bold uppercase text-dream-purple">
           Before you write
         </span>
         <h2 className="mt-2 font-display text-[26px] font-bold leading-tight tracking-tight text-dream-ink">
@@ -508,7 +498,7 @@ function BeforeYouWrite({ inline = false }: { inline?: boolean }) {
     <section className="relative pb-24 pt-20 lg:pb-32 lg:pt-28">
       <div className="relative mx-auto max-w-[1280px] px-6 lg:px-10">
         <div className="text-center">
-          <span className="font-display text-[14px] font-bold uppercase tracking-[0.12em] text-dream-purple">
+          <span className="font-display text-[14px] font-bold uppercase text-dream-purple">
             Before you write
           </span>
           <h2 className="mt-4 font-display text-[40px] font-bold leading-[1.02] tracking-tight text-dream-ink sm:text-[52px]">
@@ -559,7 +549,7 @@ function ContactCard({
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <span className="font-display text-[14px] font-bold uppercase tracking-[0.14em] text-dream-purple">
+        <span className="font-display text-[14px] font-bold uppercase text-dream-purple">
           {kicker}
         </span>
         <p className="mt-1 break-words font-display text-[15px] font-bold leading-tight text-dream-ink sm:text-[18px]">
@@ -618,7 +608,7 @@ function SentState({ onReset }: { onReset: () => void }) {
         <button
           type="button"
           onClick={onReset}
-          className="font-display text-sm font-bold uppercase tracking-[0.18em] text-dream-purple underline-offset-4 hover:underline"
+          className="font-display text-sm font-bold uppercase text-dream-purple underline-offset-4 hover:underline"
         >
           Send another
         </button>

@@ -69,7 +69,7 @@ export function OrderStatusStrip({ detail, canEdit }: { detail: Detail; canEdit:
       </div>
 
       <div className="mt-5 border-t border-dream-line pt-5">
-        {/* py-1 below sm keeps the current stage's ring-4 from being clipped by
+        {/* py-1 below sm keeps a stage's hover ring-4 from being clipped by
             the scroll container; sm+ is the original fluid flex row. */}
         <div
           ref={stripRef}
@@ -115,7 +115,7 @@ export function OrderStatusStrip({ detail, canEdit }: { detail: Detail; canEdit:
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-shadow",
                       done && "border-dream-success bg-dream-success text-white",
-                      current && "border-dream-purple bg-dream-purple text-white ring-4 ring-dream-lavender-soft",
+                      current && "border-dream-purple bg-dream-purple text-white",
                       !done && !current && "border-transparent bg-dream-bg text-dream-faint",
                       clickable && "group-hover:ring-4 group-hover:ring-dream-purple/20",
                     )}

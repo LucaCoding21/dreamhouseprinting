@@ -60,6 +60,7 @@ export interface CustomerHit {
     company?: string | null;
     phone?: string;
     street?: string;
+    unit?: string;
     city?: string;
     prov?: string;
     postal?: string;
@@ -77,6 +78,8 @@ export interface ManualOrderItemInput {
   /** size -> quantity. Freeform lines use a single "Qty" key. */
   sizeQuantities: Record<string, number>;
   unitPrice: number;
+  /** Custom lines: the charges the unit price was built from (admin-only). */
+  priceCharges?: { id: string; label: string; amount: string | number; per: "each" | "once" }[];
   /** Full print spec, one row per placement, exactly what the order detail edits. */
   spots: DecorationSpot[];
   /** Line finishing, stored in decorations like the detail page does. */
@@ -99,15 +102,27 @@ export interface ManualOrderAddress {
   company: string;
   phone: string;
   street: string;
+  /** Apt / suite / unit. Optional, its own line under the street. */
+  unit: string;
   city: string;
   prov: string;
   postal: string;
 }
 
+export interface ManualOrderCustomer {
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+}
+
 export interface ManualOrderInput {
-  /** Existing profile, or null for a guest (walk-in / phone / DM). */
+  /** Account the order is linked to, when the typed customer matched one.
+   *  Null makes it a guest order (walk-in / phone / DM). */
   customerId: string | null;
-  guest: { name: string; email: string; phone: string } | null;
+  /** Always typed by staff, even for a linked account: the order's contact
+   *  details are what was said on the phone, not what the profile holds. */
+  customer: ManualOrderCustomer;
   status: OrderStatus;
   fulfillment: "ship" | "pickup";
   /** Rush charge the admin sets directly: a flat dollar amount, or a custom
@@ -115,7 +130,10 @@ export interface ManualOrderInput {
   rush: { type: "amount" | "percent"; value: number } | null;
   /** In-hands date (YYYY-MM-DD), optional. */
   dueDate: string | null;
+  /** Ship-to. Written on pickup orders too (it carries the contact name/phone). */
   address: ManualOrderAddress;
+  /** Bill-to, stored in orders.billing_address. Null when left blank. */
+  billing: ManualOrderAddress | null;
   /** Customer-visible note, filed into orders.customer_notes. */
   customerNote: string;
   shipping: number;

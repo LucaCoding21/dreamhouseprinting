@@ -1,5 +1,6 @@
 "use server";
 
+import { normalizeCharges, type PriceCharge } from "@/lib/orders/priceBreakdown";
 import { revalidatePath } from "next/cache";
 import { requirePermission, getProfile, hasPermission } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
@@ -197,13 +198,14 @@ export async function setOrderStatusAction(
  */
 export async function sendForApprovalAction(
   orderId: string,
-  options: { silent?: boolean } = {}
+  options: { silent?: boolean; message?: string } = {}
 ): Promise<{ ok?: boolean; error?: string; resent?: boolean }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
   const silent = options.silent === true;
+  const message = options.message?.trim() ?? "";
 
-  const { data: prev } = await service.from("orders").select("status").eq("id", orderId).single();
+  const { data: prev } = await service.from("orders").select("status, customer_notes").eq("id", orderId).single();
   if (!prev) return { error: "Order not found." };
   if (prev.status === "cancelled") {
     return { error: "This order was cancelled, reopen it before sending it for approval." };
@@ -214,12 +216,31 @@ export async function sendForApprovalAction(
   const gate = await proofGateError(service, orderId, "Upload a proof before sending this order for approval.");
   if (gate) return { error: gate };
 
+  // The optional message goes on the customer thread (their order page) and
+  // rides along inside the approval email, so they get ONE email, not an
+  // approval email plus a separate comment email.
+  if (message) {
+    const profile = await getProfile();
+    const existing = (prev.customer_notes ?? []) as unknown as { at: string; actor: string; text: string }[];
+    const note = { at: new Date().toISOString(), actor: profile?.name ?? "Staff", text: message };
+    const { error } = await service
+      .from("orders")
+      .update({ customer_notes: asJson([...existing, note]) })
+      .eq("id", orderId);
+    if (error) return { error: error.message };
+    await logActivity(service, orderId, "note", { visibility: "customer" });
+  }
+  const notes = message ? [message] : [];
+
   const resent = prev.status === "proof_ready";
   if (resent) {
-    if (!silent) await sendOrderStatusEmail(orderId, "proof_ready");
+    if (!silent) await sendOrderStatusEmail(orderId, "proof_ready", notes);
   } else {
-    const err = await applyStatus(service, orderId, "proof_ready", prev.status, { silent });
+    // applyStatus's own email can't carry the message, so it stays quiet and
+    // the email goes out here instead.
+    const err = await applyStatus(service, orderId, "proof_ready", prev.status, { silent: true });
     if (err) return { error: err };
+    if (!silent) await sendOrderStatusEmail(orderId, "proof_ready", notes);
   }
 
   // approval_sent is admin-only (deliberately NOT in the customer-visible
@@ -471,11 +492,13 @@ export interface OrderDetailsInput {
     company?: string;
     phone?: string;
     street?: string;
+    unit?: string;
     city?: string;
     prov?: string;
     postal?: string;
   };
-  billing: { name?: string; email?: string; company?: string } | null;
+  /** Omit to leave the stored bill-to alone; null clears it. */
+  billing?: Record<string, unknown> | null;
   shippingMethod: string;
   fulfillmentMethod: string;
 }
@@ -497,7 +520,7 @@ export async function updateOrderDetailsAction(
   const existingShip = (order.shipping_address ?? {}) as Record<string, unknown>;
   const patch: OrderUpdate = {
     shipping_address: asJson({ ...existingShip, ...input.shipping }),
-    billing_address: input.billing ? asJson(input.billing) : null,
+    ...(input.billing !== undefined ? { billing_address: input.billing ? asJson(input.billing) : null } : {}),
     shipping_method: input.shippingMethod,
     fulfillment_method: input.fulfillmentMethod,
   };
@@ -599,6 +622,8 @@ export interface LineItemDecorations {
    * when admin applies or dismisses it (via the normal items save).
    */
   priceSuggestion?: { unit: number; qty: number } | null;
+  /** Custom lines: the charges the unit price was built from (admin-only UI). */
+  priceCharges?: PriceCharge[];
 }
 
 export interface LineItemPatch {
@@ -711,7 +736,11 @@ export async function updateLineItemsAction(
         unit_price: unitPrice,
         // The stale-price nudge is UI-only, never persist it (customers can read
         // decorations jsonb via RLS, and it can't be column-guarded).
-        decorations: asJson({ ...patch.decorations, priceSuggestion: null }),
+        decorations: asJson({
+          ...patch.decorations,
+          priceSuggestion: null,
+          priceCharges: normalizeCharges(patch.decorations.priceCharges),
+        }),
         line_total: round2(unitPrice * qty + setupFee),
       })
       .eq("id", patch.id);

@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/Card";
 import {
   Dialog,
@@ -13,9 +15,11 @@ import {
   DialogTitle,
 } from "@/components/ui/Dialog";
 import { cn } from "@/lib/cn";
+import { scrollToCenter } from "@/lib/scrollToCenter";
 import { OrderItemCard } from "./OrderItemCard";
 import { CompactItemRow } from "./CompactItemRow";
 import { AddLineItemDialog } from "./AddLineItemDialog";
+import { useLineSort } from "./useLineSort";
 import {
   capitalize,
   itemQty,
@@ -28,6 +32,7 @@ import {
 } from "./shared";
 import { DEFAULT_LINE_PRODUCTION_STATUS } from "@/lib/lineProduction";
 import { updateLineItemsAction, deleteLineItemAction } from "../actions";
+import { breakdownUnitPrice, toDrafts } from "@/lib/orders/priceBreakdown";
 import type { DecorationSpot, LineItemDecorations } from "../actions";
 
 export function OrderItemsSection({
@@ -51,6 +56,10 @@ export function OrderItemsSection({
   const [removing, setRemoving] = useState<ItemState | null>(null);
   // Per-line collapse (detailed view), fold individual lines when an order has many.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // "Go to item": the typed number, and the line briefly ringed after a jump.
+  const { toast } = useToast();
+  const [jumpTo, setJumpTo] = useState("");
+  const [flashId, setFlashId] = useState<string | null>(null);
   const toggleCollapsed = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -121,6 +130,7 @@ export function OrderItemsSection({
         fulfilled: !!dec.fulfilled,
         supplier: dec.supplier ?? "",
         priceSuggestion: dec.priceSuggestion ?? null,
+        priceCharges: toDrafts(dec.priceCharges),
       };
     });
   }, [detail.lineItems, designById, methodNames]);
@@ -145,8 +155,15 @@ export function OrderItemsSection({
     setSeededIds(lineIdKey);
   }
 
+  // A line priced from a breakdown keeps its unit price in step with the
+  // charges AND the quantity (one-time charges spread over the pieces).
+  const withBreakdown = (it: ItemState): ItemState =>
+    it.priceCharges.length > 0
+      ? { ...it, unitPrice: breakdownUnitPrice(it.priceCharges, itemQty(it)).toFixed(2), autoPrice: null }
+      : it;
+
   const patchItem = (id: string, fn: (it: ItemState) => ItemState) =>
-    setItems((arr) => arr.map((it) => (it.id === id ? fn(it) : it)));
+    setItems((arr) => arr.map((it) => (it.id === id ? withBreakdown(fn(it)) : it)));
 
   // A product swap persists server-side immediately; sync the new name and
   // price suggestion into BOTH the live state and the snapshot so they don't
@@ -159,15 +176,37 @@ export function OrderItemsSection({
     setItemsSnap((snap) => JSON.stringify(apply(JSON.parse(snap) as ItemState[])));
   };
 
-  // Move a line up/down the queue. Persists on "Save changes" as decorations.position.
-  const moveItem = (index: number, dir: -1 | 1) =>
+  // Move a line to a new position; the lines in between shift one place
+  // (4 -> 2 bumps 2 and 3 down to 3 and 4). Persists on "Save changes" as
+  // decorations.position. The moved line is ringed and scrolled to, since a
+  // typed jump sends it somewhere off screen.
+  const moveItem = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= items.length) return;
+    const moved = items[from];
     setItems((arr) => {
-      const j = index + dir;
-      if (j < 0 || j >= arr.length) return arr;
       const next = arr.slice();
-      [next[index], next[j]] = [next[j], next[index]];
+      const [it] = next.splice(from, 1);
+      next.splice(to, 0, it);
       return next;
     });
+    setFlashId(moved.id);
+    setTimeout(() => setFlashId((id) => (id === moved.id ? null : id)), 1600);
+    requestAnimationFrame(() =>
+      scrollToCenter(document.getElementById(`order-item-${to + 1}`)),
+    );
+  };
+
+  // Drag to reorder: grabbing a grip swaps the list for short rows until the
+  // pointer is released (see useLineSort).
+  const { listRef: sortListRef, sort: sortState, start: startSort, rowStyle: sortRowStyle } = useLineSort(items.length);
+  const positionProps = (idx: number, id: string) =>
+    can.edit
+      ? {
+          total: items.length,
+          onMove: (to: number) => moveItem(idx, to),
+          onGripPointerDown: (e: React.PointerEvent) => startSort(id, idx, e, moveItem),
+        }
+      : { total: items.length };
 
   function saveItems() {
     run(
@@ -193,6 +232,7 @@ export function OrderItemsSection({
               supplier: it.supplier,
               position: idx,
               priceSuggestion: it.priceSuggestion,
+              priceCharges: it.priceCharges.map((c) => ({ ...c, amount: Number(c.amount) || 0 })),
             },
           })),
         ),
@@ -244,6 +284,56 @@ export function OrderItemsSection({
     return m;
   }, [detail.proofs]);
 
+  /** Bring item N (the number shown on each line) to the TOP of the list, so
+   *  it's right there to work on instead of the page scrolling off to it. The
+   *  lines above it shift down one, same as typing 1 into its number box. */
+  function goToItem(e: React.FormEvent) {
+    e.preventDefault();
+    const n = Number.parseInt(jumpTo, 10);
+    if (!Number.isFinite(n) || n < 1 || n > items.length) {
+      toast({ title: `Pick an item from 1 to ${items.length}`, variant: "error" });
+      return;
+    }
+    const target = items[n - 1];
+    if (collapsed.has(target.id)) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(target.id);
+        return next;
+      });
+    }
+    setJumpTo("");
+    if (n > 1) {
+      moveItem(n - 1, 0);
+      return;
+    }
+    setFlashId(target.id);
+    setTimeout(() => setFlashId((id) => (id === target.id ? null : id)), 1600);
+    requestAnimationFrame(() => scrollToCenter(document.getElementById("order-item-1")));
+  }
+
+  // After "Add item", the new line arrives with the server refresh. Remember
+  // which lines existed before, then scroll to the one that wasn't there.
+  const idsBeforeAdd = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    const before = idsBeforeAdd.current;
+    if (!before) return;
+    const idx = items.findIndex((it) => !before.has(it.id));
+    if (idx < 0) return;
+    idsBeforeAdd.current = null;
+    requestAnimationFrame(() =>
+      scrollToCenter(document.getElementById(`order-item-${idx + 1}`)),
+    );
+  }, [items]);
+
+  const itemAnchor = (idx: number, id: string) => ({
+    id: `order-item-${idx + 1}`,
+    className: cn(
+      "relative scroll-mt-4 rounded-xl transition-[box-shadow,opacity] duration-500",
+      flashId === id && "ring-4 ring-dream-purple/40",
+    ),
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -273,9 +363,12 @@ export function OrderItemsSection({
             size="sm"
             disabled={itemsDirty}
             title={itemsDirty ? "Save or discard your changes first" : "Add another product or a custom item"}
-            className="disabled:pointer-events-auto disabled:cursor-not-allowed"
+            className="border-dream-purple/40 text-dream-purple hover:bg-dream-lavender-mist disabled:pointer-events-auto disabled:cursor-not-allowed"
             onClick={() => setAddOpen(true)}
           >
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden>
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
             Add item
           </Button>
         )}
@@ -300,6 +393,20 @@ export function OrderItemsSection({
           All artwork on one page
         </a>
         <div className="ml-auto flex items-center gap-3">
+          {/* Type a number, press Enter: that item moves to the top of the list. */}
+          {items.length > 1 && (
+            <form onSubmit={goToItem}>
+              <Input
+                aria-label="Move item number to the top"
+                title="Type an item number and press Enter to move it to the top"
+                value={jumpTo}
+                inputMode="numeric"
+                placeholder="Move # to top"
+                onChange={(e) => setJumpTo(e.target.value.replace(/[^\d]/g, ""))}
+                className="h-9 w-32 px-2 text-center"
+              />
+            </form>
+          )}
           {itemsDirty && (
             <>
               <span className="text-sm font-medium text-dream-danger">Unsaved changes</span>
@@ -348,14 +455,51 @@ export function OrderItemsSection({
 
       {items.length === 0 && <p className="text-sm text-dream-muted">This order has no line items.</p>}
 
-      {view === "detailed"
+      {sortState ? (
+        // Reorder mode: every line as one short row, so the whole order fits
+        // on screen while dragging, whatever size the cards are.
+        <div ref={sortListRef} className="space-y-2">
+          {items.map((it, idx) => {
+            const li = detail.lineItems.find((l) => l.id === it.id);
+            const design = li?.design_id ? designById.get(li.design_id) : undefined;
+            const product = li?.product_id ? productById.get(li.product_id) : undefined;
+            const grabbed = sortState?.id === it.id;
+            return (
+              <div
+                key={it.id}
+                data-sort-row
+                style={sortRowStyle(idx)}
+                className={cn(
+                  "rounded-xl border bg-dream-surface transition-shadow",
+                  grabbed
+                    ? "border-dream-purple shadow-[0_12px_28px_-10px_rgba(27,20,88,0.35)] ring-2 ring-dream-purple/30"
+                    : "border-dream-line",
+                )}
+              >
+                <CompactItemRow
+                  it={it}
+                  index={idx}
+                  product={product}
+                  design={design}
+                  proofsForItem={proofsByItem.get(it.id) ?? []}
+                  orderNumber={order.order_number}
+                  orderStatus={order.status}
+                  setupFee={setupById.get(it.id) ?? 0}
+                  {...positionProps(idx, it.id)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : view === "detailed"
         ? items.map((it, idx) => {
             const li = detail.lineItems.find((l) => l.id === it.id);
             const design = li?.design_id ? designById.get(li.design_id) : undefined;
             const product = li?.product_id ? productById.get(li.product_id) : undefined;
             if (collapsed.has(it.id)) {
               return (
-                <Card key={it.id}>
+                <div key={it.id} {...itemAnchor(idx, it.id)}>
+                <Card>
                   <CardContent className="p-0">
                     <CompactItemRow
                       it={it}
@@ -368,18 +512,16 @@ export function OrderItemsSection({
                       setupFee={setupById.get(it.id) ?? 0}
                       onExpand={() => toggleCollapsed(it.id)}
                       onRemove={can.edit ? () => setRemoving(it) : undefined}
-                      onMoveUp={() => moveItem(idx, -1)}
-                      onMoveDown={() => moveItem(idx, 1)}
-                      isFirst={idx === 0}
-                      isLast={idx === items.length - 1}
+                      {...positionProps(idx, it.id)}
                     />
                   </CardContent>
                 </Card>
+                </div>
               );
             }
             return (
+              <div key={it.id} {...itemAnchor(idx, it.id)}>
               <OrderItemCard
-                key={it.id}
                 item={it}
                 index={idx}
                 lineItem={li}
@@ -399,11 +541,9 @@ export function OrderItemsSection({
                 onRemove={() => setRemoving(it)}
                 onProductChanged={(name, suggestion) => syncSwap(it.id, name, suggestion)}
                 onCollapse={() => toggleCollapsed(it.id)}
-                onMoveUp={() => moveItem(idx, -1)}
-                onMoveDown={() => moveItem(idx, 1)}
-                isFirst={idx === 0}
-                isLast={idx === items.length - 1}
+                {...positionProps(idx, it.id)}
               />
+              </div>
             );
           })
         : (
@@ -414,8 +554,8 @@ export function OrderItemsSection({
                 const design = li?.design_id ? designById.get(li.design_id) : undefined;
                 const product = li?.product_id ? productById.get(li.product_id) : undefined;
                 return (
+                  <div key={it.id} {...itemAnchor(idx, it.id)}>
                   <CompactItemRow
-                    key={it.id}
                     it={it}
                     index={idx}
                     product={product}
@@ -425,16 +565,15 @@ export function OrderItemsSection({
                     orderStatus={order.status}
                     setupFee={setupById.get(it.id) ?? 0}
                     onRemove={can.edit ? () => setRemoving(it) : undefined}
-                    onMoveUp={() => moveItem(idx, -1)}
-                    onMoveDown={() => moveItem(idx, 1)}
-                    isFirst={idx === 0}
-                    isLast={idx === items.length - 1}
+                    {...positionProps(idx, it.id)}
                   />
+                  </div>
                 );
               })}
             </CardContent>
           </Card>
         )}
+
 
       {can.edit && (
         <AddLineItemDialog
@@ -447,6 +586,7 @@ export function OrderItemsSection({
             // the admin was. The list itself re-seeds off the refreshed data.
             setCollapsed(new Set());
             setView("detailed");
+            idsBeforeAdd.current = new Set(items.map((it) => it.id));
             router.refresh();
           }}
         />

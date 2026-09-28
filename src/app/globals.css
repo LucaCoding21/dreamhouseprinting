@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 @theme {
+  /* SiteNav swaps the hamburger for the full link row here. The row needs
+     ~1140px, so this keeps laptops (incl. Windows at 150% scaling, ~1265px)
+     and landscape iPad Air/Pro on the desktop nav; phones, portrait iPads
+     and iPad mini / 1024px landscape iPads keep the hamburger. */
+  --breakpoint-nav: 72.5rem;
   --color-dream-lavender: #afa6ff;
   --color-dream-lavender-soft: #e0dffe;
   --color-dream-lavender-mist: #f0eefe;

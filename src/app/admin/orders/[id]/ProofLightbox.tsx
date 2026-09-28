@@ -181,3 +181,27 @@ function extensionFor(blob: Blob, src: string, kind: "image" | "pdf"): string {
 export function fileKind(nameOrType: string): "image" | "pdf" {
   return /pdf/i.test(nameOrType) ? "pdf" : "image";
 }
+
+/**
+ * Open a proof / mockup in a new browser tab (staff preference over the
+ * in-page lightbox). Call it straight from a click handler so the popup
+ * blocker sees the user gesture. data: URLs (scene exports) can't be opened as
+ * a top-level tab in Chrome, so they're decoded into a Blob URL first.
+ */
+export function openInNewTab(src: string) {
+  if (!src) return;
+  let url = src;
+  if (src.startsWith("data:")) {
+    const [head, body = ""] = src.split(",", 2);
+    const mime = /data:([^;,]+)/.exec(head)?.[1] ?? "application/octet-stream";
+    const bytes = head.includes(";base64")
+      ? Uint8Array.from(atob(body), (c) => c.charCodeAt(0))
+      : new TextEncoder().encode(decodeURIComponent(body));
+    url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    // The new tab has loaded it by then; free the memory.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+  // Blob URLs are same-origin and must keep the opener to resolve in the new
+  // tab; real file URLs get noopener.
+  window.open(url, "_blank", url.startsWith("blob:") ? undefined : "noopener,noreferrer");
+}

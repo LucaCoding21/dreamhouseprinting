@@ -16,6 +16,10 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
   const [open, setOpen] = useState(false);
 
   const ship = (order.shipping_address ?? {}) as StoredAddress;
+  // Bill-to only exists when staff set one on a manual order; blank means
+  // "same as shipping", which is why nothing renders for it below.
+  const bill = (order.billing_address ?? null) as StoredAddress | null;
+  const hasBilling = !!bill && !!(bill.street || bill.unit || bill.city || bill.postal || bill.name || bill.company);
   const company = ship.company ?? "";
   const name = customer?.name ?? ship.name ?? "";
   const phone = customer?.phone ?? ship.phone ?? "";
@@ -30,6 +34,7 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
       contactEmail: email,
       shipName: ship.name ?? "",
       shipStreet: ship.street ?? "",
+      shipUnit: ship.unit ?? "",
       shipCity: ship.city ?? "",
       shipProv: ship.prov ?? "BC",
       shipPostal: ship.postal ?? "",
@@ -55,11 +60,11 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
             company: form.company,
             phone: form.contactPhone,
             street: form.shipStreet,
+            unit: form.shipUnit,
             city: form.shipCity,
             prov: form.shipProv,
             postal: form.shipPostal,
           },
-          billing: null,
           shippingMethod: form.method,
           fulfillmentMethod: form.fulfillment,
         }),
@@ -99,9 +104,21 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
 
         {hasAddress && (
           <div className="border-t border-dream-line pt-3 text-dream-ink">
+            {hasBilling && <div className={cn(LBL, "mb-1")}>Ship to</div>}
             {ship.name && <div>{ship.name}</div>}
             {ship.street && <div>{ship.street}</div>}
+            {ship.unit && <div>{ship.unit}</div>}
             <div>{[ship.city, ship.prov, ship.postal].filter(Boolean).join(", ")}</div>
+          </div>
+        )}
+        {hasBilling && bill && (
+          <div className="border-t border-dream-line pt-3 text-dream-ink">
+            <div className={cn(LBL, "mb-1")}>Bill to</div>
+            {bill.company && <div className="font-semibold">{bill.company}</div>}
+            {bill.name && <div>{bill.name}</div>}
+            {bill.street && <div>{bill.street}</div>}
+            {bill.unit && <div>{bill.unit}</div>}
+            <div>{[bill.city, bill.prov, bill.postal].filter(Boolean).join(", ")}</div>
           </div>
         )}
 
@@ -147,9 +164,19 @@ export function CustomerCard({ detail, canEdit }: { detail: Detail; canEdit: boo
               <Labeled label="Name">
                 <Input value={form.shipName} disabled={!canEdit} onChange={(e) => setF({ shipName: e.target.value })} />
               </Labeled>
-              <Labeled label="Street">
-                <Input value={form.shipStreet} disabled={!canEdit} onChange={(e) => setF({ shipStreet: e.target.value })} />
-              </Labeled>
+              <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_7rem]">
+                <Labeled label="Street">
+                  <Input value={form.shipStreet} disabled={!canEdit} onChange={(e) => setF({ shipStreet: e.target.value })} />
+                </Labeled>
+                <Labeled label="Apt / Suite">
+                  <Input
+                    value={form.shipUnit}
+                    placeholder="Optional"
+                    disabled={!canEdit}
+                    onChange={(e) => setF({ shipUnit: e.target.value })}
+                  />
+                </Labeled>
+              </div>
               <div className="grid grid-cols-[1fr_5.5rem] gap-3">
                 <Labeled label="City">
                   <Input value={form.shipCity} disabled={!canEdit} onChange={(e) => setF({ shipCity: e.target.value })} />

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
-import { ProofLightbox } from "./ProofLightbox";
+import { openInNewTab } from "./ProofLightbox";
 import {
   asSceneMap,
   asSourceFiles,
@@ -29,7 +29,6 @@ import type { DesignRow } from "@/lib/db/rows";
 export function LineArtwork({ design }: { design: DesignRow | undefined }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [preview, setPreview] = useState<Piece | null>(null);
   const [renderingKey, setRenderingKey] = useState<string | null>(null);
 
   if (!design) return null;
@@ -142,6 +141,16 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
     }
   }
 
+  /** Copy a text piece's WORDS (not a picture of them), for retyping in a design tool. */
+  async function copyText(piece: Piece) {
+    try {
+      await navigator.clipboard.writeText(piece.text ?? "");
+      toast({ title: "Text copied", description: `"${piece.text ?? ""}"`, variant: "success" });
+    } catch {
+      toast({ title: "Could not copy", description: "Your browser blocked the clipboard.", variant: "error" });
+    }
+  }
+
   const count = pieces.length + sourceFiles.length;
   const download = (piece: Piece) => {
     if (piece.kind === "image") void downloadImage(piece);
@@ -169,10 +178,12 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
                   type="button"
                   title={
                     piece.kind === "text"
-                      ? `Text "${piece.text ?? ""}" (${viewLabel(piece.view)}), click to render + download`
-                      : `${piece.kind === "sticker" ? "Sticker" : "Image"} (${viewLabel(piece.view)}), click to view full size`
+                      ? `Text "${piece.text ?? ""}" (${viewLabel(piece.view)}), click to copy the text`
+                      : `${piece.kind === "sticker" ? "Sticker" : "Image"} (${viewLabel(piece.view)}), click to open in a new tab`
                   }
-                  onClick={() => (piece.src ? setPreview(piece) : download(piece))}
+                  onClick={() =>
+                    piece.kind === "text" ? void copyText(piece) : piece.src ? openInNewTab(piece.src) : download(piece)
+                  }
                   className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
                 >
                   {piece.kind === "text" ? (
@@ -236,15 +247,6 @@ export function LineArtwork({ design }: { design: DesignRow | undefined }) {
         </div>
       )}
 
-      {preview?.src && (
-        <ProofLightbox
-          src={preview.src}
-          kind="image"
-          title={`${design.name ?? "Design"}, ${viewLabel(preview.view)}`}
-          open={!!preview}
-          onOpenChange={(o) => !o && setPreview(null)}
-        />
-      )}
     </div>
   );
 }

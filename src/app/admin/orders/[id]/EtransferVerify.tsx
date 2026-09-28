@@ -79,10 +79,11 @@ export function EtransferVerify({
       {compact ? (
         buttons
       ) : (
-        <div className="space-y-2.5 rounded-lg border border-dream-warn/40 bg-dream-warn-soft p-3">
-          <p className="text-sm text-dream-warn">
+        <div className="space-y-2.5 rounded-lg border border-dream-line bg-dream-bg p-3">
+          <p className="text-sm text-dream-ink">
             <strong>E-transfer to verify:</strong> the customer says they sent {formatCAD(amount)} on{" "}
-            {fmtWhen(reportedAt)}. Check your bank inbox for the deposit.
+            {/* The time ends "p.m.", don't add a second full stop after it. */}
+            {fmtWhen(reportedAt).replace(/\.$/, "")}. Check your bank inbox for the deposit.
           </p>
           {buttons}
         </div>

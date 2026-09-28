@@ -101,7 +101,9 @@ async function resolveOrderRecipient(
 export async function sendOrderEmail(
   orderId: string,
   templateKey: string,
-  extraVars: Record<string, string> = {}
+  extraVars: Record<string, string> = {},
+  /** Notes to show in this one email, e.g. the message Julian typed when sending for approval. */
+  extraNotes: string[] = []
 ): Promise<void> {
   const mail = resendClient();
   if (!mail) return; // not configured, skip silently
@@ -171,6 +173,7 @@ export async function sendOrderEmail(
           .filter((n) => n.text?.trim() && n.actor !== "customer")
           .map((n) => n.text as string)
       : [];
+  customerNotes.push(...extraNotes.map((t) => t.trim()).filter(Boolean));
   const notesText = customerNotes.length ? `\n\nNotes from us:\n${customerNotes.map((t) => `- ${t}`).join("\n")}` : "";
 
   try {
@@ -199,10 +202,14 @@ export async function sendOrderEmail(
 }
 
 /** Status-change wrapper, maps the order status to its template (if any). */
-export async function sendOrderStatusEmail(orderId: string, status: OrderStatus): Promise<void> {
+export async function sendOrderStatusEmail(
+  orderId: string,
+  status: OrderStatus,
+  notes: string[] = [],
+): Promise<void> {
   const templateKey = STATUS_TEMPLATE[status];
   if (!templateKey) return; // no email for this status
-  await sendOrderEmail(orderId, templateKey);
+  await sendOrderEmail(orderId, templateKey, {}, notes);
 }
 
 /**

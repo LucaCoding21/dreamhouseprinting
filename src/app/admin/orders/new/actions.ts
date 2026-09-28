@@ -1,5 +1,6 @@
 "use server";
 
+import { normalizeCharges } from "@/lib/orders/priceBreakdown";
 import { revalidatePath } from "next/cache";
 import { requirePermission, getProfile } from "@/lib/auth";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
@@ -103,31 +104,30 @@ export async function createManualOrderAction(
   const profile = await getProfile();
 
   // ---- Customer -----------------------------------------------------------
-  let customerId: string | null = null;
-  let guestEmail: string | null = null;
-  let contactName = input.address.name?.trim() ?? "";
-  let contactPhone = input.address.phone?.trim() ?? "";
+  const name = input.customer?.name?.trim() ?? "";
+  const email = input.customer?.email?.trim() ?? "";
+  if (!name) return { error: "Add the customer's name." };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { error: "Add a valid customer email, it's where the order updates go." };
+  }
+  const contactName = input.address.name?.trim() || name;
+  const contactPhone = input.address.phone?.trim() || input.customer?.phone?.trim() || "";
+  const company = input.address.company?.trim() || input.customer?.company?.trim() || null;
 
+  let customerId: string | null = null;
+  let guestEmail: string | null = email;
   if (input.customerId) {
     const { data: customer } = await service
       .from("profiles")
-      .select("id, name, phone")
+      .select("id, email")
       .eq("id", input.customerId)
       .maybeSingle();
     if (!customer) return { error: "That customer account no longer exists." };
     customerId = customer.id;
-    contactName = contactName || customer.name || "";
-    contactPhone = contactPhone || customer.phone || "";
-  } else {
-    const name = input.guest?.name?.trim() ?? "";
-    const email = input.guest?.email?.trim() ?? "";
-    if (!name) return { error: "Add the customer's name." };
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      return { error: "Add a valid customer email, it's where the order updates go." };
-    }
-    guestEmail = email;
-    contactName = contactName || name;
-    contactPhone = contactPhone || input.guest?.phone?.trim() || "";
+    // On an account order guest_email is only a per-order notification
+    // override, so it stays null unless staff typed a different address
+    // (same rule as updateOrderDetailsAction on the detail page).
+    guestEmail = email.toLowerCase() === (customer.email ?? "").trim().toLowerCase() ? null : email;
   }
 
   // ---- Items --------------------------------------------------------------
@@ -172,9 +172,10 @@ export async function createManualOrderAction(
   // live, and the admin contact card reads them from here.
   const address = {
     name: contactName,
-    company: input.address.company?.trim() || null,
+    company,
     phone: contactPhone,
     street: input.address.street?.trim() ?? "",
+    unit: input.address.unit?.trim() ?? "",
     city: input.address.city?.trim() ?? "",
     prov: input.address.prov ?? "",
     postal: input.address.postal?.trim().toUpperCase() ?? "",
@@ -183,6 +184,21 @@ export async function createManualOrderAction(
   if (input.fulfillment === "ship" && !address.street) {
     return { error: "Add a shipping address, or switch this order to pickup." };
   }
+  // Bill-to only exists when staff typed one; a blank card stays null so the
+  // detail page and invoice keep treating the ship-to as the only address.
+  const b = input.billing;
+  const billingFields = {
+    name: b?.name?.trim() ?? "",
+    company: b?.company?.trim() ?? "",
+    phone: b?.phone?.trim() ?? "",
+    street: b?.street?.trim() ?? "",
+    unit: b?.unit?.trim() ?? "",
+    city: b?.city?.trim() ?? "",
+    postal: b?.postal?.trim().toUpperCase() ?? "",
+  };
+  const billing = Object.values(billingFields).some(Boolean)
+    ? { ...billingFields, company: billingFields.company || null, prov: b?.prov ?? "", country: "CA" }
+    : null;
 
   const note = input.customerNote.trim();
   const notes = note
@@ -210,6 +226,7 @@ export async function createManualOrderAction(
       fulfillment_method: input.fulfillment,
       shipping_method: rush > 0 ? "rush" : "standard",
       shipping_address: asJson(address),
+      billing_address: billing ? asJson(billing) : null,
       customer_notes: asJson(notes),
       sales_rep: profile?.name ?? null,
     })
@@ -239,6 +256,7 @@ export async function createManualOrderAction(
         customerNotes: str(it.customerNotes, 2000),
         productionNotes: str(it.productionNotes, 2000),
         shippingNotes: str(it.shippingNotes, 2000),
+        priceCharges: it.kind === "custom" ? normalizeCharges(it.priceCharges) : [],
         position: idx,
       }),
       unit_price: it.unitPrice,

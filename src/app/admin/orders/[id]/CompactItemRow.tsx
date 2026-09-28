@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import { formatCAD } from "@/lib/money";
 import { formatInches } from "@/lib/design/printArea";
 import { LINE_PRODUCTION_META } from "@/lib/lineProduction";
-import { ReorderArrows } from "./ReorderArrows";
-import { ProofLightbox, fileKind } from "./ProofLightbox";
+import { LinePosition } from "./LinePosition";
+import { openInNewTab, fileKind } from "./ProofLightbox";
 import { itemQty, type ItemState, type OrderProduct } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { DesignRow, ProofRow } from "@/lib/db/rows";
@@ -42,15 +41,13 @@ export function CompactItemRow({
   product,
   design,
   proofsForItem,
-  orderNumber,
   orderStatus,
   setupFee,
   onExpand,
   onRemove,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
+  total,
+  onMove,
+  onGripPointerDown,
 }: {
   it: ItemState;
   index: number;
@@ -58,7 +55,7 @@ export function CompactItemRow({
   design: DesignRow | undefined;
   /** Proofs filed against this line, newest first (see getAdminOrder). */
   proofsForItem: ProofRow[];
-  /** For download filenames and the "customer can't see this yet" hint. */
+  /** Unused since mockups open in a new tab; kept so callers need no change. */
   orderNumber?: string | null;
   orderStatus?: string;
   setupFee: number;
@@ -67,12 +64,13 @@ export function CompactItemRow({
   /** When set, shows the delete X. Omitted when the viewer cannot edit. */
   onRemove?: () => void;
   /** Move this line up/down the queue. */
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  isFirst?: boolean;
-  isLast?: boolean;
+  /** Line count, for the editable position number. */
+  total?: number;
+  /** Move this line to a new 0-based position (the lines between shift). */
+  onMove?: (to: number) => void;
+  /** Pressing the line's grip starts a drag (see useLineSort). */
+  onGripPointerDown?: (e: React.PointerEvent) => void;
 }) {
-  const [preview, setPreview] = useState(false);
   const mockup = ((design?.mockup_images ?? []) as { url: string | null }[]).find((m) => m.url)?.url ?? null;
   // Once a proof exists it IS what is getting printed, so it replaces the
   // customer's own mockup here exactly as it does on the detailed card.
@@ -84,12 +82,6 @@ export function CompactItemRow({
   // mockup until the order is sent for approval. Say so, or "the photo is
   // still the original photo" comes back as a bug report.
   const hiddenFromCustomer = !!proofRow && !!orderStatus && !customerCanSeeProof(proofRow.status, orderStatus);
-  const fileStem = [orderNumber ? `order-${orderNumber}` : null, it.productName, proof ? "proof" : "mockup"]
-    .filter(Boolean)
-    .join("-")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
   const thumbKind = proof ? fileKind(proof) : "image";
   const qty = itemQty(it);
   const unit = Number(it.unitPrice) || 0;
@@ -100,13 +92,10 @@ export function CompactItemRow({
     // Phone: the row wraps into two lines (identity on top, money underneath).
     // Everything except the name is fixed width, so a single line clips the
     // price off the side of a 375px screen. From sm up it stays one line.
-    // The leading controls (arrows, expand, index) sit tight on phones: at the
+    // The leading controls (expand, grip, number) sit tight on phones: at the
     // old gap-3 they pushed the thumbnail ~110px in on a 390px screen and left
     // a hole between "1." and the picture.
     <div className="flex flex-wrap items-center gap-2 px-3 py-3 sm:flex-nowrap sm:gap-3 sm:px-4">
-      {onMoveUp && onMoveDown && (
-        <ReorderArrows onUp={onMoveUp} onDown={onMoveDown} disableUp={!!isFirst} disableDown={!!isLast} />
-      )}
       {onExpand && (
         <button
           type="button"
@@ -120,17 +109,17 @@ export function CompactItemRow({
           </svg>
         </button>
       )}
-      <span className="shrink-0 text-sm tabular-nums text-dream-faint">{index + 1}.</span>
+      <LinePosition index={index} total={total ?? 1} onMove={onMove} onGripPointerDown={onGripPointerDown} />
       {thumb ? (
         <button
           type="button"
-          onClick={() => setPreview(true)}
+          onClick={() => openInNewTab(thumb)}
           title={
             hiddenFromCustomer
               ? "Latest proof. Not on the customer's page yet, send the order for approval to show it."
               : proof
-                ? "Latest proof, click to view full size"
-                : "Mockup, click to view full size"
+                ? "Latest proof, click to open in a new tab"
+                : "Mockup, click to open in a new tab"
           }
           // A purple edge is the same cue the detailed card uses for "this is
           // the proof, not the customer's mockup".
@@ -213,18 +202,6 @@ export function CompactItemRow({
           </button>
         )}
       </div>
-      {thumb && (
-        <ProofLightbox
-          src={thumb}
-          kind={thumbKind}
-          title={[orderNumber ? `Order #${orderNumber}` : null, it.productName || "item", proof ? "Proof" : "Mockup"]
-            .filter(Boolean)
-            .join(", ")}
-          fileStem={fileStem}
-          open={preview}
-          onOpenChange={setPreview}
-        />
-      )}
     </div>
   );
 }

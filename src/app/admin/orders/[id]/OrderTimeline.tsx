@@ -62,7 +62,7 @@ export function OrderTimeline({
           {internal.map((n, i) => (
             <div
               key={`${n.at}-${i}`}
-              className="rounded-lg border border-dream-warn/30 bg-dream-warn-soft px-4 py-3"
+              className="rounded-lg border border-dream-info/20 bg-dream-info-soft/60 px-4 py-3"
             >
               <NoteHeader note={n} />
               <p className="mt-1 whitespace-pre-wrap text-sm text-dream-ink">{n.text}</p>
@@ -118,15 +118,9 @@ export function OrderTimeline({
                   inbound ? "border-dream-line bg-dream-bg" : "border-dream-info/30 bg-dream-info-soft",
                 )}
               >
-                <NoteHeader
-                  note={n}
-                  badge={inbound ? "From the customer" : "Sent to customer"}
-                  badgeClass={
-                    inbound
-                      ? "bg-dream-line text-dream-muted"
-                      : "bg-dream-info/15 text-dream-info"
-                  }
-                />
+                {/* No tag either way: the card colour already says whether
+                    it's the customer's note or a message we sent them. */}
+                <NoteHeader note={n} />
                 <p className="mt-1 whitespace-pre-wrap text-sm text-dream-ink">{n.text}</p>
               </div>
             );
@@ -159,31 +153,11 @@ function sortNewestFirst(notes: Note[]): Note[] {
   return [...notes].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 }
 
-function NoteHeader({
-  note,
-  badge,
-  badgeClass,
-}: {
-  note: Note;
-  badge?: string;
-  badgeClass?: string;
-}) {
+function NoteHeader({ note }: { note: Note }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-      <span className="min-w-0 flex-1 truncate text-sm font-bold text-dream-ink">
-        {note.actor}
-        <span className="ml-1 font-normal text-dream-muted">@ {fmtWhen(note.at)}</span>
-      </span>
-      {badge && (
-        <span
-          className={cn(
-            "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold",
-            badgeClass,
-          )}
-        >
-          {badge}
-        </span>
-      )}
+    <div className="text-sm">
+      <span className="font-bold text-dream-ink">{note.actor}</span>
+      <span className="ml-1 text-dream-muted">@ {fmtWhen(note.at)}</span>
     </div>
   );
 }
@@ -232,7 +206,7 @@ function Composer({
           loading={pending}
           disabled={!canEdit || !note.trim()}
           className={cn(
-            "max-w-full truncate",
+            "max-w-full shrink-0 truncate",
             tone === "info" && "border-dream-info/40 text-dream-info hover:bg-dream-info-soft",
           )}
           onClick={() =>

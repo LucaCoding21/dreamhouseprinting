@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { CommandHeader } from "./CommandHeader";
 import { OrderTimeline } from "./OrderTimeline";
 import { OrderItemsSection } from "./OrderItemsSection";
-import { ProofHistory } from "./ProofHistory";
+import { SendForApprovalPanel } from "./SendForApprovalPanel";
 import { OrderStatusStrip } from "./OrderStatusStrip";
 import { PricingCard } from "./PricingCard";
 import { CustomerCard } from "./CustomerCard";
@@ -38,8 +38,9 @@ export function OrderDetailClient({
       {/* The lines, the hero of the screen, full width */}
       <OrderItemsSection detail={detail} methodNames={methodNames} can={can} />
 
+      {can.edit && <SendForApprovalPanel detail={detail} who={who} />}
+
       {/* Active-work context that lives alongside the lines */}
-      <ProofHistory detail={detail} />
       <OrderTimeline
         order={order}
         orderId={order.id}

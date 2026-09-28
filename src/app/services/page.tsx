@@ -595,7 +595,7 @@ function CTA() {
               />
             ))}
             <Link
-              href="/#quick-quote"
+              href="/shop"
               className="relative inline-flex items-center justify-center rounded-full bg-dream-sun px-10 py-5 font-display text-lg font-bold text-dream-ink transition-transform hover:-translate-y-0.5"
             >
               Start your order

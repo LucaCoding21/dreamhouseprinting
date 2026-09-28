@@ -15,10 +15,11 @@ import { LINE_PRODUCTION_STATUSES, LINE_PRODUCTION_META, type LineProductionStat
 import { Chevron, LineArtwork } from "./LineArtwork";
 import { BlankGarment } from "./BlankGarment";
 import { ChangeProductDialog } from "./ChangeProductDialog";
-import { ReorderArrows } from "./ReorderArrows";
+import { LinePosition } from "./LinePosition";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
-import { ProofLightbox, fileKind } from "./ProofLightbox";
+import { openInNewTab, fileKind } from "./ProofLightbox";
+import { PriceBreakdown } from "@/components/admin/PriceBreakdown";
 import { curveForProduct } from "@/lib/pricing/quote";
 import { formatInches } from "@/lib/design/printArea";
 import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing";
@@ -49,9 +50,8 @@ const LINE_NOTE_FIELDS: {
   key: "customerNotes" | "productionNotes" | "shippingNotes";
   label: string;
   placeholder: string;
-  fromCustomer?: boolean;
 }[] = [
-  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for", fromCustomer: true },
+  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for" },
   { key: "productionNotes", label: "Production notes", placeholder: "Manufacturing, e.g. black shirt needs a white underbase" },
   { key: "shippingNotes", label: "Shipping notes", placeholder: "For the shipping label, e.g. gate code" },
 ];
@@ -78,10 +78,9 @@ export function OrderItemCard({
   onRemove,
   onProductChanged,
   onCollapse,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
+  total,
+  onMove,
+  onGripPointerDown,
 }: {
   item: ItemState;
   index: number;
@@ -107,21 +106,22 @@ export function OrderItemCard({
   /** Collapse this line back to a compact row. */
   onCollapse?: () => void;
   /** Move this line up/down the queue. */
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  isFirst?: boolean;
-  isLast?: boolean;
+  /** Line count, for the editable position number. */
+  total?: number;
+  /** Move this line to a new 0-based position (the lines between shift). */
+  onMove?: (to: number) => void;
+  /** Pressing the line's grip starts a drag (see useLineSort). */
+  onGripPointerDown?: (e: React.PointerEvent) => void;
 }) {
   const [newSize, setNewSize] = useState("");
   const [proofOpen, setProofOpen] = useState(false);
   const [mockupsOpen, setMockupsOpen] = useState(false);
   const [proofHistoryOpen, setProofHistoryOpen] = useState(false);
-  const [mockupPreview, setMockupPreview] = useState<{ view: string; url: string | null } | null>(null);
-  const [proofPreview, setProofPreview] = useState<ProofRow | null>(null);
   const mockups = ((design?.mockup_images ?? []) as { view: string; url: string | null }[]).filter((m) => m.url);
   const colour = (lineItem?.colour ?? {}) as { name?: string; hex?: string | null };
   const qty = itemQty(item);
   const unit = Number(item.unitPrice) || 0;
+  const isCustomLine = !!lineItem && !lineItem.product_id;
   // Newest first (getAdminOrder orders proofs by created_at desc). The latest
   // is the FINAL version of what's getting printed, so it's the line's hero
   // visual; the rest are history (old originals, replaced versions).
@@ -249,8 +249,8 @@ export function OrderItemCard({
                 <figcaption className="mb-1 text-xs font-medium text-dream-ink">Latest proof</figcaption>
                 <button
                   type="button"
-                  onClick={() => setProofPreview(latestProof)}
-                  title="Click to view full size"
+                  onClick={() => openInNewTab(latestProof.image!)}
+                  title="Open in a new tab"
                   className="block h-32 w-full overflow-hidden rounded-lg bg-dream-bg"
                 >
                   {fileKind(latestProof.image) === "pdf" ? (
@@ -275,8 +275,8 @@ export function OrderItemCard({
                 <figcaption className="mb-1 text-xs font-medium capitalize text-dream-ink">{mockups[0].view}</figcaption>
                 <button
                   type="button"
-                  onClick={() => setMockupPreview(mockups[0])}
-                  title="Click to view full size"
+                  onClick={() => openInNewTab(mockups[0].url!)}
+                  title="Open in a new tab"
                   className="block h-32 w-full overflow-hidden rounded-lg bg-dream-bg"
                 >
                   <Image src={mockups[0].url!} alt={`${mockups[0].view} mockup`} width={160} height={160} className="h-full w-full object-contain" />
@@ -343,8 +343,8 @@ export function OrderItemCard({
                         <button
                           key={m.view}
                           type="button"
-                          onClick={() => setMockupPreview(m)}
-                          title={`${m.view} mockup, click to view full size`}
+                          onClick={() => openInNewTab(m.url!)}
+                          title={`${m.view} mockup, open in a new tab`}
                           className="flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
                         >
                           <Image src={m.url!} alt={`${m.view} mockup`} width={56} height={56} className="min-h-0 w-full flex-1 object-contain" />
@@ -374,7 +374,7 @@ export function OrderItemCard({
                           key={p.id}
                           type="button"
                           disabled={!p.image}
-                          onClick={() => p.image && setProofPreview(p)}
+                          onClick={() => p.image && openInNewTab(p.image)}
                           title={`${p.status.replace(/_/g, " ")}, ${relativeTime(p.created_at)}`}
                           className="flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dream-line bg-dream-bg p-1 transition-colors hover:border-dream-purple"
                         >
@@ -406,9 +406,6 @@ export function OrderItemCard({
           {/* MIDDLE, product, sizes, print, notes */}
           <div className="min-w-0 flex-1 space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              {onMoveUp && onMoveDown && (
-                <ReorderArrows onUp={onMoveUp} onDown={onMoveDown} disableUp={!!isFirst} disableDown={!!isLast} />
-              )}
               {onCollapse && (
                 <button
                   type="button"
@@ -422,7 +419,7 @@ export function OrderItemCard({
                   </svg>
                 </button>
               )}
-              <span className="text-sm text-dream-faint">{index + 1}.</span>
+              <LinePosition index={index} total={total ?? 1} onMove={onMove} onGripPointerDown={onGripPointerDown} />
               <Input
                 value={item.productName}
                 disabled={!can.edit}
@@ -655,21 +652,7 @@ export function OrderItemCard({
             <div className="grid gap-3 sm:grid-cols-3">
               {LINE_NOTE_FIELDS.map((f) => (
                 <div key={f.key} className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className={LBL}>{f.label}</span>
-                    {f.fromCustomer ? (
-                      <span
-                        title="What they submitted with the order. Edits here stay internal; reply via a Customer comment."
-                        className="rounded-md bg-dream-info-soft px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-info"
-                      >
-                        From the customer
-                      </span>
-                    ) : (
-                      <span className="rounded-md bg-dream-line px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-muted">
-                        Internal
-                      </span>
-                    )}
-                  </div>
+                  <span className={LBL}>{f.label}</span>
                   <Textarea
                     rows={2}
                     value={item[f.key]}
@@ -683,18 +666,22 @@ export function OrderItemCard({
 
           </div>
 
-          {/* RIGHT, price */}
-          <div className="shrink-0 border-t border-dream-line pt-4 lg:w-48 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+          {/* RIGHT, price (wider on custom lines for the breakdown) */}
+          <div className={cn("shrink-0 border-t border-dream-line pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0", isCustomLine ? "lg:w-60" : "lg:w-48")}>
             <div className={cn(LBL, "mb-1")}>Unit price</div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-dream-muted">$</span>
               <Input
                 value={item.unitPrice}
                 disabled={!can.pricing}
+                // The breakdown owns the price while it has charges; remove
+                // them all to type a price by hand again.
+                readOnly={item.priceCharges.length > 0}
+                title={item.priceCharges.length > 0 ? "Set by the price breakdown" : undefined}
                 // Typing a price by hand wins: the auto chip drops off and the
                 // number is left alone until the next pricing-relevant edit.
                 onChange={(e) => onPatch((p) => ({ ...p, unitPrice: e.target.value, autoPrice: null }))}
-                className="h-9 w-24"
+                className={cn("h-9 w-24", item.priceCharges.length > 0 && "bg-dream-bg")}
               />
               {item.autoPrice && (
                 <span
@@ -715,6 +702,19 @@ export function OrderItemCard({
                 {setupFee > 0 && <> + {formatCAD(setupFee)} setup</>}
               </div>
             </div>
+
+            {/* Custom lines (no catalog product, so no price curve): build the
+                unit price from labelled charges instead of doing it by hand. */}
+            {isCustomLine && (
+              <div className="mt-4 border-t border-dream-line pt-4">
+                <PriceBreakdown
+                  charges={item.priceCharges}
+                  qty={qty}
+                  disabled={!can.pricing}
+                  onChange={(priceCharges) => onPatch((p) => ({ ...p, priceCharges }))}
+                />
+              </div>
+            )}
 
             {/* Stale-price nudge after a product swap; the new product's curve
                 price at this quantity. Apply/Dismiss go through Save changes. */}
@@ -770,42 +770,8 @@ export function OrderItemCard({
         isReplacement={!!latestProof}
       />
     )}
-    {mockupPreview?.url && (
-      <ProofLightbox
-        src={mockupPreview.url}
-        kind="image"
-        title={[orderNumber ? `Order #${orderNumber}` : null, item.productName || "item", `${mockupPreview.view} mockup`]
-          .filter(Boolean)
-          .join(", ")}
-        fileStem={fileSlug(orderNumber, item.productName, `mockup-${mockupPreview.view}`)}
-        open={!!mockupPreview}
-        onOpenChange={(o) => !o && setMockupPreview(null)}
-      />
-    )}
-    {proofPreview?.image && (
-      <ProofLightbox
-        src={proofPreview.image}
-        kind={fileKind(proofPreview.image)}
-        title={[orderNumber ? `Order #${orderNumber}` : null, item.productName || "item", `Proof, ${proofPreview.status.replace(/_/g, " ")}`]
-          .filter(Boolean)
-          .join(", ")}
-        fileStem={fileSlug(orderNumber, item.productName, "proof")}
-        open={!!proofPreview}
-        onOpenChange={(o) => !o && setProofPreview(null)}
-      />
-    )}
     </>
   );
-}
-
-/** "order-1119-jersey-tee-proof", the download name for a line's artwork. */
-function fileSlug(orderNumber: string | null, productName: string, kind: string): string {
-  return [orderNumber ? `order-${orderNumber}` : null, productName, kind]
-    .filter(Boolean)
-    .join("-")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 /** The S&S blank this garment came from, the brand + style number Julian reorders by. */

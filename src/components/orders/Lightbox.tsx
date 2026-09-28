@@ -132,7 +132,7 @@ export function Lightbox({
         )}
 
         {/* Caption: what it is on the left, the real file on the right. */}
-        <div className="flex items-center justify-between gap-3 rounded-full bg-white/10 px-4 py-2 text-white">
+        <div className="flex items-center justify-between gap-3 px-1 py-1 text-white">
           {/* truncate on the block, not the inline span (which never clipped,
               so the title ran under the button on phones). */}
           <div className="min-w-0 flex-1 truncate text-sm">
@@ -144,7 +144,7 @@ export function Lightbox({
             href={src}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 rounded-full bg-white/15 px-3 py-1 text-[13px] font-semibold transition-colors hover:bg-white/30"
+            className="shrink-0 text-[13px] font-semibold text-white/85 transition-colors hover:text-white"
           >
             Open {pdf ? "PDF" : "image"}
           </a>

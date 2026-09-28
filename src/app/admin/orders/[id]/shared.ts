@@ -1,5 +1,6 @@
 "use client";
 
+import type { PriceChargeDraft } from "@/lib/orders/priceBreakdown";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
@@ -70,6 +71,8 @@ export interface StoredAddress {
   company?: string | null;
   phone?: string;
   street?: string;
+  /** Apt / suite / unit, optional. */
+  unit?: string;
   city?: string;
   prov?: string;
   postal?: string;
@@ -101,6 +104,8 @@ export interface ItemState {
    * admin can see the number is suggested; typing over the price clears it.
    */
   autoPrice?: { unit: number; qty: number } | null;
+  /** Custom lines: the charges the unit price is built from. Empty = typed by hand. */
+  priceCharges: PriceChargeDraft[];
 }
 
 export const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];

@@ -12,6 +12,8 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/cn";
+import { scrollToCenter } from "@/lib/scrollToCenter";
+import { AddItemRow } from "@/components/admin/AddItemRow";
 import { formatCAD, roundCents } from "@/lib/money";
 import { rushTierFee } from "@/lib/pricing/decorationPricing";
 import { PROVINCES, calcTax } from "@/lib/pricing/tax";
@@ -22,8 +24,10 @@ import type { DecorationPricingSettings } from "@/lib/pricing/decorationPricing"
 import type { OrderStatus } from "@/lib/db/rows";
 import type { DecorationSpot } from "../actions";
 import { BlankGarment } from "../[id]/BlankGarment";
-import { fileKind } from "../[id]/ProofLightbox";
+import { openInNewTab, fileKind } from "../[id]/ProofLightbox";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PriceBreakdown } from "@/components/admin/PriceBreakdown";
+import { breakdownUnitPrice, type PriceChargeDraft } from "@/lib/orders/priceBreakdown";
 import { DecorationSpotRow } from "../[id]/DecorationSpotRow";
 import {
   LBL,
@@ -40,6 +44,7 @@ import {
   MANUAL_ORDER_STATUSES,
   type CatalogProduct,
   type CustomerHit,
+  type ManualOrderAddress,
   type ManualOrderItemInput,
 } from "./shared";
 
@@ -53,9 +58,8 @@ const LINE_NOTE_FIELDS: {
   key: "customerNotes" | "productionNotes" | "shippingNotes";
   label: string;
   placeholder: string;
-  fromCustomer?: boolean;
 }[] = [
-  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for", fromCustomer: true },
+  { key: "customerNotes", label: "Customer notes", placeholder: "What the customer asked for" },
   { key: "productionNotes", label: "Production notes", placeholder: "Manufacturing, e.g. black shirt needs a white underbase" },
   { key: "shippingNotes", label: "Shipping notes", placeholder: "For the shipping label, e.g. gate code" },
 ];
@@ -80,6 +84,8 @@ interface ItemDraft {
   autoPrice: { unit: number; qty: number } | null;
   /** Mockups staged to the proofs bucket while the order is being built. */
   mockups: StagedMockup[];
+  /** Custom lines only: charges the unit price is built from. Empty = typed by hand. */
+  priceCharges: PriceChargeDraft[];
 }
 
 interface StagedMockup {
@@ -88,6 +94,17 @@ interface StagedMockup {
   /** Object URL for the local preview (revoked on remove). */
   preview: string;
   kind: "image" | "pdf";
+}
+
+const BLANK_ADDRESS: ManualOrderAddress = { name: "", company: "", phone: "", street: "", unit: "", city: "", prov: "BC", postal: "" };
+
+/** Same shape the server action accepts, so the form never enables a submit it would reject. */
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+interface MissingField {
+  key: string;
+  /** Reads after "Still missing:" in the hero caption. */
+  label: string;
 }
 
 let seq = 0;
@@ -110,6 +127,7 @@ function blankItem(kind: "catalog" | "custom"): ItemDraft {
     unitPrice: "",
     autoPrice: null,
     mockups: [],
+    priceCharges: [],
   };
 }
 
@@ -119,6 +137,13 @@ const num = (v: string) => {
 };
 
 const itemQty = (it: ItemDraft) => it.sizes.reduce((a, [, q]) => a + (q > 0 ? q : 0), 0);
+
+/** A line priced from a breakdown keeps its unit price in step with the
+ *  charges AND the quantity (one-time charges spread over the pieces). */
+const withBreakdown = (it: ItemDraft): ItemDraft =>
+  it.priceCharges.length > 0
+    ? { ...it, unitPrice: breakdownUnitPrice(it.priceCharges, itemQty(it)).toFixed(2), autoPrice: null }
+    : it;
 
 /** Prefer the screen-print-like method for "Add print", mirroring the detail page. */
 const printMethodOf = (names: string[]) =>
@@ -149,16 +174,27 @@ export function NewOrderClient({
   const router = useRouter();
   const { toast } = useToast();
   const [saving, startSave] = useTransition();
+  // Errors stay out of the way until Create order is actually pressed: the
+  // form is long, and painting it red while it is still being filled in is
+  // noise. Pressing Create with gaps is what turns the hints on.
+  const [tried, setTried] = useState(false);
+  const uid = useId();
+  /** DOM id for a blocking field, so a failed submit can jump straight to it. */
+  const fid = (key: string) => `${uid}-${key}`;
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   // ---- Customer -----------------------------------------------------------
-  const [mode, setMode] = useState<"existing" | "guest">("existing");
+  // One plain contact box. Typing a name or email looks up existing accounts
+  // underneath it; picking a match links the order to that account and fills
+  // the boxes, otherwise the order is a guest order. No mode toggle.
+  const [customer, setCustomer] = useState({ name: "", email: "", phone: "", company: "" });
+  const setCust = (patch: Partial<typeof customer>) => setCustomer((c) => ({ ...c, ...patch }));
+  const [linked, setLinked] = useState<CustomerHit | null>(null);
+  /** The last name/email fragment typed, what the account lookup runs on. */
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<CustomerHit[]>([]);
   const [searching, setSearching] = useState(false);
-  const [picked, setPicked] = useState<CustomerHit | null>(null);
-  const [guest, setGuest] = useState({ name: "", email: "", phone: "" });
 
   // ---- Order ---------------------------------------------------------------
   const [status, setStatus] = useState<OrderStatus>("submitted");
@@ -172,23 +208,21 @@ export function NewOrderClient({
   const rushValue = num(rushValueStr);
   const [customerNote, setCustomerNote] = useState("");
   const [sendConfirmation, setSendConfirmation] = useState(false);
-  const [address, setAddress] = useState({
-    name: "",
-    company: "",
-    phone: "",
-    street: "",
-    city: "",
-    prov: "BC",
-    postal: "",
-  });
-  const setAddr = (patch: Partial<typeof address>) => setAddress((a) => ({ ...a, ...patch }));
+  const [address, setAddress] = useState<ManualOrderAddress>(BLANK_ADDRESS);
+  const setAddr = (patch: Partial<ManualOrderAddress>) => setAddress((a) => ({ ...a, ...patch }));
+  // Bill-to is its own card. Blank means "same as shipping" as far as the
+  // order is concerned (the server stores null), the copy button just saves
+  // retyping when it genuinely is the same.
+  const [billing, setBilling] = useState<ManualOrderAddress>(BLANK_ADDRESS);
+  const setBill = (patch: Partial<ManualOrderAddress>) => setBilling((a) => ({ ...a, ...patch }));
+  const billingBlank = (["name", "company", "phone", "street", "unit", "city", "postal"] as const).every((k) => !billing[k].trim());
 
   // ---- Items ---------------------------------------------------------------
   const [items, setItems] = useState<ItemDraft[]>(() => [blankItem("catalog")]);
 
   /** Non-pricing edits: apply and leave the price alone. */
   const patchItem = (key: string, fn: (it: ItemDraft) => ItemDraft) =>
-    setItems((list) => list.map((it) => (it.key === key ? fn(it) : it)));
+    setItems((list) => list.map((it) => (it.key === key ? withBreakdown(fn(it)) : it)));
 
   /** Curve suggestion for one draft, read against a given list (combined qty). */
   function suggestFor(it: ItemDraft, list: ItemDraft[]) {
@@ -212,7 +246,7 @@ export function NewOrderClient({
    */
   const patchItemPriced = (key: string, fn: (it: ItemDraft) => ItemDraft) =>
     setItems((list) => {
-      const next = list.map((it) => (it.key === key ? fn(it) : it));
+      const next = list.map((it) => (it.key === key ? withBreakdown(fn(it)) : it));
       const target = next.find((it) => it.key === key);
       if (!target) return next;
       const s = suggestFor(target, next);
@@ -242,6 +276,11 @@ export function NewOrderClient({
         it.key === key
           ? {
               ...it,
+              // Also the way back from a custom line: picking a product makes
+              // it a catalog line again.
+              kind: "catalog" as const,
+              // Catalog lines price from the curve, not a breakdown.
+              priceCharges: [],
               productId: id,
               productName: product?.name ?? "",
               // Colours and sizes never map across products, so both reset.
@@ -261,9 +300,10 @@ export function NewOrderClient({
     });
   }
 
-  // Debounced customer lookup. Nothing runs while a customer is already picked.
+  // Debounced account lookup off whatever was last typed in Name or Email.
+  // Nothing runs once an account is linked.
   useEffect(() => {
-    if (mode !== "existing" || picked) return;
+    if (linked) return;
     const q = query.trim();
     let cancelled = false;
     const timer = setTimeout(async () => {
@@ -282,23 +322,47 @@ export function NewOrderClient({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, mode, picked]);
+  }, [query, linked]);
 
-  function pickCustomer(hit: CustomerHit) {
-    setPicked(hit);
+  function linkAccount(hit: CustomerHit) {
+    setLinked(hit);
     setHits([]);
     setQuery("");
     const a = hit.address;
-    setAddress({
-      name: a?.name || hit.name || "",
+    setCustomer({
+      name: hit.name || a?.name || "",
+      email: hit.email || "",
+      phone: hit.phone || a?.phone || "",
       company: a?.company || "",
-      phone: a?.phone || hit.phone || "",
-      street: a?.street || "",
-      city: a?.city || "",
-      prov: a?.prov || "BC",
-      postal: a?.postal || "",
     });
-    if (a?.street) setFulfillment("ship");
+    // Their saved address only lands on the ship-to when it has a street;
+    // otherwise whatever staff already typed stays.
+    if (a?.street) {
+      setAddress({
+        name: a.name || hit.name || "",
+        company: a.company || "",
+        phone: a.phone || hit.phone || "",
+        street: a.street,
+        unit: a.unit || "",
+        city: a.city || "",
+        prov: a.prov || "BC",
+        postal: a.postal || "",
+      });
+      setFulfillment("ship");
+    }
+  }
+
+  /** Push ship-to into the bill-to card, with the customer's own details
+   *  filling any gap. The button lives on the shipping card, so the change
+   *  happens off-screen on narrow layouts: hence the toast. */
+  function copyShippingToBilling() {
+    setBilling({
+      ...address,
+      name: address.name || customer.name,
+      company: address.company || customer.company,
+      phone: address.phone || customer.phone,
+    });
+    toast({ title: "Copied to the billing address", variant: "success" });
   }
 
   // ---- Money ---------------------------------------------------------------
@@ -321,12 +385,49 @@ export function NewOrderClient({
   const total = roundCents(subtotal + rushAmount + shipping + tax);
   const pieces = items.reduce((sum, it) => sum + itemQty(it), 0);
 
-  const customerReady = mode === "existing" ? !!picked : !!guest.name.trim() && !!guest.email.trim();
-  const canCreate = customerReady && pieces > 0;
-  const who =
-    (mode === "existing" ? picked?.name || picked?.email : guest.name.trim() || guest.email.trim()) || "New customer";
+  // Everything that still blocks "Create order", in the order the form reads.
+  // The button, its caption AND the inline "Required" hints all derive from
+  // this one list, so they can never disagree about what is missing.
+  const emailOk = EMAIL_RE.test(customer.email.trim());
+  const missing: MissingField[] = [];
+  if (!customer.name.trim()) missing.push({ key: "customerName", label: "customer name" });
+  if (!emailOk) {
+    missing.push({ key: "customerEmail", label: customer.email.trim() ? "a valid customer email" : "customer email" });
+  }
+  if (pieces === 0) {
+    missing.push({ key: "qty", label: items.length === 1 ? "a quantity on the item" : "a quantity on at least one item" });
+  }
+  items.forEach((it, i) => {
+    if (itemQty(it) > 0 && !it.productName.trim()) {
+      missing.push({
+        key: `name-${it.key}`,
+        label: it.kind === "custom" ? `a description on item ${i + 1}` : `a product on item ${i + 1}`,
+      });
+    }
+  });
+  if (fulfillment === "ship" && !address.street.trim()) missing.push({ key: "street", label: "a shipping street" });
+  const missingKeys = new Set(missing.map((m) => m.key));
+  const canCreate = missing.length === 0;
+  /** True only once a submit has been attempted, so nothing lights up early. */
+  const flag = (key: string) => tried && missingKeys.has(key);
+  const who = customer.name.trim() || customer.email.trim();
 
   function submit() {
+    if (missing.length > 0) {
+      setTried(true);
+      toast({
+        title: missing.length === 1 ? "One thing is missing" : `${missing.length} things are missing`,
+        description: missing.map((m) => m.label).join(", "),
+        variant: "error",
+      });
+      // Jump to the first gap. The quantity gap has no single box of its own,
+      // so it points at the first item's first size input.
+      const el = document.getElementById(fid(missing[0].key));
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      (el as HTMLElement | null)?.focus?.({ preventScroll: true });
+      return;
+    }
+
     const payload: ManualOrderItemInput[] = items
       .filter((it) => itemQty(it) > 0)
       .map((it) => {
@@ -342,6 +443,7 @@ export function NewOrderClient({
           decorationMethodId: product?.methods.find((m) => m.name === it.spots[0]?.type)?.id ?? null,
           sizeQuantities: Object.fromEntries(it.sizes.filter(([, q]) => q > 0)),
           unitPrice: unitOf(it),
+          priceCharges: it.kind === "custom" ? it.priceCharges : [],
           spots: it.spots,
           bagging: it.bagging,
           sewnTags: it.sewnTags,
@@ -365,13 +467,14 @@ export function NewOrderClient({
 
     startSave(async () => {
       const res = await createManualOrderAction({
-        customerId: mode === "existing" ? picked?.id ?? null : null,
-        guest: mode === "guest" ? guest : null,
+        customerId: linked?.id ?? null,
+        customer,
         status,
         fulfillment,
         rush: rushValue > 0 ? { type: rushType, value: rushValue } : null,
         dueDate: dueDate || null,
         address,
+        billing: billingBlank ? null : billing,
         customerNote,
         shipping,
         tax,
@@ -387,15 +490,20 @@ export function NewOrderClient({
     });
   }
 
-  const heroCaption = !customerReady
-    ? "Pick or enter the customer in the cards below first"
-    : pieces === 0
-      ? "Add at least one item with a quantity"
-      : `Creates ${who}'s order and opens it`;
+  // Only speaks up after a failed submit; nothing to say otherwise.
+  const heroCaption = tried && !canCreate ? `Still missing: ${missing.map((m) => m.label).join(", ")}` : null;
 
   const stageIdx = statusStageIndex(status);
   const stageLabel =
     stageIdx >= 0 ? `${stageIdx + 1}/${TRACKER_STAGES.length} ${TRACKER_STAGES[stageIdx].label}` : STATUS_META[status].label;
+
+  function addItem() {
+    const fresh = blankItem("catalog");
+    setItems((l) => [...l, fresh]);
+    // The new card lands at the bottom of the list, often below the
+    // fold: bring it into view once it has rendered.
+    requestAnimationFrame(() => scrollToCenter(document.getElementById(`new-item-${fresh.key}`)));
+  }
 
   return (
     <div className="space-y-6 px-4 py-6 sm:px-8">
@@ -414,10 +522,7 @@ export function NewOrderClient({
               <h1 className="font-display text-3xl font-bold text-dream-ink">New order</h1>
               <Badge variant="info">{STATUS_META[status].label}</Badge>
             </div>
-            <div className="mt-1 text-sm">
-              <div className="font-medium text-dream-ink">{who}</div>
-              <div className="text-dream-muted">Manual order (phone / DM / walk-in)</div>
-            </div>
+            {who && <div className="mt-1 text-sm font-medium text-dream-ink">{who}</div>}
           </div>
 
           {/* Top summary clone: stage, money, payment */}
@@ -444,15 +549,13 @@ export function NewOrderClient({
             <Button
               variant="primary"
               size="lg"
-              className="min-w-48 disabled:pointer-events-auto disabled:cursor-not-allowed"
+              className="min-w-48"
               loading={saving}
-              disabled={!canCreate}
-              title={canCreate ? undefined : heroCaption}
               onClick={submit}
             >
               Create order
             </Button>
-            <p className="text-xs text-dream-muted">{heroCaption}</p>
+            {heroCaption && <p className="text-xs text-dream-danger">{heroCaption}</p>}
           </div>
         </div>
       </div>
@@ -461,23 +564,32 @@ export function NewOrderClient({
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="font-display text-lg font-semibold text-dream-ink">Items ({items.length})</h2>
-          <div className="ml-auto flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setItems((l) => [...l, blankItem("catalog")])}>
-              Add catalog item
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setItems((l) => [...l, blankItem("custom")])}>
-              Add custom item
-            </Button>
-          </div>
+          {/* One button: the item's product picker offers the catalog AND a
+              custom item, so the choice happens there. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="ml-auto border-dream-purple/40 text-dream-purple hover:bg-dream-lavender-mist"
+            onClick={addItem}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden>
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Add item
+          </Button>
         </div>
 
         {items.map((it, idx) => (
+          <div key={it.key} id={`new-item-${it.key}`} className="scroll-mt-4">
           <NewItemCard
-            key={it.key}
             item={it}
             index={idx}
             products={products}
             product={it.kind === "catalog" ? byId.get(it.productId) : undefined}
+            missingName={flag(`name-${it.key}`)}
+            nameFieldId={fid(`name-${it.key}`)}
+            missingQty={flag("qty")}
+            qtyFieldId={idx === 0 ? fid("qty") : undefined}
             methodNamesAll={methodNames}
             onPatch={(fn) => patchItem(it.key, fn)}
             onPatchPriced={(fn) => patchItemPriced(it.key, fn)}
@@ -485,144 +597,155 @@ export function NewOrderClient({
             onPickCustom={() => switchToCustom(it.key)}
             onRemove={items.length > 1 ? () => setItems((l) => l.filter((x) => x.key !== it.key)) : undefined}
           />
+          </div>
         ))}
+
+        {/* Second Add item at the foot of a long list, so finishing the last
+            item doesn't mean scrolling back up to the header. */}
+        {items.length > 1 && <AddItemRow onClick={addItem} />}
       </div>
 
       {/* ── Reference: customer, order settings, money, kept at the bottom ── */}
       <section className="space-y-6 border-t border-dream-line pt-8">
         <div className="grid items-start gap-6 lg:grid-cols-3">
-          {/* Customer card */}
+          {/* Customer card: who this is for and where their emails go */}
           <Card>
-            <CardHeader className="flex-row items-center justify-between pb-3">
+            <CardHeader className="pb-3">
               <CardTitle className="text-base">Customer</CardTitle>
-              <div className="flex gap-1 rounded-lg bg-dream-bg p-1">
-                {(["existing", "guest"] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    className={cn(
-                      "rounded-md px-3 py-1 text-xs font-semibold transition-colors",
-                      mode === m ? "bg-white text-dream-ink shadow-sm" : "text-dream-muted hover:text-dream-ink",
-                    )}
-                  >
-                    {m === "existing" ? "Existing account" : "New / walk-in"}
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-dream-muted">Who the order is for. Their emails go to this address.</p>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {mode === "existing" ? (
-                picked ? (
-                  <div className="flex items-start justify-between gap-3 rounded-lg border border-dream-line bg-dream-bg p-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-dream-ink">{picked.name ?? "Unnamed"}</div>
-                      <div className="truncate text-dream-muted">{picked.email}</div>
-                      {picked.phone && <div className="text-dream-muted">{picked.phone}</div>}
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => setPicked(null)}>
-                      Change
-                    </Button>
+              {linked && (
+                <div className="flex items-start justify-between gap-3 rounded-lg border border-dream-line bg-dream-bg px-3 py-2">
+                  <div className="min-w-0 text-xs">
+                    <div className="font-semibold text-dream-ink">Linked to their account</div>
+                    <div className="truncate text-dream-muted">{linked.email}</div>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Labeled label="Search accounts">
-                      <Input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Jane Smith or jane@example.com"
-                      />
-                    </Labeled>
-                    {searching && <p className="text-xs text-dream-muted">Searching...</p>}
-                    {hits.length > 0 && (
-                      <ul className="divide-y divide-dream-line overflow-hidden rounded-lg border border-dream-line">
-                        {hits.map((h) => (
-                          <li key={h.id}>
-                            <button
-                              type="button"
-                              onClick={() => pickCustomer(h)}
-                              className="flex w-full flex-col items-start px-3 py-2 text-left transition-colors hover:bg-dream-bg"
-                            >
-                              <span className="text-sm font-semibold text-dream-ink">{h.name ?? "Unnamed"}</span>
-                              <span className="text-xs text-dream-muted">{h.email}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {!searching && query.trim().length >= 2 && hits.length === 0 && (
-                      <p className="text-xs text-dream-muted">
-                        No match. Switch to <strong>New / walk-in</strong> to type their details instead.
-                      </p>
-                    )}
-                  </div>
-                )
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                    <Labeled label="Name *">
-                      <Input value={guest.name} onChange={(e) => setGuest({ ...guest, name: e.target.value })} />
-                    </Labeled>
-                    <Labeled label="Phone">
-                      <Input value={guest.phone} onChange={(e) => setGuest({ ...guest, phone: e.target.value })} />
-                    </Labeled>
-                  </div>
-                  <Labeled label="Email * (order updates go here)">
-                    <Input
-                      type="email"
-                      value={guest.email}
-                      onChange={(e) => setGuest({ ...guest, email: e.target.value })}
-                    />
-                  </Labeled>
+                  <Button variant="ghost" size="sm" onClick={() => setLinked(null)}>
+                    Unlink
+                  </Button>
                 </div>
               )}
-
-              {/* Fulfilment + shipping address, mirroring the detail's edit form */}
-              <div className="space-y-3 border-t border-dream-line pt-3">
-                <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                  <Labeled label="Fulfillment">
-                    <Select value={fulfillment} onChange={(e) => setFulfillment(e.target.value as "ship" | "pickup")}>
-                      <option value="pickup">Pick up</option>
-                      <option value="ship">Ship</option>
-                    </Select>
-                  </Labeled>
-                  <Labeled label="Company">
-                    <Input value={address.company} onChange={(e) => setAddr({ company: e.target.value })} />
-                  </Labeled>
-                </div>
-                <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                  <Labeled label="Contact name">
-                    <Input value={address.name} onChange={(e) => setAddr({ name: e.target.value })} />
-                  </Labeled>
-                  <Labeled label="Phone">
-                    <Input value={address.phone} onChange={(e) => setAddr({ phone: e.target.value })} />
-                  </Labeled>
-                </div>
-                <Labeled label={fulfillment === "ship" ? "Street *" : "Street"}>
-                  <Input value={address.street} onChange={(e) => setAddr({ street: e.target.value })} />
+              <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <Labeled label="Name *" error={flag("customerName") ? "Required" : undefined}>
+                  <Input
+                    id={fid("customerName")}
+                    value={customer.name}
+                    aria-invalid={flag("customerName") || undefined}
+                    onChange={(e) => {
+                      setCust({ name: e.target.value });
+                      setQuery(e.target.value);
+                    }}
+                  />
                 </Labeled>
-                {/* A Canadian postal code does not fit 5.5rem at the phone's 16px input text. */}
-                <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_5.5rem]">
-                  <Labeled label="City">
-                    <Input value={address.city} onChange={(e) => setAddr({ city: e.target.value })} />
-                  </Labeled>
-                  <Labeled label="Postal">
-                    <Input value={address.postal} onChange={(e) => setAddr({ postal: e.target.value })} />
-                  </Labeled>
-                </div>
-                <Labeled label="Province (sets the sales tax)">
-                  <Select value={address.prov} onChange={(e) => setAddr({ prov: e.target.value })}>
-                    {PROVINCES.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.code} - {p.name}
-                      </option>
-                    ))}
-                  </Select>
+                <Labeled label="Phone">
+                  <Input value={customer.phone} onChange={(e) => setCust({ phone: e.target.value })} />
                 </Labeled>
               </div>
+              <Labeled
+                label="Email *"
+                error={
+                  !flag("customerEmail") ? undefined : customer.email.trim() ? "Doesn't look like an email" : "Required"
+                }
+              >
+                <Input
+                  id={fid("customerEmail")}
+                  type="email"
+                  value={customer.email}
+                  aria-invalid={flag("customerEmail") || undefined}
+                  onChange={(e) => {
+                    setCust({ email: e.target.value });
+                    setQuery(e.target.value);
+                  }}
+                />
+              </Labeled>
+              <Labeled label="Company">
+                <Input value={customer.company} onChange={(e) => setCust({ company: e.target.value })} />
+              </Labeled>
+
+              {/* Account matches for what was just typed. Picking one links the
+                  order to that account; ignoring them makes a guest order. */}
+              {!linked && (searching || hits.length > 0) && (
+                <div className="space-y-1">
+                  <div className={LBL}>{searching ? "Looking for an account..." : "Has an account? Pick to link"}</div>
+                  {hits.length > 0 && (
+                    <ul className="divide-y divide-dream-line overflow-hidden rounded-lg border border-dream-line">
+                      {hits.map((h) => (
+                        <li key={h.id}>
+                          <button
+                            type="button"
+                            onClick={() => linkAccount(h)}
+                            className="flex w-full flex-col items-start px-3 py-2 text-left transition-colors hover:bg-dream-bg"
+                          >
+                            <span className="text-sm font-semibold text-dream-ink">{h.name ?? "Unnamed"}</span>
+                            <span className="text-xs text-dream-muted">{h.email}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
+          {/* Shipping address card */}
+          <Card>
+            <CardHeader className="flex-row items-start justify-between gap-3 pb-3">
+              <div>
+                <CardTitle className="text-base">Shipping address</CardTitle>
+                <p className="text-xs text-dream-muted">Where the order goes.</p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0 gap-1.5"
+                title="Fill the billing address with these details"
+                onClick={copyShippingToBilling}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                  <rect x="9" y="9" width="11" height="11" rx="2" />
+                  <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+                </svg>
+                Copy to billing
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <Labeled label="Fulfillment">
+                <Select value={fulfillment} onChange={(e) => setFulfillment(e.target.value as "ship" | "pickup")}>
+                  <option value="pickup">Pick up</option>
+                  <option value="ship">Ship</option>
+                </Select>
+              </Labeled>
+              <AddressFields
+                value={address}
+                onChange={setAddr}
+                streetRequired={fulfillment === "ship"}
+                streetId={fid("street")}
+                streetError={flag("street") ? "Required to ship. Or switch fulfillment to Pick up" : undefined}
+                namePlaceholder={customer.name || undefined}
+                phonePlaceholder={customer.phone || undefined}
+                companyPlaceholder={customer.company || undefined}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Billing address card */}
+          <Card className="border-dashed">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Billing address</CardTitle>
+              <p className="text-xs text-dream-muted">Who pays. Goes on the invoice, never on the shipping label.</p>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <AddressFields value={billing} onChange={setBill} />
+              {billingBlank && (
+                <p className="text-[11px] text-dream-faint">Leave blank to bill the shipping address.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid items-start gap-6 lg:grid-cols-2">
           {/* Order details card */}
           <Card>
             <CardHeader className="pb-3">
@@ -775,14 +898,7 @@ export function NewOrderClient({
         </div>
 
         <div className="flex justify-end">
-          <Button
-            size="lg"
-            loading={saving}
-            disabled={!canCreate}
-            className="disabled:pointer-events-auto disabled:cursor-not-allowed"
-            title={canCreate ? undefined : heroCaption}
-            onClick={submit}
-          >
+          <Button size="lg" loading={saving} onClick={submit}>
             Create order
           </Button>
         </div>
@@ -791,13 +907,90 @@ export function NewOrderClient({
   );
 }
 
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
+function Labeled({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div>
       <div className={cn(LBL, "mb-1")}>{label}</div>
       {children}
+      {error && <RequiredHint>{error}</RequiredHint>}
     </div>
   );
+}
+
+/** The seven address boxes, shared by the ship-to and bill-to cards so they
+ *  read identically and differ only by their card title. */
+function AddressFields({
+  value,
+  onChange,
+  streetRequired,
+  streetId,
+  streetError,
+  namePlaceholder,
+  phonePlaceholder,
+  companyPlaceholder,
+}: {
+  value: ManualOrderAddress;
+  onChange: (patch: Partial<ManualOrderAddress>) => void;
+  streetRequired?: boolean;
+  /** Set on the ship-to card only, so a failed submit can jump to it. */
+  streetId?: string;
+  streetError?: string;
+  /** Ghost text showing what the server falls back to when the box is empty. */
+  namePlaceholder?: string;
+  phonePlaceholder?: string;
+  companyPlaceholder?: string;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <Labeled label="Name">
+          <Input value={value.name} placeholder={namePlaceholder} onChange={(e) => onChange({ name: e.target.value })} />
+        </Labeled>
+        <Labeled label="Phone">
+          <Input value={value.phone} placeholder={phonePlaceholder} onChange={(e) => onChange({ phone: e.target.value })} />
+        </Labeled>
+      </div>
+      <Labeled label="Company">
+        <Input value={value.company} placeholder={companyPlaceholder} onChange={(e) => onChange({ company: e.target.value })} />
+      </Labeled>
+      <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_7rem]">
+        <Labeled label={streetRequired ? "Street *" : "Street"} error={streetError}>
+          <Input
+            id={streetId}
+            value={value.street}
+            aria-invalid={!!streetError || undefined}
+            onChange={(e) => onChange({ street: e.target.value })}
+          />
+        </Labeled>
+        <Labeled label="Apt / Suite">
+          <Input value={value.unit} placeholder="Optional" onChange={(e) => onChange({ unit: e.target.value })} />
+        </Labeled>
+      </div>
+      {/* A Canadian postal code does not fit 5.5rem at the phone's 16px input text. */}
+      <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_5.5rem]">
+        <Labeled label="City">
+          <Input value={value.city} onChange={(e) => onChange({ city: e.target.value })} />
+        </Labeled>
+        <Labeled label="Postal">
+          <Input value={value.postal} onChange={(e) => onChange({ postal: e.target.value })} />
+        </Labeled>
+      </div>
+      <Labeled label="Province">
+        <Select value={value.prov} onChange={(e) => onChange({ prov: e.target.value })}>
+          {PROVINCES.map((p) => (
+            <option key={p.code} value={p.code}>
+              {p.code} - {p.name}
+            </option>
+          ))}
+        </Select>
+      </Labeled>
+    </>
+  );
+}
+
+/** Inline "this is why the button is grey" note under a blocking input. */
+function RequiredHint({ children }: { children: React.ReactNode }) {
+  return <p className="mt-1 text-xs font-medium text-dream-danger">{children}</p>;
 }
 
 
@@ -817,12 +1010,23 @@ function NewItemCard({
   onPickProduct,
   onPickCustom,
   onRemove,
+  missingName,
+  missingQty,
+  nameFieldId,
+  qtyFieldId,
 }: {
   item: ItemDraft;
   index: number;
   products: CatalogProduct[];
   product: CatalogProduct | undefined;
   methodNamesAll: string[];
+  /** This line has a quantity but no product / description yet. */
+  missingName: boolean;
+  /** No line on the order has a quantity yet. */
+  missingQty: boolean;
+  /** DOM ids a failed submit jumps to. Only the first card gets a qty id. */
+  nameFieldId: string;
+  qtyFieldId?: string;
   onPatch: (fn: (it: ItemDraft) => ItemDraft) => void;
   onPatchPriced: (fn: (it: ItemDraft) => ItemDraft) => void;
   onPickProduct: (id: string) => void;
@@ -963,8 +1167,12 @@ function NewItemCard({
                       select; the button reads as the field it replaces. */}
                   <button
                     type="button"
+                    id={nameFieldId}
                     onClick={() => setPickerOpen(true)}
-                    className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-dream-line bg-white px-3 text-left text-sm transition-colors hover:border-dream-purple"
+                    className={cn(
+                      "flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border bg-white px-3 text-left text-sm transition-colors hover:border-dream-purple",
+                      missingName ? "border-dream-danger" : "border-dream-line",
+                    )}
                   >
                     {product ? (
                       <>
@@ -972,23 +1180,15 @@ function NewItemCard({
                           {product.brand ? `${product.brand} ` : ""}
                           {product.name}
                         </span>
-                        <span className="ml-auto shrink-0 text-xs font-semibold text-dream-purple">Change</span>
+                        <span className="ml-auto shrink-0 text-xs text-dream-purple">Change</span>
                       </>
                     ) : (
                       <>
                         <span className="text-dream-muted">Pick a product…</span>
-                        <span className="ml-auto shrink-0 text-xs font-semibold text-dream-purple">Browse</span>
+                        <span className="ml-auto shrink-0 text-xs text-dream-purple">Browse</span>
                       </>
                     )}
                   </button>
-                  <ProductPickerDialog
-                    open={pickerOpen}
-                    onOpenChange={setPickerOpen}
-                    products={products}
-                    currentId={item.productId}
-                    onPick={onPickProduct}
-                    onPickCustom={onPickCustom}
-                  />
                   {/* Colour twin of the product picker: photo grid, not a select. */}
                   <button
                     type="button"
@@ -1027,13 +1227,28 @@ function NewItemCard({
                   )}
                 </>
               ) : (
-                <Input
-                  value={item.productName}
-                  onChange={(e) => onPatch((p) => ({ ...p, productName: e.target.value }))}
-                  placeholder="Vinyl banner, 3ft x 6ft"
-                  className="flex-1 font-semibold text-dream-ink"
-                />
+                <>
+                  <Input
+                    id={nameFieldId}
+                    value={item.productName}
+                    aria-invalid={missingName || undefined}
+                    onChange={(e) => onPatch((p) => ({ ...p, productName: e.target.value }))}
+                    placeholder="Vinyl banner, 3ft x 6ft"
+                    className="h-10 flex-1 font-semibold text-dream-ink"
+                  />
+                  <Button variant="secondary" size="sm" className="h-10" onClick={() => setPickerOpen(true)}>
+                    Change
+                  </Button>
+                </>
               )}
+              <ProductPickerDialog
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+                products={products}
+                currentId={item.productId}
+                onPick={onPickProduct}
+                onPickCustom={onPickCustom}
+              />
               {onRemove && (
                 <button
                   type="button"
@@ -1046,12 +1261,13 @@ function NewItemCard({
                   </svg>
                 </button>
               )}
+              {missingName && (
+                <RequiredHint>{isCatalog ? "Pick a product for this item" : "Describe this item, it's what prints on the order"}</RequiredHint>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              {!isCatalog ? (
-                <Badge variant="neutral">Custom</Badge>
-              ) : product?.ssStyleName ? (
+              {!isCatalog ? null : product?.ssStyleName ? (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                   <span className={LBL}>S&amp;S blank</span>
                   <span className="font-semibold text-dream-ink">
@@ -1085,9 +1301,16 @@ function NewItemCard({
 
             {/* Sizes, one horizontal row of size columns, cloned from the detail */}
             <div>
-              <div className={cn(LBL, "mb-2")}>Sizes ({qty} pcs)</div>
+              <div className={cn(LBL, "mb-2")}>
+                Sizes ({qty} pcs)
+                {missingQty && qty === 0 && (
+                  <span className="ml-2 text-dream-danger">
+                    {isCatalog ? "Type how many of each size" : "Type the quantity"}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap items-start gap-1.5">
-                {displaySizes.map((s) => {
+                {displaySizes.map((s, si) => {
                   const q = qtyOf(s);
                   const fixed = !isCatalog && s === FREEFORM_SIZE;
                   return (
@@ -1104,6 +1327,8 @@ function NewItemCard({
                         min={0}
                         value={q === 0 ? "" : q}
                         placeholder="0"
+                        id={si === 0 ? qtyFieldId : undefined}
+                        aria-invalid={(missingQty && qty === 0) || undefined}
                         onChange={(e) => setSizeQty(s, Math.max(0, Number(e.target.value) || 0))}
                         className="h-9 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
@@ -1206,21 +1431,7 @@ function NewItemCard({
             <div className="grid gap-3 sm:grid-cols-3">
               {LINE_NOTE_FIELDS.map((f) => (
                 <div key={f.key} className="space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className={LBL}>{f.label}</span>
-                    {f.fromCustomer ? (
-                      <span
-                        title="What the customer asked for. Shown to them on their order page notes."
-                        className="rounded-md bg-dream-info-soft px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-info"
-                      >
-                        From the customer
-                      </span>
-                    ) : (
-                      <span className="rounded-md bg-dream-line px-1.5 py-0.5 text-[11px] font-semiboldr text-dream-muted">
-                        Internal
-                      </span>
-                    )}
-                  </div>
+                  <span className={LBL}>{f.label}</span>
                   <Textarea
                     rows={2}
                     value={item[f.key]}
@@ -1232,8 +1443,8 @@ function NewItemCard({
             </div>
           </div>
 
-          {/* RIGHT, price rail */}
-          <div className="shrink-0 border-t border-dream-line pt-4 lg:w-48 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+          {/* RIGHT, price rail (wider on custom lines for the breakdown) */}
+          <div className={cn("shrink-0 border-t border-dream-line pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0", isCatalog ? "lg:w-48" : "lg:w-60")}>
             <div className={cn(LBL, "mb-1")}>Unit price</div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-dream-muted">$</span>
@@ -1241,10 +1452,14 @@ function NewItemCard({
                 value={item.unitPrice}
                 inputMode="decimal"
                 placeholder="0.00"
+                // The breakdown owns the price while it has charges; remove
+                // them all to type a price by hand again.
+                readOnly={item.priceCharges.length > 0}
+                title={item.priceCharges.length > 0 ? "Set by the price breakdown" : undefined}
                 // Typing a price by hand wins: the auto chip drops off and the
                 // number is left alone until the next pricing-relevant edit.
                 onChange={(e) => onPatch((p) => ({ ...p, unitPrice: e.target.value, autoPrice: null }))}
-                className="h-9 w-24"
+                className={cn("h-9 w-24", item.priceCharges.length > 0 && "bg-dream-bg")}
               />
               {item.autoPrice && (
                 <span
@@ -1262,6 +1477,15 @@ function NewItemCard({
                 {formatCAD(unit)} × {qty}
               </div>
             </div>
+            {!isCatalog && (
+              <div className="mt-4 border-t border-dream-line pt-4">
+                <PriceBreakdown
+                  charges={item.priceCharges}
+                  qty={qty}
+                  onChange={(priceCharges) => onPatch((p) => ({ ...p, priceCharges }))}
+                />
+              </div>
+            )}
             {noCurve && (
               <p className="mt-3 rounded-lg border border-dream-warn/40 bg-dream-warn-soft p-2.5 text-xs text-dream-warn">
                 No price curve on this product, type a price.
@@ -1340,7 +1564,14 @@ function MockupUploader({
       {mockups.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5">
           {mockups.map((m) => (
-            <div key={m.path} className="group relative aspect-square overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
+            <div key={m.path} className="group relative aspect-square overflow-hidden rounded-lg border border-dream-line bg-dream-bg transition-colors hover:border-dream-purple">
+              <button
+                type="button"
+                onClick={() => openInNewTab(m.preview)}
+                aria-label={`Open ${m.name} in a new tab`}
+                title="Open in a new tab"
+                className="block h-full w-full cursor-pointer"
+              >
               {m.kind === "pdf" ? (
                 <span className="flex h-full w-full flex-col items-center justify-center text-dream-muted">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6" aria-hidden>
@@ -1353,6 +1584,7 @@ function MockupUploader({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={m.preview} alt={m.name} className="h-full w-full object-contain" />
               )}
+              </button>
               <button
                 type="button"
                 onClick={() => remove(m.path)}
@@ -1387,7 +1619,7 @@ function MockupUploader({
           uploading && "pointer-events-none opacity-60",
         )}
       >
-        {uploading ? "Uploading…" : mockups.length > 0 ? "Add another mockup" : "Upload mockup"}
+        {uploading ? "Uploading…" : "Upload mockup"}
       </label>
     </div>
   );

@@ -36,7 +36,9 @@ const POPULAR_SEARCHES = ["T-shirts", "Hoodies", "Embroidery", "Tote bags"];
 const SEARCH_CATEGORIES = [
   { label: "Apparel", href: "/shop?category=shirts", image: "/products/custom-t-shirts-vancouver.jpg" },
   { label: "Headwear", href: "/shop?category=hats-toques", image: "/products/custom-hats-vancouver.jpg" },
-  { label: "Bags", href: "/shop?category=totes", image: "/products/custom-tote-bags-vancouver.jpg" },
+  // Tall photo on a white ground: shown whole, cropping it to a square cut
+  // off the handles and the printed logo.
+  { label: "Bags", href: "/shop?category=totes", image: "/products/custom-tote-bags-vancouver.jpg", contain: true },
   { label: "Printing services", href: "/services", image: "/custom-screen-printed-tshirts-vancouver.webp" },
 ];
 
@@ -313,7 +315,7 @@ export default function SiteNav() {
                 so there is no layout shift and no client-side width check.
                 The lockup is ~3.2:1, so it eats far more width per unit of
                 height than the old 1.53:1 logo; there is slack between the links and
-                the icon cluster at xl+, and the wing is shrink-0, so it can
+                the icon cluster from the nav breakpoint (1160px), and the wing is shrink-0, so it can
                 run bigger than the old one without squeezing the row. */}
             <Link href="/" className="flex shrink-0 items-center pr-2 sm:pr-4 2xl:pr-8">
               <Image
@@ -334,7 +336,7 @@ export default function SiteNav() {
                 width={1668}
                 height={522}
                 priority
-                className="hidden h-[52px] w-auto shrink-0 translate-y-[2px] md:block lg:h-[62px] xl:h-[54px] 2xl:h-[66px]"
+                className="hidden h-[52px] w-auto shrink-0 translate-y-[2px] md:block lg:h-[62px] nav:h-[54px] 2xl:h-[66px]"
               />
             </Link>
           </div>
@@ -342,7 +344,7 @@ export default function SiteNav() {
           {/* Nav links, desktop only, centered between the wings. */}
           <nav
             aria-label="Main"
-            className="hidden shrink-0 items-center gap-1.5 xl:flex xl:pl-2 2xl:gap-3 2xl:pl-4"
+            className="hidden shrink-0 items-center gap-1.5 nav:flex nav:pl-2 2xl:gap-3 2xl:pl-4"
           >
             {NAV_LINKS.map((link) =>
               link.label === "Brands" ? (
@@ -394,7 +396,7 @@ export default function SiteNav() {
             )}
           </nav>
 
-          <div className="relative flex min-w-0 flex-1 items-center justify-end gap-1.5 min-[400px]:gap-3 lg:gap-4 xl:gap-2.5 2xl:gap-4">
+          <div className="relative flex min-w-0 flex-1 items-center justify-end gap-1.5 min-[400px]:gap-3 lg:gap-4 nav:gap-2.5 2xl:gap-4">
             {/* Search toggle. The field itself is the drawer under the nav row
                 (below), at every width: the pill that used to open in this
                 row overlaid the cart/account icons and, on 1536-1700px
@@ -446,7 +448,7 @@ export default function SiteNav() {
             </Link>
 
             {/* Quick Quote CTA, desktop only */}
-            <div className="sun-burst relative hidden xl:inline-block">
+            <div className="sun-burst relative hidden nav:inline-block">
               {SUN_RAYS.map((ray, i) => (
                 <span
                   key={i}
@@ -477,7 +479,7 @@ export default function SiteNav() {
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((o) => !o)}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-dream-purple xl:hidden"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-dream-purple nav:hidden"
             >
               <svg
                 viewBox="0 0 28 22"
@@ -660,13 +662,13 @@ export default function SiteNav() {
                       <div className="mt-4 grid grid-cols-4 gap-3">
                         {SEARCH_CATEGORIES.map((c) => (
                           <Link key={c.label} href={c.href} onClick={closeSearch} className="group text-center">
-                            <span className="block aspect-square overflow-hidden rounded-xl bg-dream-lavender-mist">
+                            <span className={`block aspect-square overflow-hidden rounded-xl ${"contain" in c ? "bg-white" : "bg-dream-lavender-mist"}`}>
                               <Image
                                 src={c.image}
                                 alt=""
                                 width={220}
                                 height={220}
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                className={`h-full w-full ${"contain" in c ? "object-contain p-1.5" : "object-cover"} transition-transform duration-300 group-hover:scale-105`}
                               />
                             </span>
                             <span className="mt-2 block font-display text-[13px] font-semibold text-dream-ink">{c.label}</span>
@@ -714,7 +716,7 @@ export default function SiteNav() {
         tappable as the close button. */}
       <div
         aria-hidden={!menuOpen}
-        className={`fixed inset-0 z-40 xl:hidden ${
+        className={`fixed inset-0 z-40 nav:hidden ${
           menuOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -833,7 +835,7 @@ export default function SiteNav() {
     <div
       aria-hidden="true"
       style={spacerH != null ? { height: spacerH } : undefined}
-      className="h-[61px] sm:h-[73px] md:h-[81px] lg:h-[91px] xl:h-[83px] 2xl:h-[95px]"
+      className="h-[61px] sm:h-[73px] md:h-[81px] lg:h-[91px] nav:h-[83px] 2xl:h-[95px]"
     />
     </>
   );
