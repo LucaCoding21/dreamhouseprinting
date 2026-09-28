@@ -22,7 +22,7 @@ export default function HeroImage() {
       style={{ transformOrigin: "center top" }}
     >
       <Image
-        src="/sticker-sparkles.png"
+        src="/sticker-moon.png"
         alt=""
         aria-hidden="true"
         width={400}

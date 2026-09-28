@@ -29,7 +29,7 @@ export default function BehindTheScenes() {
 
       {/* Decorative sticker, fills the empty top-right corner */}
       <Image
-        src="/sticker-moon.png"
+        src="/sticker-stars.png"
         alt=""
         width={400}
         height={400}
