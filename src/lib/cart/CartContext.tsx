@@ -28,8 +28,8 @@ export interface CartItem {
   addedAt: number;
 }
 
-/** Split a stored colour summary into its facts ("Aqua", "12 pcs") so they can
- *  be laid out with a whitespace gap instead of a dot separator. */
+/** Split a stored colour summary into its facts ("Aqua", "12 pcs") so the
+ *  display can pick its own separator (the cart joins them with " | "). */
 export function colourSummaryParts(summary: string): string[] {
   return summary.split(" · ").map((p) => p.trim()).filter(Boolean);
 }

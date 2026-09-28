@@ -162,10 +162,8 @@ export default function CartNavButton({ iconClassName = NAV_ICON_CLASS }: { icon
                           {formatCAD(item.total)}
                         </span>
                       </div>
-                      <p className="flex flex-wrap gap-x-3 text-[14px] text-dream-muted">
-                        {colourSummaryParts(item.colourSummary).map((part) => (
-                          <span key={part} className="whitespace-nowrap">{part}</span>
-                        ))}
+                      <p className="truncate text-[13px] text-dream-muted">
+                        {colourSummaryParts(item.colourSummary).join(" | ")}
                       </p>
                       <div className="relative z-10 mt-auto flex items-center justify-end gap-3 pt-2 text-[14px] font-semibold">
                         {item.productId && (
