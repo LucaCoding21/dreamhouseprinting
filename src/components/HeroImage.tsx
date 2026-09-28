@@ -27,7 +27,7 @@ export default function HeroImage() {
         aria-hidden="true"
         width={400}
         height={400}
-        className="pointer-events-none absolute right-2 bottom-2 z-20 h-auto w-[125px] rotate-[10deg] sm:right-0 sm:bottom-4 sm:w-[160px] lg:right-2 lg:bottom-6 lg:w-[160px]"
+        className="pointer-events-none absolute right-2 -bottom-2 z-20 h-auto w-[125px] rotate-[10deg] sm:right-0 sm:bottom-0 sm:w-[160px] lg:right-2 lg:bottom-2 lg:w-[160px]"
       />
       {/* Flat lavender stand-in roughly tracing the photo's purple blob, sized
           by the real image below (the only in-flow child, so the wrapper is
