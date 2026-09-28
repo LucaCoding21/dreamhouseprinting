@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   Dialog,
@@ -12,23 +11,24 @@ import {
   DialogTitle,
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
-import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/use-toast";
-import { cn } from "@/lib/cn";
-import { swatchStyle } from "@/lib/swatch";
 import { ProductPickerDialog } from "../new/ProductPickerDialog";
 import { ColourPickerDialog } from "../new/ColourPickerDialog";
 import { addLineItemAction, listCatalogProductsAction } from "../actions";
 import type { CatalogProduct } from "../new/shared";
+import type { AddLineItemInput } from "../actions";
 
 /**
  * Add a line to an order that already exists (Julian: "how do I add new lines
  * and products to the order on customer submitted orders?").
  *
- * Two modes: a catalog garment picked off the same visual pickers the
- * manual-order screen uses, or a freeform description for an off-catalog job.
- * The line lands empty; sizes and the price are filled in on the normal line
- * card, where the auto-reprice already reads the product's curve.
+ * "Add item" lands straight on the visual product picker (Julian didn't want a
+ * chooser step in front of it). Picking a garment goes on to its colours and
+ * picking a colour adds the line, no confirm; a one-colour product skips the
+ * colour step too. The picker's pinned "Custom product" tile opens the only
+ * form left here: a name for off-catalog work. The line lands empty; sizes and
+ * the price are filled in on the normal line card, where the auto-reprice
+ * already reads the product's curve.
  */
 export function AddLineItemDialog({
   orderId,
@@ -43,201 +43,175 @@ export function AddLineItemDialog({
   onAdded: () => void;
 }) {
   const { toast } = useToast();
-  const [mode, setMode] = useState<"catalog" | "custom">("catalog");
+  const [step, setStep] = useState<"product" | "colour" | "custom">("product");
   const [products, setProducts] = useState<CatalogProduct[] | null>(null);
-  const [loading, setLoading] = useState(false);
   const [productId, setProductId] = useState("");
-  const [colourName, setColourName] = useState("");
   const [customName, setCustomName] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [colourOpen, setColourOpen] = useState(false);
   const [pending, start] = useTransition();
+  // The pickers close themselves right after onPick, so their onOpenChange(false)
+  // fires on a pick too. This marks "moved on to the next step, not dismissed".
+  const advanced = useRef(false);
 
   const product = products?.find((p) => p.id === productId) ?? null;
-  const colour = product?.colours.find((c) => c.name === colourName) ?? null;
 
-  /** The catalog carries every colourway of every product, so it is fetched on
-   *  demand (first time the picker is opened) rather than with the order. */
-  async function openPicker() {
-    if (products) {
-      setPickerOpen(true);
-      return;
-    }
-    setLoading(true);
-    const res = await listCatalogProductsAction();
-    setLoading(false);
-    if (res.error || !res.products) {
-      toast({ title: "Could not load the catalog", description: res.error, variant: "error" });
-      return;
-    }
-    setProducts(res.products);
-    setPickerOpen(true);
-  }
+  // The catalog carries every colourway of every product, so it is fetched on
+  // the first open rather than with the order. The picker shows a spinner until
+  // it lands.
+  useEffect(() => {
+    if (!open || products) return;
+    let live = true;
+    listCatalogProductsAction().then((res) => {
+      if (!live) return;
+      if (res.error || !res.products) {
+        toast({ title: "Could not load the catalog", description: res.error, variant: "error" });
+        onOpenChange(false);
+        return;
+      }
+      setProducts(res.products);
+    });
+    return () => {
+      live = false;
+    };
+  }, [open, products, toast, onOpenChange]);
 
-  function reset() {
+  function close() {
+    onOpenChange(false);
+    // Reset after the close so the next "Add item" starts on the picker again.
+    setStep("product");
     setProductId("");
-    setColourName("");
     setCustomName("");
   }
 
-  const ready = mode === "catalog" ? !!productId && !!colourName : !!customName.trim();
+  /** Dismissing a picker (X, Esc, backdrop) ends the flow; a pick doesn't. */
+  function pickerClosed(o: boolean) {
+    if (o) return;
+    if (advanced.current) {
+      advanced.current = false;
+      return;
+    }
+    close();
+  }
 
-  function submit() {
-    if (!ready) return;
+  function add(input: AddLineItemInput) {
     start(async () => {
-      const res = await addLineItemAction(orderId, {
-        kind: mode,
-        productId: mode === "catalog" ? productId : null,
-        productName: mode === "catalog" ? product?.name ?? "" : customName.trim(),
-        colourName: mode === "catalog" ? colourName : null,
-        colourHex: mode === "catalog" ? colour?.hex ?? null : null,
-      });
+      const res = await addLineItemAction(orderId, input);
       if (res.error) {
         toast({ title: "Could not add the item", description: res.error, variant: "error" });
         return;
       }
       toast({ title: "Item added", description: "Fill in the size run to price it.", variant: "success" });
-      reset();
-      onOpenChange(false);
+      close();
       onAdded();
     });
   }
 
+  function addCatalog(p: CatalogProduct, colourName: string) {
+    const colour = p.colours.find((c) => c.name === colourName);
+    add({
+      kind: "catalog",
+      productId: p.id,
+      productName: p.name,
+      colourName,
+      colourHex: colour?.hex ?? null,
+    });
+  }
+
+  function pickProduct(id: string) {
+    const p = products?.find((x) => x.id === id);
+    if (!p) return;
+    advanced.current = true;
+    setProductId(id);
+    setStep("colour");
+    // Nothing to choose; add it now. The flow closes once the line is in.
+    if (p.colours.length === 1) addCatalog(p, p.colours[0].name);
+  }
+
+  const colourStepOpen = open && step === "colour" && !!product && product.colours.length !== 1;
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <ProductPickerDialog
+        open={open && step === "product"}
+        onOpenChange={pickerClosed}
+        products={products ?? []}
+        loading={!products}
+        currentId={productId}
+        onPick={pickProduct}
+        onPickCustom={() => {
+          advanced.current = true;
+          setStep("custom");
+        }}
+      />
+
+      {product && (
+        <ColourPickerDialog
+          open={colourStepOpen}
+          onOpenChange={(o) => {
+            if (o) return;
+            // A colour pick adds the line (close() runs when it's in); a
+            // dismiss goes back to the product grid instead of losing the flow.
+            if (advanced.current) {
+              advanced.current = false;
+              return;
+            }
+            setStep("product");
+          }}
+          productName={product.name}
+          colours={product.colours}
+          currentName=""
+          onPick={(name) => {
+            advanced.current = true;
+            addCatalog(product, name);
+          }}
+        />
+      )}
+
+      <Dialog open={open && step === "custom"} onOpenChange={(o) => !o && close()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add an item to this order</DialogTitle>
+            <DialogTitle>Add a custom item</DialogTitle>
             <DialogDescription>
-              The line is added empty. Type the size run on the item card and the price fills in from this
-              product&apos;s price list.
+              Off-catalog work: no garment, no price list. Set the price by hand on the item card.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 p-5 pt-0">
-            <div className="inline-flex overflow-hidden rounded-lg border border-dream-line">
-              {(["catalog", "custom"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium transition-colors",
-                    mode === m ? "bg-dream-purple text-white" : "bg-white text-dream-ink hover:bg-dream-bg",
-                  )}
-                >
-                  {m === "catalog" ? "From catalog" : "Custom item"}
-                </button>
-              ))}
-            </div>
-
-            {mode === "catalog" ? (
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={openPicker}
-                  disabled={loading}
-                  className="flex w-full items-center gap-3 rounded-xl border border-dream-line p-3 text-left transition-colors hover:border-dream-purple disabled:opacity-60"
-                >
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-dream-bg">
-                    {loading ? (
-                      <Spinner className="text-dream-purple" />
-                    ) : product?.colours.find((c) => c.images?.front)?.images?.front ? (
-                      <Image
-                        src={product.colours.find((c) => c.images?.front)!.images!.front!}
-                        alt=""
-                        width={56}
-                        height={56}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-[10px] text-dream-faint">No photo</span>
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-dream-ink">
-                      {product ? product.name : "Choose a product"}
-                    </span>
-                    <span className="block truncate text-xs text-dream-muted">
-                      {product
-                        ? [product.brand, product.ssStyleName].filter(Boolean).join(" ") || "No S&S style"
-                        : "Search the catalog, hidden products included"}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-sm font-medium text-dream-purple">
-                    {product ? "Change" : "Pick"}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={!product}
-                  onClick={() => setColourOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-dream-line p-3 text-left transition-colors hover:border-dream-purple disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span
-                    aria-hidden
-                    className="h-6 w-6 shrink-0 rounded-full border border-dream-line-strong"
-                    style={swatchStyle({ name: colour?.name ?? "", hex: colour?.hex ?? null })}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-dream-ink">
-                    {colour ? colour.name : product ? "Choose a colour" : "Pick a product first"}
-                  </span>
-                  {product && <span className="shrink-0 text-sm font-medium text-dream-purple">Pick</span>}
-                </button>
-              </div>
-            ) : (
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-dream-ink">What is it?</span>
-                <Input
-                  autoFocus
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Vinyl banner, 3ft x 6ft"
-                />
-                <span className="block text-xs text-dream-muted">
-                  Off-catalog work: no garment, no price list. Set the price by hand on the item card.
-                </span>
-              </label>
-            )}
-          </div>
+          <form
+            id="add-custom-item"
+            className="p-5 pt-0"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = customName.trim();
+              if (!name) return;
+              add({ kind: "custom", productId: null, productName: name, colourName: null, colourHex: null });
+            }}
+          >
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-dream-ink">What is it?</span>
+              <Input
+                autoFocus
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Vinyl banner, 3ft x 6ft"
+              />
+            </label>
+          </form>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+            <Button variant="ghost" onClick={() => setStep("product")}>
+              Back
             </Button>
-            <Button variant="primary" disabled={!ready} loading={pending} onClick={submit}>
+            <Button
+              type="submit"
+              form="add-custom-item"
+              variant="primary"
+              disabled={!customName.trim()}
+              loading={pending}
+            >
               Add to order
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {products && (
-        <ProductPickerDialog
-          open={pickerOpen}
-          onOpenChange={setPickerOpen}
-          products={products}
-          currentId={productId}
-          onPick={(id) => {
-            setProductId(id);
-            // The colours never map across products, so nothing is carried over.
-            setColourName("");
-          }}
-          onPickCustom={() => setMode("custom")}
-        />
-      )}
-      {product && (
-        <ColourPickerDialog
-          open={colourOpen}
-          onOpenChange={setColourOpen}
-          productName={product.name}
-          colours={product.colours}
-          currentName={colourName}
-          onPick={setColourName}
-        />
-      )}
     </>
   );
 }

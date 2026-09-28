@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
+import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { startingFromCurve } from "@/lib/pricing/quote";
@@ -22,6 +23,7 @@ export function ProductPickerDialog({
   currentId,
   onPick,
   onPickCustom,
+  loading = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,6 +34,8 @@ export function ProductPickerDialog({
    *  garments, suppliers not in the system). Always shown, search or not:
    *  Julian reaches for it constantly. */
   onPickCustom?: () => void;
+  /** The catalog is still being fetched: spinner in place of the grid. */
+  loading?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -71,7 +75,7 @@ export function ProductPickerDialog({
                 className="flex flex-col overflow-hidden rounded-xl border-2 border-dashed border-dream-purple/50 text-left transition-colors hover:border-dream-purple hover:bg-dream-lavender-mist"
               >
                 <div className="flex h-36 w-full items-center justify-center bg-dream-lavender-mist/60 p-2">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-dream-purple text-white">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-dream-purple">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="h-6 w-6" aria-hidden>
                       <path d="M12 5v14M5 12h14" />
                     </svg>
@@ -143,7 +147,12 @@ export function ProductPickerDialog({
                 </button>
               );
             })}
-            {filtered.length === 0 && (
+            {loading && (
+              <div className="col-span-2 flex items-center justify-center py-8 sm:col-span-2">
+                <Spinner className="text-dream-purple" />
+              </div>
+            )}
+            {!loading && filtered.length === 0 && (
               <p className="col-span-full py-8 text-center text-sm text-dream-muted">
                 No catalog products match &ldquo;{query}&rdquo;.
                 {onPickCustom && " Use Custom product for anything not in the catalog."}
