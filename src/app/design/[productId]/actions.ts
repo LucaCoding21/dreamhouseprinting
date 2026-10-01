@@ -77,6 +77,10 @@ export interface DesignSubmitInput {
   notes?: string;
   asQuote?: boolean;
   designId?: string;
+  /** Guest hit "Save & share", which needs an account. The draft is parked
+   *  under the guest cookie (no email yet) so it survives the trip through
+   *  login/sign-up, where claimGuestRecords attaches it to the new account. */
+  holdForAccount?: boolean;
 }
 
 /** Storage-path prefix the caller is allowed to reference. Mirrors the prefix
@@ -178,6 +182,12 @@ export async function saveDraftAction(
   try {
     if (user) {
       const { id: designId } = await persistDesign(service, { userId: user.id }, input, "draft");
+      return { designId };
+    }
+    // Guest parking a draft on the way to sign-in: no email to send yet.
+    if (input.holdForAccount) {
+      const guestToken = await getOrCreateGuestToken();
+      const { id: designId } = await persistDesign(service, { guestToken }, input, "draft");
       return { designId };
     }
     // Guest path, proceed with just an email, identified by a cookie token.

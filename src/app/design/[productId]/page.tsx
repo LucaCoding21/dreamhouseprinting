@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getProductForDesign } from "@/lib/db/catalog";
 import { getUser } from "@/lib/auth";
 import { getGuestToken } from "@/lib/guest";
+import { claimGuestRecords } from "@/lib/claim";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { enabledColours } from "@/lib/productImage";
 import { garmentRetailUnit } from "@/lib/pricing/platform";
@@ -103,6 +104,13 @@ export default async function DesignPage({
   const allSizes = (product.sizes ?? []) as unknown as (ProductSizeJson & { enabled?: boolean })[];
   const sizes = allSizes.filter((s) => s.enabled !== false);
 
+  // A guest who saved, then signed in or signed up, lands here with ?design=.
+  // Claim this browser's guest drafts first so the owner lookup below finds it
+  // (sign-in already claims, but sign-up only does once the email is confirmed).
+  // The email match is skipped for an unconfirmed address (hijack guard).
+  if (design && user) {
+    await claimGuestRecords(user.id, user.email_confirmed_at ? (user.email ?? "") : "");
+  }
   const initialDesign = design ? await loadInitialDesign(design, product.id, user?.id ?? null) : null;
 
   return (

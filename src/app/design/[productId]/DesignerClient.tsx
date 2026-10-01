@@ -1276,11 +1276,10 @@ export function DesignerClient(props: Props) {
       else setError(msg);
     };
     // "Save & share" parks the draft in My Designs, which needs an account.
+    // A guest's draft is saved first (under their cookie) and they come back to
+    // THIS design after login/sign-up; bouncing them before saving lost the work.
     // "Add to cart" allows guests (they save with just an email + cookie).
-    if (!props.isLoggedIn && destination === "designs") {
-      router.push(`/login?next=${encodeURIComponent(`/design/${props.productId}`)}`);
-      return;
-    }
+    const holdForAccount = !props.isLoggedIn && destination === "designs";
     if (destination === "cart" && quantity < 1) {
       setSaveError("Add at least one size & quantity first.");
       return;
@@ -1429,6 +1428,7 @@ export function DesignerClient(props: Props) {
           }),
         },
         asQuote: true,
+        holdForAccount,
       };
 
       const res = await saveDraftAction(input);
@@ -1462,6 +1462,9 @@ export function DesignerClient(props: Props) {
             addedAt: Date.now(),
           });
           router.push("/cart");
+        } else if (holdForAccount) {
+          const back = `/design/${props.productId}?design=${res.designId}`;
+          router.push(`/login?next=${encodeURIComponent(back)}`);
         } else {
           router.push("/account/designs");
         }
@@ -1961,7 +1964,7 @@ export function DesignerClient(props: Props) {
                           contact in a new tab so the in-progress design stays put. */}
                       <div className="mt-1 border-t border-dream-line px-3 py-2.5">
                         <p className="text-[14px] leading-relaxed text-dream-muted">
-                          Don&apos;t see the font you need? Upload your text as artwork, or{" "}
+                          Need a different font? Upload your text as artwork or{" "}
                           <a
                             href="/contact"
                             target="_blank"
@@ -1969,8 +1972,8 @@ export function DesignerClient(props: Props) {
                             className="font-semibold text-dream-purple underline-offset-2 hover:underline"
                           >
                             talk to us
-                          </a>{" "}
-                          and send a sample. We&apos;ll set it up on your proof.
+                          </a>
+                          .
                         </p>
                       </div>
                     </div>
@@ -2687,7 +2690,7 @@ export function DesignerClient(props: Props) {
                     </span>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-dream-line">
-                    <div className="hidden grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3 bg-dream-cream px-4 py-2.5 text-[14px] font-bold uppercase tracking-wide text-dream-muted sm:grid">
+                    <div className="hidden grid-cols-[0.9fr_0.9fr_1.1fr_auto] items-center gap-x-3 bg-dream-cream px-4 py-2 text-[13px] font-medium text-dream-muted sm:grid">
                       <span>Location</span>
                       <span>Method</span>
                       <span className="flex items-center gap-1.5">
