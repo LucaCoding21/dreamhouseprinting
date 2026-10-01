@@ -38,10 +38,6 @@ const CATEGORIES: Category[] = [
     startingAt: "$12",
     tagTilt: -6,
     photo: true,
-    photoScale: 1.3,
-    photoPan: "-15%",
-    photoPanMobile: "-5%",
-    photoScaleMobile: 1.12,
   },
   {
     label: "Hoodies",
