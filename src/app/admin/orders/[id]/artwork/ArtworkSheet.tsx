@@ -139,23 +139,34 @@ export function ArtworkSheet({
 }
 
 /**
- * Print only the sheet. `visibility` hides the admin shell without removing it
- * from the layout, and absolute positioning lifts the sheet out of the shell's
- * scroll container so it can run over as many pages as it needs.
+ * Print only the sheet. The admin shell is a fixed-height flex column whose
+ * body is its own `relative` scroll container, so anything inside it (even an
+ * absolutely positioned sheet) prints clipped to one screen. In print every
+ * ancestor of the sheet is flattened back into normal flow, and everything
+ * beside that chain (top bar, mobile tabs, toasts) is dropped, so the sheet
+ * runs over as many pages as it needs.
  */
 const PRINT_CSS = `
 @media print {
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
-  body * { visibility: hidden !important; }
-  #artwork-sheet, #artwork-sheet * { visibility: visible !important; }
-  #artwork-sheet {
-    position: absolute !important;
-    left: 0; top: 0;
-    width: 100%; max-width: none;
+  *:has(#artwork-sheet) {
+    position: static !important;
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    max-width: none !important;
+    overflow: visible !important;
     padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
   }
+  *:has(#artwork-sheet) > *:not(:has(#artwork-sheet)):not(#artwork-sheet) { display: none !important; }
+  #artwork-sheet { max-width: none; padding: 0 !important; }
   #artwork-sheet .artwork-hide { display: none !important; }
-  #artwork-sheet .artwork-block { break-inside: avoid; page-break-inside: avoid; }
-  #artwork-sheet img { max-height: none !important; }
+  #artwork-sheet figure.artwork-block { break-inside: avoid; page-break-inside: avoid; }
+  #artwork-sheet section > div:first-child { break-after: avoid; page-break-after: avoid; }
+  /* Each piece fits on one page instead of being sliced across two. */
+  #artwork-sheet img { max-height: 85vh !important; }
 }
 `;

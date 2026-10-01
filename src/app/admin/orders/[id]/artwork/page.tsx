@@ -25,6 +25,25 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
 
   const designById = new Map(detail.designs.map((d) => [d.id, d]));
 
+  // Proofs from the proofs table (where every upload lands now), oldest first
+  // so "Proof 1" is the first one made. PDFs can't render as <img>, so they
+  // list as files.
+  const PROOF_STATUS: Record<string, string> = {
+    pending: "not approved yet",
+    approved: "approved",
+    changes_requested: "changes requested",
+  };
+  const proofTile = (p: (typeof detail.proofs)[number], n: number): ArtworkTile => ({
+    key: `proof-${p.id}`,
+    kind: /\.pdf(\?|#|$)/i.test(p.image) ? "file" : "image",
+    label: `Proof ${n}, ${PROOF_STATUS[p.status] ?? p.status}`,
+    src: p.image,
+    href: p.image,
+    name: `Proof ${n}.pdf`,
+  });
+  const proofs = [...detail.proofs].filter((p) => p.image).reverse();
+  const lineIds = new Set(detail.lineItems.map((li) => li.id));
+
   // Same manual queue order the items section uses, so the sheet reads in the
   // order Julian arranged the job.
   const lines = detail.lineItems
@@ -80,6 +99,10 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
       });
     }
 
+    proofs
+      .filter((p) => p.line_item_id === li.id)
+      .forEach((p, n) => tiles.push(proofTile(p, n + 1)));
+
     return {
       id: li.id,
       title: `${idx + 1}. ${li.product_name ?? "Item"}`,
@@ -98,22 +121,29 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
     };
   });
 
-  // Proofs already sent to the customer, filed at the end of the sheet.
+  // Order-level proofs (not pinned to a line, or pinned to a line since
+  // deleted) plus legacy official mockups, filed at the end of the sheet.
+  const orderProofs = proofs.filter((p) => !p.line_item_id || !lineIds.has(p.line_item_id));
   const officials = ((detail.order.official_mockups ?? []) as { url?: string; path?: string }[]).filter((m) => m.url);
-  if (officials.length > 0) {
+  if (orderProofs.length > 0 || officials.length > 0) {
     sections.push({
       id: "official-mockups",
       title: "Proofs on file",
       subtitle: "Mockups sent to the customer for approval",
       colourHex: null,
-      tiles: officials.map((m, i) => ({
-        key: `official-${i}`,
-        // PDF proofs can't render as <img>, list them as downloadable files.
-        kind: /\.pdf(\?|#|$)/i.test(m.path ?? m.url ?? "") ? "file" : "image",
-        label: `Proof ${i + 1}`,
-        src: m.url ?? null,
-        href: m.url ?? null,
-      })),
+      tiles: [
+        ...orderProofs.map((p, i) => proofTile(p, i + 1)),
+        ...officials.map(
+          (m, i): ArtworkTile => ({
+            key: `official-${i}`,
+            // PDF proofs can't render as <img>, list them as downloadable files.
+            kind: /\.pdf(\?|#|$)/i.test(m.path ?? m.url ?? "") ? "file" : "image",
+            label: `Proof ${orderProofs.length + i + 1}`,
+            src: m.url ?? null,
+            href: m.url ?? null,
+          }),
+        ),
+      ],
     });
   }
 
