@@ -255,7 +255,7 @@ export function OrderTracker({
                           <path d="M4 10.5l4 4L16.5 5.5" />
                         </svg>
                       ) : isCurrent ? (
-                        <span className="h-2.5 w-2.5 rounded-full bg-dream-purple ring-4 ring-dream-purple/15" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-dream-purple" />
                       ) : (
                         <span className="h-2.5 w-2.5 rounded-full border-2 border-dream-purple/30" />
                       )}
@@ -359,7 +359,7 @@ export function OrderTracker({
                     showCheck
                       ? "border-dream-purple bg-dream-purple text-white"
                       : isCurrent
-                        ? "border-dream-purple bg-dream-purple ring-4 ring-dream-purple/20"
+                        ? "border-dream-purple bg-dream-purple"
                         : "border-dream-purple/25 bg-white",
                   )}
                 >
