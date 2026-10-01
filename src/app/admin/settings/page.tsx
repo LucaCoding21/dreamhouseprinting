@@ -58,11 +58,21 @@ export default async function AdminSettingsPage() {
   const businessRow = settingRows.find((s) => s.key === "business");
   const business = mergeBusinessSettings(businessRow?.value);
 
+  // Real values for the email preview where we have them (same sources the
+  // send uses), so the sample reads like what the customer will get.
+  const shippingRow = settingRows.find((s) => s.key === "shipping");
+  const emailPreview = {
+    pickupLocation: ((shippingRow?.value ?? {}) as { pickupLocation?: string }).pickupLocation ?? "the shop",
+    etransferEmail: payments.etransferEmail || "",
+    businessAddress: process.env.BUSINESS_ADDRESS ?? null,
+  };
+
   return (
     <SettingsClient
       decorationMethods={decorationMethods}
       staff={staffRows}
       emailTemplates={emailTemplates}
+      emailPreview={emailPreview}
       checkout={checkout}
       payments={payments}
       business={business}

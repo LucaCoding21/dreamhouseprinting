@@ -22,12 +22,11 @@ import type { BusinessSettings } from "@/lib/businessSettings";
 import { MAX_MIN_ONLINE_ORDER_QTY } from "@/lib/orders/minimum";
 import {
   updateDecorationMethodAction,
-  updateEmailTemplatesAction,
   updateCheckoutSettingsAction,
   updatePaymentSettingsAction,
   updateBusinessSettingsAction,
-  type EmailTemplateMap,
 } from "./actions";
+import { EmailTemplatesTab, type EmailPreviewContext } from "./EmailTemplatesTab";
 
 interface StaffRow {
   id: string;
@@ -46,6 +45,7 @@ interface SettingsClientProps {
   decorationMethods: DecorationMethodRow[];
   staff: StaffRow[];
   emailTemplates: Record<string, EmailTemplate>;
+  emailPreview: EmailPreviewContext;
   checkout: CheckoutSettings;
   payments: PaymentSettings;
   business: BusinessSettings;
@@ -55,6 +55,7 @@ export function SettingsClient({
   decorationMethods,
   staff,
   emailTemplates,
+  emailPreview,
   checkout,
   payments,
   business,
@@ -91,7 +92,7 @@ export function SettingsClient({
           </TabsContent>
 
           <TabsContent value="email" className="mt-4">
-            <EmailTemplatesTab templates={emailTemplates} />
+            <EmailTemplatesTab templates={emailTemplates} preview={emailPreview} />
           </TabsContent>
         </Tabs>
       </div>
@@ -534,92 +535,6 @@ function StaffTab({ staff }: { staff: StaffRow[] }) {
           ))}
         </TBody>
       </Table>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Email templates                                                    */
-/* ------------------------------------------------------------------ */
-
-function EmailTemplatesTab({ templates }: { templates: Record<string, EmailTemplate> }) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [pending, start] = useTransition();
-  const keys = Object.keys(templates);
-
-  const [drafts, setDrafts] = useState<EmailTemplateMap>(() => {
-    const initial: EmailTemplateMap = {};
-    for (const key of keys) {
-      initial[key] = {
-        subject: templates[key]?.subject ?? "",
-        body: templates[key]?.body ?? "",
-      };
-    }
-    return initial;
-  });
-
-  if (keys.length === 0) {
-    return (
-      <EmptyState
-        title="No email templates"
-        description="Transactional email templates (order confirmation, proof ready, shipped) appear here once configured."
-      />
-    );
-  }
-
-  function update(key: string, field: "subject" | "body", value: string) {
-    setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
-  }
-
-  function save() {
-    start(async () => {
-      const res = await updateEmailTemplatesAction({ ...templates, ...drafts });
-      if (res.error) toast({ title: "Failed", description: res.error, variant: "error" });
-      else {
-        toast({ title: "Email template saved", variant: "success" });
-        router.refresh();
-      }
-    });
-  }
-
-  function titleFor(key: string) {
-    return key
-      .replace(/[_-]/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  return (
-    <div className="space-y-6">
-      {keys.map((key) => (
-        <Card key={key}>
-          <CardHeader>
-            <CardTitle>{titleFor(key)}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Field label="Subject" htmlFor={`subject-${key}`}>
-              <Input
-                id={`subject-${key}`}
-                value={drafts[key]?.subject ?? ""}
-                onChange={(e) => update(key, "subject", e.target.value)}
-              />
-            </Field>
-            <Field label="Body" htmlFor={`body-${key}`}>
-              <Textarea
-                id={`body-${key}`}
-                rows={6}
-                value={drafts[key]?.body ?? ""}
-                onChange={(e) => update(key, "body", e.target.value)}
-              />
-            </Field>
-            <div className="flex justify-end">
-              <Button variant="primary" loading={pending} onClick={save} className="w-full sm:w-auto">
-                Save
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
     </div>
   );
 }
