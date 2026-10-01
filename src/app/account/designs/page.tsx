@@ -20,6 +20,8 @@ export default async function MyDesignsPage() {
     .select(
       "id, product_id, status, mockup_images, colour, size_quantities, price_snapshot, created_at, products(name, brand)",
     )
+    // Designs whose product was deleted in the admin can't reopen anywhere.
+    .not("product_id", "is", null)
     .order("created_at", { ascending: false });
 
   const list = designs ?? [];

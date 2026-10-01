@@ -41,6 +41,8 @@ export async function GET(
     .maybeSingle();
 
   if (!data || !data.guest_token || data.guest_token !== token) return toShop;
+  // The product was deleted in the admin, nothing left to open the design on.
+  if (!data.product_id) return toShop;
 
   const dest = new URL(`/design/${data.product_id}?design=${data.id}`, origin);
 

@@ -390,6 +390,38 @@ export async function setProductFlagsAction(
   return { ok: true };
 }
 
+/**
+ * Permanently remove a product (products.manage). Print areas cascade. Past
+ * orders keep their line items (product_name is a snapshot, product_id goes
+ * null via ON DELETE SET NULL), and saved designs keep their art but lose the
+ * product link, so they can no longer be reopened in the designer.
+ */
+export async function deleteProductAction(id: string): Promise<{ ok?: boolean; error?: string }> {
+  await requirePermission("products.manage");
+  const supabase = requireSupabaseServiceClient();
+
+  const { data, error } = await supabase.from("products").delete().eq("id", id).select("id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "That product was already removed." };
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/pricing");
+  revalidatePath("/shop");
+  return { ok: true };
+}
+
+/** How many orders and saved designs point at a product, for the delete dialog. */
+export async function productUsageAction(id: string): Promise<{ orders: number; designs: number }> {
+  await requirePermission("products.manage");
+  const supabase = requireSupabaseServiceClient();
+  const [lines, designs] = await Promise.all([
+    supabase.from("line_items").select("order_id").eq("product_id", id),
+    supabase.from("designs").select("id", { count: "exact", head: true }).eq("product_id", id),
+  ]);
+  const orders = new Set((lines.data ?? []).map((l) => l.order_id)).size;
+  return { orders, designs: designs.count ?? 0 };
+}
+
 export interface PrintAreaInput {
   id?: string;
   name: string;

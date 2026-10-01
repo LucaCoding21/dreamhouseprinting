@@ -23,7 +23,8 @@ import { compileCurveFromProfile, normalizeProfile, blankShift, profileIdForProd
 import { productPrimaryImage, colourCardImage } from "@/lib/productImage";
 import type { ProductRow, CategoryRow, DecorationMethodRow, PrintAreaRow, ProductColourJson, ProductSizeJson, ProductQuoteCurveJson, QuoteDecoration, QuotePriceBreak, PricingProfileRow } from "@/lib/db/rows";
 import { InfoTip } from "@/components/ui/InfoTip";
-import { updateProductAction, syncProductAction, setProductFlagsAction } from "../actions";
+import { updateProductAction, syncProductAction, setProductFlagsAction, deleteProductAction, productUsageAction } from "../actions";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { PrintAreaEditor } from "./PrintAreaEditor";
 import { swatchStyle } from "@/lib/swatch";
 
@@ -245,6 +246,28 @@ export function ProductEditor({
         router.refresh();
       }
     });
+  }
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [usage, setUsage] = useState<{ orders: number; designs: number } | null>(null);
+
+  function openDelete() {
+    setUsage(null);
+    setDeleteOpen(true);
+    productUsageAction(product.id).then(setUsage).catch(() => setUsage(null));
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    const res = await deleteProductAction(product.id);
+    if (res.error) {
+      setDeleting(false);
+      toast({ title: "Delete failed", description: res.error, variant: "error" });
+      return;
+    }
+    toast({ title: `${product.name} deleted`, variant: "success" });
+    router.push("/admin/products");
   }
 
   async function flag(next: { isActive?: boolean; isFeatured?: boolean }) {
@@ -584,8 +607,50 @@ export function ProductEditor({
                 </div>
                 <Switch checked={isFeatured} onCheckedChange={(v) => flag({ isFeatured: v })} />
               </div>
+              <div className="flex items-center justify-between gap-4 border-t border-dream-line pt-4">
+                <Label>Delete product</Label>
+                <Button variant="danger" size="sm" onClick={openDelete}>
+                  Delete
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
+          <Dialog open={deleteOpen} onOpenChange={(o) => !deleting && setDeleteOpen(o)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete {product.name}?</DialogTitle>
+                <DialogDescription>
+                  It disappears from the shop, the designer and this admin, along with its print areas and pricing
+                  setup. You can import it again from S&amp;S later, but you would have to set it up from scratch.
+                  This cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              {usage && (usage.orders > 0 || usage.designs > 0) && (
+                <p className="rounded-lg bg-dream-bg px-3 py-2 text-sm text-dream-ink">
+                  {usage.orders > 0 && (
+                    <>
+                      Used on {usage.orders} {usage.orders === 1 ? "order" : "orders"}. Those orders stay as they are.{" "}
+                    </>
+                  )}
+                  {usage.designs > 0 && (
+                    <>
+                      {usage.designs} saved {usage.designs === 1 ? "design uses" : "designs use"} it and will no longer
+                      open in the designer.
+                    </>
+                  )}
+                </p>
+              )}
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+                  Cancel
+                </Button>
+                <Button variant="danger" loading={deleting} onClick={confirmDelete}>
+                  Delete product
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Customer pricing: blank (wholesale x markup) + a shared decoration
               profile. The tier table is computed, not hand-typed. */}
