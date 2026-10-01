@@ -9,7 +9,7 @@ import { LineVisual } from "./LineVisual";
 import { ProofPanel } from "./ProofPanel";
 import { InvoicePanel } from "./InvoicePanel";
 import { BalanceDueBanner } from "./BalanceDueBanner";
-import type { OrderViewProps } from "./types";
+import type { OrderViewPrint, OrderViewProps } from "./types";
 
 /**
  * The Julian-approved customer order view, shared verbatim by the logged-in
@@ -129,61 +129,64 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                 {lineItems.map((li) => {
                   const pieces = Object.values(li.sizeQuantities).reduce((a, b) => a + (b > 0 ? b : 0), 0);
                   return (
-                    <li key={li.id} className="flex gap-4 py-4">
-                      {/* The garment itself: the approved proof or the design
-                          mockup when there is one, otherwise the colour. Sits
-                          on a soft tile so a white-background mockup still
-                          reads as an object. */}
-                      {li.mockup || li.proof ? (
-                        <LineVisual
-                          mockup={li.mockup}
-                          proof={li.proof}
-                          colourName={li.colourName}
-                          colourHex={li.colourHex}
-                          alt={[li.product_name, li.colourName].filter(Boolean).join(", ") || "Your item"}
-                          className="shrink-0"
-                        />
-                      ) : (
-                        <span
-                          className="h-20 w-20 shrink-0 rounded-xl ring-1 ring-dream-ink/10"
-                          style={swatchStyle({ name: li.colourName ?? "", hex: li.colourHex })}
-                          aria-hidden
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="break-words font-display text-[15px] font-bold leading-snug text-dream-ink">
-                              {li.product_name}
+                    <li key={li.id} className="py-4">
+                      <div className="flex gap-4">
+                        {/* The garment itself: the approved proof or the design
+                            mockup when there is one, otherwise the colour. Sits
+                            on a soft tile so a white-background mockup still
+                            reads as an object. */}
+                        {li.mockup || li.proof ? (
+                          <LineVisual
+                            mockup={li.mockup}
+                            proof={li.proof}
+                            colourName={li.colourName}
+                            colourHex={li.colourHex}
+                            alt={[li.product_name, li.colourName].filter(Boolean).join(", ") || "Your item"}
+                            className="shrink-0"
+                          />
+                        ) : (
+                          <span
+                            className="h-20 w-20 shrink-0 rounded-xl ring-1 ring-dream-ink/10"
+                            style={swatchStyle({ name: li.colourName ?? "", hex: li.colourHex })}
+                            aria-hidden
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="break-words font-display text-[15px] font-bold leading-snug text-dream-ink">
+                                {li.product_name}
+                              </div>
+                              {li.colourName && <div className="mt-1 text-sm text-dream-muted">{li.colourName}</div>}
                             </div>
-                            {li.colourName && <div className="mt-1 text-sm text-dream-muted">{li.colourName}</div>}
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <div className="font-display font-bold text-dream-ink">{formatCAD(li.line_total)}</div>
-                            <div className="mt-1 text-sm text-dream-muted">
-                              {pieces} {pieces === 1 ? "piece" : "pieces"}
+                            <div className="shrink-0 text-right">
+                              <div className="font-display font-bold text-dream-ink">{formatCAD(li.line_total)}</div>
+                              <div className="mt-1 text-sm text-dream-muted">
+                                {pieces} {pieces === 1 ? "piece" : "pieces"}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        {/* Size run as one segmented strip: the cells share a
-                            single tinted ground with hairlines between them, so
-                            it reads as one spec rather than a row of outlined
-                            boxes that looked like form inputs. */}
-                        <div className="mt-3 inline-flex flex-wrap items-stretch overflow-hidden rounded-lg bg-dream-bg">
-                          {sortSizes(Object.entries(li.sizeQuantities).filter(([, q]) => q > 0)).map(([sz, q], i) => (
-                            <span
-                              key={sz}
-                              className={cn(
-                                "inline-flex items-baseline gap-1 px-2.5 py-1.5 text-sm",
-                                i > 0 && "border-l border-white",
-                              )}
-                            >
-                              <span className="font-bold tabular-nums text-dream-purple">{q}</span>
-                              <span className="text-dream-muted">{sz}</span>
-                            </span>
-                          ))}
+                          {/* Size run as one segmented strip: the cells share a
+                              single tinted ground with hairlines between them, so
+                              it reads as one spec rather than a row of outlined
+                              boxes that looked like form inputs. */}
+                          <div className="mt-3 inline-flex flex-wrap items-stretch overflow-hidden rounded-lg bg-dream-bg">
+                            {sortSizes(Object.entries(li.sizeQuantities).filter(([, q]) => q > 0)).map(([sz, q], i) => (
+                              <span
+                                key={sz}
+                                className={cn(
+                                  "inline-flex items-baseline gap-1 px-2.5 py-1.5 text-sm",
+                                  i > 0 && "border-l border-white",
+                                )}
+                              >
+                                <span className="font-bold tabular-nums text-dream-purple">{q}</span>
+                                <span className="text-dream-muted">{sz}</span>
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
+                      <PrintSpec prints={li.prints} finishing={li.finishing} />
                     </li>
                   );
                 })}
@@ -240,7 +243,31 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                 <h3 className="font-display text-[15px] font-bold text-dream-ink">Payment summary</h3>
                 {paymentTag}
               </div>
-              <div className="mt-5 space-y-1.5 text-sm md:mt-6 md:space-y-2">
+              {/* Per item: how many pieces at what price each, so the subtotal
+                  below is never a number the customer has to take on faith. */}
+              <ul className="mt-5 space-y-3 border-b border-dream-line pb-4 text-sm md:mt-6">
+                {lineItems.map((li) => {
+                  const pieces = Object.values(li.sizeQuantities).reduce((a, b) => a + (b > 0 ? b : 0), 0);
+                  const detail = [
+                    lineItems.length > 1 ? li.colourName : null,
+                    li.unitPrice
+                      ? `${pieces} ${pieces === 1 ? "piece" : "pieces"} × ${formatCAD(li.unitPrice)}`
+                      : `${pieces} ${pieces === 1 ? "piece" : "pieces"}`,
+                  ]
+                    .filter(Boolean)
+                    .join(", ");
+                  return (
+                    <li key={li.id} className="flex justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="break-words font-medium text-dream-ink">{li.product_name || "Item"}</div>
+                        <div className="mt-0.5 text-dream-muted">{detail}</div>
+                      </div>
+                      <span className="shrink-0 font-medium text-dream-ink">{formatCAD(li.line_total ?? 0)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4 space-y-1.5 text-sm md:space-y-2">
                 <Row label="Subtotal" value={formatCAD(pricing.subtotal ?? 0)} />
                 {!!pricing.setupFees && <Row label="Setup" value={formatCAD(pricing.setupFees)} />}
                 {!!pricing.rush && <Row label="Rush fee" value={formatCAD(pricing.rush)} />}
@@ -302,7 +329,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
             {activity.map((entry, i) => (
               <li key={`${entry.at}-${i}`} className="flex gap-3">
                 <div className="mt-1 flex flex-col items-center">
-                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-dream-purple/15">
+                  <span className="grid h-4 w-4 shrink-0 place-items-center">
                     <span className="h-1.5 w-1.5 rounded-full bg-dream-purple" />
                   </span>
                   {i < activity.length - 1 && <span className="mt-1 w-px flex-1 bg-dream-line" />}
@@ -343,6 +370,68 @@ function sortSizes(entries: [string, number][]): [string, number][] {
     return i === -1 ? SIZE_ORDER.length : i;
   };
   return [...entries].sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]));
+}
+
+/**
+ * What gets printed where on one item, so the customer can check we heard
+ * them: a small table from sm up, a stacked list on phones (four columns do
+ * not fit a phone without crushing every cell).
+ */
+function PrintSpec({ prints, finishing }: { prints: OrderViewPrint[]; finishing: string[] }) {
+  if (prints.length === 0 && finishing.length === 0) return null;
+  const dash = <span className="text-dream-faint">-</span>;
+  return (
+    <div className="mt-4">
+      {prints.length > 0 && (
+        <>
+          <p className="text-sm font-semibold text-dream-muted">What we&apos;re printing</p>
+
+          <ul className="mt-2 divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line sm:hidden">
+            {prints.map((p, i) => (
+              <li key={i} className="px-3.5 py-2.5 text-sm">
+                <div className="flex justify-between gap-3">
+                  <span className="font-semibold text-dream-ink">{p.location}</span>
+                  <span className="text-right text-dream-muted">{p.method}</span>
+                </div>
+                {(p.size || p.colours) && (
+                  <div className="mt-0.5 flex justify-between gap-3 text-dream-muted">
+                    <span>{p.size}</span>
+                    <span className="text-right">{p.colours}</span>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-2 hidden overflow-hidden rounded-xl border border-dream-line sm:block">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-dream-bg text-dream-muted">
+                <tr>
+                  <th className="px-3.5 py-2 font-medium">Where</th>
+                  <th className="px-3.5 py-2 font-medium">How</th>
+                  <th className="px-3.5 py-2 font-medium">Size</th>
+                  <th className="px-3.5 py-2 font-medium">Colours</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dream-line">
+                {prints.map((p, i) => (
+                  <tr key={i} className="align-top">
+                    <td className="px-3.5 py-2.5 font-semibold text-dream-ink">{p.location}</td>
+                    <td className="px-3.5 py-2.5 text-dream-ink">{p.method || dash}</td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 text-dream-ink">{p.size ?? dash}</td>
+                    <td className="px-3.5 py-2.5 text-dream-ink">{p.colours ?? dash}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {finishing.length > 0 && (
+        <p className="mt-2 text-sm text-dream-muted">Also: {finishing.join(", ").toLowerCase().replace(/^./, (c) => c.toUpperCase())}</p>
+      )}
+    </div>
+  );
 }
 
 function CheckCircle({ className }: { className?: string }) {

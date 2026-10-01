@@ -15,6 +15,7 @@ import type {
   OrderViewActivityEntry,
   OrderViewMessage,
   OrderViewEtransfer,
+  OrderViewPrint,
 } from "@/components/orders/types";
 
 /**
@@ -295,6 +296,8 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
         line_total: li.line_total,
         mockup: lineMockup(li.design_id, colour.name ?? null),
         proof: proof ? { id: proof.id, image: proof.image, status: proof.status } : null,
+        unitPrice: li.unit_price ?? null,
+        ...customerPrintSpec(li.decorations),
       };
     }),
     proofs: visibleProofs.map((p) => ({
@@ -309,4 +312,57 @@ export function serializeOrderView(input: OrderViewInput): OrderViewSerialized {
     messages,
     latestMessage: messages[0] ?? null,
   };
+}
+
+/** Admin spot fields the customer view reads (see DecorationSpot in admin/orders/actions). */
+interface SpotLike {
+  location?: string;
+  type?: string;
+  widthIn?: string;
+  heightIn?: string;
+  colours?: string;
+  pantones?: string[];
+  puff?: boolean;
+}
+
+const sentenceCase = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/**
+ * The line's print spec in customer words: one row per print the admin set up
+ * (location, method, size, colours), plus finishing extras. Blank spots (no
+ * location and no method) are skipped. Internal fields (supplier, notes,
+ * production status) never leave this function.
+ */
+function customerPrintSpec(decorations: unknown): { prints: OrderViewPrint[]; finishing: string[] } {
+  const dec = (decorations ?? {}) as { spots?: SpotLike[]; bagging?: boolean; sewnTags?: boolean };
+  const prints: OrderViewPrint[] = (Array.isArray(dec.spots) ? dec.spots : [])
+    .filter((s) => s && (s.location?.trim() || s.type?.trim()))
+    .map((s) => {
+      const w = s.widthIn?.trim();
+      const h = s.heightIn?.trim();
+      const size = w && h ? `${w}″ × ${h}″` : w ? `${w}″ wide` : h ? `${h}″ tall` : null;
+
+      const named = (s.pantones ?? []).map((p) => p.trim()).filter(Boolean);
+      const raw = s.colours?.trim() ?? "";
+      const n = Number(raw.replace(/^~/, ""));
+      let colours: string | null = null;
+      if (named.length) colours = named.join(", ");
+      else if (/full/i.test(raw)) colours = "Full colour";
+      else if (raw && Number.isFinite(n) && n > 0) {
+        colours = `${raw.startsWith("~") ? "About " : ""}${n} ${n === 1 ? "colour" : "colours"}`;
+      } else if (raw) colours = raw;
+      if (colours && s.puff) colours += " (puff)";
+
+      return {
+        location: sentenceCase(s.location?.trim() || "Print"),
+        method: s.type?.trim() || "",
+        size,
+        colours,
+      };
+    });
+
+  const finishing = [dec.bagging && "Individually bagged", dec.sewnTags && "Sewn-on size tags"].filter(
+    (x): x is string => !!x,
+  );
+  return { prints, finishing };
 }

@@ -68,6 +68,22 @@ export interface OrderViewLineItem {
    * the order is out for approval.
    */
   proof: { id: string; image: string; status: string } | null;
+  /** Price per piece, null on legacy rows without one. */
+  unitPrice: number | null;
+  /** What gets printed where, from the admin's spec rows on the line. */
+  prints: OrderViewPrint[];
+  /** Finishing extras on the line, e.g. "Individually bagged". */
+  finishing: string[];
+}
+
+/** One print on a line, already worded for the customer. */
+export interface OrderViewPrint {
+  location: string;
+  method: string;
+  /** e.g. 12″ × 10″, null when the size isn't set yet. */
+  size: string | null;
+  /** e.g. "Black, White" or "2 colours" or "Full colour", null when unset. */
+  colours: string | null;
 }
 
 export interface OrderViewProof {
