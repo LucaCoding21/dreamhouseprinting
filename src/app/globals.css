@@ -279,10 +279,10 @@ body {
     margin-top: clamp(12px, calc(8svh - 32px), 40px);
   }
   /* Capping the width (not the height) keeps the art's aspect ratio, so the
-     photo shrinks instead of letterboxing, and the 1.35 upscale inside scales
-     with it. */
+     photo shrinks instead of letterboxing. Width still also follows the grid
+     column, so the art can never outgrow the window. */
   .home-hero-media {
-    max-width: clamp(300px, calc(62.9svh - 46px), 520px);
+    max-width: clamp(405px, calc(84.9svh - 62px), 702px);
   }
   .home-hero-scroll {
     margin-top: clamp(20px, calc(21.7svh - 99px), 96px);

@@ -13,21 +13,18 @@ import heroPhoto from "../../public/homepage_assets/custom-apparel-vancouver.web
 export default function HeroImage() {
   const [loaded, setLoaded] = useState(false);
   return (
-    // Wrapper carries the lg upscale so anything absolutely positioned inside
-    // (the stickers) scales and stays anchored to the visual image edges.
-    // transform-origin matches the previous image transform so the layout
-    // grows downward from the top edge.
-    <div
-      className="relative lg:scale-[1.35]"
-      style={{ transformOrigin: "center top" }}
-    >
+    // Sized by its grid column (see .home-hero-media), never transformed: a
+    // scale() upscale here used to overflow the column and get clipped at the
+    // right edge on narrower desktop windows. Sticker offsets are % of this box
+    // on lg so they track the photo as it shrinks.
+    <div className="relative">
       <Image
         src="/sticker-moon.png"
         alt=""
         aria-hidden="true"
         width={400}
         height={400}
-        className="pointer-events-none absolute right-2 -bottom-6 z-20 h-auto w-[125px] rotate-[18deg] sm:right-0 sm:-bottom-4 sm:w-[160px] lg:right-2 lg:-bottom-2 lg:w-[160px]"
+        className="pointer-events-none absolute right-2 -bottom-6 z-20 h-auto w-[125px] rotate-[18deg] sm:right-0 sm:-bottom-4 sm:w-[160px] lg:right-[1.5%] lg:-bottom-[1.5%] lg:w-[31%]"
       />
       {/* Flat lavender stand-in roughly tracing the photo's purple blob, sized
           by the real image below (the only in-flow child, so the wrapper is
@@ -45,8 +42,8 @@ export default function HeroImage() {
         title="Custom apparel and screen printing in Vancouver"
         priority
         onLoad={() => setLoaded(true)}
-        sizes="(min-width: 1024px) 820px, (min-width: 768px) 55vw, 100vw"
-        className={`relative z-10 h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] lg:max-h-[990px] ${
+        sizes="(min-width: 1024px) 702px, (min-width: 768px) 55vw, 100vw"
+        className={`relative z-10 h-auto w-full max-h-[760px] object-contain sm:max-h-[780px] md:max-h-[820px] ${
           loaded ? "animate-pop" : "opacity-0"
         }`}
       />

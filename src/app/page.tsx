@@ -118,7 +118,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="home-hero-media relative mx-auto mb-12 mt-3 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-x-18 md:mx-auto md:max-w-[520px]">
+          <div className="home-hero-media relative mx-auto mb-12 mt-3 max-w-[380px] order-1 sm:mb-6 sm:mt-0 sm:max-w-[420px] lg:order-none lg:mx-0 lg:-mt-16 lg:translate-y-[88px] md:mx-auto md:max-w-[520px] lg:w-full lg:max-w-[702px] lg:justify-self-end">
             <HeroImage />
           </div>
         </div>
