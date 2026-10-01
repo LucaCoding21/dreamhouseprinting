@@ -47,9 +47,6 @@ export function DetailedQuote({
   const designHref = colourName
     ? `/design/${productId}?colour=${encodeURIComponent(colourName)}`
     : `/design/${productId}`;
-  const quoteHref = colourName
-    ? `/design/${productId}?quote=1&colour=${encodeURIComponent(colourName)}`
-    : `/design/${productId}?quote=1`;
   // Offer the curve's decorations, narrowed to the admin-enabled ones. An empty
   // intersection falls back to the full curve so the widget can always quote.
   const decorations = useMemo(() => {
@@ -395,16 +392,9 @@ export function DetailedQuote({
         </div>
       </div>
 
-      {/* Estimate note + secondary quick-quote link. Short enough to hold one
-          line on a phone. */}
+      {/* Estimate note. Short enough to hold one line on a phone. */}
       <p className="text-center text-[13px] text-dream-muted sm:text-[14px]">
         Estimate only · free art proof before we print.
-        <Link
-          href={quoteHref}
-          className="mt-1 block font-semibold text-dream-purple underline decoration-dream-purple/40 underline-offset-2 hover:decoration-dream-purple"
-        >
-          Quick quote
-        </Link>
       </p>
       </div>
       </div>
