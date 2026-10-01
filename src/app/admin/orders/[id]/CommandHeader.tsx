@@ -162,7 +162,6 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                 <DropdownMenuItem disabled={status === "on_hold"} onClick={putOnHold}>
                   Put on hold
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setJumpOpen(true)}>Jump to status…</DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={status === "cancelled"}
                   className="text-dream-danger hover:bg-dream-danger-soft"
@@ -299,7 +298,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
         onConfirm={() => backTo && applyStatusMove(backTo)}
       />
 
-      {/* Jump-to-status dialog */}
+      {/* Status picker, opened by "Resume order" on an on-hold order */}
       <Dialog open={jumpOpen} onOpenChange={setJumpOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
