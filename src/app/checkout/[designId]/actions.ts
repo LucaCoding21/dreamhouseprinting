@@ -6,6 +6,7 @@ import { roundCents, formatCAD } from "@/lib/money";
 import { sendOrderStatusEmail, notifyJulian } from "@/lib/notify";
 import { rushFee } from "@/lib/pricing/rush";
 import { rushTierFee } from "@/lib/pricing/decorationPricing";
+import { loadStandardWindow, placementTurnaround, writeTurnaround } from "@/lib/orders/turnaroundServer";
 import {
   curveForProduct,
   priceFromCurveForPrints,
@@ -462,12 +463,8 @@ export async function placeOrderAction(
   const shipping = 0;
   const total = roundCents(subtotal + setup + rush + shipping + tax);
 
-  const lead = product?.lead_time_days ?? 7;
-  const due = new Date();
-  due.setDate(due.getDate() + lead);
-
   // The customer's picked need-by date IS the order's target date, so it drives
-  // due_date (falling back to the lead-time projection). Same authority rule as
+  // due_date (otherwise there is none until approval + payment). Same authority rule as
   // the tier above: a caller that owns the rush ask owns the date with it, so a
   // stale snapshot date can't resurrect a deadline the customer just cleared.
   // Only trust a well-formed YYYY-MM-DD so a tampered request can't write garbage.
@@ -477,7 +474,10 @@ export async function placeOrderAction(
       ? snap.neededBy!
       : null;
   const rushRequested = input.turnaround === "rush" || !!rushTier || !!neededBy;
-  const dueDate = neededBy ?? due.toISOString().slice(0, 10);
+  // No date at placement unless the customer picked one: the order counts
+  // business days from approval + payment (lib/orders/turnaround.ts), and
+  // due_date is stamped when that count starts.
+  const dueDate = neededBy;
 
   const notes: { at: string; actor: string; text: string }[] = [];
   if (rushRequested) {
@@ -556,6 +556,15 @@ export async function placeOrderAction(
     await service.from("orders").delete().eq("id", order.id);
     return { error: liErr.message };
   }
+
+  // How the ready date is decided: the rush tier's day count, the customer's
+  // picked date (a request until Julian confirms), or the standard window.
+  // Best-effort: a DB without 0017 falls back to the same rules at read time.
+  await writeTurnaround(
+    service,
+    order.id,
+    placementTurnaround(await loadStandardWindow(service), { rushDays: rushTier?.days, neededBy })
+  );
 
   // The design was a draft until the order was placed.
   const statusUpdate = service.from("designs").update({ status: "submitted" }).eq("id", design.id);

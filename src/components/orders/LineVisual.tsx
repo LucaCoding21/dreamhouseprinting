@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/cn";
 import { IconZoom, IconCheck } from "@/components/portal/icons";
 import { Lightbox, isPdf } from "./Lightbox";
+import { PdfGlyph, PdfThumb } from "./PdfThumb";
 
 /**
  * The picture that belongs to one line of an order: its approved proof when
@@ -80,13 +81,13 @@ export function LineVisual({
         )}
       >
         {pdf ? (
-          <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-dream-muted transition-colors group-hover:text-dream-purple">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-8 w-8" aria-hidden>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <path d="M14 2v6h6" />
-            </svg>
-            <span className="text-[12px] font-semibold">PDF</span>
-          </span>
+          // Page 1 of the PDF itself; the document glyph only while it loads.
+          <PdfThumb
+            src={src}
+            alt={alt}
+            imgClassName="transition-transform duration-200 group-hover:scale-[1.06]"
+            fallback={<PdfGlyph className="transition-colors group-hover:text-dream-purple" />}
+          />
         ) : (
           <Image
             src={src}

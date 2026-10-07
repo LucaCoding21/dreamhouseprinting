@@ -11,7 +11,9 @@ import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { STATUS_META } from "@/lib/orderStatus";
 import { PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from "@/lib/db/rows";
-import { setPaymentStatusAction, sendInvoiceAction, setTrackingAction, setDueDateAction } from "../actions";
+import { setPaymentStatusAction, sendInvoiceAction, setTrackingAction } from "../actions";
+import { standardWindowFrom } from "@/lib/orders/turnaround";
+import { TurnaroundField } from "./TurnaroundField";
 import { EtransferVerify } from "./EtransferVerify";
 import { LBL, SHIP_ON_TRACKING, fmtDay, useOrderAction, type Can, type Detail } from "./shared";
 
@@ -34,7 +36,6 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
   const [paymentPick, setPaymentPick] = useState<{ base: PaymentStatus; value: PaymentStatus } | null>(null);
   const payment = paymentPick && paymentPick.base === serverPayment ? paymentPick.value : serverPayment;
   const [tracking, setTracking] = useState(order.shipping_tracking ?? "");
-  const [dueDate, setDueDate] = useState(order.due_date ?? "");
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
 
   const paymentBadge: "success" | "info" | "warn" | "neutral" =
@@ -178,42 +179,26 @@ export function OrderReference({ detail, can, pieces }: { detail: Detail; can: C
         </CardContent>
       </Card>
 
-      {/* Stat mini-block. "In hands" is the due date, editable in place so
-          Julian can set (or clear) the real commitment; picking a date saves
-          immediately. */}
+      {/* Stat mini-block. "In hands" decides the ready date: business days
+          counted from approval + payment, or a fixed date (TurnaroundField). */}
       <Card>
-        <CardContent className="grid grid-cols-1 gap-3 p-4 min-[420px]:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
-          <div>
-            <div className={LBL}>In hands</div>
-            {can.edit ? (
-              <input
-                type="date"
-                value={dueDate}
-                title="Due date for this order. Pick a date to save it; clear it to remove."
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setDueDate(next);
-                  run(() => setDueDateAction(order.id, next || null), next ? "Due date saved" : "Due date cleared");
-                }}
-                // Sized like the shared Input primitive: 16px text below sm or
-                // iOS Safari zooms the page on focus.
-                className="mt-0.5 h-9 w-full rounded-lg border border-dream-line bg-white px-2 text-base font-semibold text-dream-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dream-purple sm:text-sm"
-              />
-            ) : (
-              <div className="mt-0.5 truncate text-sm font-semibold text-dream-ink">
-                {order.due_date ? fmtDay(order.due_date) : "-"}
+        <CardContent className="space-y-3 p-4">
+          <TurnaroundField
+            order={order}
+            standard={standardWindowFrom(detail.decorationPricing)}
+            canEdit={can.edit}
+          />
+          <div className="grid grid-cols-2 gap-3 border-t border-dream-line pt-3">
+            {[
+              { label: "Total pieces", value: String(pieces) },
+              { label: "Order value", value: formatCAD(total) },
+            ].map((s) => (
+              <div key={s.label}>
+                <div className={LBL}>{s.label}</div>
+                <div className="mt-0.5 truncate text-sm font-semibold text-dream-ink">{s.value}</div>
               </div>
-            )}
+            ))}
           </div>
-          {[
-            { label: "Total pieces", value: String(pieces) },
-            { label: "Order value", value: formatCAD(total) },
-          ].map((s) => (
-            <div key={s.label}>
-              <div className={LBL}>{s.label}</div>
-              <div className="mt-0.5 truncate text-sm font-semibold text-dream-ink">{s.value}</div>
-            </div>
-          ))}
         </CardContent>
       </Card>
 

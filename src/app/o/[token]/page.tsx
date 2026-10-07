@@ -6,6 +6,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
 import { serializeOrderView, resolveEtransferOption, designMockup } from "@/lib/orders/orderView";
+import { resolveReadyBy } from "@/lib/orders/turnaroundServer";
 import type { OrderStatus } from "@/lib/db/rows";
 import { OrderView } from "@/components/orders/OrderView";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
@@ -183,7 +184,12 @@ export default async function PublicOrderPage({
 
   // Resilient to an unmigrated DB: returns null (card only) if 0015's e-transfer
   // columns or the payments settings row are missing. Never throws.
-  const etransfer = await resolveEtransferOption(requireSupabaseServiceClient());
+  const service = requireSupabaseServiceClient();
+  const [etransfer, readyBy] = await Promise.all([
+    resolveEtransferOption(service),
+    // When it will be ready: business days from approval + payment, or a set date.
+    resolveReadyBy(service, loaded.order),
+  ]);
 
   // Only present right after a multi-design checkout, which links here with the
   // sibling tokens in `?also=`.
@@ -230,6 +236,7 @@ export default async function PublicOrderPage({
             reportEtransfer: reportEtransferPublicAction.bind(null, token),
           }}
           etransfer={etransfer}
+          readyBy={readyBy}
         />
       </main>
 

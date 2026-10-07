@@ -41,6 +41,7 @@ export function CartClient({
   prefill,
   pickupAddress,
   rushTiers,
+  standardMinDays,
   standardDays,
 }: {
   prefill: CartPrefill;
@@ -48,6 +49,7 @@ export function CartClient({
   /** "I just want it sooner" options from Settings, Pricing. Empty hides them. */
   rushTiers: RushTier[];
   /** Standard production time in business days, shown next to the rush tiers. */
+  standardMinDays: number;
   standardDays: number;
 }) {
   const router = useRouter();
@@ -483,6 +485,7 @@ export function CartClient({
                 value={rush}
                 onChange={setRush}
                 tiers={rushTiers}
+                standardMinDays={standardMinDays}
                 standardDays={standardDays}
                 subtotal={subtotal}
                 setupTotal={0}

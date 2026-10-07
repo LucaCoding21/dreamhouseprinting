@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { PRE_APPROVAL_STATUSES } from "@/lib/orders/turnaround";
+import { MockupThumb } from "@/components/orders/MockupThumb";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -76,8 +77,9 @@ const TABS: { key: string; label: string; match: (r: Row) => boolean }[] = [
   { key: "archived", label: "Archived", match: (r) => r.status === "cancelled" },
 ];
 
-function inHands(due: string | null): { label: string; urgent: boolean } {
-  if (!due) return { label: "-", urgent: false };
+function inHands(due: string | null, status: string): { label: string; urgent: boolean } {
+  // Business-day orders get their date when the customer has approved and paid.
+  if (!due) return { label: PRE_APPROVAL_STATUSES.has(status) ? "After approval" : "-", urgent: false };
   const days = Math.ceil((new Date(due).getTime() - Date.now()) / 86400000);
   if (days < 0) return { label: `${-days}d overdue`, urgent: true };
   if (days === 0) return { label: "Today", urgent: true };
@@ -302,7 +304,7 @@ export function OrdersListClient({
             <div className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface md:hidden">
               {visible.map((r) => {
                 const meta = STATUS_META[r.status as OrderStatus];
-                const ih = inHands(r.dueDate);
+                const ih = inHands(r.dueDate, r.status);
                 const pay = paymentMeta(r);
                 const thumb = r.mockups[0];
                 return (
@@ -313,7 +315,7 @@ export function OrdersListClient({
                   >
                     <div className="h-11 w-11 shrink-0 overflow-hidden rounded border border-dream-line bg-dream-bg">
                       {thumb && (
-                        <Image src={thumb} alt="" width={44} height={44} className="h-full w-full object-contain" />
+                        <MockupThumb src={thumb} size={44} />
                       )}
                     </div>
                     {/* No pills on the phone row: status is a coloured word
@@ -360,7 +362,7 @@ export function OrdersListClient({
               <TBody>
                 {visible.map((r) => {
                   const meta = STATUS_META[r.status as OrderStatus];
-                  const ih = inHands(r.dueDate);
+                  const ih = inHands(r.dueDate, r.status);
                   const pay = paymentMeta(r);
                   return (
                     <TR key={r.id} className="cursor-pointer" onClick={() => router.push(`/admin/orders/${r.id}`)}>
@@ -392,7 +394,7 @@ export function OrdersListClient({
                         <div className="flex -space-x-2">
                           {r.mockups.map((m, i) => (
                             <div key={i} className="h-8 w-8 overflow-hidden rounded border border-dream-line bg-dream-bg">
-                              <Image src={m} alt="" width={32} height={32} className="h-full w-full object-contain" />
+                              <MockupThumb src={m} size={32} />
                             </div>
                           ))}
                         </div>

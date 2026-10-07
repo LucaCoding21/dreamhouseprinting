@@ -2,6 +2,8 @@ import Image from "next/image";
 import { TRACKER_STAGES, statusStageIndex } from "@/lib/orderStatus";
 import type { OrderStatus } from "@/lib/db/rows";
 import { cn } from "@/lib/cn";
+import type { ReadyBy } from "@/lib/orders/turnaround";
+import { ReadyByCard } from "@/components/orders/ReadyByCard";
 
 /**
  * Per-stage self-animating dog (animated .webp). Keyed by tracker stage index
@@ -97,16 +99,6 @@ function fmtStageDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }
 
-function fmtReadyDate(date: string): string {
-  // date is a plain YYYY-MM-DD, pin to local midnight so it never shifts a day.
-  return new Date(`${date}T00:00:00`).toLocaleDateString("en-CA", {
-    weekday: "short",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 /**
  * Order progress tracker (PRD §5.4.1), a playful hero of the current stage:
  * the "current status" name on the left, the stage's doodle dog on an organic
@@ -117,13 +109,13 @@ function fmtReadyDate(date: string): string {
 export function OrderTracker({
   status,
   stageDates,
-  dueDate,
+  readyBy,
 }: {
   status: OrderStatus;
   /** ISO date the order entered each tracker stage; null where unknown. */
   stageDates?: (string | null)[];
-  /** Estimated ready date (YYYY-MM-DD). */
-  dueDate?: string | null;
+  /** When the order will be ready (lib/orders/turnaround.ts); null hides it. */
+  readyBy?: ReadyBy | null;
 }) {
   if (status === "cancelled") {
     return (
@@ -221,6 +213,9 @@ export function OrderTracker({
               <Image src="/how-it-works/3dog.png" alt="" width={72} height={70} className="h-20 w-auto shrink-0" />
             )}
           </div>
+          {/* When it will be ready, up top where Julian asked for it, not
+              folded away in the history. */}
+          {readyBy && <ReadyByCard ready={readyBy} compact className="mt-3" />}
         </div>
 
         <details className="group border-t border-dream-ink/10">
@@ -273,15 +268,6 @@ export function OrderTracker({
                 );
               })}
             </ol>
-            {/* Stacked: label over date. Side by side, "Estimated ready by"
-                and a long weekday date cannot share one 290px line, so the
-                "by" wrapped onto its own line. */}
-            {dueDate && (
-              <p className="mt-3 rounded-xl bg-white px-3.5 py-2.5 text-sm">
-                <span className="block text-xs text-dream-muted">Estimated ready by</span>
-                <span className="block font-display font-bold text-dream-purple">{fmtReadyDate(dueDate)}</span>
-              </p>
-            )}
           </div>
         </details>
       </div>
@@ -386,22 +372,9 @@ export function OrderTracker({
           })}
         </ol>
 
-        {dueDate && (
-          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-dream-line bg-dream-lavender-soft/25 px-4 py-3.5 sm:mt-7 sm:gap-4 sm:px-5 sm:py-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-dream-lavender-soft text-dream-purple">
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M3 9h18M8 3v4M16 3v4" />
-                <path d="M12 17c-1.4-1-2.6-1.9-2.6-3a1.2 1.2 0 0 1 2.2-.7l.4.5.4-.5a1.2 1.2 0 0 1 2.2.7c0 1.1-1.2 2-2.6 3z" fill="currentColor" stroke="none" />
-              </svg>
-            </span>
-            <span aria-hidden className="h-8 w-px bg-dream-line" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm text-dream-muted">Estimated ready by</div>
-              <div className="font-display text-base font-bold text-dream-purple">{fmtReadyDate(dueDate)}</div>
-            </div>
-          </div>
-        )}
+        {/* The ready date sits under the progress rail, where the eye lands
+            after "where is it" (Julian moved it off the top-right corner). */}
+        {readyBy && <ReadyByCard ready={readyBy} className="mt-5 sm:mt-7" />}
       </div>
       </div>
     </>

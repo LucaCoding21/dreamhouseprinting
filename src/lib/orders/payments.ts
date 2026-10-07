@@ -7,6 +7,7 @@ import { publicOrderPath, appOrigin } from "@/lib/orders/publicLink";
 import { formatCAD } from "@/lib/money";
 import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
 import { mergePaymentSettings } from "@/lib/paymentSettings";
+import { syncProductionClock } from "@/lib/orders/turnaroundServer";
 import type { OrderStatus, PaymentMethod } from "@/lib/db/rows";
 import type { Json } from "@/lib/db/types";
 import type { requireSupabaseServiceClient } from "@/lib/supabase/service";
@@ -168,6 +169,10 @@ export async function markOrderPaid(
     .maybeSingle();
   if (error) return { error: error.message };
   if (!updated) return { ok: true, alreadyPaid: true }; // the other path won the race
+
+  // Paid after approval (the normal approve-and-pay path) starts the
+  // business-day count to the ready date. Before the emails, so they can read it.
+  await syncProductionClock(service, orderId);
 
   await service.from("order_activity").insert({
     order_id: orderId,

@@ -21,6 +21,16 @@ import { mergeAddonSettings, lineAddonTotal } from "@/lib/addonSettings";
 import { resolveDiscount, type DiscountType } from "@/lib/pricing/discount";
 import { calcTax } from "@/lib/pricing/tax";
 import { isBackwardStatus } from "@/lib/orderStatus";
+import { readTurnaroundColumns, syncProductionClock, writeTurnaround } from "@/lib/orders/turnaroundServer";
+import {
+  MAX_TURNAROUND_DAYS,
+  daysTurnaround,
+  fmtDaysRange,
+  fmtReadyDay,
+  isIsoDate,
+  readyWindow,
+  shopDateOf,
+} from "@/lib/orders/turnaround";
 import { loadCatalogProducts } from "@/lib/admin/catalog";
 import type { CatalogProduct } from "./new/shared";
 import {
@@ -78,6 +88,9 @@ async function applyStatus(
   if (status !== "on_hold" && prevStatus === "on_hold") patch.hold_note = null;
   const { error } = await service.from("orders").update(patch).eq("id", orderId);
   if (error) return error.message;
+  // Approved + paid (or into production) starts the count to the ready date;
+  // a step back before approval clears it. Before the email, which reads it.
+  await syncProductionClock(service, orderId);
   // A step BACKWARDS (e.g. shipped -> production for a reprint) gets its own
   // activity entry on top of the normal status_change, so the reversal is easy
   // to spot in the log. status_reverted is admin-only (it is not in the
@@ -281,6 +294,7 @@ export async function setPaymentStatusAction(
 
   const { error } = await service.from("orders").update(patch).eq("id", orderId);
   if (error) return { error: error.message };
+  await syncProductionClock(service, orderId);
 
   // Killing any open Stripe session prevents a double charge on the now-paid order.
   if (markingPaid) {
@@ -554,24 +568,44 @@ export async function updateOrderDetailsAction(
   return { ok: true };
 }
 
-/** Set (or clear) the order's in-hands date. Placement projects one from the
- *  lead time; this is Julian overriding it with the real commitment. */
-export async function setDueDateAction(
+/**
+ * How this order's ready date is decided, Julian's "In hands" control:
+ *  - days: N-M business days counted from approval + payment. Until the count
+ *    starts there is no date (the customer reads the rule instead); once it
+ *    runs, due_date is the far end of the window.
+ *  - date: a fixed in-hands date Julian commits to (an event, a confirmed rush).
+ */
+export async function setTurnaroundAction(
   orderId: string,
-  date: string | null
+  input: { kind: "days"; min: number; max: number } | { kind: "date"; date: string }
 ): Promise<{ ok?: boolean; error?: string }> {
   await requirePermission("orders.edit");
   const service = requireSupabaseServiceClient();
 
-  const due = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
-  if (date && !due) return { error: "Enter the date as YYYY-MM-DD." };
+  if (input.kind === "date") {
+    if (!isIsoDate(input.date)) return { error: "Pick the in-hands date." };
+    const { error } = await service.from("orders").update({ due_date: input.date }).eq("id", orderId);
+    if (error) return { error: error.message };
+    // Staff picked it, so it is a commitment (clears a customer "requested" flag).
+    // On a DB without 0017 the date alone still reads as a fixed date.
+    await writeTurnaround(service, orderId, { kind: "date" });
+    await logActivity(service, orderId, "turnaround", { message: `In-hands date set to ${fmtReadyDay(input.date)}` });
+  } else {
+    const t = daysTurnaround(input.min, input.max);
+    if (!t || t.kind !== "days") return { error: `Enter business days between 1 and ${MAX_TURNAROUND_DAYS}.` };
+    const cols = await readTurnaroundColumns(service, orderId);
+    if (!cols) return { error: "Business-day turnarounds need the latest database update (migration 0017)." };
+    if (!(await writeTurnaround(service, orderId, t))) return { error: "Could not save the turnaround." };
+    // The date follows the count: re-stamped from its start if it is running,
+    // empty until then.
+    const due = cols.production_clock_at ? readyWindow(shopDateOf(cols.production_clock_at), t).to : null;
+    const { error } = await service.from("orders").update({ due_date: due }).eq("id", orderId);
+    if (error) return { error: error.message };
+    await logActivity(service, orderId, "turnaround", {
+      message: `Turnaround set to ${fmtDaysRange(t)} after approval and payment${due ? `, ready by ${fmtReadyDay(due)}` : ""}`,
+    });
+  }
 
-  const { error } = await service.from("orders").update({ due_date: due }).eq("id", orderId);
-  if (error) return { error: error.message };
-
-  await logActivity(service, orderId, "order_edited", {
-    message: due ? `Due date set to ${due}` : "Due date cleared",
-  });
   revalidateOrder(orderId);
   return { ok: true };
 }

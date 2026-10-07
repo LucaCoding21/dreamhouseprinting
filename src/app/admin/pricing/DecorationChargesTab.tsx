@@ -192,6 +192,7 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
   const [includedSqIn, setIncludedSqIn] = useState(String(settings.embroidery.includedSqIn));
   const [perExtraSqIn, setPerExtraSqIn] = useState(String(settings.embroidery.perExtraSqInPerPiece));
 
+  const [standardMinDays, setStandardMinDays] = useState(String(settings.standardMinDays));
   const [standardDays, setStandardDays] = useState(String(settings.standardDays));
   const [rushRows, setRushRows] = useState<RushRowDraft[]>(() =>
     settings.rushTiers.map((t) => ({ id: t.id, days: String(t.days), pct: String(t.pct) }))
@@ -211,6 +212,7 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
         includedSqIn: Math.max(0, Number(includedSqIn) || 0),
         perExtraSqInPerPiece: dollars(perExtraSqIn),
       },
+      standardMinDays: whole(standardMinDays) || settings.standardMinDays,
       standardDays: whole(standardDays) || settings.standardDays,
       rushTiers: rushRows
         .map((r) => ({ id: r.id, days: whole(r.days), pct: Math.max(0, Number(r.pct) || 0) }))
@@ -352,20 +354,36 @@ export function DecorationChargesTab({ settings }: { settings: DecorationPricing
           <CardTitle>Rush options</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="max-w-xs">
+          <div className="max-w-sm">
             <Field
-              label="Standard production time (business days)"
-              htmlFor="dp-standard-days"
-              hint="Your normal turnaround, shown next to the rush choices."
+              label="Standard turnaround (business days)"
+              htmlFor="dp-standard-min-days"
+              hint="Counted from when the customer has approved the proof and paid. Customers see it on their order page and next to the rush choices. New orders start with this; change one order from its In hands box."
             >
-              <Input
-                id="dp-standard-days"
-                type="number"
-                min={1}
-                step="1"
-                value={standardDays}
-                onChange={(e) => setStandardDays(e.target.value)}
-              />
+              <div className="flex items-center gap-2 text-sm text-dream-muted">
+                <Input
+                  id="dp-standard-min-days"
+                  aria-label="Fewest business days"
+                  type="number"
+                  min={1}
+                  step="1"
+                  value={standardMinDays}
+                  onChange={(e) => setStandardMinDays(e.target.value)}
+                  className="w-20"
+                />
+                <span>to</span>
+                <Input
+                  id="dp-standard-days"
+                  aria-label="Most business days"
+                  type="number"
+                  min={1}
+                  step="1"
+                  value={standardDays}
+                  onChange={(e) => setStandardDays(e.target.value)}
+                  className="w-20"
+                />
+                <span>days</span>
+              </div>
             </Field>
           </div>
 

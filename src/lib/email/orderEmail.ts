@@ -42,6 +42,12 @@ export const COMMON_TEMPLATE_VARIABLES: TemplateVariable[] = [
   { name: "orderLink", description: "Link to the customer's order page (the button already links there)", sample: "https://dreamhouseprinting.com/o/abc123" },
   { name: "trackingLine", description: "\"Track it: <number>\" once tracking is entered, otherwise blank", sample: "Track it: 1Z999AA10123456784" },
   { name: "pickupLocation", description: "Pickup location from the shipping settings", sample: "Vancouver, BC" },
+  {
+    name: "readyBy",
+    description:
+      "When it will be ready, as a sentence: the business-day rule before approval and payment, the real dates after. Added automatically to the confirmation, proof, payment and production emails when the template doesn't use it",
+    sample: "Your order will be ready between Tue, Oct 20 and Mon, Oct 26.",
+  },
 ];
 
 /** Plain-language guide per template: when it sends, plus any extra variables. */

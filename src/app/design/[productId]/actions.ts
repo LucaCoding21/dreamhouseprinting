@@ -254,12 +254,9 @@ export async function submitDesignAction(
     // Order path.
     const { data: product } = await service
       .from("products")
-      .select("name, lead_time_days")
+      .select("name")
       .eq("id", input.productId)
       .single();
-    const lead = product?.lead_time_days ?? 7;
-    const due = new Date();
-    due.setDate(due.getDate() + lead);
 
     const { data: order, error: orderErr } = await service
       .from("orders")
@@ -274,7 +271,6 @@ export async function submitDesignAction(
           tax: 0,
           total: input.priceSnapshot.total,
         }),
-        due_date: due.toISOString().slice(0, 10),
         customer_notes: input.notes ? asJson([{ at: new Date().toISOString(), actor: "customer", text: input.notes }]) : asJson([]),
       })
       .select("id, order_number")

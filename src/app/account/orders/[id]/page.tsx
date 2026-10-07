@@ -6,6 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import { markOrderPaid } from "@/lib/orders/payments";
 import { serializeOrderView, resolveEtransferOption, customerNoteFrom } from "@/lib/orders/orderView";
 import { OrderView } from "@/components/orders/OrderView";
+import { resolveReadyBy } from "@/lib/orders/turnaroundServer";
 import { LatestMessageBanner } from "@/components/orders/LatestMessageBanner";
 import { ReorderButton } from "./ReorderButton";
 import type { OrderActivityRow } from "@/lib/db/rows";
@@ -56,12 +57,14 @@ export default async function OrderDetailPage({
   // Only the `customer` key is extracted, the internal keys never leave this
   // function.
   const activityClient = requireSupabaseServiceClient();
-  const [{ data: activity }, etransfer, { data: noteRow }] = await Promise.all([
+  const [{ data: activity }, etransfer, { data: noteRow }, readyBy] = await Promise.all([
     activityClient.from("order_activity").select("*").eq("order_id", order.id).order("created_at", { ascending: false }),
     // Resilient to an unmigrated DB: null (card only) if 0015's e-transfer columns
     // or the payments settings row are missing. Never throws.
     resolveEtransferOption(activityClient),
     activityClient.from("orders").select("production_notes").eq("id", order.id).maybeSingle(),
+    // The RLS read above doesn't select the turnaround columns; this reads them.
+    resolveReadyBy(activityClient, order),
   ]);
 
   const view = serializeOrderView({
@@ -137,6 +140,7 @@ export default async function OrderDetailPage({
           reportEtransfer: reportEtransferAction.bind(null, order.id),
         }}
         etransfer={etransfer}
+        readyBy={readyBy}
       />
     </div>
   );

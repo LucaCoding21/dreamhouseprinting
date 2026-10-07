@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { useToast } from "@/components/ui/use-toast";
 import { imageToPdfBlob } from "@/lib/pdf/imageSheet";
 import { downloadBlob } from "./artworkPieces";
+import { PdfPages } from "@/components/orders/PdfPages";
 
 /** Fullscreen viewer for a proof or mockup, image or PDF, so staff can
  *  double-check the real artwork at full size before (or after) it goes to
@@ -97,10 +98,11 @@ export function ProofLightbox({
       // "clicking anywhere out of here closes the window". The image is NOT
       // exempt: its object-contain layout box spans the whole letterboxed
       // area, so exempting <img> would swallow every "outside" click too.
-      // The PDF iframe keeps its clicks (its viewer needs them).
+      // The PDF keeps its clicks: the fallback iframe's viewer needs them, and
+      // the rendered pages scroll (grabbing the scrollbar must not close it).
       onMouseDown={(e) => {
         if (e.button !== 0) return;
-        if ((e.target as HTMLElement).closest("iframe, button, a")) return;
+        if ((e.target as HTMLElement).closest("iframe, button, a, [data-pdf-scroll]")) return;
         onOpenChange(false);
       }}
     >
@@ -117,7 +119,17 @@ export function ProofLightbox({
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center px-4">
         {kind === "pdf" ? (
-          <iframe src={src} title={title ?? "Proof PDF"} className="h-full w-full rounded-lg bg-white" />
+          // Rendered pages (a PDF iframe is blank on Android Chrome); the
+          // iframe is only the fallback when pdf.js can't read the file.
+          <div data-pdf-scroll className="flex h-full w-full max-w-5xl flex-col overflow-y-auto overscroll-contain">
+            <PdfPages
+              key={src}
+              src={src}
+              title={title ?? "Proof PDF"}
+              className="my-auto"
+              fallback={<iframe src={src} title={title ?? "Proof PDF"} className="min-h-0 w-full flex-1 rounded-lg bg-white" />}
+            />
+          </div>
         ) : (
           <Image
             src={src}

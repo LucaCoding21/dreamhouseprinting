@@ -27,6 +27,7 @@ import { BlankGarment } from "../[id]/BlankGarment";
 import { openInNewTab, fileKind } from "../[id]/ProofLightbox";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PriceBreakdown } from "@/components/admin/PriceBreakdown";
+import { PdfGlyph, PdfThumb } from "@/components/orders/PdfThumb";
 import { breakdownUnitPrice, type PriceChargeDraft } from "@/lib/orders/priceBreakdown";
 import { DecorationSpotRow } from "../[id]/DecorationSpotRow";
 import {
@@ -1575,13 +1576,11 @@ function MockupUploader({
                 className="block h-full w-full cursor-pointer"
               >
               {m.kind === "pdf" ? (
-                <span className="flex h-full w-full flex-col items-center justify-center text-dream-muted">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6" aria-hidden>
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                  </svg>
-                  <span className="text-[9px] font-semibold">PDF</span>
-                </span>
+                <PdfThumb
+                  src={m.preview}
+                  alt={m.name}
+                  fallback={<PdfGlyph className="gap-0" iconClassName="h-6 w-6" labelClassName="text-[9px] font-semibold" />}
+                />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={m.preview} alt={m.name} className="h-full w-full object-contain" />

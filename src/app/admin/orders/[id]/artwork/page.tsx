@@ -26,8 +26,7 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
   const designById = new Map(detail.designs.map((d) => [d.id, d]));
 
   // Proofs from the proofs table (where every upload lands now), oldest first
-  // so "Proof 1" is the first one made. PDFs can't render as <img>, so they
-  // list as files.
+  // so "Proof 1" is the first one made. PDFs render page by page on the sheet.
   const PROOF_STATUS: Record<string, string> = {
     pending: "not approved yet",
     approved: "approved",
@@ -35,7 +34,7 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
   };
   const proofTile = (p: (typeof detail.proofs)[number], n: number): ArtworkTile => ({
     key: `proof-${p.id}`,
-    kind: /\.pdf(\?|#|$)/i.test(p.image) ? "file" : "image",
+    kind: /\.pdf(\?|#|$)/i.test(p.image) ? "pdf" : "image",
     label: `Proof ${n}, ${PROOF_STATUS[p.status] ?? p.status}`,
     src: p.image,
     href: p.image,
@@ -67,7 +66,7 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
     for (const file of sourceFiles) {
       tiles.push({
         key: `src-${li.id}-${file.path || file.name}`,
-        kind: file.url && isImageFilename(file.name) ? "image" : "file",
+        kind: !file.url ? "file" : isImageFilename(file.name) ? "image" : /\.pdf$/i.test(file.name) ? "pdf" : "file",
         label: `Customer upload, ${file.name}`,
         src: file.url ?? null,
         href: file.url ?? null,
@@ -136,8 +135,7 @@ export default async function OrderArtworkPage({ params }: { params: Promise<{ i
         ...officials.map(
           (m, i): ArtworkTile => ({
             key: `official-${i}`,
-            // PDF proofs can't render as <img>, list them as downloadable files.
-            kind: /\.pdf(\?|#|$)/i.test(m.path ?? m.url ?? "") ? "file" : "image",
+            kind: /\.pdf(\?|#|$)/i.test(m.path ?? m.url ?? "") ? "pdf" : "image",
             label: `Proof ${orderProofs.length + i + 1}`,
             src: m.url ?? null,
             href: m.url ?? null,

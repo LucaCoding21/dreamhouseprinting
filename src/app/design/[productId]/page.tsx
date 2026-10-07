@@ -7,6 +7,7 @@ import { claimGuestRecords } from "@/lib/claim";
 import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { enabledColours } from "@/lib/productImage";
 import { garmentRetailUnit } from "@/lib/pricing/platform";
+import { loadStandardWindow } from "@/lib/orders/turnaroundServer";
 import { DesignerClient, type InitialDesign } from "./DesignerClient";
 import type { ProductColourJson, ProductSizeJson, PrintAreaPositionJson } from "@/lib/db/rows";
 
@@ -111,7 +112,11 @@ export default async function DesignPage({
   if (design && user) {
     await claimGuestRecords(user.id, user.email_confirmed_at ? (user.email ?? "") : "");
   }
-  const initialDesign = design ? await loadInitialDesign(design, product.id, user?.id ?? null) : null;
+  const [initialDesign, standardTurnaround] = await Promise.all([
+    design ? loadInitialDesign(design, product.id, user?.id ?? null) : null,
+    // The shop-wide ready window, so the review screen promises what the order page will.
+    loadStandardWindow(requireSupabaseServiceClient()),
+  ]);
 
   return (
     <DesignerClient
@@ -127,7 +132,7 @@ export default async function DesignPage({
         garmentRetail: garmentRetailUnit(product),
         pricing_rules: product.pricing_rules,
       }}
-      leadTimeDays={product.lead_time_days}
+      standardTurnaround={standardTurnaround}
       colours={colours}
       sizes={sizes.map((s) => ({ name: s.name, inStock: s.inStock }))}
       printAreas={printAreas.map((p) => ({

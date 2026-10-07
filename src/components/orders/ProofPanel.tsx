@@ -10,6 +10,7 @@ import { StatusTag } from "@/components/portal/StatusTag";
 import { IconZoom, IconCheck } from "@/components/portal/icons";
 import { OrderPanel } from "./OrderPanel";
 import { Lightbox, isPdf } from "./Lightbox";
+import { PdfGlyph, PdfThumb } from "./PdfThumb";
 import { PaymentMethodDialog } from "./PaymentMethodDialog";
 import type { OrderViewProof, OrderViewActions, OrderViewEtransfer } from "./types";
 
@@ -115,19 +116,29 @@ export function ProofPanel({
                 aria-label={`View proof ${i + 1} full size`}
               >
                 {isPdf(p.image) ? (
-                  /* PDFs can't render as <img>, show a labelled document tile. */
-                  <span className="flex aspect-square w-full flex-col items-center justify-center gap-1.5 text-dream-muted">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-9 w-9" aria-hidden>
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <path d="M14 2v6h6" />
-                    </svg>
-                    <span className="text-[14px] font-semibold">PDF proof</span>
-                  </span>
+                  /* Page 1 of the PDF at its natural height (capped, so a tall
+                      page can't stretch the panel), same as an image proof; the
+                      labelled document tile shows while it renders. */
+                  <PdfThumb
+                    src={p.image}
+                    alt={`Proof ${i + 1}`}
+                    className="h-auto"
+                    imgClassName="block h-auto max-h-72"
+                    fallback={
+                      <PdfGlyph
+                        className="aspect-square h-auto gap-1.5"
+                        iconClassName="h-9 w-9"
+                        label="PDF proof"
+                        labelClassName="text-[14px] font-semibold"
+                      />
+                    }
+                  />
                 ) : (
                   /* Proofs arrive at any aspect ratio, fix the width and let the box
-                      grow to the image's natural height so there's never a grey band. */
+                      grow to the image's natural height so there's never a grey band
+                      (up to a cap, past which a very tall proof fits inside). */
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={p.image} alt={`Proof ${i + 1}`} className="block h-auto w-full" />
+                  <img src={p.image} alt={`Proof ${i + 1}`} className="block h-auto max-h-72 w-full object-contain" />
                 )}
                 <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-dream-ink/70 py-1.5 text-[14px] font-semibold text-white transition-colors group-hover:bg-dream-purple/85">
                   <IconZoom className="h-3.5 w-3.5" />
@@ -211,9 +222,9 @@ export function ProofPanel({
                 <p className="mb-3 mt-3 text-sm text-dream-muted">
                   {payOnApprove
                     ? etransfer
-                      ? "Approving opens payment (card or Interac e-Transfer). Once paid, your order goes to production."
-                      : "Approving takes you to secure checkout. Once paid, your order goes to production."
-                    : "Approving sends it to production. Otherwise, tell us what to change."}
+                      ? "Approve, then pay by card or e-Transfer. Then we start printing."
+                      : "Approve, then pay by card. Then we start printing."
+                    : "Approve and we start printing. Or tell us what to change."}
                 </p>
                 {!requesting ? (
                   <div className="mt-auto flex flex-wrap justify-end gap-2">

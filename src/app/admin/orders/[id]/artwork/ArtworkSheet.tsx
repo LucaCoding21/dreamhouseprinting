@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { PdfPages } from "@/components/orders/PdfPages";
 
 export interface ArtworkTile {
   key: string;
-  /** image: render it full size. text: text art from the designer. file: a non-image upload (PDF, AI …). */
-  kind: "image" | "text" | "file";
+  /** image: render it full size. pdf: its pages, rendered. text: text art from the designer. file: any other upload (AI, EPS …). */
+  kind: "image" | "pdf" | "text" | "file";
   label: string;
   src: string | null;
   /** Where "Open" points, usually the same as src. */
@@ -112,6 +113,24 @@ export function ArtworkSheet({
                           src={tile.src}
                           alt={tile.label}
                           className="max-h-[70vh] w-auto max-w-full rounded-lg border border-dream-line bg-white object-contain"
+                        />
+                      ) : tile.kind === "pdf" && tile.src ? (
+                        // Every page on the sheet itself (it prints), not a
+                        // "download it" line. Falls back to that line if the
+                        // file can't be rendered.
+                        <PdfPages
+                          src={tile.src}
+                          title={tile.label}
+                          minRenderWidth={1600}
+                          pageClassName="max-h-[70vh] w-auto max-w-full self-start border border-dream-line"
+                          placeholderClassName="border border-dream-line"
+                          noteClassName="text-left text-dream-muted"
+                          fallback={
+                            <div className="rounded-lg border border-dashed border-dream-line px-4 py-3 text-sm text-dream-muted">
+                              {tile.name ?? "File"}
+                              {tile.href ? " (open the link above to download)" : " (no download link on file)"}
+                            </div>
+                          }
                         />
                       ) : tile.kind === "text" ? (
                         <div

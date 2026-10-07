@@ -45,7 +45,13 @@ export interface DecorationPricingSettings {
     /** Per-piece charge for every square inch above includedSqIn. 0 = size not priced. */
     perExtraSqInPerPiece: number;
   };
-  /** Standard production time shown next to the rush options. */
+  /**
+   * Standard turnaround window in business days, counted from the moment the
+   * order is approved AND paid (lib/orders/turnaround.ts). standardDays is the
+   * far end of the window (the name predates the range), standardMinDays the
+   * near end. Shown next to the rush options and on every order page.
+   */
+  standardMinDays: number;
   standardDays: number;
   /** "I just want it sooner" options, fastest last. Empty = feature hidden. */
   rushTiers: RushTier[];
@@ -77,6 +83,7 @@ export const DEFAULT_DECORATION_PRICING: DecorationPricingSettings = {
     includedSqIn: 9,
     perExtraSqInPerPiece: 0,
   },
+  standardMinDays: 8,
   standardDays: 12,
   rushTiers: [
     { id: "rush-8", days: 8, pct: 10 },
@@ -125,6 +132,14 @@ function mergeRushTiers(raw: unknown, fallback: RushTier[]): RushTier[] {
     .sort((a, b) => b.days - a.days);
 }
 
+/** The standard window, repaired so min <= max and both are whole days >= 1. */
+function standardWindow(rawMin: unknown, rawMax: unknown): { standardMinDays: number; standardDays: number } {
+  const d = DEFAULT_DECORATION_PRICING;
+  const max = Math.round(num(rawMax, d.standardDays)) || d.standardDays;
+  const min = Math.round(num(rawMin, Math.min(d.standardMinDays, max))) || Math.min(d.standardMinDays, max);
+  return { standardMinDays: Math.min(min, max), standardDays: max };
+}
+
 /** Merge a stored settings blob over the defaults (defaults win for missing keys). */
 export function mergeDecorationPricing(raw: unknown): DecorationPricingSettings {
   const v = (raw ?? {}) as Partial<DecorationPricingSettings>;
@@ -139,7 +154,7 @@ export function mergeDecorationPricing(raw: unknown): DecorationPricingSettings 
       includedSqIn: num(v.embroidery?.includedSqIn, d.embroidery.includedSqIn),
       perExtraSqInPerPiece: num(v.embroidery?.perExtraSqInPerPiece, d.embroidery.perExtraSqInPerPiece),
     },
-    standardDays: Math.round(num(v.standardDays, d.standardDays)) || d.standardDays,
+    ...standardWindow(v.standardMinDays, v.standardDays),
     rushTiers: mergeRushTiers(v.rushTiers, d.rushTiers),
   };
 }

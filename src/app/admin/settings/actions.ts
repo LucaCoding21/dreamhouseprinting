@@ -150,9 +150,11 @@ export async function updateDecorationPricingAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings");
-  // These charges feed the admin order editor and the designer's live estimate.
+  // These charges feed the admin order editor and the designer's live estimate;
+  // the standard turnaround shows in the cart's rush box.
   revalidatePath("/admin/orders", "layout");
   revalidatePath("/design", "layout");
+  revalidatePath("/cart");
   return { ok: true };
 }
 

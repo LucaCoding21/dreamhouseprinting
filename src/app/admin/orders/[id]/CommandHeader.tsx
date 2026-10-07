@@ -25,6 +25,7 @@ import { OrderTopSummary } from "./OrderTopSummary";
 import { StatusChangeConfirm } from "./StatusChangeConfirm";
 import { goToSendPanel, useApprovalState } from "./SendForApprovalPanel";
 import { LBL, fmtDay, relativeTime, nextAction, useOrderAction, type Can, type Detail } from "./shared";
+import { PRE_APPROVAL_STATUSES, fmtDaysRange, resolveTurnaround, standardWindowFrom } from "@/lib/orders/turnaround";
 
 const PRE_APPROVAL = new Set<string>(["draft", "submitted", "in_review", "proof_ready", "changes_requested"]);
 
@@ -39,6 +40,10 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
 
   const pricing = (order.pricing ?? {}) as { total?: number };
   const total = pricing.total ?? 0;
+
+  // No due date yet: a business-day order whose count hasn't started. Say the rule.
+  const turnaround = resolveTurnaround(order.turnaround ?? null, order.due_date, standardWindowFrom(detail.decorationPricing));
+  const dueRule = turnaround.kind === "days" && PRE_APPROVAL_STATUSES.has(status) ? fmtDaysRange(turnaround) : null;
 
   const [jumpOpen, setJumpOpen] = useState(false);
   const [invoiceConfirm, setInvoiceConfirm] = useState(false);
@@ -225,7 +230,11 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
             <div className="font-medium text-dream-ink">{who}</div>
             <div className="mt-0.5 flex flex-wrap gap-x-5 gap-y-0.5 text-dream-muted">
               <span>Created {fmtDay(order.created_at)}</span>
-              {order.due_date && <span>Due {fmtDay(order.due_date)}</span>}
+              {order.due_date ? (
+                <span>Due {fmtDay(order.due_date)}</span>
+              ) : (
+                dueRule && <span>Due {dueRule} after approval and payment</span>
+              )}
             </div>
           </div>
         </div>

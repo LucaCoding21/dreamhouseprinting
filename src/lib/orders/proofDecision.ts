@@ -2,6 +2,7 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { notifyJulian } from "@/lib/notify";
+import { syncProductionClock } from "@/lib/orders/turnaroundServer";
 import type { Json } from "@/lib/db/types";
 import type { OrderStatus } from "@/lib/db/rows";
 import type { requireSupabaseServiceClient } from "@/lib/supabase/service";
@@ -84,6 +85,9 @@ export async function approveProofCore(
   if (!transitioned || transitioned.length === 0) return { ok: true };
 
   await service.from("orders").update({ status: "approved" }).eq("id", orderId);
+  // Already paid (an early invoice)? Approval completes the pair: the
+  // business-day count to the ready date starts now.
+  await syncProductionClock(service, orderId);
   await service.from("order_activity").insert({
     order_id: orderId,
     actor_name: actorName,
@@ -135,6 +139,7 @@ export async function requestProofChangesCore(
   if (!transitioned || transitioned.length === 0) return { ok: true };
 
   await service.from("orders").update({ status: "changes_requested" }).eq("id", orderId);
+  await syncProductionClock(service, orderId);
   await service.from("order_activity").insert({
     order_id: orderId,
     actor_name: actorName,

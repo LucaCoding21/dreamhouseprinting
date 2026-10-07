@@ -89,6 +89,7 @@ export default async function CartPage() {
         prefill={prefill}
         pickupAddress={shopPickupAddress}
         rushTiers={decorationPricing.rushTiers}
+        standardMinDays={decorationPricing.standardMinDays}
         standardDays={decorationPricing.standardDays}
       />
       <SiteFooter />

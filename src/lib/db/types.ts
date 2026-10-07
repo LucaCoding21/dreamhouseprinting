@@ -361,6 +361,7 @@ export type Database = {
           payment_status: string
           pricing: Json
           production_notes: Json
+          production_clock_at: string | null
           public_token: string
           sales_rep: string | null
           shipping_address: Json | null
@@ -368,6 +369,7 @@ export type Database = {
           shipping_tracking: string | null
           status: string
           stripe_checkout_session_id: string | null
+          turnaround: Json | null
           updated_at: string
         }
         Insert: {
@@ -392,6 +394,7 @@ export type Database = {
           payment_status?: string
           pricing?: Json
           production_notes?: Json
+          production_clock_at?: string | null
           public_token?: string
           sales_rep?: string | null
           shipping_address?: Json | null
@@ -399,6 +402,7 @@ export type Database = {
           shipping_tracking?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
+          turnaround?: Json | null
           updated_at?: string
         }
         Update: {
@@ -423,6 +427,7 @@ export type Database = {
           payment_status?: string
           pricing?: Json
           production_notes?: Json
+          production_clock_at?: string | null
           public_token?: string
           sales_rep?: string | null
           shipping_address?: Json | null
@@ -430,6 +435,7 @@ export type Database = {
           shipping_tracking?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
+          turnaround?: Json | null
           updated_at?: string
         }
         Relationships: [

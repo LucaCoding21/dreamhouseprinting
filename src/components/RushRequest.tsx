@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { fmtDaysRange } from "@/lib/orders/turnaround";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
 import { rushTierFee, type RushTier } from "@/lib/pricing/decorationPricing";
@@ -42,6 +43,7 @@ export function RushRequest({
   value,
   onChange,
   tiers,
+  standardMinDays,
   standardDays,
   subtotal,
   setupTotal,
@@ -50,7 +52,8 @@ export function RushRequest({
   value: RushRequestValue;
   onChange: (v: RushRequestValue) => void;
   tiers: RushTier[];
-  /** Normal turnaround in business days, shown next to the priced tiers. */
+  /** Normal turnaround window in business days, shown next to the priced tiers. */
+  standardMinDays?: number;
   standardDays: number;
   /** Pre-tax goods subtotal the percentage fees are quoted against. */
   subtotal: number;
@@ -133,7 +136,8 @@ export function RushRequest({
                 })}
               </div>
               <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
-                Standard: {standardDays} business days.
+                Standard: {fmtDaysRange({ min: Math.min(standardMinDays ?? standardDays, standardDays), max: standardDays })}.
+                Days count from when you approve your proof and pay.
               </p>
             </>
           </RushChoice>

@@ -6,6 +6,7 @@ import { formatInches } from "@/lib/design/printArea";
 import { LINE_PRODUCTION_META } from "@/lib/lineProduction";
 import { LinePosition } from "./LinePosition";
 import { openInNewTab, fileKind } from "./ProofLightbox";
+import { PdfGlyph, PdfThumb } from "@/components/orders/PdfThumb";
 import { itemQty, type ItemState, type OrderProduct } from "./shared";
 import type { DecorationSpot } from "../actions";
 import type { DesignRow, ProofRow } from "@/lib/db/rows";
@@ -134,13 +135,11 @@ export function CompactItemRow({
             />
           )}
           {thumbKind === "pdf" ? (
-            <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-dream-muted">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4" aria-hidden>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6" />
-              </svg>
-              <span className="text-[8px] font-bold leading-none">PDF</span>
-            </span>
+            <PdfThumb
+              src={thumb}
+              alt=""
+              fallback={<PdfGlyph className="gap-0.5" iconClassName="h-4 w-4" labelClassName="text-[8px] font-bold leading-none" />}
+            />
           ) : (
             <Image src={thumb} alt="" width={40} height={40} className="h-full w-full object-contain" />
           )}

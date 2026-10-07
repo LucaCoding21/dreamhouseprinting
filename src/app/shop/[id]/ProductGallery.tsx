@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { fmtDaysRange } from "@/lib/orders/turnaround";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -41,7 +42,7 @@ export function ProductGallery({
   allowedDecorations,
   decorationNames,
   description,
-  leadTimeDays,
+  standardTurnaround,
 }: {
   productId: string;
   /** S&S styleID, for the live size-guide lookup. Null for non-S&S products. */
@@ -61,7 +62,8 @@ export function ProductGallery({
   /** Names of the decoration methods this product offers, for the buy-box chips. */
   decorationNames?: string[];
   description: string | null;
-  leadTimeDays: number;
+  /** The shop's standard ready window in business days, from approval + payment. */
+  standardTurnaround: { min: number; max: number };
 }) {
   // Show the most-popular colours first (staples + primaries, then light -> dark).
   const colours = useMemo(() => sortColours(coloursProp), [coloursProp]);
@@ -455,8 +457,8 @@ export function ProductGallery({
           </Collapsible>
           <Collapsible title="Shipping & turnaround">
             <p>
-              Ships in ~{leadTimeDays} business day
-              {leadTimeDays === 1 ? "" : "s"} once your proof is approved. Local
+              Ready {fmtDaysRange(standardTurnaround)} after you approve your
+              proof and pay. Local
               Vancouver pickup is available. Choose it at checkout to skip
               shipping.
             </p>

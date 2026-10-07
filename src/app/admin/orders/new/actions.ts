@@ -7,6 +7,7 @@ import { requireSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendOrderStatusEmail } from "@/lib/notify";
 import { roundCents } from "@/lib/money";
 import { rushTierFee } from "@/lib/pricing/decorationPricing";
+import { loadStandardWindow, placementTurnaround, syncProductionClock, writeTurnaround } from "@/lib/orders/turnaroundServer";
 import type { Json } from "@/lib/db/types";
 import type { OrderStatus } from "@/lib/db/rows";
 import type { DecorationSpot } from "../actions";
@@ -309,6 +310,16 @@ export async function createManualOrderAction(
       .update({ official_mockups: asJson(signed) })
       .eq("id", order.id);
   }
+
+  // An in-hands date typed here is a staff commitment; without one the order
+  // counts the standard window from approval + payment. A phone order created
+  // already approved and paid, or straight into production, starts counting now.
+  await writeTurnaround(
+    service,
+    order.id,
+    dueDate ? { kind: "date" } : placementTurnaround(await loadStandardWindow(service))
+  );
+  await syncProductionClock(service, order.id);
 
   await service.from("order_activity").insert({
     order_id: order.id,

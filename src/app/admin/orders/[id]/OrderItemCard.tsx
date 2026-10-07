@@ -19,6 +19,7 @@ import { LinePosition } from "./LinePosition";
 import { DecorationSpotRow } from "./DecorationSpotRow";
 import { ProofReviewDialog } from "./ProofReviewDialog";
 import { openInNewTab, fileKind } from "./ProofLightbox";
+import { PdfGlyph, PdfThumb } from "@/components/orders/PdfThumb";
 import { PriceBreakdown } from "@/components/admin/PriceBreakdown";
 import { curveForProduct } from "@/lib/pricing/quote";
 import { formatInches } from "@/lib/design/printArea";
@@ -254,13 +255,11 @@ export function OrderItemCard({
                   className="block h-32 w-full overflow-hidden rounded-lg bg-dream-bg"
                 >
                   {fileKind(latestProof.image) === "pdf" ? (
-                    <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-dream-muted">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-8 w-8" aria-hidden>
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <path d="M14 2v6h6" />
-                      </svg>
-                      <span className="text-[10px] font-semibold">PDF proof</span>
-                    </span>
+                    <PdfThumb
+                      src={latestProof.image}
+                      alt="Latest proof"
+                      fallback={<PdfGlyph label="PDF proof" labelClassName="text-[10px] font-semibold" />}
+                    />
                   ) : (
                     <Image src={latestProof.image} alt="Latest proof" width={160} height={160} className="h-full w-full object-contain" />
                   )}
@@ -380,12 +379,12 @@ export function OrderItemCard({
                         >
                           {p.image ? (
                             fileKind(p.image) === "pdf" ? (
-                              <span className="flex min-h-0 w-full flex-1 items-center justify-center text-dream-muted">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5" aria-hidden>
-                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                  <path d="M14 2v6h6" />
-                                </svg>
-                              </span>
+                              <PdfThumb
+                                src={p.image}
+                                alt="Older proof"
+                                className="min-h-0 flex-1"
+                                fallback={<PdfGlyph iconClassName="h-5 w-5" label={null} />}
+                              />
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={p.image} alt="Older proof" className="min-h-0 w-full flex-1 object-contain" />

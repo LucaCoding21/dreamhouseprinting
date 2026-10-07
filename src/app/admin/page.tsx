@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { MockupThumb } from "@/components/orders/MockupThumb";
 import type { ReactNode } from "react";
 import { requireStaff, hasPermission } from "@/lib/auth";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -121,6 +121,7 @@ const ACTIVITY_META: Record<string, { label: string; tone: string; icon: string 
   item_removed: { label: "Item removed", tone: "bg-dream-danger-soft text-dream-danger", icon: "pencil" },
   order_edited: { label: "Order edited", tone: "bg-dream-line text-dream-muted", icon: "pencil" },
   approval_sent: { label: "Sent for approval", tone: "bg-dream-info-soft text-dream-info", icon: "send" },
+  turnaround: { label: "Ready date set", tone: "bg-dream-lavender-soft text-dream-purple", icon: "arrow" },
 };
 
 function ActivityIcon({ name }: { name: string }) {
@@ -189,7 +190,7 @@ function QueueCard({ queue }: { queue: Queue }) {
                 >
                   <div className="h-9 w-9 shrink-0 overflow-hidden rounded border border-dream-line bg-dream-bg">
                     {thumb && (
-                      <Image src={thumb} alt="" width={36} height={36} className="h-full w-full object-contain" />
+                      <MockupThumb src={thumb} size={36} />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

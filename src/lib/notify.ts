@@ -7,6 +7,8 @@ import { formatCAD } from "@/lib/money";
 import type { OrderStatus } from "@/lib/db/rows";
 import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
 import { EMAIL_CONFIG, interpolate, escapeHtml, bodyToParagraphs, renderOrderEmailHtml } from "@/lib/email/orderEmail";
+import { resolveReadyBy } from "@/lib/orders/turnaroundServer";
+import { readyBySentence } from "@/lib/orders/turnaround";
 
 /**
  * Transactional order notifications (PRD §10.1). The SAME status change that
@@ -72,6 +74,9 @@ async function resolveOrderRecipient(
   return order.guest_email ? { email: order.guest_email, name: null } : null;
 }
 
+/** Emails that answer "when will it be ready?" (see the {{readyBy}} append in sendOrderEmail). */
+const READY_BY_TEMPLATES = new Set(["order_confirmation", "proof_ready", "payment_received", "in_production"]);
+
 /**
  * Send a templated email to the order's customer (profile email or guest
  * email). `extraVars` overlays the standard variable map. Fire-and-forget: all
@@ -92,7 +97,7 @@ export async function sendOrderEmail(
 
   const { data: order } = await service
     .from("orders")
-    .select("order_number, customer_id, guest_email, shipping_tracking, public_token, pricing, customer_notes, status, paid_at, invoice_sent_at")
+    .select("order_number, customer_id, guest_email, shipping_tracking, public_token, pricing, customer_notes, status, paid_at, invoice_sent_at, due_date")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return;
@@ -117,7 +122,11 @@ export async function sendOrderEmail(
   const orderLink = await publicOrderUrl(order.public_token);
   const pricing = (order.pricing ?? {}) as { total?: number };
 
+  const ready = await resolveReadyBy(service, { id: orderId, status: order.status, paid_at: order.paid_at, due_date: order.due_date });
+  const readyBy = ready ? readyBySentence(ready) : "";
+
   const vars: Record<string, string> = {
+    readyBy,
     orderNumber: order.order_number ?? "",
     customerName: name ?? "there",
     trackingLine: order.shipping_tracking ? `Track it: ${order.shipping_tracking}` : "",
@@ -140,7 +149,10 @@ export async function sendOrderEmail(
     cfg = { cta: "View your order & pay", amountLabel: "Total due" };
   }
   const heading = interpolate(tpl.subject, vars);
-  const bodyText = interpolate(tpl.body, vars);
+  // The ready date rides along on the emails where the customer is wondering
+  // "when", unless Julian already placed {{readyBy}} in the template himself.
+  const appendReady = !!readyBy && READY_BY_TEMPLATES.has(templateKey) && !tpl.body.includes("{{readyBy}}");
+  const bodyText = interpolate(tpl.body, vars) + (appendReady ? `\n\n${readyBy}` : "");
 
   // Customer-visible comments Julian added, included with the invoice email so
   // the thread the customer sees on their order page also reaches their inbox.

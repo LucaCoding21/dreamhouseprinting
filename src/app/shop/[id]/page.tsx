@@ -10,6 +10,8 @@ import {
 } from "@/lib/db/catalog";
 import type { ProductSizeJson, ProductPhotoJson, ProductQuoteCurveJson } from "@/lib/db/rows";
 import { enabledColours } from "@/lib/productImage";
+import { requireSupabaseServiceClient } from "@/lib/supabase/service";
+import { loadStandardWindow } from "@/lib/orders/turnaroundServer";
 import {
   shopPrice,
   curveForProduct,
@@ -116,7 +118,11 @@ export default async function ProductDetailPage({
   // Decoration methods this product actually offers customers: the admin's
   // per-product toggles (allowed_decoration_method_ids), and, when the product
   // is curve-priced, only methods the curve can price (mirrors the designer).
-  const methods = await getActiveDecorationMethods();
+  const [methods, standardTurnaround] = await Promise.all([
+    getActiveDecorationMethods(),
+    // The shop-wide ready window, the same promise the order page makes.
+    loadStandardWindow(requireSupabaseServiceClient()),
+  ]);
   const allowedIds = new Set((product.allowed_decoration_method_ids ?? []) as string[]);
   const allowedSlugs = methods.filter((m) => allowedIds.has(m.id)).map((m) => m.slug);
   const curve = curveForProduct(product);
@@ -256,7 +262,7 @@ export default async function ProductDetailPage({
         allowedDecorations={offeredDecorations ?? undefined}
         decorationNames={offeredMethodNames}
         description={product.description}
-        leadTimeDays={product.lead_time_days}
+        standardTurnaround={standardTurnaround}
       />
 
       {/* Value props */}

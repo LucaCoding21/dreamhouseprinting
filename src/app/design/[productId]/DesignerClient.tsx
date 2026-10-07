@@ -40,7 +40,7 @@ import {
   nextCurveBreak,
   priceFromCurveForPrints,
 } from "@/lib/pricing/quote";
-import { fmtDate, inHandsWindow } from "@/lib/turnaround";
+import { addBusinessDaysIso, fmtDaysRange, fmtReadyDay, readyWindow, shopToday } from "@/lib/orders/turnaround";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { swatchStyle, isNearWhite } from "@/lib/swatch";
 import { DESIGNER_FONTS, type DesignerFont } from "@/lib/fonts";
@@ -101,7 +101,8 @@ interface Props {
     garmentRetail: number;
     pricing_rules: unknown;
   };
-  leadTimeDays: number;
+  /** The shop's standard ready window in business days, from approval + payment. */
+  standardTurnaround: { min: number; max: number };
   colours: ProductColourJson[];
   sizes: { name: string; inStock: boolean }[];
   printAreas: PrintAreaLite[];
@@ -648,7 +649,12 @@ export function DesignerClient(props: Props) {
 
   // Estimated in-hands window for an order placed today (shared with checkout
   // review so both screens project the same date).
-  const inHands = useMemo(() => inHandsWindow(new Date(), props.leadTimeDays), [props.leadTimeDays]);
+  // Proof in about a business day, then the count runs from approval + payment:
+  // what "order today" means in dates, by the same rule the order page uses.
+  const readyEstimate = useMemo(
+    () => readyWindow(addBusinessDaysIso(shopToday(), 1), props.standardTurnaround),
+    [props.standardTurnaround],
+  );
 
   const colorwayId = useRef(edit?.extraColorways.length ?? 0);
   const usedColours = new Set(colourwayList.map((c) => c.colourName));
@@ -2886,17 +2892,20 @@ export function DesignerClient(props: Props) {
                   </p>
                 </div>
 
-                {/* Estimated delivery, one confident in-hands date (shared math
-                    with checkout so the two screens never disagree). */}
+                {/* When it will be ready, by the rule the order page shows
+                    (lib/orders/turnaround.ts), so the two never disagree. */}
                 <div className="mt-6 flex items-start gap-4 rounded-2xl border border-dream-line bg-white px-5 py-5">
                   <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center text-dream-purple">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7zM7 19a1.6 1.6 0 1 0 0-3.2A1.6 1.6 0 0 0 7 19ZM17.5 19a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></svg>
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-dream-muted">Estimated delivery</p>
-                    <p className="mt-1 font-display text-lg font-bold leading-tight text-dream-ink">In hands by {fmtDate(inHands.end)}</p>
+                    <p className="text-[13px] font-semibold text-dream-muted">Estimated ready</p>
+                    <p className="mt-1 font-display text-lg font-bold leading-tight text-dream-ink">
+                      {fmtDaysRange(props.standardTurnaround)} after approval and payment
+                    </p>
                     <p className="mt-2 text-[14px] leading-relaxed text-dream-muted">
-                      Proof in ~1 business day, then ships once you approve. Dates firm up on your proof.
+                      Your proof comes in about 1 business day. Approve and pay right away and it&apos;s ready{" "}
+                      {fmtReadyDay(readyEstimate.from)} to {fmtReadyDay(readyEstimate.to)}.
                     </p>
                   </div>
                 </div>

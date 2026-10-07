@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import { IconClose } from "@/components/portal/icons";
+import { PdfPages } from "./PdfPages";
 
 /**
  * Full-size viewer for a proof or mockup, shared by the per-line visual and
@@ -116,11 +117,23 @@ export function Lightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {pdf ? (
-          <iframe
-            src={src}
-            title={`${title}, full size`}
-            className="h-[78vh] w-[85vw] max-w-4xl rounded-lg bg-white shadow-2xl"
-          />
+          // Rendered pages, not an <iframe>: Chrome on Android shows a blank
+          // frame for PDFs and iOS a static first page. The iframe stays only
+          // as the fallback for a file pdf.js can't parse.
+          <div className="flex max-h-[78dvh] w-[85vw] max-w-4xl flex-col overflow-y-auto overscroll-contain rounded-lg">
+            <PdfPages
+              key={src}
+              src={src}
+              title={title}
+              // Each page fits the screen whatever its shape: a tall
+              // portrait proof is seen whole (no scrolling to find its
+              // bottom), a wide one fits the width. Extra pages scroll.
+              pageClassName="mx-auto max-h-[78dvh] w-auto max-w-full shadow-2xl"
+              fallback={
+                <iframe src={src} title={`${title}, full size`} className="h-[78dvh] w-full shrink-0 rounded-lg bg-white shadow-2xl" />
+              }
+            />
+          </div>
         ) : (
           <Image
             src={src}

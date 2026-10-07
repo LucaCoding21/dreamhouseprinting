@@ -18,7 +18,7 @@ import type { OrderViewPrint, OrderViewProps } from "./types";
  * spacing, the portal keeps its exact `space-y-6` rhythm. Actions are passed
  * in already bound to the order/token by the route.
  */
-export function OrderView({ order, lineItems, proofs, activity, stageDates, actions, etransfer }: OrderViewProps) {
+export function OrderView({ order, lineItems, proofs, activity, stageDates, actions, etransfer, readyBy }: OrderViewProps) {
   const pricing = order.pricing;
   // Always the LIVE total, admin pricing edits show (and charge) immediately;
   // the stamped invoice_amount is only a fallback for legacy rows.
@@ -98,7 +98,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
       )}
 
       {/* Where it is, the status hero, on top. */}
-      <OrderTracker status={order.status} stageDates={stageDates} dueDate={order.due_date} />
+      <OrderTracker status={order.status} stageDates={stageDates} readyBy={readyBy} />
 
       {/* Review and approve the proof, sits directly below the status module. */}
       {showProofPanel && (
@@ -143,6 +143,7 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                             colourHex={li.colourHex}
                             alt={[li.product_name, li.colourName].filter(Boolean).join(", ") || "Your item"}
                             className="shrink-0"
+                            hideTag
                           />
                         ) : (
                           <span
@@ -158,6 +159,27 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                                 {li.product_name}
                               </div>
                               {li.colourName && <div className="mt-1 text-sm text-dream-muted">{li.colourName}</div>}
+                              {/* The proof's state sits here in words, not as a pill on the
+                                  picture, where it hid the top of the artwork. */}
+                              {li.proof && (
+                                <div
+                                  className={cn(
+                                    "mt-1.5 inline-flex items-center gap-1 text-[13px] font-semibold",
+                                    li.proof.status === "approved"
+                                      ? "text-dream-success"
+                                      : li.proof.status === "changes_requested"
+                                        ? "text-dream-warn"
+                                        : "text-dream-purple",
+                                  )}
+                                >
+                                  {li.proof.status === "approved" && <CheckCircle className="h-4 w-4" />}
+                                  {li.proof.status === "approved"
+                                    ? "Proof approved"
+                                    : li.proof.status === "changes_requested"
+                                      ? "Changes requested"
+                                      : "Proof ready to review"}
+                                </div>
+                              )}
                             </div>
                             <div className="shrink-0 text-right">
                               <div className="font-display font-bold text-dream-ink">{formatCAD(li.line_total)}</div>

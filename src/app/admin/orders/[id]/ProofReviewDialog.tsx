@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
 import { openInNewTab, fileKind } from "./ProofLightbox";
+import { PdfGlyph, PdfThumb } from "@/components/orders/PdfThumb";
 import { LBL, useProofUpload } from "./shared";
 
 interface Selected {
@@ -196,13 +197,21 @@ export function ProofReviewDialog({
                       className="group relative overflow-hidden rounded-lg border border-dream-line bg-[repeating-conic-gradient(var(--color-dream-bg)_0%_25%,transparent_0%_50%)] [background-size:20px_20px]"
                     >
                       {s.kind === "pdf" ? (
-                        <div className="flex h-32 flex-col items-center justify-center gap-1 bg-dream-surface px-2 text-center text-dream-muted">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-7 w-7" aria-hidden>
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <path d="M14 2v6h6" />
-                          </svg>
-                          <span className="line-clamp-2 text-[11px] font-medium text-dream-ink">{s.file.name}</span>
-                        </div>
+                        <button type="button" onClick={() => openInNewTab(s.url)} className="block h-32 w-full" title="Open in a new tab">
+                          {/* The exact local file, page 1, so a wrong PDF is caught before upload. */}
+                          <PdfThumb
+                            src={s.url}
+                            alt={s.file.name}
+                            fallback={
+                              <PdfGlyph
+                                className="bg-dream-surface px-2 text-center"
+                                iconClassName="h-7 w-7"
+                                label={s.file.name}
+                                labelClassName="line-clamp-2 text-[11px] font-medium text-dream-ink"
+                              />
+                            }
+                          />
+                        </button>
                       ) : (
                         <button type="button" onClick={() => openInNewTab(s.url)} className="block h-32 w-full" title="Open in a new tab">
                           <Image

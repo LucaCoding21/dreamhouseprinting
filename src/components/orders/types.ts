@@ -1,3 +1,4 @@
+import type { ReadyBy } from "@/lib/orders/turnaround";
 import type { OrderStatus } from "@/lib/db/rows";
 
 /**
@@ -134,4 +135,6 @@ export interface OrderViewProps {
   actions: OrderViewActions;
   /** E-transfer payment option from admin settings; null hides it (card only). */
   etransfer: OrderViewEtransfer | null;
+  /** When the order will be ready (lib/orders/turnaround.ts); null hides it. */
+  readyBy?: ReadyBy | null;
 }
