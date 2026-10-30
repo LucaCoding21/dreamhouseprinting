@@ -151,7 +151,7 @@ export function DecorationSpotRow({
           </div>
         </div>
         {/* Pantones live on the main row (used constantly), not in Advanced spec. */}
-        <div className="max-w-md max-sm:order-7 max-sm:w-full">
+        <div className="max-w-lg max-sm:order-7 max-sm:w-full">
           <div className={cn(LBL, "mb-1")}>Pantones</div>
           <div className="flex min-h-10 flex-wrap items-center gap-1.5">
             {spot.pantones.map((code, pi) => (
@@ -159,10 +159,10 @@ export function DecorationSpotRow({
                 <Input
                   value={code}
                   disabled={!canEdit}
-                  placeholder="e.g. 7676 C"
+                  placeholder="7676 C"
                   onChange={(e) => onPatch({ pantones: spot.pantones.map((c, i) => (i === pi ? e.target.value : c)) })}
                   // text-base under sm keeps iOS from zooming the page on focus.
-                  className="h-9 w-24 px-1.5 text-base sm:text-sm"
+                  className="h-9 w-[4.5rem] px-1.5 text-base sm:text-sm"
                 />
                 {canEdit && (
                   <button

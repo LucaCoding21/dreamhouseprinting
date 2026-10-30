@@ -568,22 +568,7 @@ export function NewOrderClient({
 
       {/* Items, the hero of the screen, full width like the order detail */}
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="font-display text-lg font-semibold text-dream-ink">Items ({items.length})</h2>
-          {/* One button: the item's product picker offers the catalog AND a
-              custom item, so the choice happens there. */}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="ml-auto border-dream-purple/40 text-dream-purple hover:bg-dream-lavender-mist"
-            onClick={addItem}
-          >
-            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden>
-              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Add item
-          </Button>
-        </div>
+        <h2 className="font-display text-lg font-semibold text-dream-ink">Items ({items.length})</h2>
 
         {items.map((it, idx) => (
           <div key={it.key} id={`new-item-${it.key}`} className="scroll-mt-4">
@@ -606,9 +591,10 @@ export function NewOrderClient({
           </div>
         ))}
 
-        {/* Second Add item at the foot of a long list, so finishing the last
-            item doesn't mean scrolling back up to the header. */}
-        {items.length > 1 && <AddItemRow onClick={addItem} />}
+        {/* Add item lives under the last line, where the next one will appear.
+            The item's product picker offers the catalog AND a custom item, so
+            the choice happens there. */}
+        <AddItemRow onClick={addItem} />
       </div>
 
       {/* ── Reference: customer, order settings, money, kept at the bottom ── */}
@@ -1241,7 +1227,7 @@ function NewItemCard({
                     value={item.productName}
                     aria-invalid={missingName || undefined}
                     onChange={(e) => onPatch((p) => ({ ...p, productName: e.target.value }))}
-                    placeholder="Vinyl banner, 3ft x 6ft"
+                    placeholder="Embroidered jackets"
                     className="h-10 flex-1 font-semibold text-dream-ink"
                   />
                   <Button variant="secondary" size="sm" className="h-10" onClick={() => setPickerOpen(true)}>

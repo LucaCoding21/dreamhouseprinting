@@ -19,6 +19,7 @@ import { scrollToCenter } from "@/lib/scrollToCenter";
 import { OrderItemCard } from "./OrderItemCard";
 import { CompactItemRow } from "./CompactItemRow";
 import { AddLineItemDialog } from "./AddLineItemDialog";
+import { AddItemRow } from "@/components/admin/AddItemRow";
 import { useLineSort } from "./useLineSort";
 import {
   capitalize,
@@ -140,18 +141,31 @@ export function OrderItemsSection({
   const itemsDirty = JSON.stringify(items) !== itemsSnap;
 
   // Items are seeded ONCE, so a line added (or removed) server-side would never
-  // appear until a full page load. Re-seed when the SET of line ids changes, and
-  // only when there is nothing unsaved: a refresh must never wipe an edit in
-  // progress. Field-level server changes are deliberately not picked up here.
+  // appear until a full page load. Re-seed when the SET of line ids changes. A
+  // refresh must never wipe an edit in progress, so with unsaved edits the new
+  // server list is MERGED instead: lines already on screen keep their edits
+  // (and stay unsaved in the snapshot), new lines are appended, gone lines drop.
+  // That is what lets "Add item" work mid-edit, with one "Save changes" for all.
+  // Field-level server changes are deliberately not picked up here.
   // React's documented "adjust state when props change" pattern (a render-phase
   // setState, re-run immediately, no extra paint) rather than an effect, which
   // would flash the stale list first.
   const lineIdKey = detail.lineItems.map((li) => li.id).sort().join(",");
   const [seededIds, setSeededIds] = useState(lineIdKey);
-  if (lineIdKey !== seededIds && !itemsDirty) {
+  if (lineIdKey !== seededIds) {
     const fresh = initItems();
-    setItems(fresh);
-    setItemsSnap(JSON.stringify(fresh));
+    if (!itemsDirty) {
+      setItems(fresh);
+      setItemsSnap(JSON.stringify(fresh));
+    } else {
+      const freshIds = new Set(fresh.map((it) => it.id));
+      const onScreen = new Set(items.map((it) => it.id));
+      const added = fresh.filter((it) => !onScreen.has(it.id));
+      setItems([...items.filter((it) => freshIds.has(it.id)), ...added]);
+      setItemsSnap(
+        JSON.stringify([...(JSON.parse(itemsSnap) as ItemState[]).filter((it) => freshIds.has(it.id)), ...added]),
+      );
+    }
     setSeededIds(lineIdKey);
   }
 
@@ -355,23 +369,6 @@ export function OrderItemsSection({
             </button>
           ))}
         </div>
-        {can.edit && (
-          // Adding writes straight to the DB and the list re-seeds from the
-          // server, so unsaved edits have to be settled first or they'd be lost.
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={itemsDirty}
-            title={itemsDirty ? "Save or discard your changes first" : "Add another product or a custom item"}
-            className="border-dream-purple/40 text-dream-purple hover:bg-dream-lavender-mist disabled:pointer-events-auto disabled:cursor-not-allowed"
-            onClick={() => setAddOpen(true)}
-          >
-            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5" aria-hidden>
-              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Add item
-          </Button>
-        )}
         {view === "detailed" && items.length > 1 && (
           <button
             type="button"
@@ -574,6 +571,10 @@ export function OrderItemsSection({
           </Card>
         )}
 
+      {/* Add item sits under the last line, where the new one will appear.
+          Works mid-edit: the new line merges into the list (see the re-seed
+          above), so unsaved edits survive and one Save covers everything. */}
+      {can.edit && !sortState && <AddItemRow onClick={() => setAddOpen(true)} title="Add another product or a custom item" />}
 
       {can.edit && (
         <AddLineItemDialog
@@ -583,7 +584,7 @@ export function OrderItemsSection({
           onAdded={() => {
             // A brand new line needs its size run typed in, so land on the
             // editable card: expanded, and out of Compact view if that's where
-            // the admin was. The list itself re-seeds off the refreshed data.
+            // the admin was. The list merges in the new line off the refreshed data.
             setCollapsed(new Set());
             setView("detailed");
             idsBeforeAdd.current = new Set(items.map((it) => it.id));

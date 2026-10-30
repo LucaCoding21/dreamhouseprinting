@@ -18,16 +18,25 @@ import { swatchStyle } from "@/lib/swatch";
  *   2. pick a colour on it. REQUIRED, never auto-selected, since colour
  *      names/hexes don't map 1:1 between garments.
  * Sizes, prints, notes, artwork and pricing all stay on the line.
+ *
+ * With `colourOnly` it is "Change colour": step 1 is skipped (the line's own
+ * product is pre-picked) and only the colour step shows.
  */
 export function ChangeProductDialog({
   orderId,
   lineItemId,
   currentProductId,
+  currentColourName,
+  colourOnly = false,
   onChanged,
 }: {
   orderId: string;
   lineItemId: string;
   currentProductId: string | undefined;
+  /** The line's colour now, marked "Current" in the colour grid. */
+  currentColourName?: string | null;
+  /** Same product, new colour only (the "Change colour" link). */
+  colourOnly?: boolean;
   /** Fired after a successful swap so the parent can sync its local item state. */
   onChanged: (productName: string, priceSuggestion: { unit: number; qty: number } | null) => void;
 }) {
@@ -45,10 +54,20 @@ export function ChangeProductDialog({
     setQuery("");
     setLoadError(null);
     setOpen(true);
-    if (!products) {
+    const pickCurrent = (list: SwapProduct[]) => {
+      if (!colourOnly) return;
+      const current = list.find((p) => p.id === currentProductId);
+      if (current) setPicked(current);
+      else setLoadError("This line's product could not be found.");
+    };
+    if (products) pickCurrent(products);
+    else {
       listSwapProductsAction().then((res) => {
         if (res.error || !res.products) setLoadError(res.error ?? "Could not load products.");
-        else setProducts(res.products);
+        else {
+          setProducts(res.products);
+          pickCurrent(res.products);
+        }
       });
     }
   }
@@ -71,7 +90,7 @@ export function ChangeProductDialog({
         if (!res.error) suggestion = res.suggestion ?? null;
         return res;
       },
-      "Product changed",
+      colourOnly ? "Colour changed" : "Product changed",
       () => {
         setOpen(false);
         onChanged(picked.name, suggestion);
@@ -82,16 +101,20 @@ export function ChangeProductDialog({
   return (
     <>
       <button type="button" onClick={openDialog} className="text-sm font-medium text-dream-purple hover:underline">
-        Change product
+        {colourOnly ? "Change colour" : "Change product"}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[85dvh] max-w-2xl flex-col">
           <DialogHeader>
-            <DialogTitle>{picked ? "Pick a colour" : "Change product"}</DialogTitle>
+            <DialogTitle>{colourOnly ? "Change colour" : picked ? "Pick a colour" : "Change product"}</DialogTitle>
           </DialogHeader>
 
-          {!picked ? (
+          {colourOnly && !picked ? (
+            <p className={cn("px-5 pb-5 text-sm", loadError ? "text-dream-danger" : "text-dream-muted")}>
+              {loadError ?? "Loading colours…"}
+            </p>
+          ) : !picked ? (
             /* ── Step 1: pick the new product ── */
             <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 pb-5">
               <Input
@@ -160,25 +183,27 @@ export function ChangeProductDialog({
                   <div className="truncate text-sm font-semibold text-dream-ink">{picked.name}</div>
                   <div className="text-xs text-dream-muted">{[picked.brand, picked.ssStyleName].filter(Boolean).join(" ")}</div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPicked(null);
-                    setColourName(null);
-                  }}
-                  className="shrink-0 text-sm font-medium text-dream-purple hover:underline"
-                >
-                  Choose different product
-                </button>
+                {!colourOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPicked(null);
+                      setColourName(null);
+                    }}
+                    className="shrink-0 text-sm font-medium text-dream-purple hover:underline"
+                  >
+                    Choose different product
+                  </button>
+                )}
               </div>
 
-              <div className={LBL}>Colour (required, nothing is carried over)</div>
+              <div className={LBL}>{colourOnly ? "Colour" : "Colour (required, nothing is carried over)"}</div>
               {picked.colours.length === 0 ? (
                 <p className="rounded-lg border border-dream-line p-4 text-sm text-dream-muted">
                   This product has no colours configured. Set them up in the product editor first.
                 </p>
               ) : (
-                <div className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2 overflow-y-auto rounded-lg border border-dream-line p-3 sm:grid-cols-4">
+                <div className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2 overflow-y-auto p-1 sm:grid-cols-4">
                   {picked.colours.map((c) => {
                     const selected = colourName === c.name;
                     return (
@@ -187,11 +212,11 @@ export function ChangeProductDialog({
                         type="button"
                         onClick={() => setColourName(c.name)}
                         className={cn(
-                          "rounded-lg border p-2 text-left transition-colors",
-                          selected ? "border-dream-purple ring-2 ring-dream-purple" : "border-dream-line hover:bg-dream-bg",
+                          "rounded-lg p-2 text-left transition-colors",
+                          selected ? "ring-2 ring-dream-purple" : "hover:bg-dream-bg",
                         )}
                       >
-                        <div className="mb-1.5 flex h-16 items-center justify-center overflow-hidden rounded-md bg-dream-bg">
+                        <div className="mb-1.5 flex h-16 items-center justify-center overflow-hidden">
                           {c.thumb ? (
                             <Image src={c.thumb} alt={c.name} width={64} height={64} className="h-full w-full object-contain" />
                           ) : (
@@ -202,6 +227,9 @@ export function ChangeProductDialog({
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-dream-line-strong" style={swatchStyle(c)} />
                           <span className="truncate text-xs font-medium text-dream-ink">{c.name}</span>
                         </div>
+                        {colourOnly && c.name === currentColourName && (
+                          <div className="mt-0.5 text-[10px] font-medium text-dream-purple">Current</div>
+                        )}
                         {!c.inStock && <div className="mt-0.5 text-[10px] text-dream-warn">Out of stock</div>}
                       </button>
                     );
@@ -210,12 +238,16 @@ export function ChangeProductDialog({
               )}
 
               <div className="flex items-center justify-end gap-3 border-t border-dream-line pt-3">
-                {!colourName && <span className="text-xs text-dream-muted">Pick a colour to continue</span>}
                 <Button variant="ghost" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="primary" disabled={!colourName} loading={pending} onClick={apply}>
-                  Change to this product
+                <Button
+                  variant="primary"
+                  disabled={!colourName || (colourOnly && colourName === currentColourName)}
+                  loading={pending}
+                  onClick={apply}
+                >
+                  {colourOnly ? "Change colour" : "Change to this product"}
                 </Button>
               </div>
             </div>

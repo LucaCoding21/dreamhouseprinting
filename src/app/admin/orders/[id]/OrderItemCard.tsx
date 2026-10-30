@@ -468,6 +468,16 @@ export function OrderItemCard({
                   onChanged={onProductChanged}
                 />
               )}
+              {can.edit && lineItem && product && (
+                <ChangeProductDialog
+                  orderId={lineItem.order_id}
+                  lineItemId={lineItem.id}
+                  currentProductId={product.id}
+                  currentColourName={colour.name ?? null}
+                  colourOnly
+                  onChanged={onProductChanged}
+                />
+              )}
 
               {/* Line ops: where the blanks come from and whether they're in hand. */}
               <div className="ml-auto flex flex-wrap items-center gap-2 max-sm:w-full">

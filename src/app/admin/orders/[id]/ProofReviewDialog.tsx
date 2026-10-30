@@ -17,9 +17,10 @@ interface Selected {
 }
 
 /**
- * Proof upload dialog. Uploading only FILES the proof on the order (no email,
- * no status change); the whole order goes to the customer at once via the
- * explicit "Send for approval" action once everything is checked and finalized.
+ * Proof upload dialog. Picked files preview here (removable), and Done saves
+ * them to the order; with nothing picked, Done just closes. Uploading only FILES
+ * the proof (no email, no status change); the whole order goes to the customer
+ * at once via the explicit "Send for approval" action.
  * Preview is the exact local file, so it's WYSIWYG.
  */
 export function ProofReviewDialog({
@@ -83,6 +84,14 @@ export function ProofReviewDialog({
     });
   }
 
+  // Done saves whatever is picked; with nothing picked it just closes.
+  async function done() {
+    if (selected.length === 0) return close(false);
+    if (needsLinePick && !pickedLine) return;
+    const r = await uploadProofs(selected.map((s) => s.file), targetLine);
+    if (r.ok) close(false);
+  }
+
   function reset() {
     selected.forEach((s) => URL.revokeObjectURL(s.url));
     setSelected([]);
@@ -93,13 +102,6 @@ export function ProofReviewDialog({
   function close(next: boolean) {
     if (!next) reset();
     onOpenChange(next);
-  }
-
-  async function send() {
-    if (selected.length === 0) return;
-    if (needsLinePick && !pickedLine) return;
-    const r = await uploadProofs(selected.map((s) => s.file), targetLine);
-    if (r.ok) close(false);
   }
 
   return (
@@ -228,11 +230,10 @@ export function ProofReviewDialog({
                         type="button"
                         aria-label={`Remove ${s.file.name}`}
                         onClick={() => removeAt(i)}
-                        // The only way to deselect a file, so it cannot be
-                        // hover-only: visible on touch, hover-revealed from md.
-                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-dream-ink/70 text-white opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                        // The only way to deselect a file, so always visible.
+                        className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center text-dream-ink transition-colors hover:text-dream-danger"
                       >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" className="h-3.5 w-3.5" aria-hidden>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" className="h-4 w-4" aria-hidden>
                           <path d="M6 6l12 12M18 6L6 18" />
                         </svg>
                       </button>
@@ -250,11 +251,6 @@ export function ProofReviewDialog({
                     <span className="text-xs font-medium">Add more</span>
                   </button>
                 </div>
-
-                <p className="rounded-lg bg-dream-bg px-3 py-2 text-xs text-dream-muted">
-                  Nothing is emailed yet. Proofs pile up on the order, and the customer sees the whole set at once when you
-                  send the order for approval.
-                </p>
               </div>
             )}
 
@@ -272,11 +268,13 @@ export function ProofReviewDialog({
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => close(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" loading={uploading} disabled={selected.length === 0 || (needsLinePick && !pickedLine)} onClick={send}>
-              {selected.length > 1 ? `Save ${selected.length} to order` : "Save to order"}
+            <Button
+              variant="primary"
+              loading={uploading}
+              disabled={selected.length > 0 && needsLinePick && !pickedLine}
+              onClick={done}
+            >
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

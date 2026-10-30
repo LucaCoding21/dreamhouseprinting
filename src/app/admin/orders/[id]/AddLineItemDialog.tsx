@@ -191,7 +191,7 @@ export function AddLineItemDialog({
                 autoFocus
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
-                placeholder="Vinyl banner, 3ft x 6ft"
+                placeholder="Embroidered jackets"
               />
             </label>
           </form>

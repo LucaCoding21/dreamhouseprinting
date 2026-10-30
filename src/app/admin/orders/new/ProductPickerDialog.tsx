@@ -84,7 +84,7 @@ export function ProductPickerDialog({
                 <div className="space-y-1 p-3">
                   <div className="text-sm font-semibold leading-snug text-dream-purple">Custom product</div>
                   <div className="text-xs leading-snug text-dream-muted">
-                    Customer-supplied garment, or a supplier not in the system. You type the name and price.
+                    Garment supplied by the customer, or a supplier not in the system. You type the name and price.
                   </div>
                 </div>
               </button>
