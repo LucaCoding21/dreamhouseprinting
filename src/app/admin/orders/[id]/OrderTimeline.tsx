@@ -55,7 +55,7 @@ export function OrderTimeline({
         <CardContent className="space-y-3">
           {internal.length === 0 && (
             <p className="text-sm text-dream-muted">
-              No comments yet. Notes to yourself and your team show up here, newest first.
+              No notes yet. Only you and your team can see these.
             </p>
           )}
 

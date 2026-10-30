@@ -464,7 +464,7 @@ export function CommandHeader({ detail, can, who }: { detail: Detail; can: Can; 
                   only thing standing between here and sending. */}
               {pendingProofs > 0
                 ? coverageCaption
-                : "Uploads just save to the order. The whole order goes to the customer when you send it for approval."}
+                : "The customer sees it as a draft until you send it for approval."}
             </p>
           </div>
         );

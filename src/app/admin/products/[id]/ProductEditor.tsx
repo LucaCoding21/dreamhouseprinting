@@ -26,7 +26,11 @@ import { InfoTip } from "@/components/ui/InfoTip";
 import { updateProductAction, syncProductAction, setProductFlagsAction, deleteProductAction, productUsageAction } from "../actions";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
 import { PrintAreaEditor } from "./PrintAreaEditor";
+import { AddCategoryDialog } from "../CategoriesPanel";
 import { swatchStyle } from "@/lib/swatch";
+
+/** Category menu value that opens the add dialog instead of selecting. */
+const NEW_CATEGORY = "__new_category__";
 
 type Colour = ProductColourJson & { enabled?: boolean; primary?: boolean };
 type Size = ProductSizeJson & { enabled?: boolean };
@@ -69,6 +73,11 @@ export function ProductEditor({
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description ?? "");
   const [categoryId, setCategoryId] = useState(product.category_id ?? "");
+  // "+ New category" from the menu: added rows show (and stay selected)
+  // before the router refresh brings them back in the categories prop.
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [addedCategories, setAddedCategories] = useState<CategoryRow[]>([]);
+  const allCategories = [...categories, ...addedCategories.filter((a) => !categories.some((c) => c.id === a.id))];
   const [markupType, setMarkupType] = useState<"percent" | "flat">(product.markup_type as "percent" | "flat");
   const [markupValue, setMarkupValue] = useState(String(product.markup_value ?? 0));
   const [leadTime, setLeadTime] = useState(String(product.lead_time_days ?? 7));
@@ -201,9 +210,9 @@ export function ProductEditor({
   const thumbPreview =
     (thumbColourObj ? colourCardImage(thumbColourObj, thumbView) : null) ?? productPrimaryImage(product);
 
-  const majors = categories.filter((c) => c.is_major && !c.parent_id);
-  const niche = categories.filter((c) => !c.is_major && !c.parent_id);
-  const subsOf = (id: string) => categories.filter((c) => c.parent_id === id);
+  const majors = allCategories.filter((c) => c.is_major && !c.parent_id);
+  const niche = allCategories.filter((c) => !c.is_major && !c.parent_id);
+  const subsOf = (id: string) => allCategories.filter((c) => c.parent_id === id);
 
   function toggle(set: Set<string>, key: string): Set<string> {
     const next = new Set(set);
@@ -351,11 +360,12 @@ export function ProductEditor({
                     {doneCount} of {setupSteps.length} done
                   </span>
                 </div>
-                <p className="mt-0.5 text-sm text-dream-muted">
-                  {fullyLive
-                    ? "Customers can find it in the shop, open it in the designer and order it."
-                    : "Finish these steps, then it goes live for customers."}
-                </p>
+                {/* Unfinished: the heading's "x of y done" and the checklist below say it all. */}
+                {fullyLive && (
+                  <p className="mt-0.5 text-sm text-dream-muted">
+                    Customers can find it in the shop, open it in the designer and order it.
+                  </p>
+                )}
               </div>
               {/* Done: the banner is just the green confirmation line, no
                   checklist. Unfinished: the full actionable list. */}
@@ -428,8 +438,14 @@ export function ProductEditor({
               <Field label="Description">
                 <Textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} />
               </Field>
-              <Field label="Category" hint="Drives where it appears on Shop All.">
-                <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <Field label="Category">
+                <Select
+                  value={categoryId}
+                  onChange={(e) => {
+                    if (e.target.value === NEW_CATEGORY) setAddingCategory(true);
+                    else setCategoryId(e.target.value);
+                  }}
+                >
                   <option value="">Uncategorized</option>
                   {majors.map((m) => (
                     <optgroup key={m.id} label={m.name}>
@@ -450,20 +466,52 @@ export function ProductEditor({
                       ))}
                     </optgroup>
                   )}
+                  <option value={NEW_CATEGORY}>+ New category</option>
                 </Select>
               </Field>
+              <AddCategoryDialog
+                open={addingCategory}
+                onOpenChange={setAddingCategory}
+                mains={majors}
+                items={allCategories}
+                onAdded={(cat) => {
+                  setAddedCategories((prev) => [
+                    ...prev,
+                    {
+                      id: cat.id,
+                      name: cat.name,
+                      parent_id: cat.parentId,
+                      is_major: !cat.parentId,
+                      slug: "",
+                      image: null,
+                      display_order: Number.MAX_SAFE_INTEGER,
+                      created_at: new Date().toISOString(),
+                    },
+                  ]);
+                  setCategoryId(cat.id);
+                  toast({ title: `Added ${cat.name}`, description: "It's selected. Save to keep it on this product.", variant: "success" });
+                  router.refresh();
+                }}
+              />
+              <Link
+                href={`/admin/products?tab=categories&from=${product.id}`}
+                className="-mt-1 inline-block text-sm font-medium text-dream-purple hover:underline"
+              >
+                Manage categories
+              </Link>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Colours offered</CardTitle>
+              <CardTitle className="flex items-baseline gap-2">
+                Colours offered
+                <span className="font-sans text-sm font-medium tabular-nums text-dream-muted">
+                  {enColours.size}/{colours.length}
+                </span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="mb-3 text-sm text-dream-muted">
-                Customers can pick {enColours.size} of the {colours.length} colours S&amp;S offers.
-                Click a swatch to turn it on or off.
-              </p>
               <div className="flex flex-wrap gap-2">
                 {colours.map((c) => {
                   const on = enColours.has(c.name);
@@ -491,8 +539,7 @@ export function ProductEditor({
               <div className="mt-5 border-t border-dream-line pt-4">
                 <Label>Card thumbnail</Label>
                 <p className="mb-2 text-xs text-dream-muted">
-                  Which colour shows on the Shop All card. We use the on-model photo by default;
-                  pick a colour to choose a different model, or switch to the flat photo below.
+                  The photo customers see on Shop All.
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-white">
@@ -753,10 +800,9 @@ export function ProductEditor({
                     </table>
                   </div>
                   <p className="text-xs text-dream-muted">
-                    Computed from the profile&apos;s tiers plus this blank. Extra ink colours and print locations
-                    are added on top automatically.{" "}
+                    For 1 colour in 1 spot. More colours or spots cost extra.{" "}
                     <Link href="/admin/pricing" className="font-medium text-dream-purple hover:underline">
-                      Edit tiers in Pricing →
+                      Edit in Pricing
                     </Link>
                   </p>
                 </div>
@@ -807,7 +853,7 @@ export function ProductEditor({
             </CardHeader>
             <CardContent className="space-y-2.5">
               <p className="text-xs text-dream-muted">
-                Which techniques customers can pick for this product, on the product page and in the designer.
+                What customers can choose for this product.
               </p>
               {methods.map((m) => {
                 const visible = methodCustomerVisible(m.slug);

@@ -4,12 +4,24 @@ import { ProductsClient } from "./ProductsClient";
 
 export const metadata = { title: "Products | Admin" };
 
-export default async function AdminProductsPage() {
-  const [, products, categories] = await Promise.all([
+export default async function AdminProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; from?: string }>;
+}) {
+  const [, { tab, from }, products, categories] = await Promise.all([
     requirePermission("products.manage"),
+    searchParams,
     getAdminProducts(),
     getAllCategories(),
   ]);
 
-  return <ProductsClient products={products} categories={categories} />;
+  return (
+    <ProductsClient
+      products={products}
+      categories={categories}
+      initialTab={tab === "categories" ? "categories" : "products"}
+      fromProductId={from ?? null}
+    />
+  );
 }

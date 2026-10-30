@@ -62,7 +62,7 @@ export function CustomerLinkFooter({ publicToken }: { publicToken: string | null
       <Button variant="secondary" size="sm" className="w-full sm:hidden" onClick={shareLink}>
         Share link
       </Button>
-      <span className="text-xs text-dream-faint">No login needed, anyone with the link can view and pay.</span>
+      <span className="text-xs text-dream-faint">Anyone with this link can see the order and pay, no account needed.</span>
     </div>
   );
 }

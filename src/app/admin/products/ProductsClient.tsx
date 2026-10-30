@@ -17,17 +17,36 @@ import { curveForProduct, shopPrice } from "@/lib/pricing/quote";
 import { productPrimaryImage } from "@/lib/productImage";
 import type { ProductRow, CategoryRow } from "@/lib/db/rows";
 import { ImportDialog } from "./ImportDialog";
+import { CategoriesPanel, AddCategoryDialog } from "./CategoriesPanel";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+
+export type ProductsTab = "products" | "categories";
 
 export function ProductsClient({
   products,
   categories,
+  initialTab,
+  fromProductId,
 }: {
   products: ProductRow[];
   categories: CategoryRow[];
+  initialTab: ProductsTab;
+  /** Set when the product editor's "Manage categories" link sent Julian here. */
+  fromProductId: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [importing, setImporting] = useState(false);
+  const [tab, setTab] = useState<ProductsTab>(initialTab);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const fromProduct = fromProductId ? products.find((p) => p.id === fromProductId) : undefined;
+
+  function switchTab(next: ProductsTab) {
+    setTab(next);
+    // Keep the tab in the URL so a refresh (or the editor's link) lands on it.
+    const qs = next === "categories" ? "?tab=categories" : "";
+    window.history.replaceState(null, "", `/admin/products${qs}`);
+  }
   const catName = (id: string | null) => categories.find((c) => c.id === id)?.name ?? "-";
 
   // Search + filters, all client-side (the list is a few dozen rows).
@@ -55,13 +74,35 @@ export function ProductsClient({
   return (
     <div>
       <AdminHeader title="Products">
-        <Button variant="primary" onClick={() => setImporting(true)}>
-          + Import from S&amp;S
+        {/* Add category on both tabs, so a missing category never means a trip
+            to Categories. Import is a Products-tab action only. */}
+        <Button variant="secondary" onClick={() => setAddingCategory(true)}>
+          + Add category
         </Button>
+        {tab === "products" && (
+          <Button variant="primary" onClick={() => setImporting(true)}>
+            + Import from S&amp;S
+          </Button>
+        )}
       </AdminHeader>
 
       <div className="px-4 py-6 sm:px-8">
-        {products.length === 0 ? (
+        <Tabs value={tab} onValueChange={(v) => switchTab(v as ProductsTab)} className="mb-5">
+          <TabsList>
+            <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
+            <TabsTrigger value="categories">Categories ({categories.length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {tab === "categories" ? (
+          <CategoriesPanel
+            categories={categories}
+            products={products}
+            addOpen={addingCategory}
+            onAddOpenChange={setAddingCategory}
+            backTo={fromProduct ? { id: fromProduct.id, name: fromProduct.name } : null}
+          />
+        ) : products.length === 0 ? (
           <EmptyState
             title="No products yet"
             description="Import a blank from the S&S Activewear catalog to get started."
@@ -241,6 +282,23 @@ export function ProductsClient({
           </>
         )}
       </div>
+
+      {tab === "products" && (
+        <AddCategoryDialog
+          open={addingCategory}
+          onOpenChange={setAddingCategory}
+          mains={categories.filter((c) => !c.parent_id).sort((a, b) => a.display_order - b.display_order)}
+          items={categories}
+          onAdded={(cat) => {
+            toast({
+              title: `Added ${cat.name}`,
+              description: "Pick it as the category on any product to put it in the shop.",
+              variant: "success",
+            });
+            router.refresh();
+          }}
+        />
+      )}
 
       <ImportDialog
         open={importing}

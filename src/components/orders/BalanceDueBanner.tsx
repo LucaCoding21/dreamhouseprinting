@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatCAD } from "@/lib/money";
+import { Button } from "@/components/ui/Button";
 import { PaymentMethodDialog, type PaymentDialogStep } from "./PaymentMethodDialog";
 import type { OrderViewActions, OrderViewEtransfer } from "./types";
 
@@ -43,7 +44,7 @@ export function BalanceDueBanner({
   }
 
   return (
-    <div className="rounded-3xl border-2 border-dream-sun bg-dream-sun-soft/60 px-5 py-4 shadow-sm">
+    <div className="rounded-3xl bg-dream-sun px-5 py-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="min-w-0 flex-1">
           <div className="font-display text-lg font-extrabold text-dream-ink">
@@ -53,9 +54,9 @@ export function BalanceDueBanner({
             Your order is confirmed. Complete payment so we can keep it moving.
           </p>
         </div>
-        <button
-          type="button"
-          disabled={pending}
+        <Button
+          variant="primary"
+          loading={pending}
           onClick={() => {
             if (etransfer) {
               setDialogStep("choose");
@@ -64,10 +65,9 @@ export function BalanceDueBanner({
               payByCard();
             }
           }}
-          className="rough-pill rough-pill-filled inline-flex items-center justify-center px-7 py-3 font-display text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70"
         >
           {pending ? "Starting checkout…" : `Pay ${formatCAD(amountDue)}`}
-        </button>
+        </Button>
       </div>
       {error && <p className="mt-2 text-sm text-dream-danger">{error}</p>}
 

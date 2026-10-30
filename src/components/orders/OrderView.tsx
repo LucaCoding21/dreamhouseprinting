@@ -2,10 +2,11 @@ import Link from "next/link";
 import { OrderTracker } from "@/components/portal/OrderTracker";
 import { cn } from "@/lib/cn";
 import { formatCAD } from "@/lib/money";
-import { PAYABLE_ORDER_STATUSES } from "@/lib/orderStatus";
+import { PAYABLE_ORDER_STATUSES, statusStageIndex } from "@/lib/orderStatus";
 import { swatchStyle } from "@/lib/swatch";
 import { OrderPanel } from "./OrderPanel";
 import { LineVisual } from "./LineVisual";
+import { DraftProofs } from "./DraftProofs";
 import { ProofPanel } from "./ProofPanel";
 import { InvoicePanel } from "./InvoicePanel";
 import { BalanceDueBanner } from "./BalanceDueBanner";
@@ -38,10 +39,19 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
   // batch is sent together, so it sits contiguous at the top, newest-first).
   const proofSet = proofs.filter((p) => p.status === proofs[0]?.status);
 
+  // Order received: proofs Julian has uploaded but not sent show as read-only
+  // drafts (see proofVisibility.ts), folded under the items.
+  const firstStage = statusStageIndex(order.status) === 0;
+  const draftProofs = firstStage ? proofs.filter((p) => p.status === "pending") : [];
+
   // Is a proof currently awaiting the customer's decision? Then ProofPanel's
   // "Approve & pay" is the payment prompt and the banner stays out of the way.
   const proofAwaitingDecision =
-    proofSet.length > 0 && proofSet[0].status !== "approved" && proofSet[0].status !== "changes_requested";
+    proofSet.length > 0 &&
+    proofSet[0].status !== "approved" &&
+    proofSet[0].status !== "changes_requested" &&
+    // A first-stage draft proof asks nothing of the customer yet.
+    !firstStage;
 
   // Once the set is approved the panel has nothing left to ask, and the proofs
   // themselves now sit on the lines they belong to, so it comes down. A
@@ -128,6 +138,9 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
               <ul className="mt-0.5 divide-y divide-dream-line">
                 {lineItems.map((li) => {
                   const pieces = Object.values(li.sizeQuantities).reduce((a, b) => a + (b > 0 ? b : 0), 0);
+                  // First stage: draft proofs live in the fold under the items,
+                  // the line keeps its mockup until one is sent.
+                  const tileProof = li.proof?.status === "pending" && firstStage ? null : li.proof;
                   return (
                     <li key={li.id} className="py-4">
                       <div className="flex gap-4">
@@ -135,10 +148,10 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                             mockup when there is one, otherwise the colour. Sits
                             on a soft tile so a white-background mockup still
                             reads as an object. */}
-                        {li.mockup || li.proof ? (
+                        {li.mockup || tileProof ? (
                           <LineVisual
                             mockup={li.mockup}
-                            proof={li.proof}
+                            proof={tileProof}
                             colourName={li.colourName}
                             colourHex={li.colourHex}
                             alt={[li.product_name, li.colourName].filter(Boolean).join(", ") || "Your item"}
@@ -161,21 +174,21 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                               {li.colourName && <div className="mt-1 text-sm text-dream-muted">{li.colourName}</div>}
                               {/* The proof's state sits here in words, not as a pill on the
                                   picture, where it hid the top of the artwork. */}
-                              {li.proof && (
+                              {tileProof && (
                                 <div
                                   className={cn(
                                     "mt-1.5 inline-flex items-center gap-1 text-[13px] font-semibold",
-                                    li.proof.status === "approved"
+                                    tileProof.status === "approved"
                                       ? "text-dream-success"
-                                      : li.proof.status === "changes_requested"
+                                      : tileProof.status === "changes_requested"
                                         ? "text-dream-warn"
                                         : "text-dream-purple",
                                   )}
                                 >
-                                  {li.proof.status === "approved" && <CheckCircle className="h-4 w-4" />}
-                                  {li.proof.status === "approved"
+                                  {tileProof.status === "approved" && <CheckCircle className="h-4 w-4" />}
+                                  {tileProof.status === "approved"
                                     ? "Proof approved"
-                                    : li.proof.status === "changes_requested"
+                                    : tileProof.status === "changes_requested"
                                       ? "Changes requested"
                                       : "Proof ready to review"}
                                 </div>
@@ -213,6 +226,8 @@ export function OrderView({ order, lineItems, proofs, activity, stageDates, acti
                   );
                 })}
               </ul>
+
+              {draftProofs.length > 0 && <DraftProofs proofs={draftProofs} />}
 
               {/* The artwork: approved proofs once there are any, else the
                   design mockups. Each opens full size. */}

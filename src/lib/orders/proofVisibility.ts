@@ -14,7 +14,12 @@ import type { OrderStatus } from "@/lib/db/rows";
  *   photo is still the original photo not the PDF mock up". Approve/request
  *   changes are locked server-side outside the pre-approval statuses
  *   (proofDecision.ts), so nothing can be re-decided from this.
+ * - And in the first stage (order received): Julian wants the customer to see
+ *   work in progress. It renders as a small "draft proof" picture on the line,
+ *   with no approve buttons (ProofPanel only asks at proof_ready) and no email.
  */
+const FIRST_STAGE = new Set<OrderStatus>(["submitted", "in_review"]);
+
 const PAST_APPROVAL = new Set<OrderStatus>([
   "approved",
   "in_production",
@@ -26,5 +31,9 @@ const PAST_APPROVAL = new Set<OrderStatus>([
 
 export function customerCanSeeProof(proofStatus: string, orderStatus: OrderStatus | string): boolean {
   if (proofStatus !== "pending") return true;
-  return orderStatus === "proof_ready" || PAST_APPROVAL.has(orderStatus as OrderStatus);
+  return (
+    orderStatus === "proof_ready" ||
+    FIRST_STAGE.has(orderStatus as OrderStatus) ||
+    PAST_APPROVAL.has(orderStatus as OrderStatus)
+  );
 }
