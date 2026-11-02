@@ -1,6 +1,6 @@
 # Dreamhouse Printing
 
-Quote form for Julian's custom print shop. Customers fill out a 5-step form and the submission lands in Supabse + gets emailed to Julian via Resend.
+Quote form for Julian's cutom print shop. Customers fill out a 5-step form and the submission lands in Supabse + gets emailed to Julian via Resend.
 
 ## Stack
 
@@ -120,4 +120,3 @@ On submit:
 ## Deploy
 
 Works as-is on Vercel. Set the same env vars in the Vercel project settings. The API route uses the Node.js runtime (`export const runtime = "nodejs"`) so multipart uploads work. Pushes to `main` deploy production; other branches get preview deployments (see the Vercel dashboard for the URLs).
-
