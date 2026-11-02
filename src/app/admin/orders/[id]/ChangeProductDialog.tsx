@@ -46,12 +46,14 @@ export function ChangeProductDialog({
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<SwapProduct | null>(null);
   const [colourName, setColourName] = useState<string | null>(null);
+  const [colourQuery, setColourQuery] = useState("");
   const { pending, run } = useOrderAction();
 
   function openDialog() {
     setPicked(null);
     setColourName(null);
     setQuery("");
+    setColourQuery("");
     setLoadError(null);
     setOpen(true);
     const pickCurrent = (list: SwapProduct[]) => {
@@ -80,6 +82,13 @@ export function ChangeProductDialog({
       [p.name, p.brand ?? "", p.ssStyleName ?? ""].some((s) => s.toLowerCase().includes(q)),
     );
   }, [products, query]);
+
+  const filteredColours = useMemo(() => {
+    if (!picked) return [];
+    const q = colourQuery.trim().toLowerCase();
+    if (!q) return picked.colours;
+    return picked.colours.filter((c) => c.name.toLowerCase().includes(q));
+  }, [picked, colourQuery]);
 
   function apply() {
     if (!picked || !colourName) return;
@@ -139,6 +148,7 @@ export function ChangeProductDialog({
                     onClick={() => {
                       setPicked(p);
                       setColourName(null);
+                      setColourQuery("");
                     }}
                     className="flex w-full items-center gap-3 p-2.5 text-left transition-colors hover:bg-dream-bg"
                   >
@@ -203,38 +213,54 @@ export function ChangeProductDialog({
                   This product has no colours configured. Set them up in the product editor first.
                 </p>
               ) : (
-                <div className="grid min-h-0 flex-1 grid-cols-3 content-start gap-2 overflow-y-auto p-1 sm:grid-cols-4">
-                  {picked.colours.map((c) => {
-                    const selected = colourName === c.name;
-                    return (
-                      <button
-                        key={c.name}
-                        type="button"
-                        onClick={() => setColourName(c.name)}
-                        className={cn(
-                          "rounded-lg p-2 text-left transition-colors",
-                          selected ? "ring-2 ring-dream-purple" : "hover:bg-dream-bg",
-                        )}
-                      >
-                        <div className="mb-1.5 flex h-16 items-center justify-center overflow-hidden">
-                          {c.thumb ? (
-                            <Image src={c.thumb} alt={c.name} width={64} height={64} className="h-full w-full object-contain" />
-                          ) : (
-                            <span className="h-8 w-8 rounded-full border border-dream-line-strong" style={swatchStyle(c)} />
+                <>
+                  <Input
+                    autoFocus
+                    value={colourQuery}
+                    onChange={(e) => setColourQuery(e.target.value)}
+                    placeholder={`Search ${picked.colours.length} colours…`}
+                    aria-label="Search colours"
+                  />
+                  <div className="grid h-[min(50dvh,460px)] min-h-0 shrink grid-cols-2 content-start gap-1 overflow-y-auto p-1 sm:grid-cols-3">
+                    {filteredColours.length === 0 && (
+                      <p className="col-span-full p-3 text-sm text-dream-muted">No colours match “{colourQuery}”.</p>
+                    )}
+                    {filteredColours.map((c) => {
+                      const selected = colourName === c.name;
+                      const isCurrent = colourOnly && c.name === currentColourName;
+                      return (
+                        <button
+                          key={c.name}
+                          type="button"
+                          onClick={() => setColourName(c.name)}
+                          aria-pressed={selected}
+                          className={cn(
+                            "flex min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
+                            selected ? "bg-dream-bg ring-2 ring-dream-purple" : "hover:bg-dream-bg",
                           )}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-dream-line-strong" style={swatchStyle(c)} />
-                          <span className="truncate text-xs font-medium text-dream-ink">{c.name}</span>
-                        </div>
-                        {colourOnly && c.name === currentColourName && (
-                          <div className="mt-0.5 text-[10px] font-medium text-dream-purple">Current</div>
-                        )}
-                        {!c.inStock && <div className="mt-0.5 text-[10px] text-dream-warn">Out of stock</div>}
-                      </button>
-                    );
-                  })}
-                </div>
+                        >
+                          <span
+                            className="h-7 w-7 shrink-0 rounded-full border border-dream-line-strong"
+                            style={swatchStyle(c)}
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium text-dream-ink">{c.name}</span>
+                            {(isCurrent || !c.inStock) && (
+                              <span
+                                className={cn(
+                                  "block text-[11px] font-medium",
+                                  isCurrent ? "text-dream-purple" : "text-dream-warn",
+                                )}
+                              >
+                                {isCurrent ? "Current" : "Out of stock"}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               )}
 
               <div className="flex items-center justify-end gap-3 border-t border-dream-line pt-3">
