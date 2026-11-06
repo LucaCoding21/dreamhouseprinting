@@ -1,6 +1,6 @@
 # Dreamhouse Printing
 
-Quote form for Julian's cutom print shop. Customers fill out a 5-step form and the submission lands in Supabse + gets emailed to Julian via Resend.
+Quote form for Jlian's cutom print shop. Customers fill out a 5-step form and the submission lands in Supabse + gets emailed to Julian via Resend.
 
 ## Stack
 
