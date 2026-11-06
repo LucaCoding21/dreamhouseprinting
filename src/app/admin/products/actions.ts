@@ -422,6 +422,74 @@ export async function productUsageAction(id: string): Promise<{ orders: number; 
   return { orders, designs: designs.count ?? 0 };
 }
 
+/**
+ * Hide or publish many products at once. Same rule as the single toggle: a
+ * product with no price list can't go live, so those are skipped and named
+ * rather than failing the whole batch.
+ */
+export async function setProductsActiveAction(
+  ids: string[],
+  active: boolean,
+): Promise<{ changed?: number; skipped?: string[]; error?: string }> {
+  await requirePermission("products.manage");
+  if (ids.length === 0) return { changed: 0, skipped: [] };
+  const supabase = requireSupabaseServiceClient();
+
+  let targetIds = ids;
+  const skipped: string[] = [];
+  if (active) {
+    const { data: rows, error } = await supabase.from("products").select("id, name, pricing_rules").in("id", ids);
+    if (error) return { error: error.message };
+    targetIds = [];
+    for (const row of rows ?? []) {
+      if (hasQuoteCurve(row.pricing_rules)) targetIds.push(row.id);
+      else skipped.push(row.name);
+    }
+    if (targetIds.length === 0) return { changed: 0, skipped };
+  }
+
+  // Only rows actually flipping, so the count in the toast is the real change.
+  const { data, error } = await supabase
+    .from("products")
+    .update({ is_active: active })
+    .in("id", targetIds)
+    .eq("is_active", !active)
+    .select("id");
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/products");
+  revalidatePath("/shop");
+  return { changed: data?.length ?? 0, skipped };
+}
+
+/** Permanently remove many products. See deleteProductAction for what cascades. */
+export async function deleteProductsAction(ids: string[]): Promise<{ deleted?: number; error?: string }> {
+  await requirePermission("products.manage");
+  if (ids.length === 0) return { deleted: 0 };
+  const supabase = requireSupabaseServiceClient();
+
+  const { data, error } = await supabase.from("products").delete().in("id", ids).select("id");
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/pricing");
+  revalidatePath("/shop");
+  return { deleted: data?.length ?? 0 };
+}
+
+/** How many orders and saved designs point at any of these products. */
+export async function productsUsageAction(ids: string[]): Promise<{ orders: number; designs: number }> {
+  await requirePermission("products.manage");
+  if (ids.length === 0) return { orders: 0, designs: 0 };
+  const supabase = requireSupabaseServiceClient();
+  const [lines, designs] = await Promise.all([
+    supabase.from("line_items").select("order_id").in("product_id", ids),
+    supabase.from("designs").select("id", { count: "exact", head: true }).in("product_id", ids),
+  ]);
+  const orders = new Set((lines.data ?? []).map((l) => l.order_id)).size;
+  return { orders, designs: designs.count ?? 0 };
+}
+
 export interface PrintAreaInput {
   id?: string;
   name: string;

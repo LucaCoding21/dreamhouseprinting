@@ -323,6 +323,8 @@ Platform architecture (new this build):
 
 - **Admin order tweaks (2026-11-02, tsc+lint clean, headless-QA'd, pushed):** the Change colour / Change product colour step is a searchable swatch list (no garment photos; the Add item colour picker still shows photos). The order header no longer shows "Due 8-12 business days after approval and payment" before approval; it shows "Due <date>" only once `due_date` is set.
 
+- **Catalog emptied + bulk product actions (2026-11-06, tsc+eslint clean, headless-QA'd with throwaway products, uncommitted):** per Julian ("small selection to start"), all 19 live products were set `is_active=false` via a service-role script, so the shop shows 0 products until he turns his picks on; nothing deleted (25 products, pricing and print areas intact). Admin products list now has checkboxes + a bar above the list (pinned under the header, phones keep it at the bottom once something is ticked) with **Make live / Hide / Delete** (select-all is the header checkbox) (`BulkProductActions.tsx`; `setProductsActiveAction`, `deleteProductsAction`, `productsUsageAction`). Actions only touch ticked rows still on screen, so a filter change can't delete something out of view; Make live skips and names unpriced products. Removed the "still loading the catalog" line from the shop empty state.
+
 ### Pick up from here
 
 1. Read this file + `BUILD_PLAN.md` (phase checklist) + the `project_platform_build` / `project_supabase_mcp_mismatch` / `reference_ss_activewear` memories.

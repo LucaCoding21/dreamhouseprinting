@@ -8,7 +8,6 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/use-toast";
@@ -16,11 +15,27 @@ import { formatCAD } from "@/lib/money";
 import { curveForProduct, shopPrice } from "@/lib/pricing/quote";
 import { productPrimaryImage } from "@/lib/productImage";
 import type { ProductRow, CategoryRow } from "@/lib/db/rows";
+import { BulkProductActions, SelectBox } from "./BulkProductActions";
 import { ImportDialog } from "./ImportDialog";
 import { CategoriesPanel, AddCategoryDialog } from "./CategoriesPanel";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 
 export type ProductsTab = "products" | "categories";
+
+/** Plain text status. Only Live and No pricing carry colour, so they stand out in a long list. */
+function ProductStatus({ product, className }: { product: ProductRow; className: string }) {
+  return (
+    <div className={`flex whitespace-nowrap text-sm ${className}`}>
+      {product.is_active ? (
+        <span className="font-medium text-dream-success">Live</span>
+      ) : (
+        <span className="text-dream-muted">Hidden</span>
+      )}
+      {product.is_featured && <span className="text-dream-muted">Featured</span>}
+      {!curveForProduct(product) && <span className="font-medium text-dream-warn">No pricing</span>}
+    </div>
+  );
+}
 
 export function ProductsClient({
   products,
@@ -70,6 +85,32 @@ export function ProductsClient({
     if (statusFilter === "unpriced" && curveForProduct(p)) return false;
     return true;
   });
+
+  // Bulk selection. Actions only ever apply to ticked rows still on screen, so
+  // a filter change can't quietly delete something Julian can no longer see.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selected = visible.filter((p) => selectedIds.has(p.id));
+  const allSelected = visible.length > 0 && selected.length === visible.length;
+
+  function toggleOne(id: string, on: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible(on: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const p of visible) {
+        if (on) next.add(p.id);
+        else next.delete(p.id);
+      }
+      return next;
+    });
+  }
 
   return (
     <div>
@@ -187,34 +228,40 @@ export function ProductsClient({
             <EmptyState title="No products match" description="Try a different search or clear the filters." />
           ) : (
           <>
+          <BulkProductActions selected={selected} onClear={() => setSelectedIds(new Set())} />
           {/* Phones get a tappable card list, the six-column table is a blind
               side-scroll below md. */}
-          <div className="divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface md:hidden">
+          <div
+            className={`divide-y divide-dream-line overflow-hidden rounded-xl border border-dream-line bg-dream-surface md:hidden ${
+              selected.length > 0 ? "mb-28" : ""
+            }`}
+          >
+            <div className="flex items-center text-sm font-medium text-dream-ink">
+              <SelectBox label="Select all products shown" checked={allSelected} onChange={toggleAllVisible} />
+              Select all {visible.length}
+            </div>
             {visible.map((p) => {
               const img = productPrimaryImage(p);
               return (
-                <Link
-                  key={p.id}
-                  href={`/admin/products/${p.id}`}
-                  className="flex items-center gap-3 p-3"
-                >
-                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
-                    {img && (
-                      <Image src={img} alt="" width={44} height={44} className="h-full w-full object-contain" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-dream-ink">{p.name}</div>
-                    <div className="truncate text-xs text-dream-muted">{catName(p.category_id)}</div>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                    <Badge variant={p.is_active ? "success" : "warn"}>
-                      {p.is_active ? "Live" : "Hidden"}
-                    </Badge>
-                    {p.is_featured && <Badge variant="purple">Featured</Badge>}
-                    {!curveForProduct(p) && <Badge variant="warn">No pricing</Badge>}
-                  </div>
-                </Link>
+                <div key={p.id} className={`flex items-center ${selectedIds.has(p.id) ? "bg-dream-lavender-mist" : ""}`}>
+                  <SelectBox
+                    label={`Select ${p.name}`}
+                    checked={selectedIds.has(p.id)}
+                    onChange={(on) => toggleOne(p.id, on)}
+                  />
+                  <Link href={`/admin/products/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-3">
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
+                      {img && (
+                        <Image src={img} alt="" width={44} height={44} className="h-full w-full object-contain" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-dream-ink">{p.name}</div>
+                      <div className="truncate text-xs text-dream-muted">{catName(p.category_id)}</div>
+                    </div>
+                    <ProductStatus product={p} className="shrink-0 flex-col items-end gap-0.5 text-right" />
+                  </Link>
+                </div>
               );
             })}
           </div>
@@ -223,6 +270,9 @@ export function ProductsClient({
             <Table>
               <THead>
                 <TR>
+                  <TH className="w-11 py-0 pl-1 pr-0">
+                    <SelectBox label="Select all products shown" checked={allSelected} onChange={toggleAllVisible} />
+                  </TH>
                   <TH>Product</TH>
                   <TH>Category</TH>
                   <TH>Colours</TH>
@@ -238,9 +288,16 @@ export function ProductsClient({
                   return (
                     <TR
                       key={p.id}
-                      className="cursor-pointer"
+                      className={`cursor-pointer ${selectedIds.has(p.id) ? "bg-dream-lavender-mist" : ""}`}
                       onClick={() => router.push(`/admin/products/${p.id}`)}
                     >
+                      <TD className="py-0 pl-1 pr-0">
+                        <SelectBox
+                          label={`Select ${p.name}`}
+                          checked={selectedIds.has(p.id)}
+                          onChange={(on) => toggleOne(p.id, on)}
+                        />
+                      </TD>
                       <TD>
                         <div className="flex items-center gap-3">
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-dream-line bg-dream-bg">
@@ -260,16 +317,10 @@ export function ProductsClient({
                       <TD>{colourCount}</TD>
                       <TD>{formatCAD(shopPrice(p).amount)}</TD>
                       <TD>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant={p.is_active ? "success" : "warn"}>
-                            {p.is_active ? "Live" : "Hidden"}
-                          </Badge>
-                          {p.is_featured && <Badge variant="purple">Featured</Badge>}
-                          {!curveForProduct(p) && <Badge variant="warn">No pricing</Badge>}
-                        </div>
+                        <ProductStatus product={p} className="items-center gap-3" />
                       </TD>
                       <TD>
-                        <span className="text-sm font-medium text-dream-purple">Edit</span>
+                        <span className="text-sm font-medium text-dream-purple hover:underline">Edit</span>
                       </TD>
                     </TR>
                   );

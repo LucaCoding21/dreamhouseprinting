@@ -189,7 +189,6 @@ async function DefaultView({ sort }: { sort?: string }) {
         <EmptyState
           className="rounded-2xl border border-dashed border-dream-line bg-white"
           title="No products yet, check back soon"
-          description="We're still loading the catalog. New blanks land here as they're added."
         />
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
